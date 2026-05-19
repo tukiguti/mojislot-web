@@ -155,6 +155,40 @@ body {
   pointer-events: none;
 }
 
+#effect-status {
+  position: absolute;
+  top: 12px;
+  left: 50%;
+  transform: translateX(-50%);
+  padding: 4px 12px;
+  background: rgba(0, 0, 0, 0.7);
+  border: 1px solid #555;
+  border-radius: 4px;
+  font-size: 13px;
+  font-weight: bold;
+  color: #aaa;
+  letter-spacing: 1px;
+  pointer-events: none;
+  transition:
+    color 0.2s ease,
+    border-color 0.2s ease,
+    background 0.2s ease;
+}
+
+#effect-status.shisa {
+  color: #66ccff;
+  border-color: #66ccff;
+  background: rgba(20, 40, 80, 0.85);
+  box-shadow: 0 0 12px rgba(102, 204, 255, 0.5);
+}
+
+#effect-status.quiz {
+  color: #ff66cc;
+  border-color: #ff66cc;
+  background: rgba(80, 20, 60, 0.85);
+  box-shadow: 0 0 16px rgba(255, 102, 204, 0.7);
+}
+
 #result-display {
   position: absolute;
   top: 60px;
