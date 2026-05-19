@@ -1,0 +1,30 @@
+<!doctype html>
+<html lang="ja">
+  <head>
+    <meta charset="UTF-8" />
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>mojislot</title>
+  </head>
+  <body>
+    <div id="app">
+      <canvas id="game"></canvas>
+      <div id="ui">
+        <div id="coin-display">Coin: 1000</div>
+        <div id="bet-display">Bet: 3</div>
+        <div id="reel-buttons">
+          <button class="stop-btn" data-reel="0">STOP</button>
+          <button class="stop-btn" data-reel="1">STOP</button>
+          <button class="stop-btn" data-reel="2">STOP</button>
+        </div>
+        <button id="bet-btn">BET</button>
+        <button id="lever-btn">LEVER</button>
+      </div>
+      <div id="overlays">
+        <div id="quiz-overlay" hidden></div>
+        <div id="zukan-overlay" hidden></div>
+      </div>
+    </div>
+    <script type="module" src="/src/main.ts"></script>
+  </body>
+</html>
