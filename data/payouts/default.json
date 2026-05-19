@@ -1,0 +1,10 @@
+{
+  "betPerSpin": 3,
+  "baseMultiplier": {
+    "core": 8,
+    "premium": 100,
+    "bonus": 10
+  },
+  "bonusZoneMultiplier": 1.5,
+  "initialCoins": 1000
+}
