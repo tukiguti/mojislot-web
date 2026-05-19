@@ -1,0 +1,112 @@
+:root {
+  font-family: system-ui, 'Hiragino Sans', 'Yu Gothic', sans-serif;
+  color: #fff;
+  background: #0a0a0a;
+}
+
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  min-height: 100vh;
+}
+
+#app {
+  position: relative;
+  width: 800px;
+  height: 600px;
+  background: #1a1a1a;
+  border: 2px solid #ffd700;
+  box-shadow: 0 0 24px rgba(255, 215, 0, 0.3);
+}
+
+#game {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+
+#ui {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+
+#ui > * {
+  pointer-events: auto;
+}
+
+#coin-display,
+#bet-display {
+  position: absolute;
+  top: 12px;
+  padding: 6px 12px;
+  background: rgba(0, 0, 0, 0.7);
+  border: 1px solid #ffd700;
+  border-radius: 4px;
+  font-weight: bold;
+  color: #ffd700;
+}
+
+#coin-display {
+  left: 12px;
+}
+#bet-display {
+  right: 12px;
+}
+
+#reel-buttons {
+  position: absolute;
+  bottom: 80px;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  gap: 12px;
+}
+
+.stop-btn {
+  width: 80px;
+  height: 60px;
+  font-size: 18px;
+  font-weight: bold;
+  background: #c00;
+  color: #fff;
+  border: 2px solid #ffd700;
+  border-radius: 4px;
+  cursor: pointer;
+  font-family: inherit;
+}
+
+.stop-btn:hover {
+  background: #e00;
+}
+.stop-btn:active {
+  transform: translateY(2px);
+}
+
+#bet-btn,
+#lever-btn {
+  position: absolute;
+  bottom: 12px;
+  padding: 12px 24px;
+  font-weight: bold;
+  background: #333;
+  color: #ffd700;
+  border: 2px solid #ffd700;
+  border-radius: 4px;
+  cursor: pointer;
+  font-family: inherit;
+}
+
+#bet-btn {
+  left: 12px;
+}
+#lever-btn {
+  right: 12px;
+}
