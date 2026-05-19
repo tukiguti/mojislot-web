@@ -12,3 +12,36 @@ export const ReelConfigSchema = z.object({
 
 export type ReelStrip = z.infer<typeof ReelStripSchema>;
 export type ReelConfig = z.infer<typeof ReelConfigSchema>;
+
+export const YakuCategorySchema = z.enum(['core', 'premium', 'bonus']);
+
+export const YakuSchema = z.object({
+  id: z.string(),
+  name: z.string(),
+  symbols: z.array(z.string()).length(3),
+  category: YakuCategorySchema,
+});
+
+export const YakuListSchema = z.object({
+  mode: z.string(),
+  coreYaku: z.array(YakuSchema),
+  premiumYaku: z.array(YakuSchema),
+  bonusYaku: z.array(YakuSchema).default([]),
+});
+
+export type YakuCategory = z.infer<typeof YakuCategorySchema>;
+export type Yaku = z.infer<typeof YakuSchema>;
+export type YakuList = z.infer<typeof YakuListSchema>;
+
+export const PayoutSchema = z.object({
+  betPerSpin: z.number().int().positive(),
+  baseMultiplier: z.object({
+    core: z.number(),
+    premium: z.number(),
+    bonus: z.number(),
+  }),
+  bonusZoneMultiplier: z.number(),
+  initialCoins: z.number().int().nonnegative(),
+});
+
+export type Payout = z.infer<typeof PayoutSchema>;

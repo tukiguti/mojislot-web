@@ -1,0 +1,19 @@
+{
+  "mode": "hiragana_food",
+  "coreYaku": [
+    { "id": "ichigo", "name": "いちご", "symbols": ["い", "ち", "ご"], "category": "core" },
+    { "id": "mikan", "name": "みかん", "symbols": ["み", "か", "ん"], "category": "core" },
+    { "id": "suika", "name": "すいか", "symbols": ["す", "い", "か"], "category": "core" },
+    { "id": "wakame", "name": "わかめ", "symbols": ["わ", "か", "め"], "category": "core" },
+    { "id": "unagi", "name": "うなぎ", "symbols": ["う", "な", "ぎ"], "category": "core" },
+    { "id": "maguro", "name": "まぐろ", "symbols": ["ま", "ぐ", "ろ"], "category": "core" },
+    { "id": "gohan", "name": "ごはん", "symbols": ["ご", "は", "ん"], "category": "core" },
+    { "id": "monaka", "name": "もなか", "symbols": ["も", "な", "か"], "category": "core" },
+    { "id": "purin", "name": "ぷりん", "symbols": ["ぷ", "り", "ん"], "category": "core" },
+    { "id": "ocha", "name": "おちゃ", "symbols": ["お", "ち", "ゃ"], "category": "core" }
+  ],
+  "premiumYaku": [
+    { "id": "sushiya", "name": "すしや", "symbols": ["す", "し", "や"], "category": "premium" }
+  ],
+  "bonusYaku": []
+}
