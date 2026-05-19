@@ -25,6 +25,10 @@ export class ReelEngine {
     this.lastTickMs = null;
   }
 
+  setSpeed(speed: number): void {
+    this.speed = Math.max(0, speed);
+  }
+
   stop(pressedAtMs: number): StopResult {
     if (this.state.get() === 'spinning') {
       const snapped = Math.round(this.position) % this.strip.cells.length;

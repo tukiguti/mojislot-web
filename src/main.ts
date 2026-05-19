@@ -5,6 +5,11 @@ import { YakuJudge } from './core/YakuJudge';
 import { PayoutCalc } from './core/PayoutCalc';
 import { CoinWallet } from './core/CoinWallet';
 import {
+  EffectScheduler,
+  REEL_SPEED_BY_EFFECT,
+  type EffectType,
+} from './productions/EffectScheduler';
+import {
   ReelConfigSchema,
   YakuListSchema,
   PayoutSchema,
@@ -40,6 +45,7 @@ async function bootstrap() {
   const judge = new YakuJudge(yakuList);
   const calc = new PayoutCalc(payout);
   const wallet = new CoinWallet(payout.initialCoins);
+  const scheduler = new EffectScheduler();
 
   const engines: ReelEngine[] = [];
   const views: ReelView[] = [];
@@ -76,8 +82,26 @@ async function bootstrap() {
   const resultEl = document.getElementById('result-display')!;
 
   betEl.textContent = `Bet: ${calc.bet}`;
+  const effectStatusEl = document.getElementById('effect-status')!;
   let betPlaced = false;
   let resultTimer: number | null = null;
+
+  const applyEffect = (effect: EffectType) => {
+    const speed = REEL_SPEED_BY_EFFECT[effect];
+    for (const engine of engines) engine.setSpeed(speed);
+
+    effectStatusEl.classList.remove('shisa', 'quiz');
+    if (effect === 'shisa') {
+      effectStatusEl.textContent = '示唆発生中 ‒ 少し遅い';
+      effectStatusEl.classList.add('shisa');
+    } else if (effect === 'quiz') {
+      effectStatusEl.textContent = 'クイズ補助発動 ‒ 狙いやすい';
+      effectStatusEl.classList.add('quiz');
+    } else {
+      effectStatusEl.textContent = '通常';
+    }
+  };
+  applyEffect('none');
 
   const updateCoin = (n: number) => {
     coinEl.textContent = `Coin: ${n}`;
@@ -118,6 +142,7 @@ async function bootstrap() {
   const resetForNextSpin = () => {
     betPlaced = false;
     for (const engine of engines) engine.reset();
+    applyEffect('none');
     updateButtons();
   };
 
@@ -132,6 +157,8 @@ async function bootstrap() {
     betPlaced = true;
     resultEl.classList.remove('visible');
     flashButton(betBtn);
+    // ベット時に演出抽選 → リール速度に反映
+    applyEffect(scheduler.roll());
     updateButtons();
   };
 
