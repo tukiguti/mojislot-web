@@ -1,8 +1,8 @@
 import { Container, Graphics, Text } from 'pixi.js';
 import type { ReelEngine } from '../core/ReelEngine';
 
-export const CELL_WIDTH = 100;
-export const CELL_HEIGHT = 80;
+export const CELL_WIDTH = 130;
+export const CELL_HEIGHT = 100;
 export const VISIBLE_CELLS = 3;
 
 const VIEW_HEIGHT = CELL_HEIGHT * VISIBLE_CELLS;
@@ -33,7 +33,7 @@ export class ReelView {
         text: symbol,
         style: {
           fill: 0xffffff,
-          fontSize: 56,
+          fontSize: 72,
           fontFamily: 'system-ui, "Hiragino Sans", "Yu Gothic", sans-serif',
           fontWeight: 'bold',
         },

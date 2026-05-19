@@ -1,4 +1,4 @@
-import { Application } from 'pixi.js';
+import { Application, Graphics, Text } from 'pixi.js';
 import { ReelEngine } from './core/ReelEngine';
 import { ReelView, CELL_WIDTH, CELL_HEIGHT, VISIBLE_CELLS } from './render/ReelView';
 import { YakuJudge } from './core/YakuJudge';
@@ -19,8 +19,11 @@ import yakuDataRaw from '../data/yaku/hiragana_food.json';
 import payoutDataRaw from '../data/payouts/default.json';
 import './style.css';
 
-const REEL_GAP = 12;
+const REEL_GAP = 16;
 const REEL_COUNT = 3;
+const CANVAS_W = 600;
+const CANVAS_H = 600;
+const LIQUID_AREA_H = 320;
 
 async function bootstrap() {
   const canvas = document.getElementById('game') as HTMLCanvasElement;
@@ -29,9 +32,9 @@ async function bootstrap() {
   const app = new Application();
   await app.init({
     canvas,
-    width: 800,
-    height: 600,
-    backgroundColor: 0x1a1a1a,
+    width: CANVAS_W,
+    height: CANVAS_H,
+    backgroundColor: 0x080808,
     antialias: true,
     resolution: window.devicePixelRatio || 1,
     autoDensity: true,
@@ -47,12 +50,37 @@ async function bootstrap() {
   const wallet = new CoinWallet(payout.initialCoins);
   const scheduler = new EffectScheduler();
 
+  // 液晶エリアの土台（演出はあとで重ねる）
+  const liquidBg = new Graphics();
+  liquidBg.rect(0, 0, CANVAS_W, LIQUID_AREA_H);
+  liquidBg.fill({ color: 0x101820 });
+  app.stage.addChild(liquidBg);
+
+  const liquidLabel = new Text({
+    text: '演出エリア（ジン・示唆・クイズ表示予定）',
+    style: {
+      fill: 0x334455,
+      fontSize: 14,
+      fontFamily: 'system-ui, "Hiragino Sans", "Yu Gothic", sans-serif',
+    },
+  });
+  liquidLabel.anchor.set(0.5);
+  liquidLabel.x = CANVAS_W / 2;
+  liquidLabel.y = LIQUID_AREA_H / 2;
+  app.stage.addChild(liquidLabel);
+
+  // リールエリアの背景帯
+  const reelBg = new Graphics();
+  reelBg.rect(0, LIQUID_AREA_H, CANVAS_W, CANVAS_H - LIQUID_AREA_H);
+  reelBg.fill({ color: 0x000000 });
+  app.stage.addChild(reelBg);
+
   const engines: ReelEngine[] = [];
   const views: ReelView[] = [];
 
   const totalWidth = CELL_WIDTH * REEL_COUNT + REEL_GAP * (REEL_COUNT - 1);
   const startX = (app.screen.width - totalWidth) / 2;
-  const reelY = (app.screen.height - CELL_HEIGHT * VISIBLE_CELLS) / 2;
+  const reelY = LIQUID_AREA_H + (CANVAS_H - LIQUID_AREA_H - CELL_HEIGHT * VISIBLE_CELLS) / 2;
 
   for (let i = 0; i < REEL_COUNT; i++) {
     const engine = new ReelEngine(reelConfig.reels[i]);
@@ -92,10 +120,10 @@ async function bootstrap() {
 
     effectStatusEl.classList.remove('shisa', 'quiz');
     if (effect === 'shisa') {
-      effectStatusEl.textContent = '示唆発生中 ‒ 少し遅い';
+      effectStatusEl.textContent = '示唆';
       effectStatusEl.classList.add('shisa');
     } else if (effect === 'quiz') {
-      effectStatusEl.textContent = 'クイズ補助発動 ‒ 狙いやすい';
+      effectStatusEl.textContent = 'クイズ補助';
       effectStatusEl.classList.add('quiz');
     } else {
       effectStatusEl.textContent = '通常';
