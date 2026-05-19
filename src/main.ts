@@ -121,55 +121,103 @@ async function bootstrap() {
     updateButtons();
   };
 
-  betBtn.addEventListener('click', () => {
+  const flashButton = (btn: HTMLButtonElement) => {
+    btn.classList.add('flash');
+    window.setTimeout(() => btn.classList.remove('flash'), 100);
+  };
+
+  const placeBet = () => {
+    if (betBtn.disabled) return;
     if (!wallet.bet(calc.bet)) return;
     betPlaced = true;
     resultEl.classList.remove('visible');
+    flashButton(betBtn);
     updateButtons();
-  });
+  };
 
-  leverBtn.addEventListener('click', () => {
+  const pullLever = () => {
+    if (leverBtn.disabled) return;
     if (!betPlaced) return;
     for (const engine of engines) engine.spin();
+    flashButton(leverBtn);
     updateButtons();
+  };
+
+  const stopReel = (idx: number, timestamp: number) => {
+    if (idx < 0 || idx >= REEL_COUNT) return;
+    const engine = engines[idx];
+    if (engine.state.get() !== 'spinning') return;
+    engine.stop(timestamp);
+    flashButton(stopBtns[idx]);
+
+    if (engines.every((e) => e.state.get() === 'stopped')) {
+      const symbols = engines.map((e) => {
+        const total = e.strip.cells.length;
+        const ci = ((Math.round(e.position) % total) + total) % total;
+        return e.strip.cells[ci];
+      }) as [string, string, string];
+
+      const result = judge.judge(symbols);
+      const win = calc.calc(result.yaku);
+      if (win > 0) wallet.win(win);
+
+      if (result.yaku) {
+        const cls = result.yaku.category === 'premium' ? 'premium' : 'win';
+        showResult(`${result.yaku.name}！ +${win}`, cls);
+        console.log('[result]', result.yaku.name, `+${win}`);
+      } else {
+        showResult(`はずれ (${symbols.join('')})`, 'none');
+        console.log('[result] miss', symbols.join(''));
+      }
+
+      window.setTimeout(resetForNextSpin, 1200);
+    }
+  };
+
+  betBtn.addEventListener('click', placeBet);
+  leverBtn.addEventListener('click', pullLever);
+  stopBtns.forEach((btn) => {
+    const idx = Number(btn.dataset.reel ?? -1);
+    btn.addEventListener('pointerdown', (ev) => stopReel(idx, ev.timeStamp));
   });
 
   for (const engine of engines) {
     engine.state.subscribe(() => updateButtons());
   }
 
-  stopBtns.forEach((btn) => {
-    const idx = Number(btn.dataset.reel ?? -1);
-    if (idx < 0 || idx >= REEL_COUNT) return;
-    btn.addEventListener('pointerdown', (ev) => {
-      const engine = engines[idx];
-      if (engine.state.get() !== 'spinning') return;
-      engine.stop(ev.timeStamp);
+  // === キーボードショートカット ===
+  // B = BET, Space = LEVER, A/S/D = STOP 左/中/右
+  const KEY_TO_REEL: Record<string, number> = {
+    a: 0,
+    s: 1,
+    d: 2,
+  };
 
-      if (engines.every((e) => e.state.get() === 'stopped')) {
-        const symbols = engines.map((e) => {
-          const total = e.strip.cells.length;
-          const ci = ((Math.round(e.position) % total) + total) % total;
-          return e.strip.cells[ci];
-        }) as [string, string, string];
+  window.addEventListener('keydown', (ev) => {
+    if (ev.repeat) return;
+    if (
+      ev.target instanceof HTMLInputElement ||
+      ev.target instanceof HTMLTextAreaElement
+    ) {
+      return;
+    }
+    const key = ev.key.toLowerCase();
 
-        const result = judge.judge(symbols);
-        const win = calc.calc(result.yaku);
-        if (win > 0) wallet.win(win);
-
-        if (result.yaku) {
-          const cls = result.yaku.category === 'premium' ? 'premium' : 'win';
-          showResult(`${result.yaku.name}！ +${win}`, cls);
-          console.log('[result]', result.yaku.name, `+${win}`);
-        } else {
-          showResult(`はずれ (${symbols.join('')})`, 'none');
-          console.log('[result] miss', symbols.join(''));
-        }
-
-        // 次のスピンに進める準備
-        window.setTimeout(resetForNextSpin, 1200);
-      }
-    });
+    if (key === 'b') {
+      ev.preventDefault();
+      placeBet();
+      return;
+    }
+    if (key === ' ' || ev.code === 'Space') {
+      ev.preventDefault();
+      pullLever();
+      return;
+    }
+    if (key in KEY_TO_REEL) {
+      ev.preventDefault();
+      stopReel(KEY_TO_REEL[key], ev.timeStamp);
+      return;
+    }
   });
 
   updateButtons();
