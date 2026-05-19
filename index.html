@@ -7,26 +7,35 @@
     <title>mojislot</title>
   </head>
   <body>
-    <div id="app">
-      <canvas id="game"></canvas>
-      <div id="ui">
+    <div id="cabinet">
+      <header id="info-bar">
         <div id="coin-display">Coin: 1000</div>
+        <div id="effect-status">通常</div>
         <div id="bet-display">Bet: 3</div>
-        <div id="reel-buttons">
-          <button class="stop-btn" data-reel="0" data-key="[A]">STOP</button>
-          <button class="stop-btn" data-reel="1" data-key="[S]">STOP</button>
-          <button class="stop-btn" data-reel="2" data-key="[D]">STOP</button>
-        </div>
-        <button id="bet-btn" data-key="[B]">BET</button>
-        <button id="lever-btn" data-key="[Space]">LEVER</button>
-        <div id="key-hint">B: Bet  /  Space: Lever  /  A S D: Stop</div>
+      </header>
+
+      <div id="game-area">
+        <canvas id="game"></canvas>
+        <div id="result-display"></div>
       </div>
-      <div id="effect-status"></div>
-      <div id="result-display"></div>
+
       <div id="overlays">
         <div id="quiz-overlay" hidden></div>
         <div id="zukan-overlay" hidden></div>
       </div>
+
+      <footer id="control-panel">
+        <div class="ctrl-row">
+          <button id="bet-btn" data-key="[B]">BET</button>
+          <button id="lever-btn" data-key="[Space]">LEVER</button>
+        </div>
+        <div class="ctrl-row stop-row" id="reel-buttons">
+          <button class="stop-btn" data-reel="0" data-key="[A]">STOP</button>
+          <button class="stop-btn" data-reel="1" data-key="[S]">STOP</button>
+          <button class="stop-btn" data-reel="2" data-key="[D]">STOP</button>
+        </div>
+        <div id="key-hint">B: Bet  /  Space: Lever  /  A S D: Stop</div>
+      </footer>
     </div>
     <script type="module" src="/src/main.ts"></script>
   </body>
