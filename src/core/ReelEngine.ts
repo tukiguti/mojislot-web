@@ -31,6 +31,10 @@ export class ReelEngine {
     this.speed = Math.max(0, speed);
   }
 
+  get currentSpeed(): number {
+    return this.speed;
+  }
+
   /**
    * @param slipCells 押下位置からの引き込みコマ数（>=0）。SlipResolver が決定する。
    */

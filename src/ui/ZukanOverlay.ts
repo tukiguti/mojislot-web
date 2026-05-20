@@ -1,19 +1,23 @@
 import type { ZukanState } from '../productions/ZukanState';
 import type { YakuList } from '../data/schemas';
+import type { PlayStats } from '../productions/PlayStats';
 
 /**
  * 図鑑モーダル。`Z` キーまたは外部 toggle() で開閉。
  * 未達成役は「？？？」でマスクし、達成数を併記する。
+ * プレイ統計（PlayStats）も併せて表示する。
  */
 export class ZukanOverlay {
   private readonly root: HTMLElement;
   private readonly listEl: HTMLElement;
   private readonly summaryEl: HTMLElement;
+  private readonly statsEl: HTMLElement;
   private visible = false;
 
   constructor(
     private readonly state: ZukanState,
     private readonly yakuList: YakuList,
+    private readonly playStats: PlayStats,
   ) {
     const root = document.getElementById('zukan-overlay');
     if (!root) throw new Error('#zukan-overlay not found');
@@ -25,11 +29,13 @@ export class ZukanOverlay {
           <button class="zukan-close" type="button">×</button>
         </div>
         <div class="zukan-summary"></div>
+        <div class="zukan-stats"></div>
         <div class="zukan-list"></div>
         <div class="zukan-hint">[Z] で閉じる</div>
       </div>
     `;
     this.summaryEl = this.root.querySelector('.zukan-summary')!;
+    this.statsEl = this.root.querySelector('.zukan-stats')!;
     this.listEl = this.root.querySelector('.zukan-list')!;
     const closeBtn = this.root.querySelector<HTMLButtonElement>('.zukan-close')!;
     closeBtn.addEventListener('click', () => this.close());
@@ -38,6 +44,9 @@ export class ZukanOverlay {
       if (this.visible) this.render();
     });
     state.bitaCount.subscribe(() => {
+      if (this.visible) this.render();
+    });
+    playStats.stats.subscribe(() => {
       if (this.visible) this.render();
     });
 
@@ -68,6 +77,18 @@ export class ZukanOverlay {
     this.summaryEl.innerHTML = `
       <span class="zukan-rate">達成率: <strong>${rate.total}%</strong></span>
       <span class="zukan-rate-sub">コア ${rate.core}% / プレミアム ${rate.premium}% / ビタ ${bita}回</span>
+    `;
+
+    const s = this.playStats.stats.get();
+    const hitRate = this.playStats.hitRate().toFixed(1);
+    const net = this.playStats.netGain();
+    const netSign = net >= 0 ? '+' : '';
+    this.statsEl.innerHTML = `
+      <div class="zukan-stats-row"><span>スピン数</span><span>${s.spinCount}</span></div>
+      <div class="zukan-stats-row"><span>役成立率</span><span>${hitRate}%</span></div>
+      <div class="zukan-stats-row"><span>収支</span><span class="${net >= 0 ? 'positive' : 'negative'}">${netSign}${net}</span></div>
+      <div class="zukan-stats-row"><span>最大配当</span><span>${s.maxWin}</span></div>
+      <div class="zukan-stats-row"><span>プレミアム / ボーナス</span><span>${s.premiumCount} / ${s.bonusCount}</span></div>
     `;
 
     const renderSection = (title: string, yakus: YakuList['coreYaku'], cls: string) => {

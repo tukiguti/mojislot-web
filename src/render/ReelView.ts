@@ -17,15 +17,16 @@ const PRE_BUFFER = CELL_HEIGHT;
 export class ReelView {
   readonly container: Container;
   private readonly cellTexts: Text[] = [];
+  private readonly bg: Graphics;
+  private tenpaiAnimMs = 0;
+  private tenpaiPremium = false;
 
   constructor(private readonly engine: ReelEngine) {
     this.container = new Container();
 
-    const bg = new Graphics();
-    bg.rect(0, 0, CELL_WIDTH, VIEW_HEIGHT);
-    bg.fill({ color: 0x000000 });
-    bg.stroke({ width: 3, color: 0xffd700 });
-    this.container.addChild(bg);
+    this.bg = new Graphics();
+    this.redrawBg(0xffd700, 3);
+    this.container.addChild(this.bg);
 
     const cellsContainer = new Container();
     const mask = new Graphics();
@@ -60,7 +61,7 @@ export class ReelView {
     this.update();
   }
 
-  update(): void {
+  update(nowMs?: number): void {
     const pos = this.engine.position;
     const total = this.engine.strip.cells.length;
     const totalHeight = total * CELL_HEIGHT;
@@ -74,5 +75,33 @@ export class ReelView {
       y = ((y % totalHeight) + totalHeight) % totalHeight;
       this.cellTexts[i].y = y - PRE_BUFFER;
     }
+
+    // テンパイ枠の脈動
+    if (this.tenpaiAnimMs > 0) {
+      const t = nowMs ?? performance.now();
+      const pulse = (Math.sin(t / 120) + 1) / 2; // 0..1
+      const baseColor = this.tenpaiPremium ? 0xff3366 : 0xffff00;
+      const width = 3 + pulse * 3;
+      this.redrawBg(baseColor, width);
+    }
+  }
+
+  /** テンパイ枠フラッシュを開始（残ったリール用） */
+  startTenpaiFlash(premium: boolean): void {
+    this.tenpaiAnimMs = 1; // フラグ立て
+    this.tenpaiPremium = premium;
+  }
+
+  /** テンパイ枠フラッシュを終了して通常枠に戻す */
+  stopTenpaiFlash(): void {
+    this.tenpaiAnimMs = 0;
+    this.redrawBg(0xffd700, 3);
+  }
+
+  private redrawBg(strokeColor: number, strokeWidth: number): void {
+    this.bg.clear();
+    this.bg.rect(0, 0, CELL_WIDTH, VIEW_HEIGHT);
+    this.bg.fill({ color: 0x000000 });
+    this.bg.stroke({ width: strokeWidth, color: strokeColor });
   }
 }

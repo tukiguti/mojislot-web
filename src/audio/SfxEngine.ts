@@ -175,6 +175,28 @@ export class SfxEngine {
   quizWrong(): void {
     this.beep({ freq: 220, durMs: 280, type: 'sawtooth', vol: 0.28 });
   }
+  tenpai(): void {
+    this.sequence(
+      [
+        { freq: 698, durMs: 80, type: 'sine', vol: 0.35 },
+        { freq: 880, durMs: 80, type: 'sine', vol: 0.35 },
+        { freq: 1175, durMs: 280, type: 'sine', vol: 0.42 },
+      ],
+      20,
+    );
+  }
+  tenpaiPremium(): void {
+    this.sequence(
+      [
+        { freq: 523, durMs: 80, type: 'sawtooth', vol: 0.4 },
+        { freq: 698, durMs: 80, type: 'sawtooth', vol: 0.4 },
+        { freq: 880, durMs: 80, type: 'sawtooth', vol: 0.4 },
+        { freq: 1175, durMs: 80, type: 'sawtooth', vol: 0.4 },
+        { freq: 1568, durMs: 350, type: 'sawtooth', vol: 0.45 },
+      ],
+      20,
+    );
+  }
   bonusEnter(): void {
     this.sequence(
       [
