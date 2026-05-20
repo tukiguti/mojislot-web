@@ -19,6 +19,10 @@ export interface Stats {
   streak: number;
   /** これまでの最大連続成立数 */
   maxStreak: number;
+  /** これまでに回答したクイズ数 */
+  quizTotal: number;
+  /** うち正解した数 */
+  quizCorrect: number;
 }
 
 const INITIAL: Stats = {
@@ -31,6 +35,8 @@ const INITIAL: Stats = {
   bonusCount: 0,
   streak: 0,
   maxStreak: 0,
+  quizTotal: 0,
+  quizCorrect: 0,
 };
 
 export class PlayStats {
@@ -50,6 +56,7 @@ export class PlayStats {
     const prev = this.stats.get();
     const newStreak = params.hit ? prev.streak + 1 : 0;
     const next: Stats = {
+      ...prev,
       spinCount: prev.spinCount + 1,
       hitCount: prev.hitCount + (params.hit ? 1 : 0),
       totalBet: prev.totalBet + params.bet,
@@ -62,6 +69,23 @@ export class PlayStats {
     };
     this.stats.set(next);
     this.save(next);
+  }
+
+  recordQuiz(correct: boolean): void {
+    const prev = this.stats.get();
+    const next: Stats = {
+      ...prev,
+      quizTotal: prev.quizTotal + 1,
+      quizCorrect: prev.quizCorrect + (correct ? 1 : 0),
+    };
+    this.stats.set(next);
+    this.save(next);
+  }
+
+  /** クイズ正解率 (%) */
+  quizRate(): number {
+    const s = this.stats.get();
+    return s.quizTotal === 0 ? 0 : (s.quizCorrect / s.quizTotal) * 100;
   }
 
   reset(): void {

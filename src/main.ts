@@ -14,6 +14,8 @@ import { BonusZone } from './productions/BonusZone';
 import { SfxEngine } from './audio/SfxEngine';
 import { TenpaiDetector } from './productions/TenpaiDetector';
 import { PlayStats } from './productions/PlayStats';
+import { NearMissDetector } from './productions/NearMissDetector';
+import { flashScreen, spawnConfetti, shakeBody } from './ui/Effects';
 import { JinState } from './productions/JinState';
 import { JinView } from './render/JinView';
 import { EffectVisual } from './render/EffectVisual';
@@ -88,6 +90,7 @@ async function bootstrap() {
   const bonusZone = new BonusZone();
   const sfx = new SfxEngine();
   const tenpaiDetector = new TenpaiDetector(yakuList);
+  const nearMissDetector = new NearMissDetector(yakuList);
   const playStats = new PlayStats();
   const zukanState = new ZukanState(yakuList);
   const zukanOverlay = new ZukanOverlay(zukanState, yakuList, playStats);
@@ -315,7 +318,7 @@ async function bootstrap() {
     }
   };
 
-  const showResult = (text: string, cls: 'win' | 'premium' | 'none') => {
+  const showResult = (text: string, cls: 'win' | 'premium' | 'none' | 'near') => {
     if (resultTimer !== null) {
       window.clearTimeout(resultTimer);
       resultTimer = null;
@@ -417,10 +420,15 @@ async function bootstrap() {
     updateButtons();
   };
 
-  // クイズの回答結果（クリック/キー）でも即座にSE
+  // クイズの回答結果（クリック/キー）で SE＋統計
   quizState.phase.subscribe((phase) => {
-    if (phase === 'correct') sfx.quizCorrect();
-    else if (phase === 'wrong') sfx.quizWrong();
+    if (phase === 'correct') {
+      sfx.quizCorrect();
+      playStats.recordQuiz(true);
+    } else if (phase === 'wrong') {
+      sfx.quizWrong();
+      playStats.recordQuiz(false);
+    }
   });
 
   const stopReel = (idx: number, timestamp: number) => {
@@ -506,15 +514,36 @@ async function bootstrap() {
         for (const v of views) v.highlightCenter(1400);
         // コイン獲得 +N フロート表示
         if (win > 0) showCoinFloat(win, isPremium);
-        // プレミアム成立でボーナス突入（active 中なら残り回数リセット＝おかわり）
+        // プレミアム成立でボーナス突入＋全画面演出（active 中なら残り回数リセット＝おかわり）
         if (isPremium) {
           bonusZone.trigger();
           sfx.bonusEnter();
+          flashScreen({ color: '#ffd700', alpha: 0.85, durMs: 400 });
+          spawnConfetti(100);
+          shakeBody(600);
         } else {
           sfx.winCore();
         }
       } else {
-        showResult(`はずれ (${symbols.join('')})`, 'none');
+        // ニアミス検出：±1コマで揃ったはずの役があれば「おしい！」表示
+        const positions = engines.map((e) => {
+          const t = e.strip.cells.length;
+          return ((Math.round(e.position) % t) + t) % t;
+        });
+        const nearMisses = nearMissDetector.detect(
+          symbols,
+          engines.map((e) => e.strip),
+          positions,
+        );
+        if (nearMisses.length > 0) {
+          const first = nearMisses[0];
+          showResult(
+            `おしい！「${first.yaku.name}」まで${nearMisses.length > 1 ? `あと ${nearMisses.length}通り` : '1コマ'}`,
+            'near',
+          );
+        } else {
+          showResult(`はずれ (${symbols.join('')})`, 'none');
+        }
         jinState.set('miss');
         sfx.miss();
       }
