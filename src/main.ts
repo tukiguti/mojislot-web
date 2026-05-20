@@ -38,10 +38,8 @@ import {
   PayoutSchema,
   QuizListSchema,
 } from './data/schemas';
-import reelDataRaw from '../data/reels/hiragana_food.json';
-import yakuDataRaw from '../data/yaku/hiragana_food.json';
 import payoutDataRaw from '../data/payouts/default.json';
-import quizDataRaw from '../data/quizzes/hiragana_food.json';
+import { getCurrentChapter, getCurrentChapterId } from './data/chapters';
 import './style.css';
 
 const REEL_GAP = 16;
@@ -75,10 +73,12 @@ async function bootstrap() {
     preference: 'webgl',
   });
 
-  const reelConfig = ReelConfigSchema.parse(reelDataRaw);
-  const yakuList = YakuListSchema.parse(yakuDataRaw);
+  const chapter = getCurrentChapter();
+  const chapterId = getCurrentChapterId();
+  const reelConfig = ReelConfigSchema.parse(chapter.reelData);
+  const yakuList = YakuListSchema.parse(chapter.yakuData);
   const payout = PayoutSchema.parse(payoutDataRaw);
-  const quizList = QuizListSchema.parse(quizDataRaw);
+  const quizList = QuizListSchema.parse(chapter.quizData);
 
   const judge = new YakuJudge(yakuList);
   const calc = new PayoutCalc(payout);
@@ -93,13 +93,14 @@ async function bootstrap() {
   const tenpaiDetector = new TenpaiDetector(yakuList);
   const nearMissDetector = new NearMissDetector(yakuList);
   const playStats = new PlayStats();
-  const zukanState = new ZukanState(yakuList);
+  const zukanState = new ZukanState(yakuList, chapterId);
   const zukanOverlay = new ZukanOverlay(
     zukanState,
     yakuList,
     playStats,
     wallet,
     payout.initialCoins,
+    chapterId,
   );
   // 現在の滑り方針。BET時に確定し、レバー時点ではすでに固まっている
   let currentSlipPolicy: SlipPolicy = SLIP_NONE;
@@ -307,6 +308,10 @@ async function bootstrap() {
       window.setTimeout(() => el.remove(), 1700 + i * 35);
     }
   };
+
+  // 章名をヘッダー（演出ステータス上）に出すため、effectStatus の title に
+  // 章説明を入れておく（ホバーで確認）
+  effectStatusEl.title = `${chapter.name}：${chapter.description}`;
 
   // 連チャン表示（倍率も併記）
   const updateStreakUI = (streak: number) => {

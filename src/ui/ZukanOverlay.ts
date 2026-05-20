@@ -2,11 +2,12 @@ import type { ZukanState } from '../productions/ZukanState';
 import type { YakuList } from '../data/schemas';
 import type { PlayStats } from '../productions/PlayStats';
 import type { CoinWallet } from '../core/CoinWallet';
+import { CHAPTERS, setCurrentChapterId } from '../data/chapters';
 
 /**
  * 図鑑モーダル。`Z` キーまたは外部 toggle() で開閉。
  * 未達成役は「？？？」でマスクし、達成数を併記する。
- * プレイ統計（PlayStats）と、リセット操作も併せて提供する。
+ * プレイ統計（PlayStats）と、章切替/リセット操作も併せて提供する。
  */
 export class ZukanOverlay {
   private readonly root: HTMLElement;
@@ -21,10 +22,16 @@ export class ZukanOverlay {
     private readonly playStats: PlayStats,
     private readonly wallet: CoinWallet,
     private readonly initialCoins: number,
+    private readonly currentChapterId: string,
   ) {
     const root = document.getElementById('zukan-overlay');
     if (!root) throw new Error('#zukan-overlay not found');
     this.root = root;
+    const chapterButtons = CHAPTERS.map(
+      (c) =>
+        `<button class="chapter-btn ${c.id === this.currentChapterId ? 'active' : ''}" data-chapter="${c.id}" type="button" title="${c.description}">${c.name}</button>`,
+    ).join('');
+
     this.root.innerHTML = `
       <div class="zukan-modal">
         <div class="zukan-header">
@@ -33,6 +40,10 @@ export class ZukanOverlay {
         </div>
         <div class="zukan-summary"></div>
         <div class="zukan-stats"></div>
+        <div class="zukan-chapters">
+          <div class="zukan-chapters-label">章を選択（切替するとリロード）</div>
+          <div class="zukan-chapters-list">${chapterButtons}</div>
+        </div>
         <div class="zukan-list"></div>
         <div class="zukan-reset">
           <button class="reset-coin" type="button">コインを${this.initialCoins}に戻す</button>
@@ -57,6 +68,19 @@ export class ZukanOverlay {
       this.state.reset();
       this.playStats.reset();
       this.wallet.reset(this.initialCoins);
+    });
+
+    // 章切替ボタン
+    const chapterBtns =
+      this.root.querySelectorAll<HTMLButtonElement>('.chapter-btn');
+    chapterBtns.forEach((btn) => {
+      btn.addEventListener('click', () => {
+        const id = btn.dataset.chapter;
+        if (!id || id === this.currentChapterId) return;
+        setCurrentChapterId(id);
+        // 章ごとに reel/yaku/quiz データが違うので、再ロードで初期化
+        window.location.reload();
+      });
     });
 
     state.counts.subscribe(() => {

@@ -1,0 +1,71 @@
+{
+  "mode": "katakana_animal",
+  "quizzes": [
+    {
+      "id": "q_koara",
+      "question": "ユーカリの葉を食べる、オーストラリアの動物は？",
+      "answerYakuId": "koara",
+      "decoyYakuIds": ["panda", "usagi", "kirin"]
+    },
+    {
+      "id": "q_kirin",
+      "question": "首が長い、サバンナの草原にいる動物は？",
+      "answerYakuId": "kirin",
+      "decoyYakuIds": ["gorira", "rakuda", "hyou"]
+    },
+    {
+      "id": "q_kujira",
+      "question": "海にいる、世界最大の哺乳類は？",
+      "answerYakuId": "kujira",
+      "decoyYakuIds": ["panda", "usagi", "tanuki"]
+    },
+    {
+      "id": "q_panda",
+      "question": "白黒の毛色で、笹を食べる動物は？",
+      "answerYakuId": "panda",
+      "decoyYakuIds": ["koara", "tanuki", "kirin"]
+    },
+    {
+      "id": "q_usagi",
+      "question": "ぴょんぴょん跳ねる、耳の長い動物は？",
+      "answerYakuId": "usagi",
+      "decoyYakuIds": ["tanuki", "koara", "hyou"]
+    },
+    {
+      "id": "q_tanuki",
+      "question": "化けるのが得意とされる日本の動物は？",
+      "answerYakuId": "tanuki",
+      "decoyYakuIds": ["usagi", "panda", "koara"]
+    },
+    {
+      "id": "q_gorira",
+      "question": "ジャングルにいる大型の類人猿は？",
+      "answerYakuId": "gorira",
+      "decoyYakuIds": ["kirin", "hyou", "kujira"]
+    },
+    {
+      "id": "q_hyou",
+      "question": "斑点模様の俊敏な大型ネコ科の動物は？",
+      "answerYakuId": "hyou",
+      "decoyYakuIds": ["gorira", "hitsuji", "rakuda"]
+    },
+    {
+      "id": "q_rakuda",
+      "question": "コブで水を貯める、砂漠の動物は？",
+      "answerYakuId": "rakuda",
+      "decoyYakuIds": ["kirin", "hyou", "hitsuji"]
+    },
+    {
+      "id": "q_hitsuji",
+      "question": "メーメー鳴く、毛が縮れた家畜は？",
+      "answerYakuId": "hitsuji",
+      "decoyYakuIds": ["rakuda", "usagi", "panda"]
+    },
+    {
+      "id": "q_dragon",
+      "question": "【プレミアム】火を吐く、伝説の生き物は？",
+      "answerYakuId": "dragon",
+      "decoyYakuIds": ["kirin", "kujira", "gorira"]
+    }
+  ]
+}
