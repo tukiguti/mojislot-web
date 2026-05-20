@@ -373,14 +373,19 @@ body {
 }
 
 /* === クイズオーバーレイ === */
+/*
+ * 質問文は Pixi 側（演出エリア）に出すので、ここは 4択と結果だけ。
+ * 画面下部に寄せて、リールが隠れないようにする。
+ */
 #quiz-overlay {
   position: absolute;
-  inset: 0;
+  left: 0;
+  right: 0;
+  bottom: 8px;
   display: flex;
-  align-items: center;
   justify-content: center;
-  background: rgba(0, 0, 0, 0.7);
-  pointer-events: auto;
+  background: transparent;
+  pointer-events: none;
   z-index: 10;
 }
 
@@ -389,37 +394,29 @@ body {
 }
 
 .quiz-modal {
-  width: 480px;
-  max-width: 90%;
-  padding: 24px 28px 20px;
-  background: linear-gradient(180deg, #2a1f1f 0%, #1a1010 100%);
-  border: 3px solid #ff66cc;
-  border-radius: 12px;
+  width: 92%;
+  max-width: 560px;
+  padding: 10px 14px 8px;
+  background: linear-gradient(180deg, rgba(42, 31, 31, 0.88) 0%, rgba(26, 16, 16, 0.88) 100%);
+  border: 2px solid #ff66cc;
+  border-radius: 10px;
   box-shadow:
-    0 0 32px rgba(255, 102, 204, 0.65),
-    inset 0 0 0 2px #4a2a3a;
+    0 0 20px rgba(255, 102, 204, 0.55),
+    inset 0 0 0 1px #4a2a3a;
   text-align: center;
-}
-
-.quiz-question {
-  font-size: 18px;
-  font-weight: bold;
-  color: #fff;
-  margin-bottom: 18px;
-  letter-spacing: 1px;
-  line-height: 1.5;
+  pointer-events: auto;
 }
 
 .quiz-choices {
   display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 10px;
-  margin-bottom: 14px;
+  grid-template-columns: 1fr 1fr 1fr 1fr;
+  gap: 8px;
+  margin-bottom: 6px;
 }
 
 .quiz-choice {
-  padding: 14px 8px;
-  font-size: 18px;
+  padding: 8px 4px;
+  font-size: 16px;
   font-weight: bold;
   color: #fff;
   background: linear-gradient(180deg, #4a3a4a 0%, #2a1a2a 100%);
@@ -452,8 +449,8 @@ body {
 }
 
 .quiz-result {
-  min-height: 22px;
-  font-size: 14px;
+  min-height: 18px;
+  font-size: 12px;
   letter-spacing: 1px;
   color: #888;
 }

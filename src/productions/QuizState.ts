@@ -42,5 +42,8 @@ export class QuizState {
   }
 }
 
-/** クイズ正解時の追加スロー（補助レベル+1） */
-export const QUIZ_BONUS_SPEED = 5;
+/**
+ * クイズ正解時の追加スロー（補助レベル+1）。
+ * REEL_SPEED_BY_EFFECT.quiz (10) よりさらに遅いが、ビタ狙いが極端に易しすぎない値。
+ */
+export const QUIZ_BONUS_SPEED = 8;

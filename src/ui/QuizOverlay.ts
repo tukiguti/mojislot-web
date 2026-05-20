@@ -6,7 +6,6 @@ import type { QuizState } from '../productions/QuizState';
  */
 export class QuizOverlay {
   private readonly root: HTMLElement;
-  private readonly questionEl: HTMLElement;
   private readonly choicesEl: HTMLElement;
   private readonly resultEl: HTMLElement;
   /** 回答後にモーダルを自動で閉じるためのタイマー */
@@ -19,14 +18,14 @@ export class QuizOverlay {
     const root = document.getElementById('quiz-overlay');
     if (!root) throw new Error('#quiz-overlay not found');
     this.root = root;
+    // 質問文は Pixi 側（QuizQuestionView）の液晶エリアに表示するため、
+    // ここでは出さず 4択ボタンと結果のみ。
     this.root.innerHTML = `
       <div class="quiz-modal">
-        <div class="quiz-question"></div>
         <div class="quiz-choices"></div>
         <div class="quiz-result"></div>
       </div>
     `;
-    this.questionEl = this.root.querySelector('.quiz-question')!;
     this.choicesEl = this.root.querySelector('.quiz-choices')!;
     this.resultEl = this.root.querySelector('.quiz-result')!;
 
@@ -48,7 +47,7 @@ export class QuizOverlay {
     // 新たに asking 状態に入る時は前回の自動クローズタイマーをキャンセル
     this.cancelDismiss();
     this.root.hidden = false;
-    this.questionEl.textContent = quiz.question;
+    // 質問文の表示は QuizQuestionView（Pixi）側に移管したため、ここでは触れない
 
     if (phase === 'asking') {
       this.resultEl.textContent = '';
