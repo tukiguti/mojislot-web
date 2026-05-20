@@ -2,7 +2,7 @@ import { Application, Graphics } from 'pixi.js';
 import { ReelEngine } from './core/ReelEngine';
 import { ReelView, CELL_WIDTH, CELL_HEIGHT, VISIBLE_CELLS } from './render/ReelView';
 import { YakuJudge } from './core/YakuJudge';
-import { PayoutCalc } from './core/PayoutCalc';
+import { PayoutCalc, streakMultiplier } from './core/PayoutCalc';
 import { CoinWallet } from './core/CoinWallet';
 import {
   EffectScheduler,
@@ -282,11 +282,13 @@ async function bootstrap() {
     window.setTimeout(() => el.remove(), 1400);
   };
 
-  // 連チャン表示
+  // 連チャン表示（倍率も併記）
   const updateStreakUI = (streak: number) => {
     if (streak >= 2) {
+      const mult = streakMultiplier(streak);
+      const multTag = mult > 1 ? ` ×${mult}` : '';
       streakStatusEl.hidden = false;
-      streakStatusEl.textContent = `${streak} 連`;
+      streakStatusEl.textContent = `${streak} 連${multTag}`;
     } else {
       streakStatusEl.hidden = true;
       streakStatusEl.textContent = '';
@@ -508,14 +510,18 @@ async function bootstrap() {
       }) as [string, string, string];
 
       const result = judge.judge(symbols);
-      const win = calc.calc(result.yaku, bonusZone.isActive());
+      const willHit = result.yaku !== null;
+      const isPremium = result.yaku?.category === 'premium';
+      // 成立後の連チャン数で配当倍率を評価（3連達成スピンから恩恵が乗る）
+      const streakAfter = willHit ? playStats.stats.get().streak + 1 : 0;
+      const streakMult = streakMultiplier(streakAfter);
+      const win = calc.calc(result.yaku, bonusZone.isActive(), streakMult);
       if (win > 0) wallet.win(win);
 
-      const isPremium = result.yaku?.category === 'premium';
       playStats.recordSpin({
         bet: calc.bet,
         win,
-        hit: result.yaku !== null,
+        hit: willHit,
         premium: isPremium,
         bonusTriggered: isPremium,
       });
@@ -523,7 +529,8 @@ async function bootstrap() {
       if (result.yaku) {
         const cls = isPremium ? 'premium' : 'win';
         const bonusTag = bonusZone.isActive() ? ' ×BONUS' : '';
-        showResult(`${result.yaku.name}！ +${win}${bonusTag}`, cls);
+        const streakTag = streakMult > 1 ? ` ×${streakMult}連` : '';
+        showResult(`${result.yaku.name}！ +${win}${bonusTag}${streakTag}`, cls);
         jinState.set('cheer');
         zukanState.record(result.yaku.id);
         // 全リール中央セルをハイライト
