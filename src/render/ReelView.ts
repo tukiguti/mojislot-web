@@ -59,8 +59,10 @@ export class ReelView {
     const total = this.engine.strip.cells.length;
     const totalHeight = total * CELL_HEIGHT;
 
+    // pos が増えるほど各 cell の y が増えて、上から下へ流れて見える。
+    // pos=round(pos) の cell がペイライン上に来るのは従来通り。
     for (let i = 0; i < total; i++) {
-      let y = (i - pos) * CELL_HEIGHT + PAYLINE_Y;
+      let y = (pos - i) * CELL_HEIGHT + PAYLINE_Y;
       y = ((y % totalHeight) + totalHeight) % totalHeight;
       this.cellTexts[i].y = y;
     }
