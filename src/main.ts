@@ -364,6 +364,50 @@ async function bootstrap() {
     }, 1700);
   };
 
+  // === デバッグアクション（図鑑モーダルから呼ばれる） ===
+  zukanOverlay.setDebugActions({
+    triggerBonus: () => {
+      bonusZone.trigger();
+      sfx.bonusEnter();
+      flashScreen({ color: '#ffd700', alpha: 0.85, durMs: 400 });
+      spawnConfetti(100);
+      shakeBody(600);
+      showBonusBanner();
+      jinSpeech.say('premium');
+    },
+    triggerShisa: () => {
+      // 強制的に shisa 演出を発動（リール速度＆ジン表情＆フラッシュ）
+      applyEffect('shisa');
+    },
+    triggerQuiz: () => {
+      // 強制クイズ：演出＋液晶に出題を出す
+      applyEffect('quiz');
+    },
+    triggerWinTest: () => {
+      // 役成立SE＋中央ハイライト＋コインフロート＋紙吹雪少々
+      sfx.winCore();
+      for (const v of views) v.highlightCenter(1400);
+      showCoinFloat(24, false);
+      showCoinBurst(5);
+      jinSpeech.say('win');
+    },
+    triggerTenpaiSe: () => {
+      sfx.tenpai();
+      jinSpeech.say('tenpai');
+      // どれか1リールに枠フラッシュ
+      views[2].startTenpaiFlash(false);
+      window.setTimeout(() => views[2].stopTenpaiFlash(), 2500);
+    },
+    addCoins: (n: number) => {
+      wallet.win(n);
+    },
+    fillEffects: () => {
+      flashScreen({ color: '#ffffff', alpha: 0.6, durMs: 280 });
+      spawnConfetti(60);
+      shakeBody(450);
+    },
+  });
+
   const updateBonusUI = () => {
     const active = bonusZone.active.get();
     const remaining = bonusZone.remaining.get();
