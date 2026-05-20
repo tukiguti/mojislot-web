@@ -88,6 +88,7 @@ export class ZukanOverlay {
       <div class="zukan-stats-row"><span>役成立率</span><span>${hitRate}%</span></div>
       <div class="zukan-stats-row"><span>収支</span><span class="${net >= 0 ? 'positive' : 'negative'}">${netSign}${net}</span></div>
       <div class="zukan-stats-row"><span>最大配当</span><span>${s.maxWin}</span></div>
+      <div class="zukan-stats-row"><span>最大連チャン</span><span>${s.maxStreak}</span></div>
       <div class="zukan-stats-row"><span>プレミアム / ボーナス</span><span>${s.premiumCount} / ${s.bonusCount}</span></div>
     `;
 

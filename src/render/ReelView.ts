@@ -18,6 +18,10 @@ export class ReelView {
   readonly container: Container;
   private readonly cellTexts: Text[] = [];
   private readonly bg: Graphics;
+  private readonly centerGlow: Graphics;
+  private centerGlowAlpha = 0;
+  private centerGlowStart = 0;
+  private centerGlowDuration = 0;
   private tenpaiAnimMs = 0;
   private tenpaiPremium = false;
 
@@ -27,6 +31,14 @@ export class ReelView {
     this.bg = new Graphics();
     this.redrawBg(0xffd700, 3);
     this.container.addChild(this.bg);
+
+    // 中央セル（ペイライン上）のハイライトグロー
+    this.centerGlow = new Graphics();
+    this.centerGlow
+      .rect(0, PAYLINE_Y - CELL_HEIGHT / 2, CELL_WIDTH, CELL_HEIGHT)
+      .fill({ color: 0xffd700, alpha: 0.45 });
+    this.centerGlow.alpha = 0;
+    this.container.addChild(this.centerGlow);
 
     const cellsContainer = new Container();
     const mask = new Graphics();
@@ -84,6 +96,29 @@ export class ReelView {
       const width = 3 + pulse * 3;
       this.redrawBg(baseColor, width);
     }
+
+    // 中央ハイライトのフェードアウト
+    if (this.centerGlowAlpha > 0) {
+      const t = nowMs ?? performance.now();
+      const elapsed = t - this.centerGlowStart;
+      if (elapsed >= this.centerGlowDuration) {
+        this.centerGlowAlpha = 0;
+      } else {
+        const k = 1 - elapsed / this.centerGlowDuration;
+        // 脈動 + フェード
+        const pulse = 0.5 + 0.5 * Math.sin(t / 80);
+        this.centerGlowAlpha = 0.55 * k * pulse;
+      }
+      this.centerGlow.alpha = this.centerGlowAlpha;
+    }
+  }
+
+  /** 中央セル（ペイライン上）を一定時間グローさせる（役成立時） */
+  highlightCenter(durMs = 1200): void {
+    this.centerGlowStart = performance.now();
+    this.centerGlowDuration = durMs;
+    this.centerGlowAlpha = 0.55;
+    this.centerGlow.alpha = this.centerGlowAlpha;
   }
 
   /** テンパイ枠フラッシュを開始（残ったリール用） */

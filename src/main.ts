@@ -188,6 +188,7 @@ async function bootstrap() {
   const bonusStatusEl = requireEl('bonus-status');
   const cabinetEl = requireEl('cabinet');
   const muteBtn = requireEl<HTMLButtonElement>('mute-btn');
+  const streakStatusEl = requireEl('streak-status');
 
   betTextEl.textContent = `Bet: ${calc.bet}`;
   const effectStatusEl = requireEl('effect-status');
@@ -225,11 +226,61 @@ async function bootstrap() {
   };
   applyEffect('none');
 
-  const updateCoin = (n: number) => {
-    coinEl.textContent = `Coin: ${n}`;
+  // コイン表示をなめらかにカウントアップ
+  let displayedCoin = wallet.coins.get();
+  let coinAnimRaf: number | null = null;
+  const animateCoinTo = (target: number) => {
+    if (coinAnimRaf !== null) cancelAnimationFrame(coinAnimRaf);
+    const start = displayedCoin;
+    const diff = target - start;
+    if (diff === 0) {
+      coinEl.textContent = `Coin: ${target}`;
+      return;
+    }
+    const durMs = Math.min(900, 200 + Math.abs(diff) * 8);
+    const startTime = performance.now();
+    const step = (now: number) => {
+      const t = Math.min(1, (now - startTime) / durMs);
+      const eased = 1 - Math.pow(1 - t, 3);
+      displayedCoin = Math.round(start + diff * eased);
+      coinEl.textContent = `Coin: ${displayedCoin}`;
+      if (t < 1) {
+        coinAnimRaf = requestAnimationFrame(step);
+      } else {
+        displayedCoin = target;
+        coinAnimRaf = null;
+      }
+    };
+    coinAnimRaf = requestAnimationFrame(step);
   };
-  updateCoin(wallet.coins.get());
-  wallet.coins.subscribe(updateCoin);
+  coinEl.textContent = `Coin: ${displayedCoin}`;
+  wallet.coins.subscribe(animateCoinTo);
+
+  // 役成立時の +N フロート
+  const showCoinFloat = (amount: number, premium: boolean) => {
+    const el = document.createElement('div');
+    el.className = 'coin-float' + (premium ? ' premium' : '');
+    el.textContent = `+${amount}`;
+    document.body.appendChild(el);
+    const rect = coinEl.getBoundingClientRect();
+    el.style.left = `${rect.left + rect.width + 6}px`;
+    el.style.top = `${rect.top}px`;
+    requestAnimationFrame(() => el.classList.add('rise'));
+    window.setTimeout(() => el.remove(), 1400);
+  };
+
+  // 連チャン表示
+  const updateStreakUI = (streak: number) => {
+    if (streak >= 2) {
+      streakStatusEl.hidden = false;
+      streakStatusEl.textContent = `${streak} 連`;
+    } else {
+      streakStatusEl.hidden = true;
+      streakStatusEl.textContent = '';
+    }
+  };
+  playStats.stats.subscribe((s) => updateStreakUI(s.streak));
+  updateStreakUI(playStats.stats.get().streak);
 
   const updateBonusUI = () => {
     const active = bonusZone.active.get();
@@ -451,6 +502,10 @@ async function bootstrap() {
         showResult(`${result.yaku.name}！ +${win}${bonusTag}`, cls);
         jinState.set('cheer');
         zukanState.record(result.yaku.id);
+        // 全リール中央セルをハイライト
+        for (const v of views) v.highlightCenter(1400);
+        // コイン獲得 +N フロート表示
+        if (win > 0) showCoinFloat(win, isPremium);
         // プレミアム成立でボーナス突入（active 中なら残り回数リセット＝おかわり）
         if (isPremium) {
           bonusZone.trigger();
