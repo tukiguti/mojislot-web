@@ -16,6 +16,7 @@ import { TenpaiDetector } from './productions/TenpaiDetector';
 import { PlayStats } from './productions/PlayStats';
 import { NearMissDetector } from './productions/NearMissDetector';
 import { flashScreen, spawnConfetti, shakeBody } from './ui/Effects';
+import { JinSpeech } from './ui/JinSpeech';
 import { JinState } from './productions/JinState';
 import { JinView } from './render/JinView';
 import { EffectVisual } from './render/EffectVisual';
@@ -198,6 +199,7 @@ async function bootstrap() {
   const cabinetEl = requireEl('cabinet');
   const muteBtn = requireEl<HTMLButtonElement>('mute-btn');
   const streakStatusEl = requireEl('streak-status');
+  const jinSpeech = new JinSpeech(requireEl('game-area'));
 
   betTextEl.textContent = `Bet: ${calc.bet}`;
   const effectStatusEl = requireEl('effect-status');
@@ -219,6 +221,7 @@ async function bootstrap() {
       jinState.set('shisa');
       currentSlipPolicy = SLIP_SHISA;
       sfx.shisa();
+      jinSpeech.say('shisa');
     } else if (effect === 'quiz') {
       effectStatusEl.textContent = 'クイズ補助';
       effectStatusEl.classList.add('quiz');
@@ -227,6 +230,7 @@ async function bootstrap() {
       // クイズは正解判定後に SLIP_QUIZ_CORRECT に上書きされる
       currentSlipPolicy = SLIP_NONE;
       sfx.quiz();
+      // クイズ文章を液晶に出すのでセリフは控えめ
     } else {
       effectStatusEl.textContent = '通常';
       jinState.set('idle');
@@ -397,6 +401,8 @@ async function bootstrap() {
     resultEl.classList.remove('visible');
     flashButton(betBtn);
     sfx.bet();
+    // BET 時のセリフは時々（25%）
+    if (Math.random() < 0.25) jinSpeech.say('bet');
     // ボーナス中は演出レートを上昇＆残り回数を1消費
     if (bonusZone.isActive()) {
       scheduler.setRates(bonusZone.config.bonusEffectRates);
@@ -426,14 +432,16 @@ async function bootstrap() {
     updateButtons();
   };
 
-  // クイズの回答結果（クリック/キー）で SE＋統計
+  // クイズの回答結果（クリック/キー）で SE＋統計＋セリフ
   quizState.phase.subscribe((phase) => {
     if (phase === 'correct') {
       sfx.quizCorrect();
       playStats.recordQuiz(true);
+      jinSpeech.say('correct');
     } else if (phase === 'wrong') {
       sfx.quizWrong();
       playStats.recordQuiz(false);
+      jinSpeech.say('wrong');
     }
   });
 
@@ -488,6 +496,7 @@ async function bootstrap() {
         views[tenpai.missingReelIndex].startTenpaiFlash(tenpai.hasPremium);
         if (tenpai.hasPremium) sfx.tenpaiPremium();
         else sfx.tenpai();
+        jinSpeech.say('tenpai');
       }
     }
 
@@ -528,8 +537,10 @@ async function bootstrap() {
           flashScreen({ color: '#ffd700', alpha: 0.85, durMs: 400 });
           spawnConfetti(100);
           shakeBody(600);
+          jinSpeech.say('premium');
         } else {
           sfx.winCore();
+          jinSpeech.say('win');
         }
       } else {
         // ニアミス検出：±1コマで揃ったはずの役があれば「おしい！」表示
@@ -548,8 +559,10 @@ async function bootstrap() {
             `おしい！「${first.yaku.name}」まで${nearMisses.length > 1 ? `あと ${nearMisses.length}通り` : '1コマ'}`,
             'near',
           );
+          jinSpeech.say('near');
         } else {
           showResult(`はずれ (${symbols.join('')})`, 'none');
+          jinSpeech.say('miss');
         }
         jinState.set('miss');
         sfx.miss();
