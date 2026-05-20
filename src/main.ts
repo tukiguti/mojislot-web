@@ -34,9 +34,18 @@ const CANVAS_W = 600;
 const CANVAS_H = 600;
 const LIQUID_AREA_H = 320;
 
+function requireEl<T extends HTMLElement>(id: string): T {
+  const el = document.getElementById(id);
+  if (!el) {
+    throw new Error(
+      `#${id} not found. ブラウザを強制リロード（Cmd+Shift+R）してみてください。`,
+    );
+  }
+  return el as T;
+}
+
 async function bootstrap() {
-  const canvas = document.getElementById('game') as HTMLCanvasElement;
-  if (!canvas) throw new Error('#game canvas not found');
+  const canvas = requireEl<HTMLCanvasElement>('game');
 
   const app = new Application();
   await app.init({
@@ -127,17 +136,18 @@ async function bootstrap() {
 
   // === UI 配線 ===
 
-  const coinEl = document.getElementById('coin-display')!;
-  const betEl = document.getElementById('bet-display')!;
-  const leverBtn = document.getElementById('lever-btn') as HTMLButtonElement;
-  const betBtn = document.getElementById('bet-btn') as HTMLButtonElement;
+  const coinEl = requireEl('coin-display');
+  const betTextEl = requireEl('bet-text');
+  const leverBtn = requireEl<HTMLButtonElement>('lever-btn');
+  const betBtn = requireEl<HTMLButtonElement>('bet-btn');
   const stopBtns = Array.from(
     document.querySelectorAll<HTMLButtonElement>('.stop-btn'),
   );
-  const resultEl = document.getElementById('result-display')!;
+  const resultEl = requireEl('result-display');
+  const zukanBtn = requireEl<HTMLButtonElement>('zukan-btn');
 
-  betEl.textContent = `Bet: ${calc.bet}`;
-  const effectStatusEl = document.getElementById('effect-status')!;
+  betTextEl.textContent = `Bet: ${calc.bet}`;
+  const effectStatusEl = requireEl('effect-status');
   let betPlaced = false;
   let resultTimer: number | null = null;
 
@@ -280,7 +290,6 @@ async function bootstrap() {
     btn.addEventListener('pointerdown', (ev) => stopReel(idx, ev.timeStamp));
   });
 
-  const zukanBtn = document.getElementById('zukan-btn') as HTMLButtonElement;
   zukanBtn.addEventListener('click', () => zukanOverlay.toggle());
 
   for (const engine of engines) {
