@@ -76,8 +76,15 @@ body {
   background: rgba(255, 215, 0, 0.2);
 }
 
-#effect-status {
+#status-stack {
   justify-self: center;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 3px;
+}
+
+#effect-status {
   padding: 4px 14px;
   background: rgba(20, 20, 20, 0.85);
   border: 1px solid #555;
@@ -90,6 +97,54 @@ body {
     border-color 0.2s ease,
     background 0.2s ease,
     box-shadow 0.2s ease;
+}
+
+#bonus-status {
+  padding: 1px 8px;
+  font-size: 10px;
+  font-weight: bold;
+  letter-spacing: 1.5px;
+  color: #1a1100;
+  background: linear-gradient(180deg, #ffe566 0%, #ffd700 100%);
+  border: 1px solid #fff7aa;
+  border-radius: 3px;
+  box-shadow: 0 0 8px rgba(255, 215, 0, 0.7);
+  animation: bonus-pulse 1.4s ease-in-out infinite;
+}
+
+#bonus-status[hidden] {
+  display: none;
+}
+
+@keyframes bonus-pulse {
+  0%,
+  100% {
+    box-shadow: 0 0 8px rgba(255, 215, 0, 0.7);
+  }
+  50% {
+    box-shadow: 0 0 16px rgba(255, 215, 0, 1);
+  }
+}
+
+#cabinet.bonus {
+  box-shadow:
+    0 0 60px rgba(255, 215, 0, 0.85),
+    inset 0 0 0 2px #4a3a18;
+  animation: cabinet-bonus-pulse 2s ease-in-out infinite;
+}
+
+@keyframes cabinet-bonus-pulse {
+  0%,
+  100% {
+    box-shadow:
+      0 0 60px rgba(255, 215, 0, 0.85),
+      inset 0 0 0 2px #4a3a18;
+  }
+  50% {
+    box-shadow:
+      0 0 80px rgba(255, 215, 0, 1),
+      inset 0 0 0 2px #6a5a28;
+  }
 }
 
 #effect-status.shisa {
