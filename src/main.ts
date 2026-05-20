@@ -1,4 +1,4 @@
-import { Application, Graphics, Text } from 'pixi.js';
+import { Application, Graphics } from 'pixi.js';
 import { ReelEngine } from './core/ReelEngine';
 import { ReelView, CELL_WIDTH, CELL_HEIGHT, VISIBLE_CELLS } from './render/ReelView';
 import { YakuJudge } from './core/YakuJudge';
@@ -9,6 +9,8 @@ import {
   REEL_SPEED_BY_EFFECT,
   type EffectType,
 } from './productions/EffectScheduler';
+import { JinState } from './productions/JinState';
+import { JinView } from './render/JinView';
 import {
   ReelConfigSchema,
   YakuListSchema,
@@ -49,6 +51,7 @@ async function bootstrap() {
   const calc = new PayoutCalc(payout);
   const wallet = new CoinWallet(payout.initialCoins);
   const scheduler = new EffectScheduler();
+  const jinState = new JinState();
 
   // 液晶エリアの土台（演出はあとで重ねる）
   const liquidBg = new Graphics();
@@ -56,18 +59,17 @@ async function bootstrap() {
   liquidBg.fill({ color: 0x101820 });
   app.stage.addChild(liquidBg);
 
-  const liquidLabel = new Text({
-    text: '演出エリア（ジン・示唆・クイズ表示予定）',
-    style: {
-      fill: 0x334455,
-      fontSize: 14,
-      fontFamily: 'system-ui, "Hiragino Sans", "Yu Gothic", sans-serif',
-    },
-  });
-  liquidLabel.anchor.set(0.5);
-  liquidLabel.x = CANVAS_W / 2;
-  liquidLabel.y = LIQUID_AREA_H / 2;
-  app.stage.addChild(liquidLabel);
+  // 液晶下端をうっすら明るく（ジンの足元に光を当てたような感じ）
+  const liquidFloor = new Graphics();
+  liquidFloor.ellipse(CANVAS_W / 2, LIQUID_AREA_H - 8, 180, 24);
+  liquidFloor.fill({ color: 0xffd700, alpha: 0.08 });
+  app.stage.addChild(liquidFloor);
+
+  // ジン（マスコット）配置
+  const jinView = new JinView(jinState);
+  jinView.container.x = CANVAS_W / 2;
+  jinView.container.y = LIQUID_AREA_H / 2 + 20;
+  app.stage.addChild(jinView.container);
 
   // リールエリアの背景帯
   const reelBg = new Graphics();
@@ -96,6 +98,7 @@ async function bootstrap() {
     const now = performance.now();
     for (const engine of engines) engine.tick(now);
     for (const view of views) view.update();
+    jinView.update(now);
   });
 
   // === UI 配線 ===
@@ -122,11 +125,14 @@ async function bootstrap() {
     if (effect === 'shisa') {
       effectStatusEl.textContent = '示唆';
       effectStatusEl.classList.add('shisa');
+      jinState.set('shisa');
     } else if (effect === 'quiz') {
       effectStatusEl.textContent = 'クイズ補助';
       effectStatusEl.classList.add('quiz');
+      jinState.set('quiz');
     } else {
       effectStatusEl.textContent = '通常';
+      jinState.set('idle');
     }
   };
   applyEffect('none');
@@ -219,9 +225,11 @@ async function bootstrap() {
       if (result.yaku) {
         const cls = result.yaku.category === 'premium' ? 'premium' : 'win';
         showResult(`${result.yaku.name}！ +${win}`, cls);
+        jinState.set('cheer');
         console.log('[result]', result.yaku.name, `+${win}`);
       } else {
         showResult(`はずれ (${symbols.join('')})`, 'none');
+        jinState.set('miss');
         console.log('[result] miss', symbols.join(''));
       }
 
