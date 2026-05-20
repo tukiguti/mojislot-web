@@ -141,7 +141,8 @@ body {
   gap: 8px;
 }
 
-#zukan-btn {
+#zukan-btn,
+#mute-btn {
   padding: 3px 10px;
   font-size: 11px;
   color: #ffd700;
@@ -153,8 +154,20 @@ body {
   letter-spacing: 1px;
 }
 
-#zukan-btn:hover {
+#zukan-btn:hover,
+#mute-btn:hover {
   background: rgba(255, 215, 0, 0.2);
+}
+
+#mute-btn {
+  min-width: 28px;
+  padding: 3px 6px;
+}
+
+#mute-btn.muted {
+  color: #888;
+  border-color: #555;
+  background: rgba(80, 80, 80, 0.2);
 }
 
 #status-stack {
