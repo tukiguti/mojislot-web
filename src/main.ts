@@ -385,7 +385,7 @@ async function bootstrap() {
       const beforeIdx = basePos;
       const afterIdx = ((Math.round(engine.position) % total) + total) % total;
       console.log(
-        `[slip] reel${idx} ${beforeIdx}(${engine.strip.cells[beforeIdx]}) → ${afterIdx}(${engine.strip.cells[afterIdx]}) +${slipCells}コマ (policy ${currentSlipPolicy.probability * 100}% / max ${currentSlipPolicy.maxCells})`,
+        `[slip] reel${idx} ${beforeIdx}(${engine.strip.cells[beforeIdx]}) → ${afterIdx}(${engine.strip.cells[afterIdx]}) +${slipCells}コマ (mode ${currentSlipPolicy.mode})`,
       );
     }
 
