@@ -642,6 +642,41 @@ body {
   letter-spacing: 1px;
 }
 
+.zukan-stats {
+  background: rgba(255, 215, 0, 0.04);
+  border: 1px solid rgba(255, 215, 0, 0.25);
+  border-radius: 6px;
+  padding: 8px 12px;
+  margin-bottom: 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.zukan-stats-row {
+  display: flex;
+  justify-content: space-between;
+  font-size: 12px;
+  letter-spacing: 1px;
+}
+
+.zukan-stats-row span:first-child {
+  color: #aaa;
+}
+
+.zukan-stats-row span:last-child {
+  color: #fff;
+  font-weight: bold;
+}
+
+.zukan-stats-row span.positive {
+  color: #66ff88;
+}
+
+.zukan-stats-row span.negative {
+  color: #ff7777;
+}
+
 .zukan-list {
   overflow-y: auto;
   flex: 1;

@@ -12,6 +12,8 @@ import {
 } from './productions/EffectScheduler';
 import { BonusZone } from './productions/BonusZone';
 import { SfxEngine } from './audio/SfxEngine';
+import { TenpaiDetector } from './productions/TenpaiDetector';
+import { PlayStats } from './productions/PlayStats';
 import { JinState } from './productions/JinState';
 import { JinView } from './render/JinView';
 import { EffectVisual } from './render/EffectVisual';
@@ -82,11 +84,13 @@ async function bootstrap() {
   const jinState = new JinState();
   const quizState = new QuizState();
   const quizOverlay = new QuizOverlay(quizState);
-  const zukanState = new ZukanState(yakuList);
-  const zukanOverlay = new ZukanOverlay(zukanState, yakuList);
   const slipResolver = new SlipResolver(yakuList);
   const bonusZone = new BonusZone();
   const sfx = new SfxEngine();
+  const tenpaiDetector = new TenpaiDetector(yakuList);
+  const playStats = new PlayStats();
+  const zukanState = new ZukanState(yakuList);
+  const zukanOverlay = new ZukanOverlay(zukanState, yakuList, playStats);
   // 現在の滑り方針。BET時に確定し、レバー時点ではすでに固まっている
   let currentSlipPolicy: SlipPolicy = SLIP_NONE;
 
@@ -159,7 +163,7 @@ async function bootstrap() {
   app.ticker.add(() => {
     const now = performance.now();
     for (const engine of engines) engine.tick(now);
-    for (const view of views) view.update();
+    for (const view of views) view.update(now);
     jinView.update(now);
     effectVisual.update();
   });
@@ -277,6 +281,7 @@ async function bootstrap() {
   const resetForNextSpin = () => {
     betPlaced = false;
     for (const engine of engines) engine.reset();
+    for (const v of views) v.stopTenpaiFlash();
     quizState.reset();
     clearAllBitaBadges();
     applyEffect('none');
@@ -400,13 +405,24 @@ async function bootstrap() {
       sfx.stop();
     }
     flashButton(stopBtns[idx]);
-    // 検証用：滑りが発生したスピンだけ詳しく出す
-    if (slipCells > 0) {
-      const beforeIdx = basePos;
-      const afterIdx = ((Math.round(engine.position) % total) + total) % total;
-      console.log(
-        `[slip] reel${idx} ${beforeIdx}(${engine.strip.cells[beforeIdx]}) → ${afterIdx}(${engine.strip.cells[afterIdx]}) +${slipCells}コマ (mode ${currentSlipPolicy.mode})`,
-      );
+
+    // 第2停止後：テンパイ検出 → 残ったリールを減速＆枠フラッシュ＆SE
+    const stoppedNow = engines.map((e) => {
+      if (e.state.get() !== 'stopped') return null;
+      const t = e.strip.cells.length;
+      const ci = ((Math.round(e.position) % t) + t) % t;
+      return e.strip.cells[ci];
+    });
+    if (stoppedNow.filter((s) => s !== null).length === 2) {
+      const tenpai = tenpaiDetector.detect(stoppedNow);
+      if (tenpai) {
+        const targetEngine = engines[tenpai.missingReelIndex];
+        const slowed = Math.max(6, targetEngine.currentSpeed * 0.55);
+        targetEngine.setSpeed(slowed);
+        views[tenpai.missingReelIndex].startTenpaiFlash(tenpai.hasPremium);
+        if (tenpai.hasPremium) sfx.tenpaiPremium();
+        else sfx.tenpai();
+      }
     }
 
     if (engines.every((e) => e.state.get() === 'stopped')) {
@@ -420,25 +436,32 @@ async function bootstrap() {
       const win = calc.calc(result.yaku, bonusZone.isActive());
       if (win > 0) wallet.win(win);
 
+      const isPremium = result.yaku?.category === 'premium';
+      playStats.recordSpin({
+        bet: calc.bet,
+        win,
+        hit: result.yaku !== null,
+        premium: isPremium,
+        bonusTriggered: isPremium,
+      });
+
       if (result.yaku) {
-        const cls = result.yaku.category === 'premium' ? 'premium' : 'win';
+        const cls = isPremium ? 'premium' : 'win';
         const bonusTag = bonusZone.isActive() ? ' ×BONUS' : '';
         showResult(`${result.yaku.name}！ +${win}${bonusTag}`, cls);
         jinState.set('cheer');
         zukanState.record(result.yaku.id);
         // プレミアム成立でボーナス突入（active 中なら残り回数リセット＝おかわり）
-        if (result.yaku.category === 'premium') {
+        if (isPremium) {
           bonusZone.trigger();
           sfx.bonusEnter();
         } else {
           sfx.winCore();
         }
-        console.log('[result]', result.yaku.name, `+${win}${bonusTag}`);
       } else {
         showResult(`はずれ (${symbols.join('')})`, 'none');
         jinState.set('miss');
         sfx.miss();
-        console.log('[result] miss', symbols.join(''));
       }
 
       window.setTimeout(resetForNextSpin, 1200);

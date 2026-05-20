@@ -1,0 +1,93 @@
+import { Observable } from '../lib/Observable';
+
+/**
+ * プレイ統計。スピン回数や収支を localStorage に永続化する。
+ * 図鑑モーダルから参照されることを想定。
+ */
+
+const STORAGE_KEY = 'mojislot.stats.v1';
+
+export interface Stats {
+  spinCount: number;
+  hitCount: number;
+  totalBet: number;
+  totalWin: number;
+  maxWin: number;
+  premiumCount: number;
+  bonusCount: number;
+}
+
+const INITIAL: Stats = {
+  spinCount: 0,
+  hitCount: 0,
+  totalBet: 0,
+  totalWin: 0,
+  maxWin: 0,
+  premiumCount: 0,
+  bonusCount: 0,
+};
+
+export class PlayStats {
+  readonly stats = new Observable<Stats>(INITIAL);
+
+  constructor() {
+    this.stats.set(this.load());
+  }
+
+  recordSpin(params: {
+    bet: number;
+    win: number;
+    hit: boolean;
+    premium: boolean;
+    bonusTriggered: boolean;
+  }): void {
+    const prev = this.stats.get();
+    const next: Stats = {
+      spinCount: prev.spinCount + 1,
+      hitCount: prev.hitCount + (params.hit ? 1 : 0),
+      totalBet: prev.totalBet + params.bet,
+      totalWin: prev.totalWin + params.win,
+      maxWin: Math.max(prev.maxWin, params.win),
+      premiumCount: prev.premiumCount + (params.premium ? 1 : 0),
+      bonusCount: prev.bonusCount + (params.bonusTriggered ? 1 : 0),
+    };
+    this.stats.set(next);
+    this.save(next);
+  }
+
+  reset(): void {
+    this.stats.set(INITIAL);
+    this.save(INITIAL);
+  }
+
+  /** 役成立率 (%) */
+  hitRate(): number {
+    const s = this.stats.get();
+    return s.spinCount === 0 ? 0 : (s.hitCount / s.spinCount) * 100;
+  }
+
+  /** 収支（純損益） */
+  netGain(): number {
+    const s = this.stats.get();
+    return s.totalWin - s.totalBet;
+  }
+
+  private load(): Stats {
+    try {
+      const raw = localStorage.getItem(STORAGE_KEY);
+      if (!raw) return INITIAL;
+      const parsed = JSON.parse(raw);
+      return { ...INITIAL, ...parsed };
+    } catch {
+      return INITIAL;
+    }
+  }
+
+  private save(stats: Stats): void {
+    try {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(stats));
+    } catch {
+      // 容量上限等は黙殺
+    }
+  }
+}
