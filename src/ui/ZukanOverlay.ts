@@ -3,6 +3,10 @@ import type { YakuList } from '../data/schemas';
 import type { PlayStats } from '../productions/PlayStats';
 import type { CoinWallet } from '../core/CoinWallet';
 import { CHAPTERS, setCurrentChapterId } from '../data/chapters';
+import {
+  CHALLENGES,
+  type ChallengeTracker,
+} from '../productions/Challenges';
 
 /**
  * 開発時に手動で演出を発動するためのアクション集合。
@@ -28,6 +32,7 @@ export class ZukanOverlay {
   private readonly listEl: HTMLElement;
   private readonly summaryEl: HTMLElement;
   private readonly statsEl: HTMLElement;
+  private readonly missionsListEl: HTMLElement;
   private visible = false;
 
   private debugActions: DebugActions | null = null;
@@ -39,6 +44,7 @@ export class ZukanOverlay {
     private readonly wallet: CoinWallet,
     private readonly initialCoins: number,
     private readonly currentChapterId: string,
+    private readonly challengeTracker: ChallengeTracker,
   ) {
     const root = document.getElementById('zukan-overlay');
     if (!root) throw new Error('#zukan-overlay not found');
@@ -56,6 +62,10 @@ export class ZukanOverlay {
         </div>
         <div class="zukan-summary"></div>
         <div class="zukan-stats"></div>
+        <div class="zukan-missions">
+          <div class="zukan-missions-label">ミッション</div>
+          <div class="zukan-missions-list"></div>
+        </div>
         <div class="zukan-chapters">
           <div class="zukan-chapters-label">章を選択（切替するとリロード）</div>
           <div class="zukan-chapters-list">${chapterButtons}</div>
@@ -83,6 +93,7 @@ export class ZukanOverlay {
     `;
     this.summaryEl = this.root.querySelector('.zukan-summary')!;
     this.statsEl = this.root.querySelector('.zukan-stats')!;
+    this.missionsListEl = this.root.querySelector('.zukan-missions-list')!;
     this.listEl = this.root.querySelector('.zukan-list')!;
     const closeBtn = this.root.querySelector<HTMLButtonElement>('.zukan-close')!;
     closeBtn.addEventListener('click', () => this.close());
@@ -93,9 +104,10 @@ export class ZukanOverlay {
     });
     const resetAllBtn = this.root.querySelector<HTMLButtonElement>('.reset-all')!;
     resetAllBtn.addEventListener('click', () => {
-      if (!window.confirm('図鑑・統計・コインを全てリセットしますか？')) return;
+      if (!window.confirm('図鑑・統計・ミッション・コインを全てリセットしますか？')) return;
       this.state.reset();
       this.playStats.reset();
+      this.challengeTracker.reset();
       this.wallet.reset(this.initialCoins);
     });
 
@@ -156,6 +168,9 @@ export class ZukanOverlay {
       if (this.visible) this.render();
     });
     playStats.stats.subscribe(() => {
+      if (this.visible) this.render();
+    });
+    challengeTracker.achieved.subscribe(() => {
       if (this.visible) this.render();
     });
 
@@ -234,5 +249,40 @@ export class ZukanOverlay {
     this.listEl.innerHTML =
       renderSection('プレミアム役', this.yakuList.premiumYaku, 'premium') +
       renderSection('コア役', this.yakuList.coreYaku, 'core');
+
+    // ミッション一覧
+    const stats = this.playStats.stats.get();
+    const bitaCount = this.state.bitaCount.get();
+    const zukanCounts = this.state.counts.get();
+    const ctx = {
+      stats,
+      bitaCount,
+      zukanCounts,
+      yakuList: this.yakuList,
+    };
+    const achievedSet = this.challengeTracker.achieved.get();
+    this.missionsListEl.innerHTML = CHALLENGES.map((c) => {
+      const done = achievedSet.has(c.id);
+      const prog = c.progress?.(ctx);
+      const progText = prog ? `${prog.current} / ${prog.target}` : '';
+      return `
+        <div class="mission-row ${done ? 'done' : ''}">
+          <div>
+            <div class="mission-title">${escapeHtml(c.title)}</div>
+            <div class="mission-desc">${escapeHtml(c.description)}</div>
+            ${progText ? `<div class="mission-progress">${progText}</div>` : ''}
+          </div>
+          <div class="mission-reward">+${c.reward}</div>
+        </div>
+      `;
+    }).join('');
   }
+}
+
+function escapeHtml(s: string): string {
+  return s
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;');
 }
