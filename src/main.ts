@@ -11,6 +11,7 @@ import {
   type EffectType,
 } from './productions/EffectScheduler';
 import { BonusZone } from './productions/BonusZone';
+import { SfxEngine } from './audio/SfxEngine';
 import { JinState } from './productions/JinState';
 import { JinView } from './render/JinView';
 import { EffectVisual } from './render/EffectVisual';
@@ -85,6 +86,7 @@ async function bootstrap() {
   const zukanOverlay = new ZukanOverlay(zukanState, yakuList);
   const slipResolver = new SlipResolver(yakuList);
   const bonusZone = new BonusZone();
+  const sfx = new SfxEngine();
   // 現在の滑り方針。BET時に確定し、レバー時点ではすでに固まっている
   let currentSlipPolicy: SlipPolicy = SLIP_NONE;
 
@@ -181,6 +183,7 @@ async function bootstrap() {
   const bitaTimers: (number | null)[] = [null, null, null];
   const bonusStatusEl = requireEl('bonus-status');
   const cabinetEl = requireEl('cabinet');
+  const muteBtn = requireEl<HTMLButtonElement>('mute-btn');
 
   betTextEl.textContent = `Bet: ${calc.bet}`;
   const effectStatusEl = requireEl('effect-status');
@@ -201,6 +204,7 @@ async function bootstrap() {
       effectStatusEl.classList.add('shisa');
       jinState.set('shisa');
       currentSlipPolicy = SLIP_SHISA;
+      sfx.shisa();
     } else if (effect === 'quiz') {
       effectStatusEl.textContent = 'クイズ補助';
       effectStatusEl.classList.add('quiz');
@@ -208,6 +212,7 @@ async function bootstrap() {
       quizState.start(pickRandomQuiz(), yakuList);
       // クイズは正解判定後に SLIP_QUIZ_CORRECT に上書きされる
       currentSlipPolicy = SLIP_NONE;
+      sfx.quiz();
     } else {
       effectStatusEl.textContent = '通常';
       jinState.set('idle');
@@ -321,10 +326,12 @@ async function bootstrap() {
 
   const placeBet = () => {
     if (betBtn.disabled) return;
+    sfx.init(); // user gesture でオーディオ起動
     if (!wallet.bet(calc.bet)) return;
     betPlaced = true;
     resultEl.classList.remove('visible');
     flashButton(betBtn);
+    sfx.bet();
     // ボーナス中は演出レートを上昇＆残り回数を1消費
     if (bonusZone.isActive()) {
       scheduler.setRates(bonusZone.config.bonusEffectRates);
@@ -340,6 +347,7 @@ async function bootstrap() {
     if (leverBtn.disabled) return;
     if (!betPlaced) return;
     // 未回答クイズはタイムアウト扱い → 正解時のみ追加減速＆強い引き込み
+    // 正解/不正解SE は quizState.phase.subscribe で一括して鳴らす
     quizState.finalizeIfUnanswered();
     if (quizState.isCorrect()) {
       for (const engine of engines) engine.setSpeed(QUIZ_BONUS_SPEED);
@@ -349,8 +357,15 @@ async function bootstrap() {
     quizOverlay.dismiss();
     for (const engine of engines) engine.spin();
     flashButton(leverBtn);
+    sfx.lever();
     updateButtons();
   };
+
+  // クイズの回答結果（クリック/キー）でも即座にSE
+  quizState.phase.subscribe((phase) => {
+    if (phase === 'correct') sfx.quizCorrect();
+    else if (phase === 'wrong') sfx.quizWrong();
+  });
 
   const stopReel = (idx: number, timestamp: number) => {
     if (idx < 0 || idx >= REEL_COUNT) return;
@@ -378,7 +393,12 @@ async function bootstrap() {
 
     const result = engine.stop(timestamp, slipCells);
     showBitaBadge(idx, result.errorMs);
-    if (result.errorMs <= BITA_MS) zukanState.recordBita();
+    if (result.errorMs <= BITA_MS) {
+      zukanState.recordBita();
+      sfx.bita();
+    } else {
+      sfx.stop();
+    }
     flashButton(stopBtns[idx]);
     // 検証用：滑りが発生したスピンだけ詳しく出す
     if (slipCells > 0) {
@@ -409,11 +429,15 @@ async function bootstrap() {
         // プレミアム成立でボーナス突入（active 中なら残り回数リセット＝おかわり）
         if (result.yaku.category === 'premium') {
           bonusZone.trigger();
+          sfx.bonusEnter();
+        } else {
+          sfx.winCore();
         }
         console.log('[result]', result.yaku.name, `+${win}${bonusTag}`);
       } else {
         showResult(`はずれ (${symbols.join('')})`, 'none');
         jinState.set('miss');
+        sfx.miss();
         console.log('[result] miss', symbols.join(''));
       }
 
@@ -429,6 +453,22 @@ async function bootstrap() {
   });
 
   zukanBtn.addEventListener('click', () => zukanOverlay.toggle());
+
+  const updateMuteUI = () => {
+    if (sfx.isMuted()) {
+      muteBtn.textContent = '🔇';
+      muteBtn.classList.add('muted');
+    } else {
+      muteBtn.textContent = '♪';
+      muteBtn.classList.remove('muted');
+    }
+  };
+  muteBtn.addEventListener('click', () => {
+    sfx.init();
+    sfx.toggleMute();
+    updateMuteUI();
+  });
+  updateMuteUI();
 
   // === リール配列パネル（筐体右） ===
   const stripColumns = Array.from(
@@ -510,6 +550,13 @@ async function bootstrap() {
     if (key === 'z') {
       ev.preventDefault();
       zukanOverlay.toggle();
+      return;
+    }
+    if (key === 'm') {
+      ev.preventDefault();
+      sfx.init();
+      sfx.toggleMute();
+      updateMuteUI();
       return;
     }
   });
