@@ -15,6 +15,10 @@ export interface Stats {
   maxWin: number;
   premiumCount: number;
   bonusCount: number;
+  /** 現在の連続成立数（ハズレで 0 にリセット） */
+  streak: number;
+  /** これまでの最大連続成立数 */
+  maxStreak: number;
 }
 
 const INITIAL: Stats = {
@@ -25,6 +29,8 @@ const INITIAL: Stats = {
   maxWin: 0,
   premiumCount: 0,
   bonusCount: 0,
+  streak: 0,
+  maxStreak: 0,
 };
 
 export class PlayStats {
@@ -42,6 +48,7 @@ export class PlayStats {
     bonusTriggered: boolean;
   }): void {
     const prev = this.stats.get();
+    const newStreak = params.hit ? prev.streak + 1 : 0;
     const next: Stats = {
       spinCount: prev.spinCount + 1,
       hitCount: prev.hitCount + (params.hit ? 1 : 0),
@@ -50,6 +57,8 @@ export class PlayStats {
       maxWin: Math.max(prev.maxWin, params.win),
       premiumCount: prev.premiumCount + (params.premium ? 1 : 0),
       bonusCount: prev.bonusCount + (params.bonusTriggered ? 1 : 0),
+      streak: newStreak,
+      maxStreak: Math.max(prev.maxStreak, newStreak),
     };
     this.stats.set(next);
     this.save(next);
