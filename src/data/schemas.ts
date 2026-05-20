@@ -45,3 +45,18 @@ export const PayoutSchema = z.object({
 });
 
 export type Payout = z.infer<typeof PayoutSchema>;
+
+export const QuizSchema = z.object({
+  id: z.string(),
+  question: z.string(),
+  choices: z.array(z.string()).length(4),
+  correctIndex: z.number().int().min(0).max(3),
+});
+
+export const QuizListSchema = z.object({
+  mode: z.string(),
+  quizzes: z.array(QuizSchema).min(1),
+});
+
+export type Quiz = z.infer<typeof QuizSchema>;
+export type QuizList = z.infer<typeof QuizListSchema>;

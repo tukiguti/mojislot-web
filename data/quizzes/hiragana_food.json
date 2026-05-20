@@ -1,0 +1,71 @@
+{
+  "mode": "hiragana_food",
+  "quizzes": [
+    {
+      "id": "q_ichigo",
+      "question": "「いちご」の真ん中の文字は？",
+      "choices": ["し", "ち", "に", "ひ"],
+      "correctIndex": 1
+    },
+    {
+      "id": "q_mikan",
+      "question": "「みかん」の真ん中の文字は？",
+      "choices": ["き", "が", "か", "の"],
+      "correctIndex": 2
+    },
+    {
+      "id": "q_suika",
+      "question": "「すいか」の最後の文字は？",
+      "choices": ["か", "が", "き", "く"],
+      "correctIndex": 0
+    },
+    {
+      "id": "q_wakame",
+      "question": "「わかめ」の最初の文字は？",
+      "choices": ["は", "わ", "ば", "ま"],
+      "correctIndex": 1
+    },
+    {
+      "id": "q_unagi",
+      "question": "「うなぎ」の真ん中の文字は？",
+      "choices": ["な", "に", "ね", "の"],
+      "correctIndex": 0
+    },
+    {
+      "id": "q_maguro",
+      "question": "「まぐろ」の最後の文字は？",
+      "choices": ["る", "ら", "ろ", "れ"],
+      "correctIndex": 2
+    },
+    {
+      "id": "q_gohan",
+      "question": "「ごはん」の真ん中の文字は？",
+      "choices": ["ば", "ぱ", "は", "ま"],
+      "correctIndex": 2
+    },
+    {
+      "id": "q_monaka",
+      "question": "「もなか」の最初の文字は？",
+      "choices": ["ま", "も", "む", "め"],
+      "correctIndex": 1
+    },
+    {
+      "id": "q_purin",
+      "question": "「ぷりん」の最初の文字は？",
+      "choices": ["ぶ", "ぷ", "ふ", "へ"],
+      "correctIndex": 1
+    },
+    {
+      "id": "q_ocha",
+      "question": "「おちゃ」の最後の文字は？",
+      "choices": ["や", "ゃ", "よ", "ょ"],
+      "correctIndex": 1
+    },
+    {
+      "id": "q_sushiya_premium",
+      "question": "【プレミアム】「すしや」を狙うなら左リールは？",
+      "choices": ["し", "や", "す", "つ"],
+      "correctIndex": 2
+    }
+  ]
+}
