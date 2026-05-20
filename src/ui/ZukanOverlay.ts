@@ -28,6 +28,7 @@ export class ZukanOverlay {
     const root = document.getElementById('zukan-overlay');
     if (!root) throw new Error('#zukan-overlay not found');
     this.root = root;
+    const collapsed = ZukanOverlay.loadMissionsCollapsed();
     this.root.innerHTML = `
       <div class="zukan-modal">
         <div class="zukan-header">
@@ -36,8 +37,12 @@ export class ZukanOverlay {
         </div>
         <div class="zukan-summary"></div>
         <div class="zukan-stats"></div>
-        <div class="zukan-missions">
-          <div class="zukan-missions-label">ミッション</div>
+        <div class="zukan-missions${collapsed ? ' collapsed' : ''}">
+          <button class="zukan-missions-header" type="button">
+            <span class="zukan-missions-label">ミッション</span>
+            <span class="zukan-missions-progress"></span>
+            <span class="zukan-missions-toggle">▼</span>
+          </button>
           <div class="zukan-missions-list"></div>
         </div>
         <div class="zukan-list"></div>
@@ -50,6 +55,16 @@ export class ZukanOverlay {
     this.listEl = this.root.querySelector('.zukan-list')!;
     const closeBtn = this.root.querySelector<HTMLButtonElement>('.zukan-close')!;
     closeBtn.addEventListener('click', () => this.close());
+
+    // ミッション折りたたみトグル
+    const missionsEl = this.root.querySelector<HTMLElement>('.zukan-missions')!;
+    const missionsHeader =
+      this.root.querySelector<HTMLButtonElement>('.zukan-missions-header')!;
+    missionsHeader.addEventListener('click', () => {
+      const nowCollapsed = !missionsEl.classList.contains('collapsed');
+      missionsEl.classList.toggle('collapsed', nowCollapsed);
+      ZukanOverlay.saveMissionsCollapsed(nowCollapsed);
+    });
 
     state.counts.subscribe(() => {
       if (this.visible) this.render();
@@ -65,6 +80,30 @@ export class ZukanOverlay {
     });
 
     this.close();
+  }
+
+  private static readonly MISSIONS_COLLAPSED_KEY =
+    'mojislot.zukanMissionsCollapsed.v1';
+
+  static loadMissionsCollapsed(): boolean {
+    try {
+      return (
+        localStorage.getItem(ZukanOverlay.MISSIONS_COLLAPSED_KEY) === '1'
+      );
+    } catch {
+      return false;
+    }
+  }
+
+  static saveMissionsCollapsed(v: boolean): void {
+    try {
+      localStorage.setItem(
+        ZukanOverlay.MISSIONS_COLLAPSED_KEY,
+        v ? '1' : '0',
+      );
+    } catch {
+      /* ignore */
+    }
   }
 
   open(): void {
@@ -147,6 +186,15 @@ export class ZukanOverlay {
       yakuList: this.yakuList,
     };
     const achievedSet = this.challengeTracker.achieved.get();
+
+    // ヘッダー進捗表示
+    const progressEl = this.root.querySelector<HTMLElement>(
+      '.zukan-missions-progress',
+    );
+    if (progressEl) {
+      progressEl.textContent = `${achievedSet.size} / ${CHALLENGES.length}`;
+    }
+
     this.missionsListEl.innerHTML = CHALLENGES.map((c) => {
       const done = achievedSet.has(c.id);
       const prog = c.progress?.(ctx);
@@ -172,3 +220,4 @@ function escapeHtml(s: string): string {
     .replace(/>/g, '&gt;')
     .replace(/"/g, '&quot;');
 }
+

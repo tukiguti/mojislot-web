@@ -331,12 +331,57 @@ body {
   border-radius: 6px;
 }
 
+.zukan-missions-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  width: 100%;
+  padding: 4px 2px;
+  margin-bottom: 6px;
+  background: transparent;
+  border: none;
+  color: inherit;
+  font-family: inherit;
+  cursor: pointer;
+}
+
+.zukan-missions-header:hover {
+  color: #ffd700;
+}
+
 .zukan-missions-label {
   font-size: 11px;
   color: #aaa;
   letter-spacing: 2px;
-  margin-bottom: 6px;
   font-weight: bold;
+  flex: 1;
+  text-align: left;
+}
+
+.zukan-missions-header:hover .zukan-missions-label {
+  color: #ffd700;
+}
+
+.zukan-missions-progress {
+  font-size: 11px;
+  color: #ffd700;
+  letter-spacing: 1px;
+}
+
+.zukan-missions-toggle {
+  font-size: 12px;
+  color: #aaa;
+  transition: transform 0.2s ease;
+  display: inline-block;
+}
+
+.zukan-missions.collapsed .zukan-missions-toggle {
+  transform: rotate(-90deg);
+}
+
+.zukan-missions.collapsed .zukan-missions-list {
+  display: none;
 }
 
 .mission-row {
@@ -1061,17 +1106,8 @@ body.shake {
     inset 0 0 0 2px #2a2418;
   display: flex;
   flex-direction: column;
-  overflow: hidden;
-}
-
-/* モーダル全体をスクロール可能に */
-.zukan-modal > * {
-  flex-shrink: 0;
-}
-
-.zukan-modal .zukan-list {
-  flex: 1 1 auto;
-  min-height: 120px;
+  /* 中身が縦に長くなったらモーダル全体をスクロール（外側のスクロール） */
+  overflow-y: auto;
 }
 
 .zukan-header {
@@ -1161,8 +1197,6 @@ body.shake {
 }
 
 .zukan-list {
-  overflow-y: auto;
-  flex: 1;
   padding-right: 6px;
 }
 
