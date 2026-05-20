@@ -155,6 +155,12 @@ async function bootstrap() {
   );
   const resultEl = requireEl('result-display');
   const zukanBtn = requireEl<HTMLButtonElement>('zukan-btn');
+  const bitaBadges = [
+    requireEl('bita-0'),
+    requireEl('bita-1'),
+    requireEl('bita-2'),
+  ];
+  const bitaTimers: (number | null)[] = [null, null, null];
 
   betTextEl.textContent = `Bet: ${calc.bet}`;
   const effectStatusEl = requireEl('effect-status');
@@ -230,6 +236,7 @@ async function bootstrap() {
     betPlaced = false;
     for (const engine of engines) engine.reset();
     quizState.reset();
+    clearAllBitaBadges();
     applyEffect('none');
     updateButtons();
   };
@@ -237,6 +244,42 @@ async function bootstrap() {
   const flashButton = (btn: HTMLButtonElement) => {
     btn.classList.add('flash');
     window.setTimeout(() => btn.classList.remove('flash'), 100);
+  };
+
+  // ビタ押し判定の閾値（ms）
+  const BITA_MS = 33;
+  const NEAR_MS = 80;
+
+  const showBitaBadge = (idx: number, errorMs: number) => {
+    const badge = bitaBadges[idx];
+    badge.className = 'bita-badge show';
+    if (errorMs <= BITA_MS) {
+      badge.classList.add('bita');
+      badge.textContent = `ビタ！ ${Math.round(errorMs)}ms`;
+    } else if (errorMs <= NEAR_MS) {
+      badge.classList.add('near');
+      badge.textContent = `±${Math.round(errorMs)}ms`;
+    } else {
+      badge.classList.add('far');
+      badge.textContent = `±${Math.round(errorMs)}ms`;
+    }
+    if (bitaTimers[idx] !== null) window.clearTimeout(bitaTimers[idx]!);
+    bitaTimers[idx] = window.setTimeout(() => {
+      badge.className = 'bita-badge';
+      badge.textContent = '';
+      bitaTimers[idx] = null;
+    }, 1500);
+  };
+
+  const clearAllBitaBadges = () => {
+    bitaBadges.forEach((b, i) => {
+      b.className = 'bita-badge';
+      b.textContent = '';
+      if (bitaTimers[i] !== null) {
+        window.clearTimeout(bitaTimers[i]!);
+        bitaTimers[i] = null;
+      }
+    });
   };
 
   const placeBet = () => {
@@ -286,7 +329,9 @@ async function bootstrap() {
       policy: currentSlipPolicy,
     });
 
-    engine.stop(timestamp, slipCells);
+    const result = engine.stop(timestamp, slipCells);
+    showBitaBadge(idx, result.errorMs);
+    if (result.errorMs <= BITA_MS) zukanState.recordBita();
     flashButton(stopBtns[idx]);
 
     if (engines.every((e) => e.state.get() === 'stopped')) {
