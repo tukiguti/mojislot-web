@@ -14,6 +14,8 @@ import { JinView } from './render/JinView';
 import { EffectVisual } from './render/EffectVisual';
 import { QuizState, QUIZ_BONUS_SPEED } from './productions/QuizState';
 import { QuizOverlay } from './ui/QuizOverlay';
+import { ZukanState } from './productions/ZukanState';
+import { ZukanOverlay } from './ui/ZukanOverlay';
 import {
   ReelConfigSchema,
   YakuListSchema,
@@ -60,6 +62,8 @@ async function bootstrap() {
   const jinState = new JinState();
   const quizState = new QuizState();
   const quizOverlay = new QuizOverlay(quizState);
+  const zukanState = new ZukanState(yakuList);
+  const zukanOverlay = new ZukanOverlay(zukanState, yakuList);
 
   // 液晶エリアの土台（演出はあとで重ねる）
   const liquidBg = new Graphics();
@@ -257,6 +261,7 @@ async function bootstrap() {
         const cls = result.yaku.category === 'premium' ? 'premium' : 'win';
         showResult(`${result.yaku.name}！ +${win}`, cls);
         jinState.set('cheer');
+        zukanState.record(result.yaku.id);
         console.log('[result]', result.yaku.name, `+${win}`);
       } else {
         showResult(`はずれ (${symbols.join('')})`, 'none');
@@ -274,6 +279,9 @@ async function bootstrap() {
     const idx = Number(btn.dataset.reel ?? -1);
     btn.addEventListener('pointerdown', (ev) => stopReel(idx, ev.timeStamp));
   });
+
+  const zukanBtn = document.getElementById('zukan-btn') as HTMLButtonElement;
+  zukanBtn.addEventListener('click', () => zukanOverlay.toggle());
 
   for (const engine of engines) {
     engine.state.subscribe(() => updateButtons());
@@ -316,6 +324,11 @@ async function bootstrap() {
     if (key in KEY_TO_REEL) {
       ev.preventDefault();
       stopReel(KEY_TO_REEL[key], ev.timeStamp);
+      return;
+    }
+    if (key === 'z') {
+      ev.preventDefault();
+      zukanOverlay.toggle();
       return;
     }
   });
