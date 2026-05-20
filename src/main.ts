@@ -11,6 +11,7 @@ import {
 } from './productions/EffectScheduler';
 import { JinState } from './productions/JinState';
 import { JinView } from './render/JinView';
+import { EffectVisual } from './render/EffectVisual';
 import {
   ReelConfigSchema,
   YakuListSchema,
@@ -59,6 +60,14 @@ async function bootstrap() {
   liquidBg.fill({ color: 0x101820 });
   app.stage.addChild(liquidBg);
 
+  // 演出ビジュアル（液晶＋リール背景の色味、フラッシュ）
+  const effectVisual = new EffectVisual({
+    width: CANVAS_W,
+    liquidHeight: LIQUID_AREA_H,
+    totalHeight: CANVAS_H,
+  });
+  app.stage.addChild(effectVisual.bgLayer);
+
   // 液晶下端をうっすら明るく（ジンの足元に光を当てたような感じ）
   const liquidFloor = new Graphics();
   liquidFloor.ellipse(CANVAS_W / 2, LIQUID_AREA_H - 8, 180, 24);
@@ -94,11 +103,15 @@ async function bootstrap() {
     views.push(view);
   }
 
+  // フラッシュなどの前景エフェクトはリールの上に重ねる
+  app.stage.addChild(effectVisual.fxLayer);
+
   app.ticker.add(() => {
     const now = performance.now();
     for (const engine of engines) engine.tick(now);
     for (const view of views) view.update();
     jinView.update(now);
+    effectVisual.update();
   });
 
   // === UI 配線 ===
@@ -120,6 +133,7 @@ async function bootstrap() {
   const applyEffect = (effect: EffectType) => {
     const speed = REEL_SPEED_BY_EFFECT[effect];
     for (const engine of engines) engine.setSpeed(speed);
+    effectVisual.apply(effect);
 
     effectStatusEl.classList.remove('shisa', 'quiz');
     if (effect === 'shisa') {
