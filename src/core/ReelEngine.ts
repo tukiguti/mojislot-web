@@ -29,9 +29,14 @@ export class ReelEngine {
     this.speed = Math.max(0, speed);
   }
 
-  stop(pressedAtMs: number): StopResult {
+  /**
+   * @param slipCells 押下位置からの引き込みコマ数（>=0）。SlipResolver が決定する。
+   */
+  stop(pressedAtMs: number, slipCells = 0): StopResult {
     if (this.state.get() === 'spinning') {
-      const snapped = Math.round(this.position) % this.strip.cells.length;
+      const total = this.strip.cells.length;
+      const snapped =
+        (((Math.round(this.position) + slipCells) % total) + total) % total;
       this.position = snapped;
       this.state.set('stopped');
     }
