@@ -13,7 +13,12 @@ export const DEFAULT_RATES: EffectRates = {
 };
 
 export class EffectScheduler {
-  constructor(private readonly rates: EffectRates = DEFAULT_RATES) {}
+  constructor(private rates: EffectRates = DEFAULT_RATES) {}
+
+  /** ボーナスゾーン中などで一時的に rates を切替えるために使う */
+  setRates(rates: EffectRates): void {
+    this.rates = rates;
+  }
 
   roll(): EffectType {
     const r = Math.random();

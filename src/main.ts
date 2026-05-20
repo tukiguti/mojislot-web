@@ -7,8 +7,10 @@ import { CoinWallet } from './core/CoinWallet';
 import {
   EffectScheduler,
   REEL_SPEED_BY_EFFECT,
+  DEFAULT_RATES,
   type EffectType,
 } from './productions/EffectScheduler';
+import { BonusZone } from './productions/BonusZone';
 import { JinState } from './productions/JinState';
 import { JinView } from './render/JinView';
 import { EffectVisual } from './render/EffectVisual';
@@ -81,6 +83,7 @@ async function bootstrap() {
   const zukanState = new ZukanState(yakuList);
   const zukanOverlay = new ZukanOverlay(zukanState, yakuList);
   const slipResolver = new SlipResolver(yakuList);
+  const bonusZone = new BonusZone();
   // 現在の滑り方針。BET時に確定し、レバー時点ではすでに固まっている
   let currentSlipPolicy: SlipPolicy = SLIP_NONE;
 
@@ -161,6 +164,8 @@ async function bootstrap() {
     requireEl('bita-2'),
   ];
   const bitaTimers: (number | null)[] = [null, null, null];
+  const bonusStatusEl = requireEl('bonus-status');
+  const cabinetEl = requireEl('cabinet');
 
   betTextEl.textContent = `Bet: ${calc.bet}`;
   const effectStatusEl = requireEl('effect-status');
@@ -201,6 +206,23 @@ async function bootstrap() {
   };
   updateCoin(wallet.coins.get());
   wallet.coins.subscribe(updateCoin);
+
+  const updateBonusUI = () => {
+    const active = bonusZone.active.get();
+    const remaining = bonusZone.remaining.get();
+    if (active) {
+      bonusStatusEl.hidden = false;
+      bonusStatusEl.textContent = `BONUS 残り${remaining}`;
+      cabinetEl.classList.add('bonus');
+    } else {
+      bonusStatusEl.hidden = true;
+      bonusStatusEl.textContent = '';
+      cabinetEl.classList.remove('bonus');
+    }
+  };
+  bonusZone.active.subscribe(updateBonusUI);
+  bonusZone.remaining.subscribe(updateBonusUI);
+  updateBonusUI();
 
   const updateButtons = () => {
     const allStopped = engines.every((e) => e.state.get() === 'stopped');
@@ -288,7 +310,13 @@ async function bootstrap() {
     betPlaced = true;
     resultEl.classList.remove('visible');
     flashButton(betBtn);
-    // ベット時に演出抽選 → リール速度に反映
+    // ボーナス中は演出レートを上昇＆残り回数を1消費
+    if (bonusZone.isActive()) {
+      scheduler.setRates(bonusZone.config.bonusEffectRates);
+      bonusZone.consumeSpin();
+    } else {
+      scheduler.setRates(DEFAULT_RATES);
+    }
     applyEffect(scheduler.roll());
     updateButtons();
   };
@@ -342,15 +370,20 @@ async function bootstrap() {
       }) as [string, string, string];
 
       const result = judge.judge(symbols);
-      const win = calc.calc(result.yaku);
+      const win = calc.calc(result.yaku, bonusZone.isActive());
       if (win > 0) wallet.win(win);
 
       if (result.yaku) {
         const cls = result.yaku.category === 'premium' ? 'premium' : 'win';
-        showResult(`${result.yaku.name}！ +${win}`, cls);
+        const bonusTag = bonusZone.isActive() ? ' ×BONUS' : '';
+        showResult(`${result.yaku.name}！ +${win}${bonusTag}`, cls);
         jinState.set('cheer');
         zukanState.record(result.yaku.id);
-        console.log('[result]', result.yaku.name, `+${win}`);
+        // プレミアム成立でボーナス突入（active 中なら残り回数リセット＝おかわり）
+        if (result.yaku.category === 'premium') {
+          bonusZone.trigger();
+        }
+        console.log('[result]', result.yaku.name, `+${win}${bonusTag}`);
       } else {
         showResult(`はずれ (${symbols.join('')})`, 'none');
         jinState.set('miss');
