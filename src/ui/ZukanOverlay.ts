@@ -1,11 +1,12 @@
 import type { ZukanState } from '../productions/ZukanState';
 import type { YakuList } from '../data/schemas';
 import type { PlayStats } from '../productions/PlayStats';
+import type { CoinWallet } from '../core/CoinWallet';
 
 /**
  * 図鑑モーダル。`Z` キーまたは外部 toggle() で開閉。
  * 未達成役は「？？？」でマスクし、達成数を併記する。
- * プレイ統計（PlayStats）も併せて表示する。
+ * プレイ統計（PlayStats）と、リセット操作も併せて提供する。
  */
 export class ZukanOverlay {
   private readonly root: HTMLElement;
@@ -18,6 +19,8 @@ export class ZukanOverlay {
     private readonly state: ZukanState,
     private readonly yakuList: YakuList,
     private readonly playStats: PlayStats,
+    private readonly wallet: CoinWallet,
+    private readonly initialCoins: number,
   ) {
     const root = document.getElementById('zukan-overlay');
     if (!root) throw new Error('#zukan-overlay not found');
@@ -31,6 +34,10 @@ export class ZukanOverlay {
         <div class="zukan-summary"></div>
         <div class="zukan-stats"></div>
         <div class="zukan-list"></div>
+        <div class="zukan-reset">
+          <button class="reset-coin" type="button">コインを${this.initialCoins}に戻す</button>
+          <button class="reset-all" type="button">全データをリセット</button>
+        </div>
         <div class="zukan-hint">[Z] で閉じる</div>
       </div>
     `;
@@ -39,6 +46,18 @@ export class ZukanOverlay {
     this.listEl = this.root.querySelector('.zukan-list')!;
     const closeBtn = this.root.querySelector<HTMLButtonElement>('.zukan-close')!;
     closeBtn.addEventListener('click', () => this.close());
+
+    const resetCoinBtn = this.root.querySelector<HTMLButtonElement>('.reset-coin')!;
+    resetCoinBtn.addEventListener('click', () => {
+      this.wallet.reset(this.initialCoins);
+    });
+    const resetAllBtn = this.root.querySelector<HTMLButtonElement>('.reset-all')!;
+    resetAllBtn.addEventListener('click', () => {
+      if (!window.confirm('図鑑・統計・コインを全てリセットしますか？')) return;
+      this.state.reset();
+      this.playStats.reset();
+      this.wallet.reset(this.initialCoins);
+    });
 
     state.counts.subscribe(() => {
       if (this.visible) this.render();

@@ -21,4 +21,8 @@ export class CoinWallet {
     if (amount <= 0) return;
     this.coins.set(this.coins.get() + amount);
   }
+
+  reset(amount: number): void {
+    this.coins.set(amount);
+  }
 }

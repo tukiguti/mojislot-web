@@ -93,7 +93,13 @@ async function bootstrap() {
   const nearMissDetector = new NearMissDetector(yakuList);
   const playStats = new PlayStats();
   const zukanState = new ZukanState(yakuList);
-  const zukanOverlay = new ZukanOverlay(zukanState, yakuList, playStats);
+  const zukanOverlay = new ZukanOverlay(
+    zukanState,
+    yakuList,
+    playStats,
+    wallet,
+    payout.initialCoins,
+  );
   // 現在の滑り方針。BET時に確定し、レバー時点ではすでに固まっている
   let currentSlipPolicy: SlipPolicy = SLIP_NONE;
 
@@ -463,6 +469,7 @@ async function bootstrap() {
     } else {
       sfx.stop();
     }
+    views[idx].triggerStopBounce();
     flashButton(stopBtns[idx]);
 
     // 第2停止後：テンパイ検出 → 残ったリールを減速＆枠フラッシュ＆SE
@@ -606,10 +613,37 @@ async function bootstrap() {
       });
     });
   };
+
+  // クイズ正解時、リール配列にターゲット文字を緑強調表示する
+  const allYakusFlat = [
+    ...yakuList.coreYaku,
+    ...yakuList.premiumYaku,
+    ...yakuList.bonusYaku,
+  ];
+  const updateStripTargetHighlight = () => {
+    const targetYakuId = quizState.targetYakuId();
+    const yaku = targetYakuId
+      ? allYakusFlat.find((y) => y.id === targetYakuId)
+      : null;
+    stripColumns.forEach((col, idx) => {
+      const targetSymbol = yaku?.symbols[idx] ?? null;
+      const cells = col.querySelectorAll<HTMLElement>('.strip-cell');
+      cells.forEach((cell) => {
+        if (targetSymbol && cell.textContent === targetSymbol) {
+          cell.classList.add('target');
+        } else {
+          cell.classList.remove('target');
+        }
+      });
+    });
+  };
+
   for (const engine of engines) {
     engine.state.subscribe(updateStripHighlight);
   }
+  quizState.phase.subscribe(updateStripTargetHighlight);
   updateStripHighlight();
+  updateStripTargetHighlight();
 
   for (const engine of engines) {
     engine.state.subscribe(() => updateButtons());
