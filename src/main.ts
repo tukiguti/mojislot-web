@@ -330,6 +330,8 @@ async function bootstrap() {
       for (const engine of engines) engine.setSpeed(QUIZ_BONUS_SPEED);
       currentSlipPolicy = SLIP_QUIZ_CORRECT;
     }
+    // レバー押下でクイズUIは確実に閉じる（リールが見えるように）
+    quizOverlay.dismiss();
     for (const engine of engines) engine.spin();
     flashButton(leverBtn);
     updateButtons();

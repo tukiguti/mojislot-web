@@ -9,6 +9,11 @@ export class QuizOverlay {
   private readonly questionEl: HTMLElement;
   private readonly choicesEl: HTMLElement;
   private readonly resultEl: HTMLElement;
+  /** 回答後にモーダルを自動で閉じるためのタイマー */
+  private dismissTimer: number | null = null;
+
+  /** 回答後の自動クローズまでの遅延（ms） */
+  private static readonly AUTO_DISMISS_MS = 1200;
 
   constructor(private readonly state: QuizState) {
     const root = document.getElementById('quiz-overlay');
@@ -30,6 +35,7 @@ export class QuizOverlay {
 
   private render(phase: ReturnType<QuizState['phase']['get']>): void {
     if (phase === 'inactive') {
+      this.cancelDismiss();
       this.root.hidden = true;
       this.resultEl.textContent = '';
       this.resultEl.className = 'quiz-result';
@@ -39,6 +45,8 @@ export class QuizOverlay {
     const quiz = this.state.current.get();
     if (!quiz) return;
 
+    // 新たに asking 状態に入る時は前回の自動クローズタイマーをキャンセル
+    this.cancelDismiss();
     this.root.hidden = false;
     this.questionEl.textContent = quiz.question;
 
@@ -69,7 +77,25 @@ export class QuizOverlay {
         this.resultEl.textContent = `不正解… 正解は「${quiz.choices[quiz.correctIndex]}」`;
         this.resultEl.classList.add('wrong');
       }
+      // 結果を見せた後はモーダル本体を自動で閉じる（QuizState の phase 自体は次の reset まで保持）
+      this.dismissTimer = window.setTimeout(() => {
+        this.root.hidden = true;
+        this.dismissTimer = null;
+      }, QuizOverlay.AUTO_DISMISS_MS);
     }
+  }
+
+  private cancelDismiss(): void {
+    if (this.dismissTimer !== null) {
+      window.clearTimeout(this.dismissTimer);
+      this.dismissTimer = null;
+    }
+  }
+
+  /** 外部から強制的にモーダルを閉じる（pullLever 時の安全策など） */
+  dismiss(): void {
+    this.cancelDismiss();
+    this.root.hidden = true;
   }
 
   /** キー入力で 1〜4 を回答に流す。inactive/asking 以外では何もしない */
