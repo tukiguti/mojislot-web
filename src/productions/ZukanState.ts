@@ -9,7 +9,7 @@ import type { YakuList } from '../data/schemas';
  * 永続化処理は load()/save() に閉じてある。
  */
 
-const STORAGE_KEY = 'mojislot.zukan.v1';
+const STORAGE_KEY_PREFIX = 'mojislot.zukan.v1';
 const BITA_KEY = 'mojislot.bita.v1';
 
 export type ZukanCounts = Readonly<Record<string, number>>;
@@ -17,10 +17,30 @@ export type ZukanCounts = Readonly<Record<string, number>>;
 export class ZukanState {
   readonly counts = new Observable<ZukanCounts>({});
   readonly bitaCount = new Observable<number>(0);
+  private readonly storageKey: string;
 
-  constructor(private readonly yakuList: YakuList) {
+  constructor(
+    private readonly yakuList: YakuList,
+    chapterId: string,
+  ) {
+    this.storageKey = `${STORAGE_KEY_PREFIX}.${chapterId}`;
+    this.migrateLegacyIfNeeded(chapterId);
     this.counts.set(this.load());
     this.bitaCount.set(this.loadBita());
+  }
+
+  /** 旧キー（章なし）が残っていたら hiragana_food に1回だけ移行 */
+  private migrateLegacyIfNeeded(chapterId: string): void {
+    if (chapterId !== 'hiragana_food') return;
+    try {
+      const legacy = localStorage.getItem(STORAGE_KEY_PREFIX);
+      if (legacy && !localStorage.getItem(this.storageKey)) {
+        localStorage.setItem(this.storageKey, legacy);
+        localStorage.removeItem(STORAGE_KEY_PREFIX);
+      }
+    } catch {
+      /* ignore */
+    }
   }
 
   record(yakuId: string): void {
@@ -81,7 +101,7 @@ export class ZukanState {
 
   private load(): ZukanCounts {
     try {
-      const raw = localStorage.getItem(STORAGE_KEY);
+      const raw = localStorage.getItem(this.storageKey);
       if (!raw) return {};
       const parsed = JSON.parse(raw);
       if (typeof parsed !== 'object' || parsed === null) return {};
@@ -99,7 +119,7 @@ export class ZukanState {
 
   private save(counts: ZukanCounts): void {
     try {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(counts));
+      localStorage.setItem(this.storageKey, JSON.stringify(counts));
     } catch {
       // QuotaExceeded など。図鑑が失われるだけなので握りつぶす
     }
