@@ -9,6 +9,8 @@ export interface StopResult {
   position: number;
   centerSymbol: string;
   pressedAtMs: number;
+  /** 押下位置と中心セルとのズレ（絶対値, ms 換算）。0 に近いほどビタ押し */
+  errorMs: number;
 }
 
 export class ReelEngine {
@@ -35,10 +37,19 @@ export class ReelEngine {
   stop(pressedAtMs: number, slipCells = 0): StopResult {
     if (this.state.get() === 'spinning') {
       const total = this.strip.cells.length;
+      const rawPos = this.position;
+      const errorCells = Math.abs(rawPos - Math.round(rawPos));
+      const errorMs = this.speed > 0 ? (errorCells * 1000) / this.speed : 0;
       const snapped =
-        (((Math.round(this.position) + slipCells) % total) + total) % total;
+        (((Math.round(rawPos) + slipCells) % total) + total) % total;
       this.position = snapped;
       this.state.set('stopped');
+      return {
+        position: snapped,
+        centerSymbol: this.strip.cells[snapped],
+        pressedAtMs,
+        errorMs,
+      };
     }
     return this.snapshot(pressedAtMs);
   }
@@ -70,6 +81,7 @@ export class ReelEngine {
       position: this.position,
       centerSymbol: this.strip.cells[idx],
       pressedAtMs,
+      errorMs: 0,
     };
   }
 }

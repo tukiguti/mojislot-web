@@ -10,14 +10,17 @@ import type { YakuList } from '../data/schemas';
  */
 
 const STORAGE_KEY = 'mojislot.zukan.v1';
+const BITA_KEY = 'mojislot.bita.v1';
 
 export type ZukanCounts = Readonly<Record<string, number>>;
 
 export class ZukanState {
   readonly counts = new Observable<ZukanCounts>({});
+  readonly bitaCount = new Observable<number>(0);
 
   constructor(private readonly yakuList: YakuList) {
     this.counts.set(this.load());
+    this.bitaCount.set(this.loadBita());
   }
 
   record(yakuId: string): void {
@@ -25,6 +28,27 @@ export class ZukanState {
     const next: ZukanCounts = { ...prev, [yakuId]: (prev[yakuId] ?? 0) + 1 };
     this.counts.set(next);
     this.save(next);
+  }
+
+  recordBita(): void {
+    const next = this.bitaCount.get() + 1;
+    this.bitaCount.set(next);
+    try {
+      localStorage.setItem(BITA_KEY, String(next));
+    } catch {
+      /* 握りつぶし */
+    }
+  }
+
+  private loadBita(): number {
+    try {
+      const raw = localStorage.getItem(BITA_KEY);
+      if (!raw) return 0;
+      const n = Number(raw);
+      return Number.isFinite(n) && n >= 0 ? Math.floor(n) : 0;
+    } catch {
+      return 0;
+    }
   }
 
   /** 各カテゴリの達成率（％、四捨五入）を返す */
@@ -47,6 +71,12 @@ export class ZukanState {
   reset(): void {
     this.counts.set({});
     this.save({});
+    this.bitaCount.set(0);
+    try {
+      localStorage.removeItem(BITA_KEY);
+    } catch {
+      /* 握りつぶし */
+    }
   }
 
   private load(): ZukanCounts {

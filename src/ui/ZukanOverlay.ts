@@ -37,6 +37,9 @@ export class ZukanOverlay {
     state.counts.subscribe(() => {
       if (this.visible) this.render();
     });
+    state.bitaCount.subscribe(() => {
+      if (this.visible) this.render();
+    });
 
     this.close();
   }
@@ -61,9 +64,10 @@ export class ZukanOverlay {
     const counts = this.state.counts.get();
     const rate = this.state.completionRate();
 
+    const bita = this.state.bitaCount.get();
     this.summaryEl.innerHTML = `
       <span class="zukan-rate">達成率: <strong>${rate.total}%</strong></span>
-      <span class="zukan-rate-sub">コア ${rate.core}% / プレミアム ${rate.premium}%</span>
+      <span class="zukan-rate-sub">コア ${rate.core}% / プレミアム ${rate.premium}% / ビタ ${bita}回</span>
     `;
 
     const renderSection = (title: string, yakus: YakuList['coreYaku'], cls: string) => {
