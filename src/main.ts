@@ -205,7 +205,7 @@ async function bootstrap() {
       effectStatusEl.textContent = 'クイズ補助';
       effectStatusEl.classList.add('quiz');
       jinState.set('quiz');
-      quizState.start(pickRandomQuiz());
+      quizState.start(pickRandomQuiz(), yakuList);
       // クイズは正解判定後に SLIP_QUIZ_CORRECT に上書きされる
       currentSlipPolicy = SLIP_NONE;
     } else {
@@ -372,6 +372,8 @@ async function bootstrap() {
       strip: engine.strip,
       stoppedSymbols,
       policy: currentSlipPolicy,
+      // クイズ正解時はその役だけを引き込みターゲットに
+      targetYakuId: quizState.targetYakuId(),
     });
 
     const result = engine.stop(timestamp, slipCells);

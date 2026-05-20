@@ -69,11 +69,12 @@ export class QuizOverlay {
         const i = Number(btn.dataset.index);
         if (i === quiz.correctIndex) btn.classList.add('correct');
       });
+      const answer = quiz.choices[quiz.correctIndex];
       if (phase === 'correct') {
-        this.resultEl.textContent = '正解！リールがゆっくり回ります';
+        this.resultEl.textContent = `正解！「${answer}」を狙え！`;
         this.resultEl.classList.add('correct');
       } else {
-        this.resultEl.textContent = `不正解… 正解は「${quiz.choices[quiz.correctIndex]}」`;
+        this.resultEl.textContent = `不正解… 正解は「${answer}」`;
         this.resultEl.classList.add('wrong');
       }
       // 結果を見せた後はモーダル本体を自動で閉じる（QuizState の phase 自体は次の reset まで保持）
