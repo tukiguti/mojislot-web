@@ -34,6 +34,11 @@ export interface SlipContext {
   /** 各リールの現在の停止記号（未停止は null） */
   stoppedSymbols: readonly (string | null)[];
   policy: SlipPolicy;
+  /**
+   * 引き込みターゲットの役ID。指定があればその役だけを候補にする。
+   * クイズ正解時にその役のIDを渡すユースケースを想定。
+   */
+  targetYakuId?: string | null;
 }
 
 export class SlipResolver {
@@ -56,11 +61,15 @@ export class SlipResolver {
     if (Math.random() >= ctx.policy.probability) return 0;
 
     // 既に停止したリールと矛盾しない役を候補に絞る
-    const candidates = this.allYakus.filter((y) =>
+    let candidates = this.allYakus.filter((y) =>
       ctx.stoppedSymbols.every(
         (s, r) => s === null || y.symbols[r] === s,
       ),
     );
+    // クイズ正解などでターゲット指定があれば、その役だけに絞る
+    if (ctx.targetYakuId) {
+      candidates = candidates.filter((y) => y.id === ctx.targetYakuId);
+    }
     if (candidates.length === 0) return 0;
 
     const total = ctx.strip.cells.length;

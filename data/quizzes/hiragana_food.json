@@ -2,70 +2,70 @@
   "mode": "hiragana_food",
   "quizzes": [
     {
+      "id": "q_purin",
+      "question": "おじゃる丸が好きなものは？",
+      "answerYakuId": "purin",
+      "decoyYakuIds": ["mikan", "ichigo", "ocha"]
+    },
+    {
       "id": "q_ichigo",
-      "question": "「いちご」の真ん中の文字は？",
-      "choices": ["し", "ち", "に", "ひ"],
-      "correctIndex": 1
+      "question": "ショートケーキの上にのる赤い果物は？",
+      "answerYakuId": "ichigo",
+      "decoyYakuIds": ["mikan", "suika", "purin"]
     },
     {
       "id": "q_mikan",
-      "question": "「みかん」の真ん中の文字は？",
-      "choices": ["き", "が", "か", "の"],
-      "correctIndex": 2
+      "question": "冬のこたつで食べるオレンジ色の果物は？",
+      "answerYakuId": "mikan",
+      "decoyYakuIds": ["ichigo", "suika", "monaka"]
     },
     {
       "id": "q_suika",
-      "question": "「すいか」の最後の文字は？",
-      "choices": ["か", "が", "き", "く"],
-      "correctIndex": 0
+      "question": "夏に塩をかけて食べる、緑のしま模様の果物は？",
+      "answerYakuId": "suika",
+      "decoyYakuIds": ["ichigo", "mikan", "wakame"]
     },
     {
       "id": "q_wakame",
-      "question": "「わかめ」の最初の文字は？",
-      "choices": ["は", "わ", "ば", "ま"],
-      "correctIndex": 1
+      "question": "おみそ汁によく入る海藻は？",
+      "answerYakuId": "wakame",
+      "decoyYakuIds": ["unagi", "maguro", "gohan"]
     },
     {
       "id": "q_unagi",
-      "question": "「うなぎ」の真ん中の文字は？",
-      "choices": ["な", "に", "ね", "の"],
-      "correctIndex": 0
+      "question": "土用の丑の日に食べる、かば焼きが有名な魚は？",
+      "answerYakuId": "unagi",
+      "decoyYakuIds": ["maguro", "wakame", "ichigo"]
     },
     {
       "id": "q_maguro",
-      "question": "「まぐろ」の最後の文字は？",
-      "choices": ["る", "ら", "ろ", "れ"],
-      "correctIndex": 2
+      "question": "お寿司の代表的なネタといえば？",
+      "answerYakuId": "maguro",
+      "decoyYakuIds": ["unagi", "wakame", "monaka"]
     },
     {
       "id": "q_gohan",
-      "question": "「ごはん」の真ん中の文字は？",
-      "choices": ["ば", "ぱ", "は", "ま"],
-      "correctIndex": 2
+      "question": "日本人の主食といえば？",
+      "answerYakuId": "gohan",
+      "decoyYakuIds": ["monaka", "purin", "ocha"]
     },
     {
       "id": "q_monaka",
-      "question": "「もなか」の最初の文字は？",
-      "choices": ["ま", "も", "む", "め"],
-      "correctIndex": 1
-    },
-    {
-      "id": "q_purin",
-      "question": "「ぷりん」の最初の文字は？",
-      "choices": ["ぶ", "ぷ", "ふ", "へ"],
-      "correctIndex": 1
+      "question": "あんこを薄いパリパリの皮ではさんだ和菓子は？",
+      "answerYakuId": "monaka",
+      "decoyYakuIds": ["purin", "gohan", "ocha"]
     },
     {
       "id": "q_ocha",
-      "question": "「おちゃ」の最後の文字は？",
-      "choices": ["や", "ゃ", "よ", "ょ"],
-      "correctIndex": 1
+      "question": "急須でいれる、和菓子と相性のいい緑色の飲み物は？",
+      "answerYakuId": "ocha",
+      "decoyYakuIds": ["gohan", "purin", "monaka"]
     },
     {
-      "id": "q_sushiya_premium",
-      "question": "【プレミアム】「すしや」を狙うなら左リールは？",
-      "choices": ["し", "や", "す", "つ"],
-      "correctIndex": 2
+      "id": "q_sushiya",
+      "question": "【プレミアム】まぐろやうなぎを握って出してくれるお店は？",
+      "answerYakuId": "sushiya",
+      "decoyYakuIds": ["maguro", "unagi", "wakame"]
     }
   ]
 }

@@ -46,11 +46,16 @@ export const PayoutSchema = z.object({
 
 export type Payout = z.infer<typeof PayoutSchema>;
 
+/**
+ * クイズの答え＝役（食べ物）の名前。正解するとその役が引き込み対象になる。
+ *  - answerYakuId: 正解の役（YakuListのidを参照）
+ *  - decoyYakuIds: 不正解選択肢の役のid（3つ）。表示時にシャッフルする
+ */
 export const QuizSchema = z.object({
   id: z.string(),
   question: z.string(),
-  choices: z.array(z.string()).length(4),
-  correctIndex: z.number().int().min(0).max(3),
+  answerYakuId: z.string(),
+  decoyYakuIds: z.array(z.string()).length(3),
 });
 
 export const QuizListSchema = z.object({
