@@ -12,6 +12,19 @@ export const DEFAULT_RATES: EffectRates = {
   quiz: 0.1,
 };
 
+/**
+ * ハマり救済時のレート（連続ハズレが規定値を超えた時に使う）。
+ * 通常 30% だった「示唆 or クイズ発生」を 70% に押し上げる。
+ */
+export const RESCUE_RATES: EffectRates = {
+  none: 0.3,
+  shisa: 0.45,
+  quiz: 0.25,
+};
+
+/** 救済発動の連続ハズレしきい値 */
+export const RESCUE_MISS_THRESHOLD = 30;
+
 export class EffectScheduler {
   constructor(private rates: EffectRates = DEFAULT_RATES) {}
 

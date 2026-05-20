@@ -8,6 +8,8 @@ import {
   EffectScheduler,
   REEL_SPEED_BY_EFFECT,
   DEFAULT_RATES,
+  RESCUE_RATES,
+  RESCUE_MISS_THRESHOLD,
   type EffectType,
 } from './productions/EffectScheduler';
 import { BonusZone } from './productions/BonusZone';
@@ -201,6 +203,8 @@ async function bootstrap() {
   const muteBtn = requireEl<HTMLButtonElement>('mute-btn');
   const autoBtn = requireEl<HTMLButtonElement>('auto-btn');
   const streakStatusEl = requireEl('streak-status');
+  const rescueStatusEl = requireEl('rescue-status');
+  const bonusBannerEl = requireEl('bonus-banner');
   const jinSpeech = new JinSpeech(requireEl('game-area'));
 
   betTextEl.textContent = `Bet: ${calc.bet}`;
@@ -241,10 +245,18 @@ async function bootstrap() {
   };
   applyEffect('none');
 
+  // コイン残量に応じてヘッダー色を警告状態に
+  const updateCoinWarning = (n: number) => {
+    coinEl.classList.remove('warning', 'critical');
+    if (n <= 15) coinEl.classList.add('critical');
+    else if (n <= 50) coinEl.classList.add('warning');
+  };
+
   // コイン表示をなめらかにカウントアップ
   let displayedCoin = wallet.coins.get();
   let coinAnimRaf: number | null = null;
   const animateCoinTo = (target: number) => {
+    updateCoinWarning(target);
     if (coinAnimRaf !== null) cancelAnimationFrame(coinAnimRaf);
     const start = displayedCoin;
     const diff = target - start;
@@ -269,6 +281,7 @@ async function bootstrap() {
     coinAnimRaf = requestAnimationFrame(step);
   };
   coinEl.textContent = `Coin: ${displayedCoin}`;
+  updateCoinWarning(displayedCoin);
   wallet.coins.subscribe(animateCoinTo);
 
   // 役成立時の +N フロート
@@ -327,6 +340,29 @@ async function bootstrap() {
   };
   playStats.stats.subscribe((s) => updateStreakUI(s.streak));
   updateStreakUI(playStats.stats.get().streak);
+
+  // ハマり救済バッジ
+  const updateRescueUI = (missStreak: number) => {
+    if (missStreak >= RESCUE_MISS_THRESHOLD) {
+      rescueStatusEl.hidden = false;
+      rescueStatusEl.textContent = `救済 +${missStreak - RESCUE_MISS_THRESHOLD}`;
+    } else {
+      rescueStatusEl.hidden = true;
+      rescueStatusEl.textContent = '';
+    }
+  };
+  playStats.stats.subscribe((s) => updateRescueUI(s.missStreak));
+  updateRescueUI(playStats.stats.get().missStreak);
+
+  // BONUS! バナー
+  const showBonusBanner = () => {
+    bonusBannerEl.innerHTML = '<div class="bonus-banner-text">BONUS!</div>';
+    bonusBannerEl.hidden = false;
+    window.setTimeout(() => {
+      bonusBannerEl.hidden = true;
+      bonusBannerEl.innerHTML = '';
+    }, 1700);
+  };
 
   const updateBonusUI = () => {
     const active = bonusZone.active.get();
@@ -436,10 +472,12 @@ async function bootstrap() {
     sfx.bet();
     // BET 時のセリフは時々（25%）
     if (Math.random() < 0.25) jinSpeech.say('bet');
-    // ボーナス中は演出レートを上昇＆残り回数を1消費
+    // ボーナス > 救済 > 通常 の優先順位で演出レートを決定
     if (bonusZone.isActive()) {
       scheduler.setRates(bonusZone.config.bonusEffectRates);
       bonusZone.consumeSpin();
+    } else if (playStats.stats.get().missStreak >= RESCUE_MISS_THRESHOLD) {
+      scheduler.setRates(RESCUE_RATES);
     } else {
       scheduler.setRates(DEFAULT_RATES);
     }
@@ -579,6 +617,7 @@ async function bootstrap() {
           flashScreen({ color: '#ffd700', alpha: 0.85, durMs: 400 });
           spawnConfetti(100);
           shakeBody(600);
+          showBonusBanner();
           jinSpeech.say('premium');
         } else {
           sfx.winCore();

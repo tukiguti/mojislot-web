@@ -19,6 +19,8 @@ export interface Stats {
   streak: number;
   /** これまでの最大連続成立数 */
   maxStreak: number;
+  /** 現在の連続ハズレ数（成立で 0、ハマり救済の発動判定に使う） */
+  missStreak: number;
   /** これまでに回答したクイズ数 */
   quizTotal: number;
   /** うち正解した数 */
@@ -35,6 +37,7 @@ const INITIAL: Stats = {
   bonusCount: 0,
   streak: 0,
   maxStreak: 0,
+  missStreak: 0,
   quizTotal: 0,
   quizCorrect: 0,
 };
@@ -66,6 +69,7 @@ export class PlayStats {
       bonusCount: prev.bonusCount + (params.bonusTriggered ? 1 : 0),
       streak: newStreak,
       maxStreak: Math.max(prev.maxStreak, newStreak),
+      missStreak: params.hit ? 0 : prev.missStreak + 1,
     };
     this.stats.set(next);
     this.save(next);
