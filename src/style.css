@@ -271,6 +271,124 @@ body {
   }
 }
 
+/* === ミッション達成トースト === */
+.mission-toast {
+  position: fixed;
+  top: 72px;
+  right: 24px;
+  min-width: 240px;
+  padding: 12px 18px;
+  background: linear-gradient(180deg, #2a1f10 0%, #1a1208 100%);
+  border: 2px solid #ffd700;
+  border-radius: 8px;
+  box-shadow:
+    0 4px 18px rgba(0, 0, 0, 0.55),
+    0 0 24px rgba(255, 215, 0, 0.45);
+  color: #fff;
+  font-family: inherit;
+  z-index: 180;
+  pointer-events: none;
+  opacity: 0;
+  transform: translateX(40px);
+  transition:
+    transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1),
+    opacity 0.25s,
+    top 0.25s;
+}
+
+.mission-toast.show {
+  opacity: 1;
+  transform: translateX(0);
+}
+
+.mission-toast-label {
+  font-size: 11px;
+  letter-spacing: 2px;
+  color: #ffd700;
+  margin-bottom: 4px;
+  font-weight: bold;
+}
+
+.mission-toast-title {
+  font-size: 16px;
+  font-weight: bold;
+  letter-spacing: 1px;
+  margin-bottom: 4px;
+}
+
+.mission-toast-reward {
+  font-size: 13px;
+  color: #ffdd44;
+  letter-spacing: 1px;
+}
+
+/* === ミッション一覧（図鑑モーダル内） === */
+.zukan-missions {
+  margin-top: 10px;
+  padding: 8px 10px;
+  background: rgba(255, 215, 0, 0.04);
+  border: 1px solid rgba(255, 215, 0, 0.25);
+  border-radius: 6px;
+}
+
+.zukan-missions-label {
+  font-size: 11px;
+  color: #aaa;
+  letter-spacing: 2px;
+  margin-bottom: 6px;
+  font-weight: bold;
+}
+
+.mission-row {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  align-items: center;
+  padding: 5px 8px;
+  margin-bottom: 3px;
+  background: rgba(255, 255, 255, 0.03);
+  border-radius: 4px;
+  font-size: 12px;
+}
+
+.mission-row.done {
+  background: rgba(255, 215, 0, 0.12);
+  color: #ffd700;
+}
+
+.mission-row .mission-title {
+  font-weight: bold;
+}
+
+.mission-row .mission-desc {
+  color: #888;
+  font-size: 10px;
+  margin-top: 2px;
+}
+
+.mission-row .mission-reward {
+  font-size: 11px;
+  color: #ffd700;
+  text-align: right;
+  white-space: nowrap;
+  margin-left: 8px;
+}
+
+.mission-row.done .mission-reward::before {
+  content: '✓ ';
+  color: #66ff88;
+}
+
+.mission-row .mission-progress {
+  display: block;
+  font-size: 9px;
+  color: #888;
+  margin-top: 1px;
+}
+
+.mission-row.done .mission-progress {
+  color: #66ff88;
+}
+
 /* === BONUS! 突入バナー === */
 #bonus-banner {
   position: absolute;

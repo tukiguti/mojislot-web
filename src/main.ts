@@ -19,6 +19,8 @@ import { PlayStats } from './productions/PlayStats';
 import { NearMissDetector } from './productions/NearMissDetector';
 import { flashScreen, spawnConfetti, shakeBody } from './ui/Effects';
 import { JinSpeech } from './ui/JinSpeech';
+import { ChallengeTracker } from './productions/Challenges';
+import { showMissionToast } from './ui/MissionToast';
 import { JinState } from './productions/JinState';
 import { JinView } from './render/JinView';
 import { EffectVisual } from './render/EffectVisual';
@@ -96,6 +98,7 @@ async function bootstrap() {
   const nearMissDetector = new NearMissDetector(yakuList);
   const playStats = new PlayStats();
   const zukanState = new ZukanState(yakuList, chapterId);
+  const challengeTracker = new ChallengeTracker();
   const zukanOverlay = new ZukanOverlay(
     zukanState,
     yakuList,
@@ -103,6 +106,7 @@ async function bootstrap() {
     wallet,
     payout.initialCoins,
     chapterId,
+    challengeTracker,
   );
   // 現在の滑り方針。BET時に確定し、レバー時点ではすでに固まっている
   let currentSlipPolicy: SlipPolicy = SLIP_NONE;
@@ -638,6 +642,23 @@ async function bootstrap() {
         premium: isPremium,
         bonusTriggered: isPremium,
       });
+
+      // チャレンジ達成チェック（少し遅延させて結果トーストと被らないように）
+      window.setTimeout(() => {
+        const newlyAchieved = challengeTracker.evaluate({
+          stats: playStats.stats.get(),
+          bitaCount: zukanState.bitaCount.get(),
+          zukanCounts: zukanState.counts.get(),
+          yakuList,
+        });
+        newlyAchieved.forEach((c, i) => {
+          window.setTimeout(() => {
+            wallet.win(c.reward);
+            showMissionToast(c);
+            sfx.bita(); // 短いキラーン音を流用
+          }, i * 350);
+        });
+      }, 1500);
 
       if (result.yaku) {
         const cls = isPremium ? 'premium' : 'win';
