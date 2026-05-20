@@ -13,9 +13,90 @@
 body {
   display: flex;
   justify-content: center;
-  align-items: center;
+  align-items: flex-start;
   min-height: 100vh;
   padding: 16px;
+  gap: 20px;
+}
+
+/* === リール配列パネル === */
+#reel-strip-panel {
+  width: 240px;
+  max-height: 950px;
+  padding: 14px 14px 12px;
+  background: linear-gradient(180deg, #1a1a1a 0%, #0d0d0d 100%);
+  border: 2px solid #ffd700;
+  border-radius: 10px;
+  box-shadow:
+    0 0 20px rgba(255, 215, 0, 0.25),
+    inset 0 0 0 1px #2a2a2a;
+  color: #fff;
+  font-family: inherit;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+#reel-strip-panel h3 {
+  font-size: 14px;
+  color: #ffd700;
+  letter-spacing: 3px;
+  text-align: center;
+  border-bottom: 1px solid #ffd700;
+  padding-bottom: 6px;
+}
+
+#reel-strip-panel .strip-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr;
+  gap: 6px;
+  flex: 1;
+  overflow: hidden;
+}
+
+#reel-strip-panel .strip-column {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+#reel-strip-panel .strip-column h4 {
+  text-align: center;
+  font-size: 11px;
+  color: #ccc;
+  letter-spacing: 2px;
+  font-weight: normal;
+}
+
+#reel-strip-panel .cells {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+#reel-strip-panel .strip-cell {
+  padding: 4px 0;
+  text-align: center;
+  font-size: 18px;
+  font-weight: bold;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid #2a2a2a;
+  border-radius: 3px;
+  color: #ddd;
+}
+
+#reel-strip-panel .strip-cell.current {
+  background: rgba(255, 215, 0, 0.28);
+  border-color: #ffd700;
+  color: #fff7aa;
+  box-shadow: 0 0 8px rgba(255, 215, 0, 0.55);
+}
+
+#reel-strip-panel .strip-hint {
+  font-size: 10px;
+  color: #666;
+  text-align: center;
+  letter-spacing: 1px;
 }
 
 #cabinet {

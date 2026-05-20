@@ -422,6 +422,40 @@ async function bootstrap() {
 
   zukanBtn.addEventListener('click', () => zukanOverlay.toggle());
 
+  // === リール配列パネル（筐体右） ===
+  const stripColumns = Array.from(
+    document.querySelectorAll<HTMLElement>('#reel-strip-panel .strip-column'),
+  );
+  stripColumns.forEach((col, idx) => {
+    const cellsEl = col.querySelector<HTMLElement>('.cells');
+    if (!cellsEl) return;
+    cellsEl.innerHTML = '';
+    engines[idx].strip.cells.forEach((symbol) => {
+      const cell = document.createElement('div');
+      cell.className = 'strip-cell';
+      cell.textContent = symbol;
+      cellsEl.appendChild(cell);
+    });
+  });
+
+  const updateStripHighlight = () => {
+    stripColumns.forEach((col, idx) => {
+      const e = engines[idx];
+      const isSpinning = e.state.get() === 'spinning';
+      const total = e.strip.cells.length;
+      const current = ((Math.round(e.position) % total) + total) % total;
+      const cells = col.querySelectorAll<HTMLElement>('.strip-cell');
+      cells.forEach((cell, ci) => {
+        if (!isSpinning && ci === current) cell.classList.add('current');
+        else cell.classList.remove('current');
+      });
+    });
+  };
+  for (const engine of engines) {
+    engine.state.subscribe(updateStripHighlight);
+  }
+  updateStripHighlight();
+
   for (const engine of engines) {
     engine.state.subscribe(() => updateButtons());
   }
