@@ -142,7 +142,8 @@ body {
 }
 
 #zukan-btn,
-#mute-btn {
+#mute-btn,
+#auto-btn {
   padding: 3px 10px;
   font-size: 11px;
   color: #ffd700;
@@ -155,8 +156,15 @@ body {
 }
 
 #zukan-btn:hover,
-#mute-btn:hover {
+#mute-btn:hover,
+#auto-btn:hover {
   background: rgba(255, 215, 0, 0.2);
+}
+
+#auto-btn.on {
+  color: #1a1100;
+  background: linear-gradient(180deg, #ffe566 0%, #ffd700 100%);
+  box-shadow: 0 0 10px rgba(255, 215, 0, 0.8);
 }
 
 #mute-btn {
@@ -254,6 +262,23 @@ body {
   text-shadow:
     0 0 10px rgba(255, 102, 102, 1),
     0 0 24px rgba(255, 102, 102, 0.7);
+}
+
+/* 大配当時のコイン絵文字バースト */
+.coin-burst {
+  position: fixed;
+  font-size: 22px;
+  pointer-events: none;
+  z-index: 95;
+  user-select: none;
+  will-change: transform, opacity;
+  transition:
+    transform 1.4s cubic-bezier(0.22, 1, 0.36, 1),
+    opacity 1.4s ease-out;
+}
+
+.coin-burst.fly {
+  opacity: 0;
 }
 
 /* === 全画面エフェクト === */

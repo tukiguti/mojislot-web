@@ -198,6 +198,7 @@ async function bootstrap() {
   const bonusStatusEl = requireEl('bonus-status');
   const cabinetEl = requireEl('cabinet');
   const muteBtn = requireEl<HTMLButtonElement>('mute-btn');
+  const autoBtn = requireEl<HTMLButtonElement>('auto-btn');
   const streakStatusEl = requireEl('streak-status');
   const jinSpeech = new JinSpeech(requireEl('game-area'));
 
@@ -280,6 +281,31 @@ async function bootstrap() {
     el.style.top = `${rect.top}px`;
     requestAnimationFrame(() => el.classList.add('rise'));
     window.setTimeout(() => el.remove(), 1400);
+  };
+
+  /** 大配当時：🪙 を画面下に向かって複数飛ばす（カジノっぽい演出） */
+  const showCoinBurst = (count: number) => {
+    const startRect = cabinetEl.getBoundingClientRect();
+    const cx = startRect.left + startRect.width / 2;
+    const cy = startRect.top + startRect.height / 2;
+    for (let i = 0; i < count; i++) {
+      const el = document.createElement('div');
+      el.className = 'coin-burst';
+      el.textContent = '🪙';
+      document.body.appendChild(el);
+      const startJitter = (Math.random() - 0.5) * 80;
+      el.style.left = `${cx + startJitter}px`;
+      el.style.top = `${cy}px`;
+      const angle = (Math.random() - 0.5) * Math.PI; // -90°..90°（下方向）
+      const distance = 220 + Math.random() * 180;
+      const dx = Math.sin(angle) * distance;
+      const dy = Math.cos(angle) * distance + 100;
+      window.setTimeout(() => {
+        el.style.transform = `translate(${dx}px, ${dy}px) rotate(${(Math.random() - 0.5) * 720}deg)`;
+        el.classList.add('fly');
+      }, i * 35);
+      window.setTimeout(() => el.remove(), 1700 + i * 35);
+    }
   };
 
   // 連チャン表示（倍率も併記）
@@ -537,6 +563,10 @@ async function bootstrap() {
         for (const v of views) v.highlightCenter(1400);
         // コイン獲得 +N フロート表示
         if (win > 0) showCoinFloat(win, isPremium);
+        // 大配当はコインバースト（プレミアム=多め）
+        if (isPremium) showCoinBurst(28);
+        else if (win >= 50) showCoinBurst(12);
+        else if (win >= 24) showCoinBurst(5);
         // プレミアム成立でボーナス突入＋全画面演出（active 中なら残り回数リセット＝おかわり）
         if (isPremium) {
           bonusZone.trigger();
@@ -584,6 +614,71 @@ async function bootstrap() {
   stopBtns.forEach((btn) => {
     const idx = Number(btn.dataset.reel ?? -1);
     btn.addEventListener('pointerdown', (ev) => stopReel(idx, ev.timeStamp));
+  });
+
+  // === オートスピン ===
+  // 状態を見て BET → LEVER → STOP×3 を 350ms 間隔でループ。
+  // クイズ表示中は強制的に1番（左端）を回答する（25%で正解、まあまあ揃う）。
+  let autoMode = false;
+  let autoTimer: number | null = null;
+
+  const clearAutoTimer = () => {
+    if (autoTimer !== null) {
+      window.clearTimeout(autoTimer);
+      autoTimer = null;
+    }
+  };
+
+  const stepAuto = () => {
+    if (!autoMode) return;
+    if (!wallet.canBet(calc.bet) && !betPlaced) {
+      // コイン不足で停止
+      stopAuto();
+      return;
+    }
+
+    const states = engines.map((e) => e.state.get());
+    const anySpinning = states.includes('spinning');
+    const allIdle = states.every((s) => s === 'idle');
+    const allStopped = states.every((s) => s === 'stopped');
+
+    if (!betPlaced && allIdle) {
+      placeBet();
+    } else if (betPlaced && allIdle) {
+      // クイズ表示中なら適当な選択を入れる（簡易ロジック）
+      if (quizState.phase.get() === 'asking') {
+        const q = quizState.current.get();
+        if (q) quizState.answer(Math.floor(Math.random() * 4));
+      }
+      pullLever();
+    } else if (anySpinning) {
+      const idx = states.findIndex((s) => s === 'spinning');
+      if (idx !== -1) stopReel(idx, performance.now());
+    } else if (allStopped) {
+      // 判定後 resetForNextSpin が走るまで待つ
+    }
+
+    autoTimer = window.setTimeout(stepAuto, 350);
+  };
+
+  const startAuto = () => {
+    autoMode = true;
+    autoBtn.textContent = 'AUTO ON';
+    autoBtn.classList.add('on');
+    sfx.init();
+    stepAuto();
+  };
+
+  const stopAuto = () => {
+    autoMode = false;
+    autoBtn.textContent = 'AUTO';
+    autoBtn.classList.remove('on');
+    clearAutoTimer();
+  };
+
+  autoBtn.addEventListener('click', () => {
+    if (autoMode) stopAuto();
+    else startAuto();
   });
 
   zukanBtn.addEventListener('click', () => zukanOverlay.toggle());
@@ -718,6 +813,12 @@ async function bootstrap() {
       sfx.init();
       sfx.toggleMute();
       updateMuteUI();
+      return;
+    }
+    if (key === 'o') {
+      ev.preventDefault();
+      if (autoMode) stopAuto();
+      else startAuto();
       return;
     }
   });
