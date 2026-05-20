@@ -1046,6 +1046,45 @@ body.shake {
   color: #ffcccc;
 }
 
+.zukan-debug {
+  margin-top: 10px;
+  padding: 8px 10px;
+  background: rgba(80, 30, 80, 0.15);
+  border: 1px dashed #884488;
+  border-radius: 6px;
+}
+
+.zukan-debug-label {
+  font-size: 10px;
+  color: #cc88cc;
+  letter-spacing: 1px;
+  margin-bottom: 6px;
+}
+
+.zukan-debug-buttons {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr 1fr;
+  gap: 5px;
+}
+
+.zukan-debug-buttons button {
+  padding: 5px 4px;
+  font-size: 10px;
+  color: #ddbbdd;
+  background: rgba(60, 30, 60, 0.6);
+  border: 1px solid #663366;
+  border-radius: 3px;
+  cursor: pointer;
+  font-family: inherit;
+  letter-spacing: 0.5px;
+}
+
+.zukan-debug-buttons button:hover {
+  background: rgba(100, 50, 100, 0.7);
+  color: #fff;
+  border-color: #aa66aa;
+}
+
 .zukan-hint {
   text-align: center;
   font-size: 10px;

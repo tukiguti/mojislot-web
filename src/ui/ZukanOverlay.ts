@@ -5,6 +5,20 @@ import type { CoinWallet } from '../core/CoinWallet';
 import { CHAPTERS, setCurrentChapterId } from '../data/chapters';
 
 /**
+ * 開発時に手動で演出を発動するためのアクション集合。
+ * 本番運用でも残しておく想定（プレイヤーが体験を試したい場合に役立つ）。
+ */
+export interface DebugActions {
+  triggerBonus(): void;
+  triggerShisa(): void;
+  triggerQuiz(): void;
+  triggerWinTest(): void;
+  triggerTenpaiSe(): void;
+  addCoins(n: number): void;
+  fillEffects(): void;
+}
+
+/**
  * 図鑑モーダル。`Z` キーまたは外部 toggle() で開閉。
  * 未達成役は「？？？」でマスクし、達成数を併記する。
  * プレイ統計（PlayStats）と、章切替/リセット操作も併せて提供する。
@@ -15,6 +29,8 @@ export class ZukanOverlay {
   private readonly summaryEl: HTMLElement;
   private readonly statsEl: HTMLElement;
   private visible = false;
+
+  private debugActions: DebugActions | null = null;
 
   constructor(
     private readonly state: ZukanState,
@@ -48,6 +64,19 @@ export class ZukanOverlay {
         <div class="zukan-reset">
           <button class="reset-coin" type="button">コインを${this.initialCoins}に戻す</button>
           <button class="reset-all" type="button">全データをリセット</button>
+        </div>
+        <div class="zukan-debug">
+          <div class="zukan-debug-label">デバッグ（演出を強制発動）</div>
+          <div class="zukan-debug-buttons">
+            <button data-debug="bonus" type="button">BONUS突入</button>
+            <button data-debug="shisa" type="button">示唆発動</button>
+            <button data-debug="quiz" type="button">クイズ発動</button>
+            <button data-debug="tenpai" type="button">テンパイSE</button>
+            <button data-debug="win" type="button">役成立演出</button>
+            <button data-debug="effects" type="button">全画面FX</button>
+            <button data-debug="coin100" type="button">+100コイン</button>
+            <button data-debug="coin1000" type="button">+1000コイン</button>
+          </div>
         </div>
         <div class="zukan-hint">[Z] で閉じる</div>
       </div>
@@ -83,6 +112,43 @@ export class ZukanOverlay {
       });
     });
 
+    // デバッグボタン（debugActions は後から setDebugActions で渡される）
+    const debugBtns = this.root.querySelectorAll<HTMLButtonElement>(
+      '.zukan-debug-buttons button',
+    );
+    debugBtns.forEach((btn) => {
+      btn.addEventListener('click', () => {
+        if (!this.debugActions) return;
+        const action = btn.dataset.debug;
+        switch (action) {
+          case 'bonus':
+            this.debugActions.triggerBonus();
+            break;
+          case 'shisa':
+            this.debugActions.triggerShisa();
+            break;
+          case 'quiz':
+            this.debugActions.triggerQuiz();
+            break;
+          case 'tenpai':
+            this.debugActions.triggerTenpaiSe();
+            break;
+          case 'win':
+            this.debugActions.triggerWinTest();
+            break;
+          case 'effects':
+            this.debugActions.fillEffects();
+            break;
+          case 'coin100':
+            this.debugActions.addCoins(100);
+            break;
+          case 'coin1000':
+            this.debugActions.addCoins(1000);
+            break;
+        }
+      });
+    });
+
     state.counts.subscribe(() => {
       if (this.visible) this.render();
     });
@@ -94,6 +160,10 @@ export class ZukanOverlay {
     });
 
     this.close();
+  }
+
+  setDebugActions(actions: DebugActions): void {
+    this.debugActions = actions;
   }
 
   open(): void {
