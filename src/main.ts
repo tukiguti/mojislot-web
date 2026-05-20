@@ -380,6 +380,14 @@ async function bootstrap() {
     showBitaBadge(idx, result.errorMs);
     if (result.errorMs <= BITA_MS) zukanState.recordBita();
     flashButton(stopBtns[idx]);
+    // 検証用：滑りが発生したスピンだけ詳しく出す
+    if (slipCells > 0) {
+      const beforeIdx = basePos;
+      const afterIdx = ((Math.round(engine.position) % total) + total) % total;
+      console.log(
+        `[slip] reel${idx} ${beforeIdx}(${engine.strip.cells[beforeIdx]}) → ${afterIdx}(${engine.strip.cells[afterIdx]}) +${slipCells}コマ (policy ${currentSlipPolicy.probability * 100}% / max ${currentSlipPolicy.maxCells})`,
+      );
+    }
 
     if (engines.every((e) => e.state.get() === 'stopped')) {
       const symbols = engines.map((e) => {
