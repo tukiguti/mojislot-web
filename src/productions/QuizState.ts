@@ -67,9 +67,9 @@ export class QuizState {
 
 /**
  * クイズ正解時の追加スロー（補助レベル+1）。
- * REEL_SPEED_BY_EFFECT.quiz (10) よりさらに遅いが、ビタ狙いが極端に易しすぎない値。
+ * REEL_SPEED_BY_EFFECT.quiz (15) より遅いが、間延びしない程度。
  */
-export const QUIZ_BONUS_SPEED = 8;
+export const QUIZ_BONUS_SPEED = 12;
 
 function buildRenderedQuiz(quiz: Quiz, yakuList: YakuList): RenderedQuiz {
   const all: Yaku[] = [
