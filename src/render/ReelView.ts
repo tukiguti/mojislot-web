@@ -24,6 +24,10 @@ export class ReelView {
   private centerGlowDuration = 0;
   private tenpaiAnimMs = 0;
   private tenpaiPremium = false;
+  /** 停止バウンス用：振動オフセット（px） */
+  private bounceOffsetY = 0;
+  private bounceStart = 0;
+  private bounceActive = false;
 
   constructor(private readonly engine: ReelEngine) {
     this.container = new Container();
@@ -82,10 +86,25 @@ export class ReelView {
     // マスク（0..VIEW_HEIGHT）の手前 PRE_BUFFER 分は不可視バッファになり、
     // 文字はそこから降りてきてマスクに入る → 「上から流れてきた」感が出る。
     // ペイライン位置・中央セル判定は従来通り（PAYLINE_Y は変えない）。
+    // 停止バウンスの計算
+    if (this.bounceActive) {
+      const t = nowMs ?? performance.now();
+      const elapsed = t - this.bounceStart;
+      const durMs = 220;
+      if (elapsed >= durMs) {
+        this.bounceActive = false;
+        this.bounceOffsetY = 0;
+      } else {
+        const k = elapsed / durMs;
+        // 減衰しながら振動：sin(2π * 2) で 2サイクル
+        this.bounceOffsetY = Math.sin(k * Math.PI * 4) * 9 * (1 - k);
+      }
+    }
+
     for (let i = 0; i < total; i++) {
       let y = (pos - i) * CELL_HEIGHT + PAYLINE_Y + PRE_BUFFER;
       y = ((y % totalHeight) + totalHeight) % totalHeight;
-      this.cellTexts[i].y = y - PRE_BUFFER;
+      this.cellTexts[i].y = y - PRE_BUFFER + this.bounceOffsetY;
     }
 
     // テンパイ枠の脈動
@@ -119,6 +138,12 @@ export class ReelView {
     this.centerGlowDuration = durMs;
     this.centerGlowAlpha = 0.55;
     this.centerGlow.alpha = this.centerGlowAlpha;
+  }
+
+  /** STOP 押下後の停止バウンス（軽い縦振動） */
+  triggerStopBounce(): void {
+    this.bounceStart = performance.now();
+    this.bounceActive = true;
   }
 
   /** テンパイ枠フラッシュを開始（残ったリール用） */
