@@ -16,6 +16,7 @@ import { JinView } from './render/JinView';
 import { EffectVisual } from './render/EffectVisual';
 import { QuizState, QUIZ_BONUS_SPEED } from './productions/QuizState';
 import { QuizOverlay } from './ui/QuizOverlay';
+import { QuizQuestionView } from './render/QuizQuestionView';
 import { ZukanState } from './productions/ZukanState';
 import { ZukanOverlay } from './ui/ZukanOverlay';
 import {
@@ -112,6 +113,20 @@ async function bootstrap() {
   jinView.container.x = CANVAS_W / 2;
   jinView.container.y = LIQUID_AREA_H / 2 + 20;
   app.stage.addChild(jinView.container);
+
+  // クイズ中はジンを隠して、ここにクイズ文章を大きく出す
+  const quizQuestionView = new QuizQuestionView(quizState, {
+    width: CANVAS_W,
+    height: LIQUID_AREA_H,
+  });
+  quizQuestionView.container.x = CANVAS_W / 2;
+  quizQuestionView.container.y = LIQUID_AREA_H / 2;
+  app.stage.addChild(quizQuestionView.container);
+
+  // クイズ表示中はマスコットを隠す
+  quizState.phase.subscribe((phase) => {
+    jinView.container.visible = phase === 'inactive';
+  });
 
   // リールエリアの背景帯
   const reelBg = new Graphics();
