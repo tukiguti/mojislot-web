@@ -7,6 +7,12 @@ export const VISIBLE_CELLS = 3;
 
 const VIEW_HEIGHT = CELL_HEIGHT * VISIBLE_CELLS;
 const PAYLINE_Y = CELL_HEIGHT * 1.5;
+/**
+ * マスク（見える領域）の上に確保する「不可視の助走バッファ」のピクセル数。
+ * 文字はここから現れて、マスク上端へスクロールしていくので、
+ * 「マスクの上端で唐突に文字が湧く」感じがなくなる。
+ */
+const PRE_BUFFER = CELL_HEIGHT;
 
 export class ReelView {
   readonly container: Container;
@@ -59,12 +65,14 @@ export class ReelView {
     const total = this.engine.strip.cells.length;
     const totalHeight = total * CELL_HEIGHT;
 
-    // pos が増えるほど各 cell の y が増えて、上から下へ流れて見える。
-    // pos=round(pos) の cell がペイライン上に来るのは従来通り。
+    // 文字の循環範囲を [-PRE_BUFFER, -PRE_BUFFER + totalHeight) にずらす。
+    // マスク（0..VIEW_HEIGHT）の手前 PRE_BUFFER 分は不可視バッファになり、
+    // 文字はそこから降りてきてマスクに入る → 「上から流れてきた」感が出る。
+    // ペイライン位置・中央セル判定は従来通り（PAYLINE_Y は変えない）。
     for (let i = 0; i < total; i++) {
-      let y = (pos - i) * CELL_HEIGHT + PAYLINE_Y;
+      let y = (pos - i) * CELL_HEIGHT + PAYLINE_Y + PRE_BUFFER;
       y = ((y % totalHeight) + totalHeight) % totalHeight;
-      this.cellTexts[i].y = y;
+      this.cellTexts[i].y = y - PRE_BUFFER;
     }
   }
 }
