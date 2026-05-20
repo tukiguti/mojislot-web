@@ -17,6 +17,13 @@ import { QuizOverlay } from './ui/QuizOverlay';
 import { ZukanState } from './productions/ZukanState';
 import { ZukanOverlay } from './ui/ZukanOverlay';
 import {
+  SlipResolver,
+  SLIP_NONE,
+  SLIP_SHISA,
+  SLIP_QUIZ_CORRECT,
+  type SlipPolicy,
+} from './productions/SlipResolver';
+import {
   ReelConfigSchema,
   YakuListSchema,
   PayoutSchema,
@@ -73,6 +80,9 @@ async function bootstrap() {
   const quizOverlay = new QuizOverlay(quizState);
   const zukanState = new ZukanState(yakuList);
   const zukanOverlay = new ZukanOverlay(zukanState, yakuList);
+  const slipResolver = new SlipResolver(yakuList);
+  // 現在の滑り方針。BET時に確定し、レバー時点ではすでに固まっている
+  let currentSlipPolicy: SlipPolicy = SLIP_NONE;
 
   // 液晶エリアの土台（演出はあとで重ねる）
   const liquidBg = new Graphics();
@@ -164,14 +174,18 @@ async function bootstrap() {
       effectStatusEl.textContent = '示唆';
       effectStatusEl.classList.add('shisa');
       jinState.set('shisa');
+      currentSlipPolicy = SLIP_SHISA;
     } else if (effect === 'quiz') {
       effectStatusEl.textContent = 'クイズ補助';
       effectStatusEl.classList.add('quiz');
       jinState.set('quiz');
       quizState.start(pickRandomQuiz());
+      // クイズは正解判定後に SLIP_QUIZ_CORRECT に上書きされる
+      currentSlipPolicy = SLIP_NONE;
     } else {
       effectStatusEl.textContent = '通常';
       jinState.set('idle');
+      currentSlipPolicy = SLIP_NONE;
     }
   };
   applyEffect('none');
@@ -239,10 +253,11 @@ async function bootstrap() {
   const pullLever = () => {
     if (leverBtn.disabled) return;
     if (!betPlaced) return;
-    // 未回答クイズはタイムアウト扱い → 正解時のみ追加減速を適用
+    // 未回答クイズはタイムアウト扱い → 正解時のみ追加減速＆強い引き込み
     quizState.finalizeIfUnanswered();
     if (quizState.isCorrect()) {
       for (const engine of engines) engine.setSpeed(QUIZ_BONUS_SPEED);
+      currentSlipPolicy = SLIP_QUIZ_CORRECT;
     }
     for (const engine of engines) engine.spin();
     flashButton(leverBtn);
@@ -253,7 +268,25 @@ async function bootstrap() {
     if (idx < 0 || idx >= REEL_COUNT) return;
     const engine = engines[idx];
     if (engine.state.get() !== 'spinning') return;
-    engine.stop(timestamp);
+
+    // 滑り（引き込み）を解決
+    const total = engine.strip.cells.length;
+    const basePos = (((Math.round(engine.position) % total) + total) % total);
+    const stoppedSymbols = engines.map((e) => {
+      if (e.state.get() !== 'stopped') return null;
+      const t = e.strip.cells.length;
+      const ci = ((Math.round(e.position) % t) + t) % t;
+      return e.strip.cells[ci];
+    });
+    const slipCells = slipResolver.resolve({
+      reelIndex: idx,
+      basePosition: basePos,
+      strip: engine.strip,
+      stoppedSymbols,
+      policy: currentSlipPolicy,
+    });
+
+    engine.stop(timestamp, slipCells);
     flashButton(stopBtns[idx]);
 
     if (engines.every((e) => e.state.get() === 'stopped')) {
