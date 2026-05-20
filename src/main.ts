@@ -12,14 +12,18 @@ import {
 import { JinState } from './productions/JinState';
 import { JinView } from './render/JinView';
 import { EffectVisual } from './render/EffectVisual';
+import { QuizState, QUIZ_BONUS_SPEED } from './productions/QuizState';
+import { QuizOverlay } from './ui/QuizOverlay';
 import {
   ReelConfigSchema,
   YakuListSchema,
   PayoutSchema,
+  QuizListSchema,
 } from './data/schemas';
 import reelDataRaw from '../data/reels/hiragana_food.json';
 import yakuDataRaw from '../data/yaku/hiragana_food.json';
 import payoutDataRaw from '../data/payouts/default.json';
+import quizDataRaw from '../data/quizzes/hiragana_food.json';
 import './style.css';
 
 const REEL_GAP = 16;
@@ -47,12 +51,15 @@ async function bootstrap() {
   const reelConfig = ReelConfigSchema.parse(reelDataRaw);
   const yakuList = YakuListSchema.parse(yakuDataRaw);
   const payout = PayoutSchema.parse(payoutDataRaw);
+  const quizList = QuizListSchema.parse(quizDataRaw);
 
   const judge = new YakuJudge(yakuList);
   const calc = new PayoutCalc(payout);
   const wallet = new CoinWallet(payout.initialCoins);
   const scheduler = new EffectScheduler();
   const jinState = new JinState();
+  const quizState = new QuizState();
+  const quizOverlay = new QuizOverlay(quizState);
 
   // 液晶エリアの土台（演出はあとで重ねる）
   const liquidBg = new Graphics();
@@ -130,6 +137,9 @@ async function bootstrap() {
   let betPlaced = false;
   let resultTimer: number | null = null;
 
+  const pickRandomQuiz = () =>
+    quizList.quizzes[Math.floor(Math.random() * quizList.quizzes.length)];
+
   const applyEffect = (effect: EffectType) => {
     const speed = REEL_SPEED_BY_EFFECT[effect];
     for (const engine of engines) engine.setSpeed(speed);
@@ -144,6 +154,7 @@ async function bootstrap() {
       effectStatusEl.textContent = 'クイズ補助';
       effectStatusEl.classList.add('quiz');
       jinState.set('quiz');
+      quizState.start(pickRandomQuiz());
     } else {
       effectStatusEl.textContent = '通常';
       jinState.set('idle');
@@ -190,6 +201,7 @@ async function bootstrap() {
   const resetForNextSpin = () => {
     betPlaced = false;
     for (const engine of engines) engine.reset();
+    quizState.reset();
     applyEffect('none');
     updateButtons();
   };
@@ -213,6 +225,11 @@ async function bootstrap() {
   const pullLever = () => {
     if (leverBtn.disabled) return;
     if (!betPlaced) return;
+    // 未回答クイズはタイムアウト扱い → 正解時のみ追加減速を適用
+    quizState.finalizeIfUnanswered();
+    if (quizState.isCorrect()) {
+      for (const engine of engines) engine.setSpeed(QUIZ_BONUS_SPEED);
+    }
     for (const engine of engines) engine.spin();
     flashButton(leverBtn);
     updateButtons();
@@ -279,6 +296,12 @@ async function bootstrap() {
       return;
     }
     const key = ev.key.toLowerCase();
+
+    // クイズ表示中は 1〜4 で回答（他キーは食わない）
+    if (quizOverlay.handleKey(key)) {
+      ev.preventDefault();
+      return;
+    }
 
     if (key === 'b') {
       ev.preventDefault();
