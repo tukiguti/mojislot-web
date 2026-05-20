@@ -21,6 +21,7 @@ import { flashScreen, spawnConfetti, shakeBody } from './ui/Effects';
 import { JinSpeech } from './ui/JinSpeech';
 import { ChallengeTracker } from './productions/Challenges';
 import { showMissionToast } from './ui/MissionToast';
+import { SettingsOverlay } from './ui/SettingsOverlay';
 import { JinState } from './productions/JinState';
 import { JinView } from './render/JinView';
 import { EffectVisual } from './render/EffectVisual';
@@ -103,9 +104,14 @@ async function bootstrap() {
     zukanState,
     yakuList,
     playStats,
+    challengeTracker,
+  );
+  const settingsOverlay = new SettingsOverlay(
+    chapterId,
     wallet,
     payout.initialCoins,
-    chapterId,
+    playStats,
+    zukanState,
     challengeTracker,
   );
   // 現在の滑り方針。BET時に確定し、レバー時点ではすでに固まっている
@@ -206,6 +212,7 @@ async function bootstrap() {
   const cabinetEl = requireEl('cabinet');
   const muteBtn = requireEl<HTMLButtonElement>('mute-btn');
   const autoBtn = requireEl<HTMLButtonElement>('auto-btn');
+  const settingsBtn = requireEl<HTMLButtonElement>('settings-btn');
   const streakStatusEl = requireEl('streak-status');
   const rescueStatusEl = requireEl('rescue-status');
   const bonusBannerEl = requireEl('bonus-banner');
@@ -368,8 +375,8 @@ async function bootstrap() {
     }, 1700);
   };
 
-  // === デバッグアクション（図鑑モーダルから呼ばれる） ===
-  zukanOverlay.setDebugActions({
+  // === デバッグアクション（設定モーダルから呼ばれる） ===
+  settingsOverlay.setDebugActions({
     triggerBonus: () => {
       bonusZone.trigger();
       sfx.bonusEnter();
@@ -791,6 +798,7 @@ async function bootstrap() {
   });
 
   zukanBtn.addEventListener('click', () => zukanOverlay.toggle());
+  settingsBtn.addEventListener('click', () => settingsOverlay.toggle());
 
   const updateMuteUI = () => {
     if (sfx.isMuted()) {
@@ -928,6 +936,11 @@ async function bootstrap() {
       ev.preventDefault();
       if (autoMode) stopAuto();
       else startAuto();
+      return;
+    }
+    if (key === ',') {
+      ev.preventDefault();
+      settingsOverlay.toggle();
       return;
     }
   });
