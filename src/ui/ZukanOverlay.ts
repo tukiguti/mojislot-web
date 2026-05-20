@@ -1,26 +1,10 @@
 import type { ZukanState } from '../productions/ZukanState';
 import type { YakuList } from '../data/schemas';
 import type { PlayStats } from '../productions/PlayStats';
-import type { CoinWallet } from '../core/CoinWallet';
-import { CHAPTERS, setCurrentChapterId } from '../data/chapters';
 import {
   CHALLENGES,
   type ChallengeTracker,
 } from '../productions/Challenges';
-
-/**
- * 開発時に手動で演出を発動するためのアクション集合。
- * 本番運用でも残しておく想定（プレイヤーが体験を試したい場合に役立つ）。
- */
-export interface DebugActions {
-  triggerBonus(): void;
-  triggerShisa(): void;
-  triggerQuiz(): void;
-  triggerWinTest(): void;
-  triggerTenpaiSe(): void;
-  addCoins(n: number): void;
-  fillEffects(): void;
-}
 
 /**
  * 図鑑モーダル。`Z` キーまたは外部 toggle() で開閉。
@@ -35,25 +19,15 @@ export class ZukanOverlay {
   private readonly missionsListEl: HTMLElement;
   private visible = false;
 
-  private debugActions: DebugActions | null = null;
-
   constructor(
     private readonly state: ZukanState,
     private readonly yakuList: YakuList,
     private readonly playStats: PlayStats,
-    private readonly wallet: CoinWallet,
-    private readonly initialCoins: number,
-    private readonly currentChapterId: string,
     private readonly challengeTracker: ChallengeTracker,
   ) {
     const root = document.getElementById('zukan-overlay');
     if (!root) throw new Error('#zukan-overlay not found');
     this.root = root;
-    const chapterButtons = CHAPTERS.map(
-      (c) =>
-        `<button class="chapter-btn ${c.id === this.currentChapterId ? 'active' : ''}" data-chapter="${c.id}" type="button" title="${c.description}">${c.name}</button>`,
-    ).join('');
-
     this.root.innerHTML = `
       <div class="zukan-modal">
         <div class="zukan-header">
@@ -66,29 +40,8 @@ export class ZukanOverlay {
           <div class="zukan-missions-label">ミッション</div>
           <div class="zukan-missions-list"></div>
         </div>
-        <div class="zukan-chapters">
-          <div class="zukan-chapters-label">章を選択（切替するとリロード）</div>
-          <div class="zukan-chapters-list">${chapterButtons}</div>
-        </div>
         <div class="zukan-list"></div>
-        <div class="zukan-reset">
-          <button class="reset-coin" type="button">コインを${this.initialCoins}に戻す</button>
-          <button class="reset-all" type="button">全データをリセット</button>
-        </div>
-        <div class="zukan-debug">
-          <div class="zukan-debug-label">デバッグ（演出を強制発動）</div>
-          <div class="zukan-debug-buttons">
-            <button data-debug="bonus" type="button">BONUS突入</button>
-            <button data-debug="shisa" type="button">示唆発動</button>
-            <button data-debug="quiz" type="button">クイズ発動</button>
-            <button data-debug="tenpai" type="button">テンパイSE</button>
-            <button data-debug="win" type="button">役成立演出</button>
-            <button data-debug="effects" type="button">全画面FX</button>
-            <button data-debug="coin100" type="button">+100コイン</button>
-            <button data-debug="coin1000" type="button">+1000コイン</button>
-          </div>
-        </div>
-        <div class="zukan-hint">[Z] で閉じる</div>
+        <div class="zukan-hint">[Z] で閉じる ／ 設定は ⚙ ボタンへ</div>
       </div>
     `;
     this.summaryEl = this.root.querySelector('.zukan-summary')!;
@@ -97,69 +50,6 @@ export class ZukanOverlay {
     this.listEl = this.root.querySelector('.zukan-list')!;
     const closeBtn = this.root.querySelector<HTMLButtonElement>('.zukan-close')!;
     closeBtn.addEventListener('click', () => this.close());
-
-    const resetCoinBtn = this.root.querySelector<HTMLButtonElement>('.reset-coin')!;
-    resetCoinBtn.addEventListener('click', () => {
-      this.wallet.reset(this.initialCoins);
-    });
-    const resetAllBtn = this.root.querySelector<HTMLButtonElement>('.reset-all')!;
-    resetAllBtn.addEventListener('click', () => {
-      if (!window.confirm('図鑑・統計・ミッション・コインを全てリセットしますか？')) return;
-      this.state.reset();
-      this.playStats.reset();
-      this.challengeTracker.reset();
-      this.wallet.reset(this.initialCoins);
-    });
-
-    // 章切替ボタン
-    const chapterBtns =
-      this.root.querySelectorAll<HTMLButtonElement>('.chapter-btn');
-    chapterBtns.forEach((btn) => {
-      btn.addEventListener('click', () => {
-        const id = btn.dataset.chapter;
-        if (!id || id === this.currentChapterId) return;
-        setCurrentChapterId(id);
-        // 章ごとに reel/yaku/quiz データが違うので、再ロードで初期化
-        window.location.reload();
-      });
-    });
-
-    // デバッグボタン（debugActions は後から setDebugActions で渡される）
-    const debugBtns = this.root.querySelectorAll<HTMLButtonElement>(
-      '.zukan-debug-buttons button',
-    );
-    debugBtns.forEach((btn) => {
-      btn.addEventListener('click', () => {
-        if (!this.debugActions) return;
-        const action = btn.dataset.debug;
-        switch (action) {
-          case 'bonus':
-            this.debugActions.triggerBonus();
-            break;
-          case 'shisa':
-            this.debugActions.triggerShisa();
-            break;
-          case 'quiz':
-            this.debugActions.triggerQuiz();
-            break;
-          case 'tenpai':
-            this.debugActions.triggerTenpaiSe();
-            break;
-          case 'win':
-            this.debugActions.triggerWinTest();
-            break;
-          case 'effects':
-            this.debugActions.fillEffects();
-            break;
-          case 'coin100':
-            this.debugActions.addCoins(100);
-            break;
-          case 'coin1000':
-            this.debugActions.addCoins(1000);
-            break;
-        }
-      });
-    });
 
     state.counts.subscribe(() => {
       if (this.visible) this.render();
@@ -175,10 +65,6 @@ export class ZukanOverlay {
     });
 
     this.close();
-  }
-
-  setDebugActions(actions: DebugActions): void {
-    this.debugActions = actions;
   }
 
   open(): void {
