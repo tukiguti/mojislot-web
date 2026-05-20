@@ -55,7 +55,8 @@ export class ReelEngine {
   }
 
   reset(): void {
-    this.position = 0;
+    // position は維持。実機スロット同様、前回の停止位置から次のスピンが始まる。
+    // state のみ idle に戻して次のレバー可能状態へ。
     this.state.set('idle');
   }
 

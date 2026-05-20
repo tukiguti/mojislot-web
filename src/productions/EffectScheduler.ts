@@ -33,10 +33,10 @@ export class EffectScheduler {
  * 速いほど狙いにくく、遅いほどビタ押ししやすい。
  *  - none: 通常速度（ほぼ運勝負）
  *  - shisa: やや遅い（示唆あり、補助レベル+1相当）
- *  - quiz: 遅い（クイズ補助、補助レベル+2相当）
+ *  - quiz: 中速（クイズ補助、ビタ狙いは依然容易ではない）
  */
 export const REEL_SPEED_BY_EFFECT: Record<EffectType, number> = {
   none: 30,
   shisa: 18,
-  quiz: 10,
+  quiz: 15,
 };
