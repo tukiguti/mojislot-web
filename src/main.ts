@@ -220,18 +220,17 @@ async function bootstrap() {
   // フラッシュなどの前景エフェクトはリールの上に重ねる
   app.stage.addChild(effectVisual.fxLayer);
 
-  // === 診断：1コマが中央を通過するごとにラップタイムをログ ===
-  // 速度が安定していれば lap ≒ 1000/27 ≒ 37ms で揃うはず
-  const lapTracker = engines.map(() => ({ idx: -1, time: 0 }));
-  for (let r = 0; r < engines.length; r++) {
-    const reelIdx = r;
-    engines[r].state.subscribe((s) => {
-      if (s === 'spinning') {
-        lapTracker[reelIdx].idx = -1;
-        lapTracker[reelIdx].time = 0;
-      }
-    });
-  }
+  // === 診断：左リール cell 0 が中央を通過する周回時間を測定 ===
+  // 1周 = 21コマ / 27コマ/秒 ≒ 778ms。揃っていれば速度安定。
+  const LAP_REEL_IDX = 0;
+  const LAP_CELL_IDX = 0;
+  const lapState = { lastCenterIdx: -1, lastLogTime: 0 };
+  engines[LAP_REEL_IDX].state.subscribe((s) => {
+    if (s === 'spinning') {
+      lapState.lastCenterIdx = -1;
+      lapState.lastLogTime = 0;
+    }
+  });
 
   app.ticker.add(() => {
     const now = performance.now();
@@ -240,21 +239,21 @@ async function bootstrap() {
     leftIndicators.update(now);
     rightIndicators.update(now);
 
-    // 中央通過ラップ計測
-    for (let r = 0; r < engines.length; r++) {
-      const engine = engines[r];
-      if (engine.state.get() !== 'spinning') continue;
-      const total = engine.strip.cells.length;
-      const cur = ((Math.round(engine.position) % total) + total) % total;
-      const last = lapTracker[r];
-      if (last.idx !== cur) {
-        const lap = last.time === 0 ? 0 : now - last.time;
-        const symbol = engine.strip.cells[cur];
-        console.log(
-          `[reel${r}] cell=${cur.toString().padStart(2, ' ')} (${symbol}) lap=${lap.toFixed(1)}ms`,
-        );
-        last.idx = cur;
-        last.time = now;
+    // ラップ計測：左リール cell 0 が中央を通過した瞬間だけログ
+    const lapEngine = engines[LAP_REEL_IDX];
+    if (lapEngine.state.get() === 'spinning') {
+      const total = lapEngine.strip.cells.length;
+      const cur = ((Math.round(lapEngine.position) % total) + total) % total;
+      if (cur !== lapState.lastCenterIdx) {
+        if (cur === LAP_CELL_IDX) {
+          const lap =
+            lapState.lastLogTime === 0 ? 0 : now - lapState.lastLogTime;
+          console.log(
+            `[lap] cell=${LAP_CELL_IDX} (${lapEngine.strip.cells[LAP_CELL_IDX]}) 1周=${lap.toFixed(1)}ms`,
+          );
+          lapState.lastLogTime = now;
+        }
+        lapState.lastCenterIdx = cur;
       }
     }
     jinView.update(now);
