@@ -57,17 +57,17 @@ export class ReelView {
         text: symbol,
         style: {
           fill: symbolColor(symbol),
-          fontSize: 76,
+          fontSize: 64,
           fontFamily:
             '"Yu Gothic", "Hiragino Sans", system-ui, sans-serif',
           fontWeight: '900',
-          stroke: { color: 0x000000, width: 5, alpha: 0.95 },
+          stroke: { color: 0x000000, width: 4, alpha: 0.95 },
           dropShadow: {
             color: 0x000000,
-            alpha: 0.6,
+            alpha: 0.55,
             angle: Math.PI / 4,
-            distance: 2,
-            blur: 4,
+            distance: 1,
+            blur: 3,
           },
         },
       });
@@ -77,6 +77,16 @@ export class ReelView {
       this.cellTexts.push(text);
     }
     this.container.addChild(cellsContainer);
+
+    // セル間の細い区切り線（上下の境界を視覚的にはっきりさせる）
+    const dividers = new Graphics();
+    for (let i = 1; i < VISIBLE_CELLS; i++) {
+      const dy = i * CELL_HEIGHT;
+      dividers.moveTo(6, dy);
+      dividers.lineTo(CELL_WIDTH - 6, dy);
+    }
+    dividers.stroke({ width: 1, color: 0x3a3a3a, alpha: 0.7 });
+    this.container.addChild(dividers);
 
     const payline = new Graphics();
     payline.moveTo(0, PAYLINE_Y);
