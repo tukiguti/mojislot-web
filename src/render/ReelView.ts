@@ -23,6 +23,10 @@ export class ReelView {
   readonly container: Container;
   /** 各セルのコンテナ（タイル背景＋文字を内包、上下方向にスクロール移動する） */
   private readonly cellContainers: Container[] = [];
+  /** 各セルの記号文字（cellContainers と同じ index） */
+  private cellSymbols: string[] = [];
+  /** クイズ正解時の引き込み目標文字。non-null の間、それ以外のセルを薄く描画 */
+  private targetSymbol: string | null = null;
   private readonly bg: Graphics;
   private readonly centerGlow: Graphics;
   private centerGlowAlpha = 0;
@@ -57,6 +61,7 @@ export class ReelView {
     this.container.addChild(mask);
     cellsContainer.mask = mask;
 
+    this.cellSymbols = [...engine.strip.cells];
     for (const symbol of engine.strip.cells) {
       // セル単位のコンテナ：背景タイル + 文字
       const cell = new Container();
@@ -161,6 +166,19 @@ export class ReelView {
         this.centerGlowAlpha = 0.55 * k * pulse;
       }
       this.centerGlow.alpha = this.centerGlowAlpha;
+    }
+  }
+
+  /**
+   * クイズ正解時の目標文字を設定。non-null の間、target と一致しない
+   * セル（タイル＋文字まとめて）を薄く描画してフォーカスを強調する。
+   * null を渡すと通常表示に戻る。
+   */
+  setTargetSymbol(symbol: string | null): void {
+    this.targetSymbol = symbol;
+    for (let i = 0; i < this.cellContainers.length; i++) {
+      const isTarget = symbol === null || this.cellSymbols[i] === symbol;
+      this.cellContainers[i].alpha = isTarget ? 1 : 0.25;
     }
   }
 
