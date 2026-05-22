@@ -2,6 +2,9 @@
  * 章（モード）の定義。
  * 各章は独自の reel/yaku/quiz データを持つ。
  * localStorage で現在の章を保存し、起動時に該当章のデータを読み込む。
+ *
+ * 隠し章（hidden: true）は通常の設定画面では非表示。
+ * 解除フラグ（unlockSecret）が立つと表示されるようになる。
  */
 
 import hiraganaFoodReel from '../../data/reels/hiragana_food.json';
@@ -10,6 +13,9 @@ import hiraganaFoodQuiz from '../../data/quizzes/hiragana_food.json';
 import katakanaAnimalReel from '../../data/reels/katakana_animal.json';
 import katakanaAnimalYaku from '../../data/yaku/katakana_animal.json';
 import katakanaAnimalQuiz from '../../data/quizzes/katakana_animal.json';
+import hAdultReel from '../../data/reels/h_adult.json';
+import hAdultYaku from '../../data/yaku/h_adult.json';
+import hAdultQuiz from '../../data/quizzes/h_adult.json';
 
 export interface ChapterBundle {
   id: string;
@@ -18,6 +24,8 @@ export interface ChapterBundle {
   reelData: unknown;
   yakuData: unknown;
   quizData: unknown;
+  /** true の章は、解除フラグが立つまで設定画面で非表示 */
+  hidden?: boolean;
 }
 
 export const CHAPTERS: readonly ChapterBundle[] = [
@@ -37,14 +45,29 @@ export const CHAPTERS: readonly ChapterBundle[] = [
     yakuData: katakanaAnimalYaku,
     quizData: katakanaAnimalQuiz,
   },
+  {
+    id: 'h_adult',
+    name: '🔞 オトナの章',
+    description: 'えっち・すけべ・ぱんつ等の大人ジョーク。プレミアムは「ラブホ」',
+    reelData: hAdultReel,
+    yakuData: hAdultYaku,
+    quizData: hAdultQuiz,
+    hidden: true,
+  },
 ];
 
 const STORAGE_KEY = 'mojislot.chapter.v1';
+const SECRET_UNLOCK_KEY = 'mojislot.secretUnlocked.v1';
 
 export function getCurrentChapterId(): string {
   try {
     const stored = localStorage.getItem(STORAGE_KEY);
-    if (stored && CHAPTERS.some((c) => c.id === stored)) return stored;
+    if (stored && CHAPTERS.some((c) => c.id === stored)) {
+      // 隠し章だった場合、解除されていなければデフォルトに戻す
+      const ch = CHAPTERS.find((c) => c.id === stored);
+      if (ch?.hidden && !isSecretUnlocked()) return CHAPTERS[0].id;
+      return stored;
+    }
   } catch {
     /* ignore */
   }
@@ -62,4 +85,29 @@ export function setCurrentChapterId(id: string): void {
 export function getCurrentChapter(): ChapterBundle {
   const id = getCurrentChapterId();
   return CHAPTERS.find((c) => c.id === id) ?? CHAPTERS[0];
+}
+
+// === 隠し章の解除フラグ ===
+
+export function isSecretUnlocked(): boolean {
+  try {
+    return localStorage.getItem(SECRET_UNLOCK_KEY) === '1';
+  } catch {
+    return false;
+  }
+}
+
+export function setSecretUnlocked(v: boolean): void {
+  try {
+    if (v) localStorage.setItem(SECRET_UNLOCK_KEY, '1');
+    else localStorage.removeItem(SECRET_UNLOCK_KEY);
+  } catch {
+    /* ignore */
+  }
+}
+
+/** 設定画面に表示可能な章一覧（隠し章は解除時のみ含まれる） */
+export function getVisibleChapters(): readonly ChapterBundle[] {
+  const unlocked = isSecretUnlocked();
+  return CHAPTERS.filter((c) => !c.hidden || unlocked);
 }

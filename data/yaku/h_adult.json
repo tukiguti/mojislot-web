@@ -1,0 +1,19 @@
+{
+  "mode": "h_adult",
+  "coreYaku": [
+    { "id": "ecchi", "name": "エッチ", "symbols": ["エ", "ッ", "チ"], "category": "core" },
+    { "id": "sukebe", "name": "スケベ", "symbols": ["ス", "ケ", "ベ"], "category": "core" },
+    { "id": "pantsu", "name": "パンツ", "symbols": ["パ", "ン", "ツ"], "category": "core" },
+    { "id": "nudo", "name": "ヌード", "symbols": ["ヌ", "ー", "ド"], "category": "core" },
+    { "id": "eroi", "name": "エロイ", "symbols": ["エ", "ロ", "イ"], "category": "core" },
+    { "id": "hadaka", "name": "ハダカ", "symbols": ["ハ", "ダ", "カ"], "category": "core" },
+    { "id": "chikubi", "name": "チクビ", "symbols": ["チ", "ク", "ビ"], "category": "core" },
+    { "id": "pinku", "name": "ピンク", "symbols": ["ピ", "ン", "ク"], "category": "core" },
+    { "id": "hoteru", "name": "ホテル", "symbols": ["ホ", "テ", "ル"], "category": "core" },
+    { "id": "sekushi", "name": "セクシ", "symbols": ["セ", "ク", "シ"], "category": "core" }
+  ],
+  "premiumYaku": [
+    { "id": "rabuho", "name": "ラブホ", "symbols": ["ラ", "ブ", "ホ"], "category": "premium" }
+  ],
+  "bonusYaku": []
+}

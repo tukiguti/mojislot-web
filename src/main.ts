@@ -41,7 +41,12 @@ import {
   QuizListSchema,
 } from './data/schemas';
 import payoutDataRaw from '../data/payouts/default.json';
-import { getCurrentChapter, getCurrentChapterId } from './data/chapters';
+import {
+  getCurrentChapter,
+  getCurrentChapterId,
+  isSecretUnlocked,
+  setSecretUnlocked,
+} from './data/chapters';
 import './style.css';
 
 const REEL_GAP = 16;
@@ -338,6 +343,44 @@ async function bootstrap() {
   updateCoinWarning(displayedCoin);
   wallet.coins.subscribe(animateCoinTo);
 
+  // === 隠し章解除：Coin 表示を 20 回クリックで unlock ===
+  let secretClickCount = 0;
+  let secretClickTimer: number | null = null;
+  coinEl.style.cursor = 'pointer';
+  coinEl.addEventListener('click', () => {
+    if (isSecretUnlocked()) return;
+    secretClickCount++;
+    if (secretClickTimer !== null) window.clearTimeout(secretClickTimer);
+    // 3秒押下されないとカウンタリセット
+    secretClickTimer = window.setTimeout(() => {
+      secretClickCount = 0;
+    }, 3000);
+
+    // 10/15回で揺れヒント、20回で解除
+    if (secretClickCount === 10) {
+      coinEl.style.transform = 'scale(1.05)';
+      window.setTimeout(() => (coinEl.style.transform = ''), 150);
+    } else if (secretClickCount === 15) {
+      coinEl.style.transform = 'scale(1.1) rotate(-2deg)';
+      window.setTimeout(() => (coinEl.style.transform = ''), 200);
+    } else if (secretClickCount >= 20) {
+      secretClickCount = 0;
+      setSecretUnlocked(true);
+      sfx.bonusEnter();
+      showSecretToast('🔓 隠し章「オトナの章」が解除されました！\n設定（⚙）から選択できます');
+    }
+  });
+
+  function showSecretToast(text: string): void {
+    const el = document.createElement('div');
+    el.className = 'secret-toast';
+    el.textContent = text;
+    document.body.appendChild(el);
+    requestAnimationFrame(() => el.classList.add('show'));
+    window.setTimeout(() => el.classList.remove('show'), 3500);
+    window.setTimeout(() => el.remove(), 4000);
+  }
+
   // 役成立時の +N フロート
   const showCoinFloat = (amount: number, premium: boolean) => {
     const el = document.createElement('div');
@@ -466,9 +509,6 @@ async function bootstrap() {
       // どれか1リールに枠フラッシュ
       views[2].startTenpaiFlash(false);
       window.setTimeout(() => views[2].stopTenpaiFlash(), 2500);
-    },
-    addCoins: (n: number) => {
-      wallet.win(n);
     },
     fillEffects: () => {
       flashScreen({ color: '#ffffff', alpha: 0.6, durMs: 280 });
