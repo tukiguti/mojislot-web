@@ -26,7 +26,7 @@ import { SettingsOverlay } from './ui/SettingsOverlay';
 import { JinState } from './productions/JinState';
 import { JinView } from './render/JinView';
 import { EffectVisual } from './render/EffectVisual';
-import { QuizState, QUIZ_BONUS_SPEED } from './productions/QuizState';
+import { QuizState } from './productions/QuizState';
 import { QuizOverlay } from './ui/QuizOverlay';
 import { QuizQuestionView } from './render/QuizQuestionView';
 import { ZukanState } from './productions/ZukanState';
@@ -562,11 +562,11 @@ async function bootstrap() {
   const pullLever = () => {
     if (leverBtn.disabled) return;
     if (!betPlaced) return;
-    // 未回答クイズはタイムアウト扱い → 正解時のみ追加減速＆強い引き込み
+    // 未回答クイズはタイムアウト扱い → 正解時は引き込み補助のみ（速度は変えない）
     // 正解/不正解SE は quizState.phase.subscribe で一括して鳴らす
     quizState.finalizeIfUnanswered();
     if (quizState.isCorrect()) {
-      for (const engine of engines) engine.setSpeed(QUIZ_BONUS_SPEED);
+      // 実機準拠：速度は変えず、滑り（引き込み）でのみ補助する
       currentSlipPolicy = SLIP_QUIZ_CORRECT;
     }
     // レバー押下でクイズUIは確実に閉じる（リールが見えるように）
@@ -635,9 +635,7 @@ async function bootstrap() {
     if (stoppedNow.filter((s) => s !== null).length === 2) {
       const tenpai = tenpaiDetector.detect(stoppedNow);
       if (tenpai) {
-        const targetEngine = engines[tenpai.missingReelIndex];
-        const slowed = Math.max(6, targetEngine.currentSpeed * 0.55);
-        targetEngine.setSpeed(slowed);
+        // 実機準拠：テンパイ時もリール速度は変えない。枠フラッシュ＆SEのみ。
         views[tenpai.missingReelIndex].startTenpaiFlash(tenpai.hasPremium);
         if (tenpai.hasPremium) sfx.tenpaiPremium();
         else sfx.tenpai();
