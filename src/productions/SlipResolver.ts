@@ -1,47 +1,29 @@
 import type { ReelStrip, Yaku, YakuList } from '../data/schemas';
+import {
+  PAYLINES,
+  extractPartialLineSymbols,
+  visibleAt,
+  type PartialGrid3x3,
+  type Vertical,
+} from '../core/Paylines';
 
 /**
- * 滑り（引き込み）解決ロジック。
+ * 滑り（引き込み）解決ロジック（簡素化版）。
  *
- * 3つのモードを持つ：
- *  - noise:  通常時。押下位置で役が成立しそうなら、その役を「蹴る」方向に滑らせる。
- *            → 通常時は当たりにくくする（無限稼ぎ防止）。
- *  - none:   示唆時。滑らない＝完全にプレイヤーのビタ押し勝負。
- *  - assist: クイズ正解時。target 役の該当文字（左/中/右の自リール分）を
- *            押下位置±N コマで探して寄せる（猶予拡大）。
- *            正解した役のみが対象なので、適当にビタを外しても他の役にはならない。
+ * モードは1つだけ：**noise**（通常時の蹴り滑り）。
+ *  - 50% の確率で起動
+ *  - 押下位置で 5ペイライン（横3+斜め2）のいずれかが成立しそうなら、
+ *    順方向に最大2コマで「どのラインも成立しない位置」を探して滑らせる
+ *  - 無限稼ぎを防ぎつつ、たまに揃う爽快感を残す調整
+ *
+ * 示唆/クイズ時の特別補助は廃止。演出（マスコット表情・SE）のみ残す。
  */
 
-export type SlipMode = 'noise' | 'none' | 'assist';
-
-export interface SlipPolicy {
-  mode: SlipMode;
-  /** noise/assist の発動確率 (0..1) */
-  probability: number;
-  /** 押下位置からの最大探索コマ数 */
-  maxCells: number;
+export interface VisibleColumn {
+  top: string;
+  middle: string;
+  bottom: string;
 }
-
-/** 通常時：押下位置で揃いそうなら蹴る（当たりにくい） */
-export const SLIP_NONE: SlipPolicy = {
-  mode: 'noise',
-  probability: 0.5,
-  maxCells: 2,
-};
-
-/** 示唆時：滑らない＝ビタ押し勝負 */
-export const SLIP_SHISA: SlipPolicy = {
-  mode: 'none',
-  probability: 0,
-  maxCells: 0,
-};
-
-/** クイズ正解時：target 役の該当文字を ±N コマで寄せる */
-export const SLIP_QUIZ_CORRECT: SlipPolicy = {
-  mode: 'assist',
-  probability: 1,
-  maxCells: 3,
-};
 
 export interface SlipContext {
   /** 0=左, 1=中, 2=右 */
@@ -49,19 +31,17 @@ export interface SlipContext {
   /** 押下時点のセルインデックス（既にスナップ済みの整数） */
   basePosition: number;
   strip: ReelStrip;
-  /** 各リールの現在の停止記号（未停止は null） */
-  stoppedSymbols: readonly (string | null)[];
-  policy: SlipPolicy;
-  /**
-   * assist モード時、引き込みターゲットの役ID。
-   * クイズ正解時にその役のIDを渡す。
-   */
-  targetYakuId?: string | null;
+  /** 各リールの現在の停止 3 セル（未停止は null） */
+  stoppedVisibles: readonly (VisibleColumn | null)[];
 }
+
+const SLIP_PROBABILITY = 0.5;
+const SLIP_MAX_CELLS = 2;
+
+const VERTICALS: readonly Vertical[] = ['top', 'middle', 'bottom'];
 
 export class SlipResolver {
   private readonly allYakus: Yaku[];
-  private readonly yakuById: Map<string, Yaku>;
 
   constructor(yakuList: YakuList) {
     this.allYakus = [
@@ -69,94 +49,68 @@ export class SlipResolver {
       ...yakuList.premiumYaku,
       ...yakuList.bonusYaku,
     ];
-    this.yakuById = new Map(this.allYakus.map((y) => [y.id, y]));
   }
 
   /**
-   * 引き込みコマ数（0..maxCells）を返す。0 ならスベらず押下位置で停止。
+   * 引き込みコマ数（0..SLIP_MAX_CELLS）を返す。
+   * 0 ならスベらず押下位置で停止。
    */
   resolve(ctx: SlipContext): number {
-    switch (ctx.policy.mode) {
-      case 'none':
-        return 0;
-      case 'assist':
-        return this.resolveAssist(ctx);
-      case 'noise':
-        return this.resolveNoise(ctx);
-    }
-  }
+    if (Math.random() >= SLIP_PROBABILITY) return 0;
 
-  /**
-   * assist: クイズ正解時。target 役の該当文字（自リールが受け持つ1文字）を
-   * 押下位置±N コマで探して、最も近い位置に寄せる。
-   * 押下位置がすでに該当文字なら 0（そのまま止まる）。
-   */
-  private resolveAssist(ctx: SlipContext): number {
-    if (!ctx.targetYakuId) return 0;
-    const target = this.yakuById.get(ctx.targetYakuId);
-    if (!target) return 0;
-    const targetSymbol = target.symbols[ctx.reelIndex];
-
-    // 押下位置がもう該当文字ならそのまま
-    if (ctx.strip.cells[ctx.basePosition] === targetSymbol) return 0;
-
-    const total = ctx.strip.cells.length;
-    for (let offset = 1; offset <= ctx.policy.maxCells; offset++) {
-      const idx = (((ctx.basePosition + offset) % total) + total) % total;
-      if (ctx.strip.cells[idx] === targetSymbol) return offset;
-    }
-    return 0;
-  }
-
-  /**
-   * noise: 通常時。押下位置で停めると役が成立する見込みなら、
-   * 確率 P で「役が成立しない位置」に1〜maxCells コマ滑らせる。
-   */
-  private resolveNoise(ctx: SlipContext): number {
-    if (Math.random() >= ctx.policy.probability) return 0;
-
-    // 押下位置で停めても役成立しない場合は何もしない（普通にハズレに止まる）
-    if (
-      !this.wouldComplete(
-        ctx.reelIndex,
-        ctx.basePosition,
-        ctx.strip,
-        ctx.stoppedSymbols,
-      )
-    ) {
+    if (!this.wouldCompleteAnyLine(ctx.basePosition, ctx)) {
       return 0;
     }
 
-    // 順方向に「役成立しない位置」を探す（蹴る）
+    // 順方向に「どのラインも成立しない位置」を探す
     const total = ctx.strip.cells.length;
-    for (let offset = 1; offset <= ctx.policy.maxCells; offset++) {
+    for (let offset = 1; offset <= SLIP_MAX_CELLS; offset++) {
       const idx = (((ctx.basePosition + offset) % total) + total) % total;
-      if (
-        !this.wouldComplete(ctx.reelIndex, idx, ctx.strip, ctx.stoppedSymbols)
-      ) {
+      if (!this.wouldCompleteAnyLine(idx, ctx)) {
         return offset;
       }
     }
-    // 全ての候補位置で役成立してしまうなら、諦めて押下位置のまま
     return 0;
   }
 
   /**
-   * このリールの position に停止した場合、停止済みリールと合わせて
-   * 役が成立する見込みがあるか（未停止リールは「何でも入りうる」と仮定）。
+   * このリールが position に停止したとして、5ペイラインのいずれかで
+   * 役成立する見込みがあるかを判定。
+   * 他リール（未停止）はワイルドカード扱い。
    */
-  private wouldComplete(
-    reelIndex: number,
+  private wouldCompleteAnyLine(position: number, ctx: SlipContext): boolean {
+    const grid = this.buildPartialGrid(position, ctx);
+    return PAYLINES.some((line) => {
+      const [a, b, c] = extractPartialLineSymbols(grid, line);
+      return this.allYakus.some(
+        (y) =>
+          (a === null || y.symbols[0] === a) &&
+          (b === null || y.symbols[1] === b) &&
+          (c === null || y.symbols[2] === c),
+      );
+    });
+  }
+
+  private buildPartialGrid(
     position: number,
-    strip: ReelStrip,
-    stoppedSymbols: readonly (string | null)[],
-  ): boolean {
-    const symbol = strip.cells[position];
-    const final = stoppedSymbols.map((s, r) =>
-      r === reelIndex ? symbol : s,
-    );
-    return this.allYakus.some((y) =>
-      y.symbols.every((sym, i) => final[i] === null || sym === final[i]),
-    );
+    ctx: SlipContext,
+  ): PartialGrid3x3 {
+    const rows: (string | null)[][] = [[null, null, null], [null, null, null], [null, null, null]];
+    for (let r = 0; r < 3; r++) {
+      for (let c = 0; c < 3; c++) {
+        if (c === ctx.reelIndex) {
+          // 自分のリールはこの position で 3 セルが確定
+          rows[r][c] = visibleAt(ctx.strip.cells, position, VERTICALS[r]);
+        } else {
+          const v = ctx.stoppedVisibles[c];
+          rows[r][c] = v ? v[VERTICALS[r]] : null;
+        }
+      }
+    }
+    return [
+      [rows[0][0], rows[0][1], rows[0][2]],
+      [rows[1][0], rows[1][1], rows[1][2]],
+      [rows[2][0], rows[2][1], rows[2][2]],
+    ];
   }
 }

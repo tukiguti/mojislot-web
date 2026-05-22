@@ -1,4 +1,5 @@
 import type { Payout, Yaku } from '../data/schemas';
+import type { PaylineHit } from './YakuJudge';
 
 export class PayoutCalc {
   constructor(private readonly payout: Payout) {}
@@ -20,6 +21,22 @@ export class PayoutCalc {
       (bonusActive ? this.payout.bonusZoneMultiplier : 1) *
       Math.max(1, streakMult);
     return Math.floor(this.payout.betPerSpin * mult);
+  }
+
+  /**
+   * 複数ペイラインヒットの合計払い出し。
+   * 同じ役が複数ラインで揃った場合もライン毎にカウント。
+   */
+  calcMulti(
+    hits: readonly PaylineHit[],
+    bonusActive = false,
+    streakMult = 1,
+  ): number {
+    let total = 0;
+    for (const h of hits) {
+      total += this.calc(h.yaku, bonusActive, streakMult);
+    }
+    return total;
   }
 }
 
