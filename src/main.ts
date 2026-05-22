@@ -748,7 +748,8 @@ async function bootstrap() {
           jinSpeech.say('win');
         }
       } else {
-        // ニアミス検出：±1コマで揃ったはずの役があれば「おしい！」表示
+        // ハズレ・ニアミス時は結果テキストを出さない（演出のみ）
+        // ニアミスはマスコットのセリフだけで示唆
         const positions = engines.map((e) => {
           const t = e.strip.cells.length;
           return ((Math.round(e.position) % t) + t) % t;
@@ -758,17 +759,8 @@ async function bootstrap() {
           engines.map((e) => e.strip),
           positions,
         );
-        if (nearMisses.length > 0) {
-          const first = nearMisses[0];
-          showResult(
-            `おしい！「${first.yaku.name}」まで${nearMisses.length > 1 ? `あと ${nearMisses.length}通り` : '1コマ'}`,
-            'near',
-          );
-          jinSpeech.say('near');
-        } else {
-          showResult(`はずれ (${middleSymbols.join('')})`, 'none');
-          jinSpeech.say('miss');
-        }
+        if (nearMisses.length > 0) jinSpeech.say('near');
+        else jinSpeech.say('miss');
         jinState.set('miss');
         sfx.miss();
       }
