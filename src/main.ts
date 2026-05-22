@@ -848,13 +848,19 @@ async function bootstrap() {
     const cellsEl = col.querySelector<HTMLElement>('.cells');
     if (!cellsEl) return;
     cellsEl.innerHTML = '';
-    engines[idx].strip.cells.forEach((symbol) => {
+    // リールは「上から下へ流れる」＝ 視覚的にトップにある cell index が大きい。
+    // パネルもそれに合わせて、index 降順で上から下に並べる（reverse）。
+    // 元 index は data-index に保持し、ハイライト処理で参照する。
+    const cells = engines[idx].strip.cells;
+    for (let i = cells.length - 1; i >= 0; i--) {
+      const symbol = cells[i];
       const cell = document.createElement('div');
       cell.className = 'strip-cell';
       cell.textContent = symbol;
       cell.style.color = symbolColorCss(symbol);
+      cell.dataset.index = String(i);
       cellsEl.appendChild(cell);
-    });
+    }
   });
 
   const updateStripHighlight = () => {
@@ -864,8 +870,9 @@ async function bootstrap() {
       const total = e.strip.cells.length;
       const current = ((Math.round(e.position) % total) + total) % total;
       const cells = col.querySelectorAll<HTMLElement>('.strip-cell');
-      cells.forEach((cell, ci) => {
-        if (!isSpinning && ci === current) cell.classList.add('current');
+      cells.forEach((cell) => {
+        const stripIdx = Number(cell.dataset.index ?? -1);
+        if (!isSpinning && stripIdx === current) cell.classList.add('current');
         else cell.classList.remove('current');
       });
     });
