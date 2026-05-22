@@ -220,10 +220,9 @@ async function bootstrap() {
   // フラッシュなどの前景エフェクトはリールの上に重ねる
   app.stage.addChild(effectVisual.fxLayer);
 
-  // === 診断：真ん中リール cell 0 が中央を通過する周回時間を測定 ===
-  // 1周 = 21コマ / 27コマ/秒 ≒ 778ms。揃っていれば速度安定。
+  // === 診断：真ん中リールの全コマ中央通過ラップを記録 ===
+  // 期待値：1コマ ≒ 37.0ms 一定。ブレや特定箇所のジャンプを検出する
   const LAP_REEL_IDX = 1;
-  const LAP_CELL_IDX = 0;
   const lapState = { lastCenterIdx: -1, lastLogTime: 0 };
   engines[LAP_REEL_IDX].state.subscribe((s) => {
     if (s === 'spinning') {
@@ -239,20 +238,18 @@ async function bootstrap() {
     leftIndicators.update(now);
     rightIndicators.update(now);
 
-    // ラップ計測：左リール cell 0 が中央を通過した瞬間だけログ
+    // ラップ計測：真ん中リールの「コマが中央を通過した」全イベントをログ
     const lapEngine = engines[LAP_REEL_IDX];
     if (lapEngine.state.get() === 'spinning') {
       const total = lapEngine.strip.cells.length;
       const cur = ((Math.round(lapEngine.position) % total) + total) % total;
       if (cur !== lapState.lastCenterIdx) {
-        if (cur === LAP_CELL_IDX) {
-          const lap =
-            lapState.lastLogTime === 0 ? 0 : now - lapState.lastLogTime;
-          console.log(
-            `[lap] cell=${LAP_CELL_IDX} (${lapEngine.strip.cells[LAP_CELL_IDX]}) 1周=${lap.toFixed(1)}ms`,
-          );
-          lapState.lastLogTime = now;
-        }
+        const lap = lapState.lastLogTime === 0 ? 0 : now - lapState.lastLogTime;
+        const symbol = lapEngine.strip.cells[cur];
+        console.log(
+          `[lap] cell=${cur.toString().padStart(2, ' ')} (${symbol}) Δ=${lap.toFixed(1)}ms`,
+        );
+        lapState.lastLogTime = now;
         lapState.lastCenterIdx = cur;
       }
     }
