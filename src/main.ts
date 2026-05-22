@@ -32,7 +32,7 @@ import { QuizQuestionView } from './render/QuizQuestionView';
 import { ZukanState } from './productions/ZukanState';
 import { ZukanOverlay } from './ui/ZukanOverlay';
 import { SlipResolver, type VisibleColumn } from './productions/SlipResolver';
-import { extractGrid, getVisibleCell } from './core/Paylines';
+import { extractGrid, getVisibleCell, PAYLINES } from './core/Paylines';
 import { PaylineIndicators } from './render/PaylineIndicators';
 import {
   ReelConfigSchema,
@@ -534,6 +534,9 @@ async function bootstrap() {
     // AUTO の狙い状態もクリア
     autoTargetYaku = null;
     aimPending.clear();
+    // 押下精度の記録もクリア
+    lastPressErrorMs.fill(Infinity);
+    lastSlipCells.fill(0);
     updateButtons();
   };
 
@@ -542,9 +545,13 @@ async function bootstrap() {
     window.setTimeout(() => btn.classList.remove('flash'), 100);
   };
 
-  // ビタ押し判定の閾値（ms）
-  const BITA_MS = 33;
-  const NEAR_MS = 80;
+  // ビタ押し判定の閾値（ms）— 1コマ50ms（速度20）の1/4で12msに厳格化
+  const BITA_MS = 12;
+  const NEAR_MS = 22;
+
+  // 各リールの直近押下の精度＆滑り量（役成立時にビタ集計するため）
+  const lastPressErrorMs: number[] = Array(REEL_COUNT).fill(Infinity);
+  const lastSlipCells: number[] = Array(REEL_COUNT).fill(0);
 
   const showBitaBadge = (idx: number, errorMs: number) => {
     const badge = bitaBadges[idx];
@@ -654,8 +661,10 @@ async function bootstrap() {
 
     const result = engine.stop(timestamp, slipCells);
     showBitaBadge(idx, result.errorMs);
+    // 押下の精度情報を保存（役成立時の bita 集計で参照）
+    lastPressErrorMs[idx] = result.errorMs;
+    lastSlipCells[idx] = slipCells;
     if (result.errorMs <= BITA_MS) {
-      zukanState.recordBita();
       sfx.bita();
     } else {
       sfx.stop();
@@ -702,6 +711,24 @@ async function bootstrap() {
         premium: isPremium,
         bonusTriggered: isPremium,
       });
+
+      // ビタ押し集計：役成立時のみ、貢献したリールごとに
+      //   1) 押下精度 ≤ BITA_MS
+      //   2) 滑り（noise 蹴り）に蹴られていない（slipCells == 0）
+      // の両方を満たす時に +1。最大 +3。
+      if (willHit) {
+        const contributingReels = new Set<number>();
+        for (const h of hits) {
+          const line = PAYLINES.find((p) => p.id === h.paylineId);
+          if (!line) continue;
+          for (const [, col] of line.cells) contributingReels.add(col);
+        }
+        for (const r of contributingReels) {
+          if (lastPressErrorMs[r] <= BITA_MS && lastSlipCells[r] === 0) {
+            zukanState.recordBita();
+          }
+        }
+      }
 
       // チャレンジ達成チェック（少し遅延させて結果トーストと被らないように）
       window.setTimeout(() => {
