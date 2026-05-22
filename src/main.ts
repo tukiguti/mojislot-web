@@ -33,6 +33,7 @@ import { ZukanState } from './productions/ZukanState';
 import { ZukanOverlay } from './ui/ZukanOverlay';
 import { SlipResolver, type VisibleColumn } from './productions/SlipResolver';
 import { extractGrid, getVisibleCell } from './core/Paylines';
+import { PaylineIndicators } from './render/PaylineIndicators';
 import {
   ReelConfigSchema,
   YakuListSchema,
@@ -195,6 +196,21 @@ async function bootstrap() {
     views.push(view);
   }
 
+  // ペイラインインジケーター（リール両脇外側に配置・ジャグラー風）
+  const reelHeight = CELL_HEIGHT * VISIBLE_CELLS;
+  const indicatorOffsetY = reelY + (reelHeight - PaylineIndicators.TOTAL_HEIGHT) / 2;
+  const indicatorPadX = 12;
+
+  const leftIndicators = new PaylineIndicators();
+  leftIndicators.container.x = startX - PaylineIndicators.WIDTH - indicatorPadX;
+  leftIndicators.container.y = indicatorOffsetY;
+  app.stage.addChild(leftIndicators.container);
+
+  const rightIndicators = new PaylineIndicators();
+  rightIndicators.container.x = startX + totalWidth + indicatorPadX;
+  rightIndicators.container.y = indicatorOffsetY;
+  app.stage.addChild(rightIndicators.container);
+
   // フラッシュなどの前景エフェクトはリールの上に重ねる
   app.stage.addChild(effectVisual.fxLayer);
 
@@ -202,6 +218,8 @@ async function bootstrap() {
     const now = performance.now();
     for (const engine of engines) engine.tick(now);
     for (const view of views) view.update(now);
+    leftIndicators.update(now);
+    rightIndicators.update(now);
     jinView.update(now);
     effectVisual.update();
   });
@@ -685,6 +703,11 @@ async function bootstrap() {
       }, 1500);
 
       if (willHit) {
+        // 成立ラインインジケーターを点灯
+        for (const h of hits) {
+          leftIndicators.highlight(h.paylineId);
+          rightIndicators.highlight(h.paylineId);
+        }
         const cls = isPremium ? 'premium' : 'win';
         const bonusTag = bonusZone.isActive() ? ' ×BONUS' : '';
         const streakTag = streakMult > 1 ? ` ×${streakMult}連` : '';

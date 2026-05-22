@@ -78,21 +78,7 @@ export class ReelView {
     }
     this.container.addChild(cellsContainer);
 
-    // セル間の細い区切り線（上下の境界を視覚的にはっきりさせる）
-    const dividers = new Graphics();
-    for (let i = 1; i < VISIBLE_CELLS; i++) {
-      const dy = i * CELL_HEIGHT;
-      dividers.moveTo(6, dy);
-      dividers.lineTo(CELL_WIDTH - 6, dy);
-    }
-    dividers.stroke({ width: 1, color: 0x3a3a3a, alpha: 0.7 });
-    this.container.addChild(dividers);
-
-    const payline = new Graphics();
-    payline.moveTo(0, PAYLINE_Y);
-    payline.lineTo(CELL_WIDTH, PAYLINE_Y);
-    payline.stroke({ width: 2, color: 0xff3333 });
-    this.container.addChild(payline);
+    // ペイラインやセル区切り線はリール上に描画しない（外側インジケーターで示す）
 
     this.update();
   }
