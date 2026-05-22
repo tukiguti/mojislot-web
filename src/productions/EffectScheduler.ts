@@ -42,14 +42,13 @@ export class EffectScheduler {
 }
 
 /**
- * 演出タイプに応じたリール速度（コマ/秒）。
- * 速いほど狙いにくく、遅いほどビタ押ししやすい。
- *  - none: 通常速度（ほぼ運勝負）
- *  - shisa: やや遅い（示唆あり、補助レベル+1相当）
- *  - quiz: 中速（クイズ補助、ビタ狙いは依然容易ではない）
+ * リール速度（コマ/秒）。実機準拠で全演出共通の固定値。
+ * 80rpm × 21コマ ≒ 28 コマ/秒。本作は 10コマなので 30コマ/秒で近い感覚。
+ * 演出による速度変動はゲーム性を曖昧にするため使わない。
+ * 補助は SlipResolver 側（滑り量）で実現する。
  */
 export const REEL_SPEED_BY_EFFECT: Record<EffectType, number> = {
   none: 30,
-  shisa: 18,
-  quiz: 15,
+  shisa: 30,
+  quiz: 30,
 };
