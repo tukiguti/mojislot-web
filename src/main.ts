@@ -100,6 +100,12 @@ async function bootstrap() {
   const yakuList = YakuListSchema.parse(chapter.yakuData);
   const payout = PayoutSchema.parse(payoutDataRaw);
   const quizList = QuizListSchema.parse(chapter.quizData);
+  // 役の id → 役オブジェクトの逆引き（AUTO のターゲット解決などで使う）
+  const allYakusFlat = [
+    ...yakuList.coreYaku,
+    ...yakuList.premiumYaku,
+    ...yakuList.bonusYaku,
+  ];
 
   const judge = new YakuJudge(yakuList);
   const calc = new PayoutCalc(payout);
@@ -132,6 +138,8 @@ async function bootstrap() {
   );
   // 滑りは常に1モード（noise:50%確率で最大2コマ蹴り）。
   // 示唆/クイズ時の特別補助は廃止（演出のみ残す）。
+  // 現在のスピンの effect 種別（AUTO がターゲット決定に使う）
+  let currentEffect: EffectType = 'none';
 
   // 液晶エリアの土台（演出はあとで重ねる）
   const liquidBg = new Graphics();
@@ -266,6 +274,7 @@ async function bootstrap() {
     quizList.quizzes[Math.floor(Math.random() * quizList.quizzes.length)];
 
   const applyEffect = (effect: EffectType) => {
+    currentEffect = effect;
     const speed = REEL_SPEED_BY_EFFECT[effect];
     for (const engine of engines) engine.setSpeed(speed);
     effectVisual.apply(effect);
@@ -522,6 +531,9 @@ async function bootstrap() {
     quizState.reset();
     clearAllBitaBadges();
     applyEffect('none');
+    // AUTO の狙い状態もクリア
+    autoTargetYaku = null;
+    aimPending.clear();
     updateButtons();
   };
 
@@ -783,10 +795,15 @@ async function bootstrap() {
   });
 
   // === オートスピン ===
-  // 状態を見て BET → LEVER → STOP×3 を 350ms 間隔でループ。
-  // クイズ表示中は強制的に1番（左端）を回答する（25%で正解、まあまあ揃う）。
+  // 状態を見て BET → LEVER → STOP×3 を進める。
+  // 示唆/クイズ時はターゲット役を決めて狙い停止（揃いやすくなる）。
+  // 通常時は適当タイミングで停止（揃わなくて普通）。
   let autoMode = false;
   let autoTimer: number | null = null;
+  // 示唆/クイズ時に AUTO が狙う役。BET 直後に決定 → resetForNextSpin で null
+  let autoTargetYaku: (typeof allYakusFlat)[number] | null = null;
+  // 停止スケジュール済みのリール（重複スケジュール防止）
+  const aimPending = new Set<number>();
 
   const clearAutoTimer = () => {
     if (autoTimer !== null) {
@@ -795,10 +812,71 @@ async function bootstrap() {
     }
   };
 
+  /** BET 直後にコールして、effect 種別に応じた狙い役を確定する */
+  const setupAutoTarget = () => {
+    if (currentEffect === 'quiz') {
+      // クイズは必ず正解を選ぶ → targetYakuId が確定
+      const q = quizState.current.get();
+      if (q && quizState.phase.get() === 'asking') {
+        quizState.answer(q.correctIndex);
+      }
+      const tid = quizState.targetYakuId();
+      autoTargetYaku = tid
+        ? allYakusFlat.find((y) => y.id === tid) ?? null
+        : null;
+    } else if (currentEffect === 'shisa') {
+      // 示唆はコア役からランダム1つを目標に
+      autoTargetYaku =
+        yakuList.coreYaku[
+          Math.floor(Math.random() * yakuList.coreYaku.length)
+        ] ?? null;
+    } else {
+      autoTargetYaku = null;
+    }
+  };
+
+  /**
+   * AUTO の狙い停止：target symbol が中央に来るまで待ってから stopReel を呼ぶ。
+   * 滑り（noise 50%蹴り）は通常通り走るので、最終的に揃うかは 50% 程度。
+   */
+  const scheduleAimedStop = (reelIdx: number) => {
+    if (!autoTargetYaku) return;
+    if (aimPending.has(reelIdx)) return;
+    const engine = engines[reelIdx];
+    if (engine.state.get() !== 'spinning') return;
+
+    const cells = engine.strip.cells;
+    const total = cells.length;
+    const pos = engine.position;
+    const targetSymbol = autoTargetYaku.symbols[reelIdx];
+    const speed = engine.currentSpeed;
+
+    // 順方向で次に target symbol が来る距離（コマ単位）
+    let bestDist = Infinity;
+    for (let i = 0; i < total; i++) {
+      if (cells[i] !== targetSymbol) continue;
+      const dist = (((i - pos) % total) + total) % total;
+      if (dist < bestDist) bestDist = dist;
+    }
+    if (bestDist === Infinity || speed <= 0) {
+      stopReel(reelIdx, performance.now());
+      return;
+    }
+
+    const msToWait = (bestDist / speed) * 1000;
+    aimPending.add(reelIdx);
+    window.setTimeout(() => {
+      aimPending.delete(reelIdx);
+      if (!autoMode) return;
+      if (engine.state.get() === 'spinning') {
+        stopReel(reelIdx, performance.now());
+      }
+    }, msToWait);
+  };
+
   const stepAuto = () => {
     if (!autoMode) return;
     if (!wallet.canBet(calc.bet) && !betPlaced) {
-      // コイン不足で停止
       stopAuto();
       return;
     }
@@ -806,22 +884,25 @@ async function bootstrap() {
     const states = engines.map((e) => e.state.get());
     const anySpinning = states.includes('spinning');
     const allIdle = states.every((s) => s === 'idle');
-    const allStopped = states.every((s) => s === 'stopped');
 
     if (!betPlaced && allIdle) {
       placeBet();
+      // BET 後すぐに狙い役を確定（クイズなら正解も済ます）
+      setupAutoTarget();
     } else if (betPlaced && allIdle) {
-      // クイズ表示中なら適当な選択を入れる（簡易ロジック）
-      if (quizState.phase.get() === 'asking') {
-        const q = quizState.current.get();
-        if (q) quizState.answer(Math.floor(Math.random() * 4));
-      }
       pullLever();
     } else if (anySpinning) {
-      const idx = states.findIndex((s) => s === 'spinning');
-      if (idx !== -1) stopReel(idx, performance.now());
-    } else if (allStopped) {
-      // 判定後 resetForNextSpin が走るまで待つ
+      // 1リールずつ処理。aim 待ち中はスキップ
+      for (let idx = 0; idx < REEL_COUNT; idx++) {
+        if (states[idx] !== 'spinning') continue;
+        if (aimPending.has(idx)) break;
+        if (autoTargetYaku) {
+          scheduleAimedStop(idx);
+        } else {
+          stopReel(idx, performance.now());
+        }
+        break;
+      }
     }
 
     autoTimer = window.setTimeout(stepAuto, 350);
@@ -907,11 +988,6 @@ async function bootstrap() {
   };
 
   // クイズ正解時、リール配列にターゲット文字を緑強調表示する
-  const allYakusFlat = [
-    ...yakuList.coreYaku,
-    ...yakuList.premiumYaku,
-    ...yakuList.bonusYaku,
-  ];
   const updateStripTargetHighlight = () => {
     const targetYakuId = quizState.targetYakuId();
     const yaku = targetYakuId
