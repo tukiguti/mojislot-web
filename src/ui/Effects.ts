@@ -58,3 +58,56 @@ export function shakeBody(durMs = 500): void {
   document.body.classList.add('shake');
   window.setTimeout(() => document.body.classList.remove('shake'), durMs);
 }
+
+/**
+ * プレミアム成立カットイン。
+ * 暗転 → 役名がデカく登場 → 放射状光線 → フェードアウト。
+ * 完全に視覚演出なのでゲーム進行はブロックしない（pointer-events: none）。
+ */
+export function showPremiumCutin(yakuName: string, symbols: string[]): void {
+  // 既存のカットインがあれば消す（連発でも崩れない）
+  document.querySelectorAll('.premium-cutin').forEach((el) => el.remove());
+
+  const root = document.createElement('div');
+  root.className = 'premium-cutin';
+
+  // 8 本の光線を放射
+  const raysHtml = Array.from({ length: 12 })
+    .map(
+      (_, i) =>
+        `<div class="premium-cutin-ray" style="transform: rotate(${(i * 360) / 12}deg)"></div>`,
+    )
+    .join('');
+
+  const symbolsHtml = symbols
+    .map(
+      (s, i) =>
+        `<span class="premium-cutin-symbol" style="animation-delay:${i * 90}ms">${escape(s)}</span>`,
+    )
+    .join('');
+
+  root.innerHTML = `
+    <div class="premium-cutin-veil"></div>
+    <div class="premium-cutin-rays">${raysHtml}</div>
+    <div class="premium-cutin-content">
+      <div class="premium-cutin-label">PREMIUM!</div>
+      <div class="premium-cutin-symbols">${symbolsHtml}</div>
+      <div class="premium-cutin-yaku">${escape(yakuName)}</div>
+    </div>
+  `;
+  document.body.appendChild(root);
+
+  // 次フレームで .show を付けて遷移開始
+  requestAnimationFrame(() => root.classList.add('show'));
+
+  // 1.8s 後にフェードアウト → 削除
+  window.setTimeout(() => root.classList.add('out'), 1500);
+  window.setTimeout(() => root.remove(), 2100);
+}
+
+function escape(s: string): string {
+  return s
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;');
+}

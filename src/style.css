@@ -77,18 +77,26 @@ body {
 #reel-strip-panel .strip-cell {
   padding: 4px 0;
   text-align: center;
-  font-size: 18px;
-  font-weight: bold;
+  font-size: 20px;
+  font-weight: 900;
   background: rgba(255, 255, 255, 0.04);
   border: 1px solid #2a2a2a;
   border-radius: 3px;
-  color: #ddd;
+  /* 文字色は JS から symbolColorCss() で設定。
+     ここでは指定しない（個別inline color が効く） */
+  text-shadow:
+    0 0 1px rgba(0, 0, 0, 0.95),
+    0 1px 2px rgba(0, 0, 0, 0.8);
+  letter-spacing: 1px;
 }
 
 #reel-strip-panel .strip-cell.current {
-  background: rgba(255, 215, 0, 0.28);
+  background: rgba(255, 215, 0, 0.22);
   border-color: #ffd700;
-  color: #fff7aa;
+  /* color は個別inline color を活かす（上書きしない） */
+  text-shadow:
+    0 0 6px rgba(255, 215, 0, 0.9),
+    0 0 1px rgba(0, 0, 0, 0.95);
   box-shadow: 0 0 8px rgba(255, 215, 0, 0.55);
 }
 
@@ -1442,7 +1450,10 @@ body.shake {
 #reel-strip-panel .strip-cell.target {
   background: rgba(102, 255, 136, 0.3);
   border-color: #66ff88;
-  color: #ddffe5;
+  /* color は個別inline color を活かす（上書きしない） */
+  text-shadow:
+    0 0 6px rgba(102, 255, 136, 1),
+    0 0 1px rgba(0, 0, 0, 0.95);
   box-shadow: 0 0 8px rgba(102, 255, 136, 0.7);
   animation: target-pulse 0.8s ease-in-out infinite;
 }
@@ -1454,5 +1465,269 @@ body.shake {
   }
   50% {
     box-shadow: 0 0 16px rgba(102, 255, 136, 1);
+  }
+}
+
+/* ===== プレミアム成立カットイン ===== */
+.premium-cutin {
+  position: fixed;
+  inset: 0;
+  z-index: 9999;
+  pointer-events: none;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  overflow: hidden;
+  opacity: 0;
+  transition: opacity 220ms ease-out;
+}
+
+.premium-cutin.show {
+  opacity: 1;
+}
+
+.premium-cutin.out {
+  opacity: 0;
+  transition: opacity 500ms ease-in;
+}
+
+.premium-cutin-veil {
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(
+    circle at center,
+    rgba(80, 30, 0, 0.55) 0%,
+    rgba(0, 0, 0, 0.92) 70%
+  );
+}
+
+.premium-cutin-rays {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  transform: scale(0.6);
+  animation: premium-rays-spin 2.2s linear infinite;
+}
+
+.premium-cutin.show .premium-cutin-rays {
+  transform: scale(1.4);
+  transition: transform 700ms cubic-bezier(0.18, 0.9, 0.32, 1.2);
+}
+
+.premium-cutin-ray {
+  position: absolute;
+  width: 12px;
+  height: 130vh;
+  left: 50%;
+  top: 50%;
+  margin-left: -6px;
+  margin-top: -65vh;
+  background: linear-gradient(
+    180deg,
+    transparent 0%,
+    rgba(255, 215, 0, 0.85) 30%,
+    rgba(255, 220, 100, 0.95) 50%,
+    rgba(255, 215, 0, 0.85) 70%,
+    transparent 100%
+  );
+  opacity: 0.75;
+  filter: blur(1px);
+  transform-origin: center;
+}
+
+@keyframes premium-rays-spin {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.premium-cutin-content {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 14px;
+  transform: scale(0.4) rotate(-6deg);
+  opacity: 0;
+}
+
+.premium-cutin.show .premium-cutin-content {
+  transform: scale(1) rotate(0);
+  opacity: 1;
+  transition:
+    transform 520ms cubic-bezier(0.2, 1.6, 0.4, 1),
+    opacity 320ms ease-out;
+}
+
+.premium-cutin-label {
+  font-size: 56px;
+  font-weight: 900;
+  letter-spacing: 6px;
+  background: linear-gradient(180deg, #fff7c4 0%, #ffd700 45%, #ff8a00 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  text-shadow: 0 0 18px rgba(255, 200, 50, 0.55);
+  filter: drop-shadow(0 4px 8px rgba(0, 0, 0, 0.5));
+  animation: premium-label-shake 280ms ease-in-out 3;
+}
+
+@keyframes premium-label-shake {
+  0%,
+  100% {
+    transform: translateX(0);
+  }
+  25% {
+    transform: translateX(-3px) rotate(-1deg);
+  }
+  75% {
+    transform: translateX(3px) rotate(1deg);
+  }
+}
+
+.premium-cutin-symbols {
+  display: flex;
+  gap: 24px;
+}
+
+.premium-cutin-symbol {
+  display: inline-block;
+  font-size: 96px;
+  font-weight: 900;
+  font-family: 'Yu Gothic', 'Hiragino Sans', system-ui, sans-serif;
+  color: #fff;
+  text-shadow:
+    0 0 18px rgba(255, 215, 0, 1),
+    0 0 4px rgba(0, 0, 0, 0.9),
+    0 6px 14px rgba(0, 0, 0, 0.6);
+  transform: translateY(40px) scale(0.5);
+  opacity: 0;
+  animation: premium-symbol-drop 500ms cubic-bezier(0.18, 1.4, 0.4, 1) forwards;
+}
+
+@keyframes premium-symbol-drop {
+  0% {
+    transform: translateY(40px) scale(0.5);
+    opacity: 0;
+  }
+  60% {
+    transform: translateY(-8px) scale(1.15);
+    opacity: 1;
+  }
+  100% {
+    transform: translateY(0) scale(1);
+    opacity: 1;
+  }
+}
+
+.premium-cutin-yaku {
+  font-size: 36px;
+  font-weight: 900;
+  letter-spacing: 4px;
+  color: #fff;
+  text-shadow:
+    0 0 10px rgba(255, 215, 0, 0.9),
+    0 4px 8px rgba(0, 0, 0, 0.7);
+  padding: 6px 28px;
+  border: 2px solid #ffd700;
+  border-radius: 999px;
+  background: rgba(0, 0, 0, 0.5);
+}
+
+/* ===== 連チャンオーラ：cabinet の外周を脈動させる ===== */
+#cabinet.streak-aura {
+  animation: streak-aura-pulse 1.6s ease-in-out infinite;
+}
+
+#cabinet.streak-aura-hot {
+  animation: streak-aura-pulse-hot 1.2s ease-in-out infinite;
+  border-color: #ff8a00;
+}
+
+#cabinet.streak-aura-fever {
+  animation: streak-aura-pulse-fever 0.8s ease-in-out infinite;
+  border-color: #ff3366;
+}
+
+@keyframes streak-aura-pulse {
+  0%,
+  100% {
+    box-shadow:
+      0 0 40px rgba(255, 215, 0, 0.35),
+      inset 0 0 0 2px #2a2a2a,
+      0 0 24px rgba(255, 215, 0, 0.45);
+  }
+  50% {
+    box-shadow:
+      0 0 40px rgba(255, 215, 0, 0.35),
+      inset 0 0 0 2px #2a2a2a,
+      0 0 60px rgba(255, 215, 0, 0.85);
+  }
+}
+
+@keyframes streak-aura-pulse-hot {
+  0%,
+  100% {
+    box-shadow:
+      0 0 40px rgba(255, 215, 0, 0.35),
+      inset 0 0 0 2px #2a2a2a,
+      0 0 36px rgba(255, 138, 0, 0.6),
+      0 0 80px rgba(255, 138, 0, 0.35);
+  }
+  50% {
+    box-shadow:
+      0 0 40px rgba(255, 215, 0, 0.35),
+      inset 0 0 0 2px #2a2a2a,
+      0 0 72px rgba(255, 138, 0, 1),
+      0 0 120px rgba(255, 138, 0, 0.55);
+  }
+}
+
+@keyframes streak-aura-pulse-fever {
+  0%,
+  100% {
+    box-shadow:
+      0 0 40px rgba(255, 215, 0, 0.35),
+      inset 0 0 0 2px #2a2a2a,
+      0 0 48px rgba(255, 51, 102, 0.7),
+      0 0 100px rgba(255, 51, 102, 0.5),
+      0 0 180px rgba(255, 215, 0, 0.4);
+  }
+  50% {
+    box-shadow:
+      0 0 40px rgba(255, 215, 0, 0.35),
+      inset 0 0 0 2px #2a2a2a,
+      0 0 90px rgba(255, 51, 102, 1),
+      0 0 160px rgba(255, 215, 0, 0.75),
+      0 0 240px rgba(255, 51, 102, 0.6);
+  }
+}
+
+/* streak-status バッジも段階で色変化 */
+#cabinet.streak-aura-hot #streak-status {
+  color: #ff8a00;
+  text-shadow: 0 0 8px rgba(255, 138, 0, 0.9);
+}
+
+#cabinet.streak-aura-fever #streak-status {
+  color: #ff3366;
+  text-shadow:
+    0 0 8px rgba(255, 51, 102, 1),
+    0 0 16px rgba(255, 215, 0, 0.6);
+  animation: streak-badge-shake 0.4s ease-in-out infinite;
+}
+
+@keyframes streak-badge-shake {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-1px) scale(1.04);
   }
 }

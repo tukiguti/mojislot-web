@@ -1,6 +1,7 @@
 import { Application, Graphics } from 'pixi.js';
 import { ReelEngine } from './core/ReelEngine';
 import { ReelView, CELL_WIDTH, CELL_HEIGHT, VISIBLE_CELLS } from './render/ReelView';
+import { symbolColorCss } from './render/SymbolStyle';
 import { YakuJudge } from './core/YakuJudge';
 import { PayoutCalc, streakMultiplier } from './core/PayoutCalc';
 import { CoinWallet } from './core/CoinWallet';
@@ -17,7 +18,7 @@ import { SfxEngine } from './audio/SfxEngine';
 import { TenpaiDetector } from './productions/TenpaiDetector';
 import { PlayStats } from './productions/PlayStats';
 import { NearMissDetector } from './productions/NearMissDetector';
-import { flashScreen, spawnConfetti, shakeBody } from './ui/Effects';
+import { flashScreen, spawnConfetti, shakeBody, showPremiumCutin } from './ui/Effects';
 import { JinSpeech } from './ui/JinSpeech';
 import { ChallengeTracker } from './productions/Challenges';
 import { showMissionToast } from './ui/MissionToast';
@@ -337,7 +338,7 @@ async function bootstrap() {
   // 章説明を入れておく（ホバーで確認）
   effectStatusEl.title = `${chapter.name}：${chapter.description}`;
 
-  // 連チャン表示（倍率も併記）
+  // 連チャン表示（倍率も併記）＋ cabinet の連チャンオーラ
   const updateStreakUI = (streak: number) => {
     if (streak >= 2) {
       const mult = streakMultiplier(streak);
@@ -348,6 +349,14 @@ async function bootstrap() {
       streakStatusEl.hidden = true;
       streakStatusEl.textContent = '';
     }
+    cabinetEl.classList.remove(
+      'streak-aura',
+      'streak-aura-hot',
+      'streak-aura-fever',
+    );
+    if (streak >= 10) cabinetEl.classList.add('streak-aura', 'streak-aura-fever');
+    else if (streak >= 5) cabinetEl.classList.add('streak-aura', 'streak-aura-hot');
+    else if (streak >= 3) cabinetEl.classList.add('streak-aura');
   };
   playStats.stats.subscribe((s) => updateStreakUI(s.streak));
   updateStreakUI(playStats.stats.get().streak);
@@ -380,11 +389,18 @@ async function bootstrap() {
     triggerBonus: () => {
       bonusZone.trigger();
       sfx.bonusEnter();
+      // デバッグ：プレミアム役が無くても代表的な役名でカットインを試せる
+      const premium = yakuList.premiumYaku[0];
+      if (premium) {
+        showPremiumCutin(premium.name, premium.symbols);
+      }
       flashScreen({ color: '#ffd700', alpha: 0.85, durMs: 400 });
       spawnConfetti(100);
       shakeBody(600);
-      showBonusBanner();
-      jinSpeech.say('premium');
+      window.setTimeout(() => {
+        showBonusBanner();
+        jinSpeech.say('premium');
+      }, 1300);
     },
     triggerShisa: () => {
       // 強制的に shisa 演出を発動（リール速度＆ジン表情＆フラッシュ）
@@ -686,11 +702,16 @@ async function bootstrap() {
         if (isPremium) {
           bonusZone.trigger();
           sfx.bonusEnter();
+          // カットイン：暗転＋役名ドン（1.5s）
+          showPremiumCutin(result.yaku!.name, result.yaku!.symbols);
           flashScreen({ color: '#ffd700', alpha: 0.85, durMs: 400 });
           spawnConfetti(100);
           shakeBody(600);
-          showBonusBanner();
-          jinSpeech.say('premium');
+          // BONUSバナー＆セリフはカットインの後ろに少し遅らせる
+          window.setTimeout(() => {
+            showBonusBanner();
+            jinSpeech.say('premium');
+          }, 1300);
         } else {
           sfx.winCore();
           jinSpeech.say('win');
@@ -828,6 +849,7 @@ async function bootstrap() {
       const cell = document.createElement('div');
       cell.className = 'strip-cell';
       cell.textContent = symbol;
+      cell.style.color = symbolColorCss(symbol);
       cellsEl.appendChild(cell);
     });
   });

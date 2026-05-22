@@ -1,5 +1,6 @@
 import { Container, Graphics, Text } from 'pixi.js';
 import type { ReelEngine } from '../core/ReelEngine';
+import { symbolColor } from './SymbolStyle';
 
 export const CELL_WIDTH = 130;
 export const CELL_HEIGHT = 100;
@@ -55,10 +56,19 @@ export class ReelView {
       const text = new Text({
         text: symbol,
         style: {
-          fill: 0xffffff,
-          fontSize: 72,
-          fontFamily: 'system-ui, "Hiragino Sans", "Yu Gothic", sans-serif',
-          fontWeight: 'bold',
+          fill: symbolColor(symbol),
+          fontSize: 76,
+          fontFamily:
+            '"Yu Gothic", "Hiragino Sans", system-ui, sans-serif',
+          fontWeight: '900',
+          stroke: { color: 0x000000, width: 5, alpha: 0.95 },
+          dropShadow: {
+            color: 0x000000,
+            alpha: 0.6,
+            angle: Math.PI / 4,
+            distance: 2,
+            blur: 4,
+          },
         },
       });
       text.anchor.set(0.5);
