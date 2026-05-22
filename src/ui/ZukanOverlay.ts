@@ -78,6 +78,9 @@ export class ZukanOverlay {
     challengeTracker.achieved.subscribe(() => {
       if (this.visible) this.render();
     });
+    challengeTracker.enabled.subscribe(() => {
+      if (this.visible) this.render();
+    });
 
     this.close();
   }
@@ -187,12 +190,14 @@ export class ZukanOverlay {
     };
     const achievedSet = this.challengeTracker.achieved.get();
 
-    // ヘッダー進捗表示
+    // ヘッダー進捗表示（無効中はバッジ付き）
     const progressEl = this.root.querySelector<HTMLElement>(
       '.zukan-missions-progress',
     );
+    const enabled = this.challengeTracker.enabled.get();
     if (progressEl) {
-      progressEl.textContent = `${achievedSet.size} / ${CHALLENGES.length}`;
+      const disabledTag = enabled ? '' : ' <span class="missions-off-badge">OFF</span>';
+      progressEl.innerHTML = `${achievedSet.size} / ${CHALLENGES.length}${disabledTag}`;
     }
 
     this.missionsListEl.innerHTML = CHALLENGES.map((c) => {

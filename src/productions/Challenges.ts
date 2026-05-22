@@ -130,19 +130,29 @@ export const CHALLENGES: readonly Challenge[] = [
 ];
 
 const STORAGE_KEY = 'mojislot.challenges.v1';
+const ENABLED_KEY = 'mojislot.challengesEnabled.v1';
 
 export class ChallengeTracker {
   readonly achieved = new Observable<ReadonlySet<string>>(new Set());
+  /**
+   * ミッション全体の有効/無効。OFFのとき：
+   *  - evaluate() は何もせず []を返す（報酬付与もトーストも出ない）
+   *  - 既に達成済みのものは表示されたまま（履歴は保持）
+   */
+  readonly enabled = new Observable<boolean>(true);
 
   constructor() {
     this.achieved.set(this.load());
+    this.enabled.set(this.loadEnabled());
   }
 
   /**
    * 達成チェックを行い、新たに達成したものを返す。
    * 呼び出し側で報酬付与とトースト表示を行う。
+   * enabled=false のときは何もせず []を返す。
    */
   evaluate(ctx: ChallengeContext): Challenge[] {
+    if (!this.enabled.get()) return [];
     const prev = this.achieved.get();
     const newlyAchieved: Challenge[] = [];
     const next = new Set(prev);
@@ -164,6 +174,15 @@ export class ChallengeTracker {
     return this.achieved.get().has(id);
   }
 
+  setEnabled(v: boolean): void {
+    this.enabled.set(v);
+    try {
+      localStorage.setItem(ENABLED_KEY, v ? '1' : '0');
+    } catch {
+      /* ignore */
+    }
+  }
+
   reset(): void {
     this.achieved.set(new Set());
     try {
@@ -182,6 +201,16 @@ export class ChallengeTracker {
       return new Set(parsed.filter((v) => typeof v === 'string'));
     } catch {
       return new Set();
+    }
+  }
+
+  private loadEnabled(): boolean {
+    try {
+      const raw = localStorage.getItem(ENABLED_KEY);
+      if (raw === null) return true; // デフォルトON
+      return raw === '1';
+    } catch {
+      return true;
     }
   }
 
