@@ -48,7 +48,7 @@ export class EffectScheduler {
  * 演出による速度変動はゲーム性を曖昧にするため使わない。
  */
 export const REEL_SPEED_BY_EFFECT: Record<EffectType, number> = {
-  none: 30,
-  shisa: 30,
-  quiz: 30,
+  none: 20,
+  shisa: 20,
+  quiz: 20,
 };

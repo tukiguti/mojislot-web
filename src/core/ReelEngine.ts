@@ -3,7 +3,7 @@ import type { ReelStrip } from '../data/schemas';
 
 export type ReelState = 'idle' | 'spinning' | 'stopped';
 
-const DEFAULT_SPEED = 30;
+const DEFAULT_SPEED = 20;
 
 export interface StopResult {
   position: number;
