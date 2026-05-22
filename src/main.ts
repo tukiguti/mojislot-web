@@ -1091,6 +1091,9 @@ async function bootstrap() {
   for (const engine of engines) {
     engine.state.subscribe(() => updateButtons());
   }
+  // コイン残量が変化したら BET ボタンの有効/無効を再評価
+  // （+追加 / リセット / コイン不足 → 補充 など全ケース対応）
+  wallet.coins.subscribe(() => updateButtons());
 
   // === キーボードショートカット ===
   // B = BET, Space = LEVER, A/S/D = STOP 左/中/右
