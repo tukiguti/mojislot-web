@@ -220,39 +220,12 @@ async function bootstrap() {
   // フラッシュなどの前景エフェクトはリールの上に重ねる
   app.stage.addChild(effectVisual.fxLayer);
 
-  // === 診断：真ん中リールの全コマ中央通過ラップを記録 ===
-  // 期待値：1コマ ≒ 37.0ms 一定。ブレや特定箇所のジャンプを検出する
-  const LAP_REEL_IDX = 1;
-  const lapState = { lastCenterIdx: -1, lastLogTime: 0 };
-  engines[LAP_REEL_IDX].state.subscribe((s) => {
-    if (s === 'spinning') {
-      lapState.lastCenterIdx = -1;
-      lapState.lastLogTime = 0;
-    }
-  });
-
   app.ticker.add(() => {
     const now = performance.now();
     for (const engine of engines) engine.tick(now);
     for (const view of views) view.update(now);
     leftIndicators.update(now);
     rightIndicators.update(now);
-
-    // ラップ計測：真ん中リールの「コマが中央を通過した」全イベントをログ
-    const lapEngine = engines[LAP_REEL_IDX];
-    if (lapEngine.state.get() === 'spinning') {
-      const total = lapEngine.strip.cells.length;
-      const cur = ((Math.round(lapEngine.position) % total) + total) % total;
-      if (cur !== lapState.lastCenterIdx) {
-        const lap = lapState.lastLogTime === 0 ? 0 : now - lapState.lastLogTime;
-        const symbol = lapEngine.strip.cells[cur];
-        console.log(
-          `[lap] cell=${cur.toString().padStart(2, ' ')} (${symbol}) Δ=${lap.toFixed(1)}ms`,
-        );
-        lapState.lastLogTime = now;
-        lapState.lastCenterIdx = cur;
-      }
-    }
     jinView.update(now);
     effectVisual.update();
   });
