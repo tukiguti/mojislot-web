@@ -52,7 +52,10 @@ const REEL_GAP = 16;
 const REEL_COUNT = 3;
 const CANVAS_W = 600;
 const CANVAS_H = 600;
-const LIQUID_AREA_H = 320;
+// 液晶エリア（マスコット領域）の高さ。
+// CANVAS_H - LIQUID_AREA_H - (CELL_HEIGHT*VISIBLE_CELLS) = 上下余白の合計。
+// 260 のとき、上下に20px ずつの余白でリールが収まる。
+const LIQUID_AREA_H = 260;
 
 function requireEl<T extends HTMLElement>(id: string): T {
   const el = document.getElementById(id);
