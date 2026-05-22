@@ -1,6 +1,8 @@
 import { Container, Graphics, Text } from 'pixi.js';
 import type { ReelEngine } from '../core/ReelEngine';
-import { symbolColor } from './SymbolStyle';
+
+/** ReelView 用の色解決関数（reel ごとに事前 bind した役色を返す） */
+export type SymbolColorFn = (symbol: string) => number;
 
 export const CELL_WIDTH = 130;
 export const CELL_HEIGHT = 100;
@@ -37,7 +39,10 @@ export class ReelView {
   private bounceStart = 0;
   private bounceActive = false;
 
-  constructor(private readonly engine: ReelEngine) {
+  constructor(
+    private readonly engine: ReelEngine,
+    private readonly colorForSymbol: SymbolColorFn,
+  ) {
     this.container = new Container();
 
     this.bg = new Graphics();
@@ -74,7 +79,7 @@ export class ReelView {
           CELL_HEIGHT - TILE_PAD * 2,
           TILE_RADIUS,
         )
-        .fill({ color: symbolColor(symbol) })
+        .fill({ color: this.colorForSymbol(symbol) })
         .stroke({ width: 2, color: 0x000000, alpha: 0.55 });
       cell.addChild(tile);
 

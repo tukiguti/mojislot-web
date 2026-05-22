@@ -1,7 +1,7 @@
 import { Application, Graphics } from 'pixi.js';
 import { ReelEngine } from './core/ReelEngine';
 import { ReelView, CELL_WIDTH, CELL_HEIGHT, VISIBLE_CELLS } from './render/ReelView';
-import { symbolColorCss } from './render/SymbolStyle';
+import { SymbolColorResolver } from './render/SymbolStyle';
 import { YakuJudge } from './core/YakuJudge';
 import { PayoutCalc, streakMultiplier } from './core/PayoutCalc';
 import { CoinWallet } from './core/CoinWallet';
@@ -186,9 +186,15 @@ async function bootstrap() {
   const startX = (app.screen.width - totalWidth) / 2;
   const reelY = LIQUID_AREA_H + (CANVAS_H - LIQUID_AREA_H - CELL_HEIGHT * VISIBLE_CELLS) / 2;
 
+  // 役単位のカラー解決：同じ役の3文字（左/中/右）が同じ色になる
+  const colorResolver = new SymbolColorResolver(yakuList);
+
   for (let i = 0; i < REEL_COUNT; i++) {
     const engine = new ReelEngine(reelConfig.reels[i]);
-    const view = new ReelView(engine);
+    const reelIdx = i;
+    const view = new ReelView(engine, (symbol) =>
+      colorResolver.colorFor(reelIdx, symbol),
+    );
     view.container.x = startX + i * (CELL_WIDTH + REEL_GAP);
     view.container.y = reelY;
     app.stage.addChild(view.container);
@@ -877,8 +883,8 @@ async function bootstrap() {
       const cell = document.createElement('div');
       cell.className = 'strip-cell';
       cell.textContent = symbol;
-      // タイル背景＋白文字に統一（リール本体と同じ見せ方）
-      cell.style.background = symbolColorCss(symbol);
+      // タイル背景＋白文字に統一（リール本体と同じ役単位カラー）
+      cell.style.background = colorResolver.cssFor(idx, symbol);
       cell.style.color = '#fff';
       cell.dataset.index = String(i);
       cellsEl.appendChild(cell);
