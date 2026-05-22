@@ -1,4 +1,8 @@
-import { CHAPTERS, setCurrentChapterId } from '../data/chapters';
+import {
+  getVisibleChapters,
+  isSecretUnlocked,
+  setCurrentChapterId,
+} from '../data/chapters';
 import type { CoinWallet } from '../core/CoinWallet';
 import type { PlayStats } from '../productions/PlayStats';
 import type { ZukanState } from '../productions/ZukanState';
@@ -15,7 +19,6 @@ export interface DebugActions {
   triggerQuiz(): void;
   triggerWinTest(): void;
   triggerTenpaiSe(): void;
-  addCoins(n: number): void;
   fillEffects(): void;
 }
 
@@ -36,12 +39,19 @@ export class SettingsOverlay {
     if (!root) throw new Error('#settings-overlay not found');
     this.root = root;
 
-    const chapterButtons = CHAPTERS.map(
-      (c) =>
-        `<button class="chapter-btn ${c.id === this.currentChapterId ? 'active' : ''}" data-chapter="${c.id}" type="button" title="${c.description}">${c.name}</button>`,
-    ).join('');
+    const visibleChapters = getVisibleChapters();
+    const chapterButtons = visibleChapters
+      .map(
+        (c) =>
+          `<button class="chapter-btn ${c.id === this.currentChapterId ? 'active' : ''}" data-chapter="${c.id}" type="button" title="${c.description}">${c.name}</button>`,
+      )
+      .join('');
 
     const missionsEnabled = this.challengeTracker.enabled.get();
+    const secretHint = isSecretUnlocked()
+      ? '<div class="settings-section-hint">🔓 隠し章が解除されています</div>'
+      : '';
+
     this.root.innerHTML = `
       <div class="settings-modal">
         <div class="settings-header">
@@ -51,7 +61,18 @@ export class SettingsOverlay {
         <div class="settings-section">
           <div class="settings-section-label">章を選択</div>
           <div class="settings-section-hint">切替するとリロードされます</div>
+          ${secretHint}
           <div class="zukan-chapters-list">${chapterButtons}</div>
+        </div>
+        <div class="settings-section">
+          <div class="settings-section-label">コインを追加</div>
+          <div class="settings-section-hint">プレイ用のコインをここから補充できます</div>
+          <div class="coin-add-buttons">
+            <button class="coin-add" data-amount="100" type="button">+100</button>
+            <button class="coin-add" data-amount="500" type="button">+500</button>
+            <button class="coin-add" data-amount="1000" type="button">+1000</button>
+            <button class="coin-add" data-amount="5000" type="button">+5000</button>
+          </div>
         </div>
         <div class="settings-section">
           <div class="settings-section-label">ミッション</div>
@@ -80,13 +101,21 @@ export class SettingsOverlay {
             <button data-debug="tenpai" type="button">テンパイSE</button>
             <button data-debug="win" type="button">役成立演出</button>
             <button data-debug="effects" type="button">全画面FX</button>
-            <button data-debug="coin100" type="button">+100コイン</button>
-            <button data-debug="coin1000" type="button">+1000コイン</button>
           </div>
         </div>
         <div class="zukan-hint">[,] で閉じる</div>
       </div>
     `;
+
+    // コイン追加ボタンの配線
+    const coinAddBtns =
+      this.root.querySelectorAll<HTMLButtonElement>('.coin-add');
+    coinAddBtns.forEach((btn) => {
+      btn.addEventListener('click', () => {
+        const n = Number(btn.dataset.amount ?? '0');
+        if (n > 0) this.wallet.win(n);
+      });
+    });
 
     const closeBtn = this.root.querySelector<HTMLButtonElement>('.settings-close')!;
     closeBtn.addEventListener('click', () => this.close());
@@ -152,12 +181,6 @@ export class SettingsOverlay {
             break;
           case 'effects':
             this.debugActions.fillEffects();
-            break;
-          case 'coin100':
-            this.debugActions.addCoins(100);
-            break;
-          case 'coin1000':
-            this.debugActions.addCoins(1000);
             break;
         }
       });
