@@ -220,9 +220,9 @@ async function bootstrap() {
   // フラッシュなどの前景エフェクトはリールの上に重ねる
   app.stage.addChild(effectVisual.fxLayer);
 
-  // === 診断：左リール cell 0 が中央を通過する周回時間を測定 ===
+  // === 診断：真ん中リール cell 0 が中央を通過する周回時間を測定 ===
   // 1周 = 21コマ / 27コマ/秒 ≒ 778ms。揃っていれば速度安定。
-  const LAP_REEL_IDX = 0;
+  const LAP_REEL_IDX = 1;
   const LAP_CELL_IDX = 0;
   const lapState = { lastCenterIdx: -1, lastLogTime: 0 };
   engines[LAP_REEL_IDX].state.subscribe((s) => {
