@@ -15,9 +15,14 @@ const PAYLINE_Y = CELL_HEIGHT * 1.5;
  */
 const PRE_BUFFER = CELL_HEIGHT;
 
+/** タイル余白（cell の周囲に空けるピクセル） */
+const TILE_PAD = 4;
+const TILE_RADIUS = 12;
+
 export class ReelView {
   readonly container: Container;
-  private readonly cellTexts: Text[] = [];
+  /** 各セルのコンテナ（タイル背景＋文字を内包、上下方向にスクロール移動する） */
+  private readonly cellContainers: Container[] = [];
   private readonly bg: Graphics;
   private readonly centerGlow: Graphics;
   private centerGlowAlpha = 0;
@@ -53,28 +58,49 @@ export class ReelView {
     cellsContainer.mask = mask;
 
     for (const symbol of engine.strip.cells) {
+      // セル単位のコンテナ：背景タイル + 文字
+      const cell = new Container();
+
+      // 背景タイル（角丸・symbol色・薄縁取り）
+      const tile = new Graphics();
+      tile
+        .roundRect(
+          TILE_PAD,
+          -CELL_HEIGHT / 2 + TILE_PAD,
+          CELL_WIDTH - TILE_PAD * 2,
+          CELL_HEIGHT - TILE_PAD * 2,
+          TILE_RADIUS,
+        )
+        .fill({ color: symbolColor(symbol) })
+        .stroke({ width: 2, color: 0x000000, alpha: 0.55 });
+      cell.addChild(tile);
+
+      // 文字（白固定・明朝体・黒ストロークでタイル上のコントラスト確保）
       const text = new Text({
         text: symbol,
         style: {
-          fill: symbolColor(symbol),
-          fontSize: 64,
+          fill: 0xffffff,
+          fontSize: 60,
           fontFamily:
-            '"Yu Gothic", "Hiragino Sans", system-ui, sans-serif',
+            '"Hiragino Mincho ProN", "Yu Mincho", "MS PMincho", serif',
           fontWeight: '900',
-          stroke: { color: 0x000000, width: 4, alpha: 0.95 },
+          stroke: { color: 0x000000, width: 5, alpha: 0.85 },
           dropShadow: {
             color: 0x000000,
-            alpha: 0.55,
+            alpha: 0.5,
             angle: Math.PI / 4,
             distance: 1,
-            blur: 3,
+            blur: 2,
           },
         },
       });
       text.anchor.set(0.5);
       text.x = CELL_WIDTH / 2;
-      cellsContainer.addChild(text);
-      this.cellTexts.push(text);
+      text.y = 0;
+      cell.addChild(text);
+
+      cellsContainer.addChild(cell);
+      this.cellContainers.push(cell);
     }
     this.container.addChild(cellsContainer);
 
@@ -110,7 +136,7 @@ export class ReelView {
     for (let i = 0; i < total; i++) {
       let y = (pos - i) * CELL_HEIGHT + PAYLINE_Y + PRE_BUFFER;
       y = ((y % totalHeight) + totalHeight) % totalHeight;
-      this.cellTexts[i].y = y - PRE_BUFFER + this.bounceOffsetY;
+      this.cellContainers[i].y = y - PRE_BUFFER + this.bounceOffsetY;
     }
 
     // テンパイ枠の脈動

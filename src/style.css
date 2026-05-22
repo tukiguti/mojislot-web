@@ -79,25 +79,26 @@ body {
   text-align: center;
   font-size: 20px;
   font-weight: 900;
-  background: rgba(255, 255, 255, 0.04);
-  border: 1px solid #2a2a2a;
-  border-radius: 3px;
-  /* 文字色は JS から symbolColorCss() で設定。
-     ここでは指定しない（個別inline color が効く） */
+  font-family:
+    'Hiragino Mincho ProN', 'Yu Mincho', 'MS PMincho', serif;
+  /* 背景色は JS から symbolColorCss() で動的設定（タイル方式） */
+  border: 1px solid rgba(0, 0, 0, 0.6);
+  border-radius: 6px;
+  color: #fff;
   text-shadow:
-    0 0 1px rgba(0, 0, 0, 0.95),
-    0 1px 2px rgba(0, 0, 0, 0.8);
+    0 0 2px rgba(0, 0, 0, 1),
+    0 1px 2px rgba(0, 0, 0, 0.85);
   letter-spacing: 1px;
 }
 
 #reel-strip-panel .strip-cell.current {
-  background: rgba(255, 215, 0, 0.22);
+  /* タイル背景色は活かしつつ、外側に金色のリングで強調 */
   border-color: #ffd700;
-  /* color は個別inline color を活かす（上書きしない） */
-  text-shadow:
-    0 0 6px rgba(255, 215, 0, 0.9),
-    0 0 1px rgba(0, 0, 0, 0.95);
-  box-shadow: 0 0 8px rgba(255, 215, 0, 0.55);
+  outline: 2px solid #ffd700;
+  outline-offset: -1px;
+  box-shadow:
+    0 0 8px rgba(255, 215, 0, 0.75),
+    0 0 16px rgba(255, 215, 0, 0.45);
 }
 
 #reel-strip-panel .strip-hint {
@@ -1539,15 +1540,12 @@ body.shake {
   z-index: 1;
 }
 
-/* リール配列パネル：クイズ正解時のターゲット文字強調 */
+/* リール配列パネル：クイズ正解時のターゲット文字強調（タイル色は維持） */
 #reel-strip-panel .strip-cell.target {
-  background: rgba(102, 255, 136, 0.3);
   border-color: #66ff88;
-  /* color は個別inline color を活かす（上書きしない） */
-  text-shadow:
-    0 0 6px rgba(102, 255, 136, 1),
-    0 0 1px rgba(0, 0, 0, 0.95);
-  box-shadow: 0 0 8px rgba(102, 255, 136, 0.7);
+  outline: 2px solid #66ff88;
+  outline-offset: -1px;
+  box-shadow: 0 0 10px rgba(102, 255, 136, 0.95);
   animation: target-pulse 0.8s ease-in-out infinite;
 }
 

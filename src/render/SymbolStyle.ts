@@ -6,19 +6,20 @@
  * 文字数より少ないので衝突は起きるが、隣接文字さえ違えば視認性は大きく改善する。
  */
 
+/**
+ * 8 色のはっきりした色相のみ採用。
+ * 似た色（amber/peach/yellow が共存していた）で起きていた判別ミスを抑え、
+ * 文字を白固定にした上で「タイル背景の色」として使う。
+ */
 const SYMBOL_PALETTE: number[] = [
-  0xffd166, // amber
-  0x4cc9f0, // cyan
-  0xef476f, // pink
-  0x06d6a0, // mint
-  0xffa552, // orange
-  0xb388ff, // lavender
-  0x80ed99, // light green
-  0xffea00, // electric yellow
-  0xff6b6b, // coral
-  0x90e0ef, // sky
-  0xf472b6, // rose
-  0xc4b5fd, // periwinkle
+  0xe74c3c, // red
+  0xff8c1a, // orange
+  0xffd700, // gold
+  0x4ade80, // green
+  0x14b8a6, // teal
+  0x3b82f6, // blue
+  0xa78bfa, // purple
+  0xec4899, // pink
 ];
 
 /** djb2 ベースの簡易ハッシュ（同じ文字 → 同じ index） */
