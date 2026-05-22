@@ -877,7 +877,9 @@ async function bootstrap() {
       const cell = document.createElement('div');
       cell.className = 'strip-cell';
       cell.textContent = symbol;
-      cell.style.color = symbolColorCss(symbol);
+      // タイル背景＋白文字に統一（リール本体と同じ見せ方）
+      cell.style.background = symbolColorCss(symbol);
+      cell.style.color = '#fff';
       cell.dataset.index = String(i);
       cellsEl.appendChild(cell);
     }
