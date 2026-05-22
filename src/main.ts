@@ -652,12 +652,17 @@ async function bootstrap() {
         bottom: getVisibleCell(e, 'bottom'),
       };
     });
-    const slipCells = slipResolver.resolve({
-      reelIndex: idx,
-      basePosition: basePos,
-      strip: engine.strip,
-      stoppedVisibles,
-    });
+    // 滑り（noise 蹴り）は通常時のみ発生。示唆/クイズ時はプレイヤー（or AUTO）
+    // が狙った位置に素直に止まるようスキップする
+    const slipCells =
+      currentEffect === 'none'
+        ? slipResolver.resolve({
+            reelIndex: idx,
+            basePosition: basePos,
+            strip: engine.strip,
+            stoppedVisibles,
+          })
+        : 0;
 
     const result = engine.stop(timestamp, slipCells);
     showBitaBadge(idx, result.errorMs);
