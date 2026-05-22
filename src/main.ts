@@ -220,12 +220,43 @@ async function bootstrap() {
   // フラッシュなどの前景エフェクトはリールの上に重ねる
   app.stage.addChild(effectVisual.fxLayer);
 
+  // === 診断：1コマが中央を通過するごとにラップタイムをログ ===
+  // 速度が安定していれば lap ≒ 1000/27 ≒ 37ms で揃うはず
+  const lapTracker = engines.map(() => ({ idx: -1, time: 0 }));
+  for (let r = 0; r < engines.length; r++) {
+    const reelIdx = r;
+    engines[r].state.subscribe((s) => {
+      if (s === 'spinning') {
+        lapTracker[reelIdx].idx = -1;
+        lapTracker[reelIdx].time = 0;
+      }
+    });
+  }
+
   app.ticker.add(() => {
     const now = performance.now();
     for (const engine of engines) engine.tick(now);
     for (const view of views) view.update(now);
     leftIndicators.update(now);
     rightIndicators.update(now);
+
+    // 中央通過ラップ計測
+    for (let r = 0; r < engines.length; r++) {
+      const engine = engines[r];
+      if (engine.state.get() !== 'spinning') continue;
+      const total = engine.strip.cells.length;
+      const cur = ((Math.round(engine.position) % total) + total) % total;
+      const last = lapTracker[r];
+      if (last.idx !== cur) {
+        const lap = last.time === 0 ? 0 : now - last.time;
+        const symbol = engine.strip.cells[cur];
+        console.log(
+          `[reel${r}] cell=${cur.toString().padStart(2, ' ')} (${symbol}) lap=${lap.toFixed(1)}ms`,
+        );
+        last.idx = cur;
+        last.time = now;
+      }
+    }
     jinView.update(now);
     effectVisual.update();
   });
