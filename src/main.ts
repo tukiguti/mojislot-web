@@ -913,6 +913,7 @@ async function bootstrap() {
       : null;
     stripColumns.forEach((col, idx) => {
       const targetSymbol = yaku?.symbols[idx] ?? null;
+      // 右パネル：該当文字にクラス付与
       const cells = col.querySelectorAll<HTMLElement>('.strip-cell');
       cells.forEach((cell) => {
         if (targetSymbol && cell.textContent === targetSymbol) {
@@ -921,6 +922,8 @@ async function bootstrap() {
           cell.classList.remove('target');
         }
       });
+      // リール本体：該当文字以外を薄くフェード
+      views[idx].setTargetSymbol(targetSymbol);
     });
   };
 
