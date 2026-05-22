@@ -43,12 +43,12 @@ export class EffectScheduler {
 
 /**
  * リール速度（コマ/秒）。実機準拠で全演出共通の固定値。
- * 80rpm × 21コマ = 28コマ/秒（実機標準）。
+ * 1コマ通過 = 1/27 ≒ 0.037 秒（実機規定値）。
+ * 21コマ × 1/27 ≒ 0.78 秒/周 で「目押しリズム」が実機と一致。
  * 演出による速度変動はゲーム性を曖昧にするため使わない。
- * 補助は SlipResolver 側（滑り量）で実現する。
  */
 export const REEL_SPEED_BY_EFFECT: Record<EffectType, number> = {
-  none: 28,
-  shisa: 28,
-  quiz: 28,
+  none: 27,
+  shisa: 27,
+  quiz: 27,
 };

@@ -2,7 +2,8 @@ import { z } from 'zod';
 
 export const ReelStripSchema = z.object({
   id: z.string(),
-  cells: z.array(z.string()).length(10),
+  // 実機準拠で 1リール = 21コマ。1周 ≒ 0.78秒 のリズム
+  cells: z.array(z.string()).length(21),
 });
 
 export const ReelConfigSchema = z.object({
