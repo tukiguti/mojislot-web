@@ -29,6 +29,10 @@ interface IndicatorPart {
   bg: Graphics;
   shape: Graphics;
   hitUntilMs: number;
+  /** 前フレームで描画した alpha 値（変化検知用） */
+  lastAlpha: number;
+  /** 前フレームの isHit 状態 */
+  lastIsHit: boolean;
 }
 
 export class PaylineIndicators {
@@ -60,6 +64,8 @@ export class PaylineIndicators {
       bg,
       shape,
       hitUntilMs: 0,
+      lastAlpha: 0.4,
+      lastIsHit: false,
     };
     this.redraw(line, part, false, 0.4);
     return part;
@@ -79,7 +85,11 @@ export class PaylineIndicators {
     }
   }
 
-  /** 毎フレーム呼ぶ：ハイライト中のものを脈動させる */
+  /**
+   * 毎フレーム呼ぶ：ハイライト中のものだけ再描画する。
+   * 非ヒット時は alpha 0.4 で固定なので、初回描画後はスキップする。
+   * これで GPU 負荷を最小化し、リールのフレームレートを安定させる。
+   */
   update(nowMs: number): void {
     for (const line of PAYLINES) {
       const part = this.parts.get(line.id);
@@ -91,7 +101,16 @@ export class PaylineIndicators {
         const pulse = 0.5 + 0.5 * Math.sin(nowMs / 90);
         alpha = 0.6 + 0.4 * remain * pulse;
       }
+      // 状態変化なし or 微小変化（≦0.02）はスキップして無駄な再描画を避ける
+      if (
+        isHit === part.lastIsHit &&
+        Math.abs(alpha - part.lastAlpha) < 0.02
+      ) {
+        continue;
+      }
       this.redraw(line, part, isHit, alpha);
+      part.lastIsHit = isHit;
+      part.lastAlpha = alpha;
     }
   }
 
