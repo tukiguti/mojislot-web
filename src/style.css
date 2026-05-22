@@ -531,6 +531,96 @@ body {
   margin-bottom: 6px;
 }
 
+/* トグル行（ON/OFF スイッチ） */
+.toggle-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  cursor: pointer;
+  user-select: none;
+  padding: 6px 4px;
+  border-radius: 6px;
+  transition: background 120ms;
+}
+
+.toggle-row:hover {
+  background: rgba(170, 102, 204, 0.08);
+}
+
+.toggle-text {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.toggle-title {
+  font-size: 13px;
+  color: #ddd;
+  font-weight: bold;
+}
+
+.toggle-sub {
+  font-size: 10px;
+  color: #888;
+}
+
+/* 実 checkbox は隠して、見た目用 .toggle-switch を使う */
+.toggle-row input[type='checkbox'] {
+  position: absolute;
+  opacity: 0;
+  pointer-events: none;
+  width: 0;
+  height: 0;
+}
+
+.toggle-switch {
+  position: relative;
+  width: 40px;
+  height: 22px;
+  background: #333;
+  border-radius: 999px;
+  flex-shrink: 0;
+  transition: background 160ms ease;
+}
+
+.toggle-switch::after {
+  content: '';
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 18px;
+  height: 18px;
+  background: #ccc;
+  border-radius: 50%;
+  transition:
+    left 160ms ease,
+    background 160ms ease;
+}
+
+.toggle-row input[type='checkbox']:checked + .toggle-switch {
+  background: #aa66cc;
+}
+
+.toggle-row input[type='checkbox']:checked + .toggle-switch::after {
+  left: 20px;
+  background: #fff;
+}
+
+/* 図鑑ミッション見出し横の OFF バッジ */
+.missions-off-badge {
+  display: inline-block;
+  font-size: 10px;
+  font-weight: bold;
+  letter-spacing: 1px;
+  padding: 1px 6px;
+  margin-left: 6px;
+  background: #555;
+  color: #fff;
+  border-radius: 4px;
+  vertical-align: middle;
+}
+
 /* 設定モーダル内では既存の chapter-btn / reset / debug スタイルを流用 */
 .settings-modal .zukan-debug-buttons {
   display: grid;

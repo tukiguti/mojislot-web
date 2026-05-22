@@ -41,6 +41,7 @@ export class SettingsOverlay {
         `<button class="chapter-btn ${c.id === this.currentChapterId ? 'active' : ''}" data-chapter="${c.id}" type="button" title="${c.description}">${c.name}</button>`,
     ).join('');
 
+    const missionsEnabled = this.challengeTracker.enabled.get();
     this.root.innerHTML = `
       <div class="settings-modal">
         <div class="settings-header">
@@ -51,6 +52,17 @@ export class SettingsOverlay {
           <div class="settings-section-label">章を選択</div>
           <div class="settings-section-hint">切替するとリロードされます</div>
           <div class="zukan-chapters-list">${chapterButtons}</div>
+        </div>
+        <div class="settings-section">
+          <div class="settings-section-label">ミッション</div>
+          <label class="toggle-row">
+            <span class="toggle-text">
+              <span class="toggle-title">ミッション報酬を有効化</span>
+              <span class="toggle-sub">OFFにすると達成チェック・報酬コイン・トーストが止まります</span>
+            </span>
+            <input type="checkbox" class="missions-toggle" ${missionsEnabled ? 'checked' : ''}>
+            <span class="toggle-switch"></span>
+          </label>
         </div>
         <div class="settings-section">
           <div class="settings-section-label">リセット</div>
@@ -88,6 +100,17 @@ export class SettingsOverlay {
         setCurrentChapterId(id);
         window.location.reload();
       });
+    });
+
+    const missionsToggle = this.root.querySelector<HTMLInputElement>(
+      '.missions-toggle',
+    )!;
+    missionsToggle.addEventListener('change', () => {
+      this.challengeTracker.setEnabled(missionsToggle.checked);
+    });
+    // 外部から変更されたときもUIを同期
+    this.challengeTracker.enabled.subscribe((v) => {
+      missionsToggle.checked = v;
     });
 
     const resetCoinBtn = this.root.querySelector<HTMLButtonElement>('.reset-coin')!;
