@@ -31,13 +31,8 @@ import { QuizOverlay } from './ui/QuizOverlay';
 import { QuizQuestionView } from './render/QuizQuestionView';
 import { ZukanState } from './productions/ZukanState';
 import { ZukanOverlay } from './ui/ZukanOverlay';
-import {
-  SlipResolver,
-  SLIP_NONE,
-  SLIP_SHISA,
-  SLIP_QUIZ_CORRECT,
-  type SlipPolicy,
-} from './productions/SlipResolver';
+import { SlipResolver, type VisibleColumn } from './productions/SlipResolver';
+import { extractGrid, getVisibleCell } from './core/Paylines';
 import {
   ReelConfigSchema,
   YakuListSchema,
@@ -56,6 +51,22 @@ const CANVAS_H = 600;
 // CANVAS_H - LIQUID_AREA_H - (CELL_HEIGHT*VISIBLE_CELLS) = 上下余白の合計。
 // 260 のとき、上下に20px ずつの余白でリールが収まる。
 const LIQUID_AREA_H = 260;
+
+/**
+ * 複数ペイラインで揃った役の一覧を文字列要約。
+ * 例: [みかん, みかん, すしや] → "みかん×2 ＋ すしや"
+ */
+function summarizeHits(
+  hits: readonly { yaku: { name: string } }[],
+): string {
+  const counts = new Map<string, number>();
+  for (const h of hits) {
+    counts.set(h.yaku.name, (counts.get(h.yaku.name) ?? 0) + 1);
+  }
+  return Array.from(counts.entries())
+    .map(([name, n]) => (n > 1 ? `${name}×${n}` : name))
+    .join(' ＋ ');
+}
 
 function requireEl<T extends HTMLElement>(id: string): T {
   const el = document.getElementById(id);
@@ -118,8 +129,8 @@ async function bootstrap() {
     zukanState,
     challengeTracker,
   );
-  // 現在の滑り方針。BET時に確定し、レバー時点ではすでに固まっている
-  let currentSlipPolicy: SlipPolicy = SLIP_NONE;
+  // 滑りは常に1モード（noise:50%確率で最大2コマ蹴り）。
+  // 示唆/クイズ時の特別補助は廃止（演出のみ残す）。
 
   // 液晶エリアの土台（演出はあとで重ねる）
   const liquidBg = new Graphics();
@@ -240,22 +251,17 @@ async function bootstrap() {
       effectStatusEl.textContent = '示唆';
       effectStatusEl.classList.add('shisa');
       jinState.set('shisa');
-      currentSlipPolicy = SLIP_SHISA;
       sfx.shisa();
       jinSpeech.say('shisa');
     } else if (effect === 'quiz') {
-      effectStatusEl.textContent = 'クイズ補助';
+      effectStatusEl.textContent = 'クイズ';
       effectStatusEl.classList.add('quiz');
       jinState.set('quiz');
       quizState.start(pickRandomQuiz(), yakuList);
-      // クイズは正解判定後に SLIP_QUIZ_CORRECT に上書きされる
-      currentSlipPolicy = SLIP_NONE;
       sfx.quiz();
-      // クイズ文章を液晶に出すのでセリフは控えめ
     } else {
       effectStatusEl.textContent = '通常';
       jinState.set('idle');
-      currentSlipPolicy = SLIP_NONE;
     }
   };
   applyEffect('none');
@@ -562,13 +568,10 @@ async function bootstrap() {
   const pullLever = () => {
     if (leverBtn.disabled) return;
     if (!betPlaced) return;
-    // 未回答クイズはタイムアウト扱い → 正解時は引き込み補助のみ（速度は変えない）
+    // 未回答クイズはタイムアウト扱い。
+    // 滑り補助は廃止したので、クイズ正解しても挙動は変わらない（演出のみ）。
     // 正解/不正解SE は quizState.phase.subscribe で一括して鳴らす
     quizState.finalizeIfUnanswered();
-    if (quizState.isCorrect()) {
-      // 実機準拠：速度は変えず、滑り（引き込み）でのみ補助する
-      currentSlipPolicy = SLIP_QUIZ_CORRECT;
-    }
     // レバー押下でクイズUIは確実に閉じる（リールが見えるように）
     quizOverlay.dismiss();
     for (const engine of engines) engine.spin();
@@ -595,23 +598,22 @@ async function bootstrap() {
     const engine = engines[idx];
     if (engine.state.get() !== 'spinning') return;
 
-    // 滑り（引き込み）を解決
+    // 滑り（引き込み）を解決：停止済みリールの可視3セルを SlipResolver に渡す
     const total = engine.strip.cells.length;
     const basePos = (((Math.round(engine.position) % total) + total) % total);
-    const stoppedSymbols = engines.map((e) => {
+    const stoppedVisibles: (VisibleColumn | null)[] = engines.map((e) => {
       if (e.state.get() !== 'stopped') return null;
-      const t = e.strip.cells.length;
-      const ci = ((Math.round(e.position) % t) + t) % t;
-      return e.strip.cells[ci];
+      return {
+        top: getVisibleCell(e, 'top'),
+        middle: getVisibleCell(e, 'middle'),
+        bottom: getVisibleCell(e, 'bottom'),
+      };
     });
     const slipCells = slipResolver.resolve({
       reelIndex: idx,
       basePosition: basePos,
       strip: engine.strip,
-      stoppedSymbols,
-      policy: currentSlipPolicy,
-      // クイズ正解時はその役だけを引き込みターゲットに
-      targetYakuId: quizState.targetYakuId(),
+      stoppedVisibles,
     });
 
     const result = engine.stop(timestamp, slipCells);
@@ -644,19 +646,17 @@ async function bootstrap() {
     }
 
     if (engines.every((e) => e.state.get() === 'stopped')) {
-      const symbols = engines.map((e) => {
-        const total = e.strip.cells.length;
-        const ci = ((Math.round(e.position) % total) + total) % total;
-        return e.strip.cells[ci];
-      }) as [string, string, string];
-
-      const result = judge.judge(symbols);
-      const willHit = result.yaku !== null;
-      const isPremium = result.yaku?.category === 'premium';
+      // 5ペイライン（横3+斜め2）で全件判定。同じ役が複数ライン揃いも合算。
+      const grid = extractGrid(engines);
+      const middleSymbols = grid[1] as [string, string, string]; // 既存UI互換用
+      const { hits } = judge.judgeAll(grid);
+      const willHit = hits.length > 0;
+      const premiumHit = hits.find((h) => h.yaku.category === 'premium') ?? null;
+      const isPremium = premiumHit !== null;
       // 成立後の連チャン数で配当倍率を評価（3連達成スピンから恩恵が乗る）
       const streakAfter = willHit ? playStats.stats.get().streak + 1 : 0;
       const streakMult = streakMultiplier(streakAfter);
-      const win = calc.calc(result.yaku, bonusZone.isActive(), streakMult);
+      const win = calc.calcMulti(hits, bonusZone.isActive(), streakMult);
       if (win > 0) wallet.win(win);
 
       playStats.recordSpin({
@@ -684,13 +684,22 @@ async function bootstrap() {
         });
       }, 1500);
 
-      if (result.yaku) {
+      if (willHit) {
         const cls = isPremium ? 'premium' : 'win';
         const bonusTag = bonusZone.isActive() ? ' ×BONUS' : '';
         const streakTag = streakMult > 1 ? ` ×${streakMult}連` : '';
-        showResult(`${result.yaku.name}！ +${win}${bonusTag}${streakTag}`, cls);
+        const lineTag = hits.length > 1 ? ` (${hits.length}ライン)` : '';
+        // 役名は重複なしで「みかん×2 ＋ すしや」のように要約
+        const yakuLabel = summarizeHits(hits);
+        showResult(`${yakuLabel}！ +${win}${bonusTag}${streakTag}${lineTag}`, cls);
         jinState.set('cheer');
-        zukanState.record(result.yaku.id);
+        // 図鑑には揃ったユニーク役を全部記録
+        const recorded = new Set<string>();
+        for (const h of hits) {
+          if (recorded.has(h.yaku.id)) continue;
+          recorded.add(h.yaku.id);
+          zukanState.record(h.yaku.id);
+        }
         // 全リール中央セルをハイライト
         for (const v of views) v.highlightCenter(1400);
         // コイン獲得 +N フロート表示
@@ -699,16 +708,14 @@ async function bootstrap() {
         if (isPremium) showCoinBurst(28);
         else if (win >= 50) showCoinBurst(12);
         else if (win >= 24) showCoinBurst(5);
-        // プレミアム成立でボーナス突入＋全画面演出（active 中なら残り回数リセット＝おかわり）
-        if (isPremium) {
+        // プレミアム成立でボーナス突入＋全画面演出
+        if (isPremium && premiumHit) {
           bonusZone.trigger();
           sfx.bonusEnter();
-          // カットイン：暗転＋役名ドン（1.5s）
-          showPremiumCutin(result.yaku!.name, result.yaku!.symbols);
+          showPremiumCutin(premiumHit.yaku.name, premiumHit.yaku.symbols);
           flashScreen({ color: '#ffd700', alpha: 0.85, durMs: 400 });
           spawnConfetti(100);
           shakeBody(600);
-          // BONUSバナー＆セリフはカットインの後ろに少し遅らせる
           window.setTimeout(() => {
             showBonusBanner();
             jinSpeech.say('premium');
@@ -724,7 +731,7 @@ async function bootstrap() {
           return ((Math.round(e.position) % t) + t) % t;
         });
         const nearMisses = nearMissDetector.detect(
-          symbols,
+          middleSymbols,
           engines.map((e) => e.strip),
           positions,
         );
@@ -736,7 +743,7 @@ async function bootstrap() {
           );
           jinSpeech.say('near');
         } else {
-          showResult(`はずれ (${symbols.join('')})`, 'none');
+          showResult(`はずれ (${middleSymbols.join('')})`, 'none');
           jinSpeech.say('miss');
         }
         jinState.set('miss');
