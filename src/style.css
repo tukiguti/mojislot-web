@@ -2,6 +2,27 @@
   font-family: system-ui, 'Hiragino Sans', 'Yu Gothic', sans-serif;
   color: #fff;
   background: #050505;
+
+  /* === レイアウト寸法（ビューポートに収める） ===
+   * cabinet 内の固定高さ: header(44) + control-panel(実測 約228)
+   * game-area は正方形 (Pixi 内部 600x600) なので、cabinet width = game-area サイズ
+   * 横は、reel-strip-panel(240) + gap(16) + body padding(24) = 280 を引いた残り
+   * 縦は、header + control + body padding(24) を引いた残り
+   */
+  --layout-pad: 12px;
+  --reel-panel-w: 240px;
+  --reel-gap: 16px;
+  --header-h: 44px;
+  --control-h: 228px;
+  --game-size: max(
+    360px,
+    min(
+      600px,
+      calc(100vh - var(--layout-pad) * 2 - var(--header-h) - var(--control-h)),
+      calc(100vw - var(--layout-pad) * 2 - var(--reel-panel-w) - var(--reel-gap))
+    )
+  );
+  --cabinet-h: calc(var(--game-size) + var(--header-h) + var(--control-h));
 }
 
 * {
@@ -15,14 +36,14 @@ body {
   justify-content: center;
   align-items: flex-start;
   min-height: 100vh;
-  padding: 16px;
-  gap: 20px;
+  padding: var(--layout-pad);
+  gap: var(--reel-gap);
 }
 
 /* === リール配列パネル === */
 #reel-strip-panel {
-  width: 240px;
-  max-height: 950px;
+  width: var(--reel-panel-w);
+  max-height: var(--cabinet-h);
   padding: 14px 14px 12px;
   background: linear-gradient(180deg, #1a1a1a 0%, #0d0d0d 100%);
   border: 2px solid #ffd700;
@@ -111,9 +132,9 @@ body {
 
 #cabinet {
   display: grid;
-  grid-template-rows: 44px 600px 1fr;
-  width: 600px;
-  height: 950px;
+  grid-template-rows: var(--header-h) var(--game-size) 1fr;
+  width: var(--game-size);
+  height: var(--cabinet-h);
   background: linear-gradient(180deg, #1a1a1a 0%, #0d0d0d 100%);
   border: 3px solid #ffd700;
   border-radius: 16px;
@@ -990,9 +1011,9 @@ body.shake {
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 12px;
+  gap: 10px;
   /* 上を少し広めに取って、リール下端と BET ボタンの間に空気を入れる */
-  padding: 28px 16px 16px;
+  padding: 20px 16px 12px;
   background: linear-gradient(180deg, #1a1a1a 0%, #050505 100%);
   border-top: 2px solid #ffd700;
 }
