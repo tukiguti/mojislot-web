@@ -2004,13 +2004,17 @@ body.shake {
 /* ===== 狭画面（タブレット縦・スマホ）対応 =====
  * リール配列パネルを cabinet 下に縦並びで配置し、横幅をフル活用する。
  * touch デバイスでは hover が "stuck" になりがちなのでホバー演出を無効化。
+ *
+ * ブレイクポイントは 2 段階：
+ *   ≤ 720px: タブレット縦・大きめスマホ → レイアウト縦並び + 軽い縮小
+ *   ≤ 480px: スマホ縦 → さらに寸法を詰める
  */
 @media (max-width: 720px) {
   :root {
     --layout-pad: 8px;
     --reel-gap: 10px;
     --reel-panel-occupy: 0px;
-    --control-h: 216px;
+    --control-h: 200px;
   }
 
   body {
@@ -2034,6 +2038,264 @@ body.shake {
   #reel-strip-panel .strip-cell {
     font-size: 13px;
     padding: 1px 0;
+  }
+
+  /* ヘッダー詰め */
+  #info-bar {
+    padding: 0 10px;
+    font-size: 12px;
+  }
+  #zukan-btn,
+  #mute-btn,
+  #auto-btn {
+    padding: 3px 7px;
+    font-size: 10px;
+  }
+  #settings-btn {
+    padding: 3px 6px;
+    font-size: 12px;
+  }
+  #effect-status {
+    padding: 3px 10px;
+    font-size: 11px;
+  }
+
+  /* コントロール: ボタン縮小 */
+  #control-panel {
+    gap: 8px;
+    padding: 14px 12px 10px;
+  }
+  #bet-btn,
+  #lever-btn {
+    width: 110px;
+    height: 50px;
+    font-size: 16px;
+  }
+  .stop-btn {
+    width: 78px;
+    height: 56px;
+    font-size: 17px;
+  }
+  .ctrl-row {
+    gap: 12px;
+  }
+  .bita-badge {
+    min-width: 70px;
+    height: 20px;
+    font-size: 10px;
+    line-height: 16px;
+  }
+  #key-hint {
+    display: none; /* スマホ・タブレットではキーボード操作しないので */
+  }
+
+  /* モーダル: フル幅近くまで広げる */
+  .settings-modal,
+  .zukan-modal {
+    width: 96%;
+    padding: 14px 16px;
+  }
+  .settings-header h2,
+  .zukan-header h2 {
+    font-size: 17px;
+    letter-spacing: 2px;
+  }
+  .settings-modal .coin-add-buttons,
+  .settings-modal .zukan-debug-buttons,
+  .zukan-debug-buttons {
+    grid-template-columns: 1fr 1fr;
+  }
+
+  /* 演出オーバーレイ: 文字をワンサイズ落とす */
+  #bonus-banner .bonus-banner-text {
+    font-size: 52px;
+    letter-spacing: 5px;
+  }
+  .premium-cutin-label {
+    font-size: 40px;
+    letter-spacing: 4px;
+  }
+  .premium-cutin-symbol {
+    font-size: 64px;
+  }
+  .premium-cutin-yaku {
+    font-size: 26px;
+    letter-spacing: 3px;
+    padding: 5px 20px;
+  }
+  .multi-hit-badge {
+    font-size: 32px;
+    padding: 8px 20px;
+    letter-spacing: 3px;
+  }
+  .coin-float {
+    font-size: 17px;
+  }
+  .coin-float.premium {
+    font-size: 22px;
+  }
+  #result-display {
+    font-size: 18px;
+    padding: 8px 18px;
+  }
+  #result-display.premium {
+    font-size: 22px;
+  }
+  .mission-toast {
+    top: 56px;
+    right: 12px;
+    min-width: 200px;
+    padding: 9px 14px;
+  }
+  .mission-toast-title {
+    font-size: 14px;
+  }
+}
+
+@media (max-width: 480px) {
+  :root {
+    --layout-pad: 6px;
+    --control-h: 184px;
+  }
+
+  /* ヘッダーをさらに詰める。AUTO/♪/図鑑/⚙ を 1 行に押し込む */
+  #info-bar {
+    padding: 0 6px;
+    font-size: 11px;
+    grid-template-columns: auto 1fr auto;
+  }
+  #bet-display {
+    gap: 4px;
+  }
+  #bet-text {
+    display: none; /* Bet: 3 はステータスバーで読み取れる */
+  }
+  #zukan-btn,
+  #mute-btn,
+  #auto-btn,
+  #settings-btn {
+    padding: 2px 5px;
+    font-size: 10px;
+    letter-spacing: 0.5px;
+  }
+  #effect-status {
+    padding: 2px 8px;
+    font-size: 10px;
+    letter-spacing: 1px;
+  }
+
+  /* コントロール: スマホ親指で押せる最小サイズ程度に */
+  #control-panel {
+    gap: 6px;
+    padding: 10px 8px 8px;
+  }
+  #bet-btn,
+  #lever-btn {
+    width: 96px;
+    height: 44px;
+    font-size: 14px;
+  }
+  .stop-btn {
+    width: 68px;
+    height: 48px;
+    font-size: 14px;
+  }
+  .ctrl-row {
+    gap: 8px;
+  }
+  .ctrl-row.stop-row {
+    gap: 10px;
+  }
+  .bita-badge {
+    min-width: 60px;
+    height: 18px;
+    font-size: 9px;
+    line-height: 14px;
+  }
+  #bet-btn::after,
+  #lever-btn::after,
+  .stop-btn::after {
+    display: none; /* キーバインドラベルは PC のみ */
+  }
+
+  /* リール配列パネル: コマを更に詰める */
+  #reel-strip-panel {
+    padding: 10px 10px 8px;
+    gap: 6px;
+  }
+  #reel-strip-panel h3 {
+    font-size: 12px;
+    letter-spacing: 2px;
+  }
+  #reel-strip-panel .strip-cell {
+    font-size: 12px;
+  }
+
+  /* モーダル: かなりフル幅 */
+  .settings-modal,
+  .zukan-modal {
+    width: 100%;
+    max-width: 100%;
+    max-height: 92vh;
+    padding: 12px 12px;
+    border-radius: 8px;
+  }
+  .settings-header h2,
+  .zukan-header h2 {
+    font-size: 15px;
+  }
+
+  /* 演出: モバイル縦でもデカすぎないサイズ */
+  #bonus-banner .bonus-banner-text {
+    font-size: 38px;
+    letter-spacing: 3px;
+  }
+  .premium-cutin-label {
+    font-size: 30px;
+    letter-spacing: 3px;
+  }
+  .premium-cutin-symbols {
+    gap: 14px;
+  }
+  .premium-cutin-symbol {
+    font-size: 48px;
+  }
+  .premium-cutin-yaku {
+    font-size: 20px;
+    letter-spacing: 2px;
+    padding: 4px 14px;
+  }
+  .multi-hit-badge {
+    font-size: 24px;
+    padding: 7px 14px;
+    letter-spacing: 2px;
+    border-width: 2px;
+  }
+  .coin-float {
+    font-size: 15px;
+  }
+  .coin-float.premium {
+    font-size: 19px;
+  }
+  #result-display {
+    font-size: 15px;
+    padding: 6px 14px;
+  }
+  #result-display.premium {
+    font-size: 18px;
+  }
+  .mission-toast {
+    top: 48px;
+    right: 8px;
+    left: 8px;
+    min-width: 0;
+    width: auto;
+    padding: 8px 12px;
+  }
+  .secret-toast {
+    font-size: 13px;
+    padding: 18px 24px;
+    letter-spacing: 1px;
   }
 }
 
