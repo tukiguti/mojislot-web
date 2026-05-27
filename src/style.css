@@ -548,7 +548,8 @@ body {
     inset 0 0 0 2px #2a1828;
   display: flex;
   flex-direction: column;
-  overflow: hidden;
+  /* 中身が 88vh を超えるとスクロール。sticky ヘッダーと併用して × ボタンを常時表示 */
+  overflow-y: auto;
 }
 
 .settings-modal > *:not(.settings-section) {
@@ -570,6 +571,11 @@ body {
   border-bottom: 2px solid #aa66cc;
   padding-bottom: 8px;
   margin-bottom: 12px;
+  /* モーダル本体がスクロールしてもヘッダー（×ボタン）を常に表示 */
+  position: sticky;
+  top: 0;
+  background: linear-gradient(180deg, #1a1416 0%, #0d0a0c 100%);
+  z-index: 2;
 }
 
 .settings-header h2 {
@@ -1358,6 +1364,11 @@ body.shake {
   border-bottom: 2px solid #ffd700;
   padding-bottom: 8px;
   margin-bottom: 10px;
+  /* モーダル本体がスクロールしてもヘッダー（×ボタン）を常に表示 */
+  position: sticky;
+  top: 0;
+  background: linear-gradient(180deg, #1a1612 0%, #0d0a08 100%);
+  z-index: 2;
 }
 
 .zukan-header h2 {
