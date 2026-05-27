@@ -28,6 +28,8 @@ import {
   startBonusSparkle,
   stopBonusSparkle,
   spawnButtonRipple,
+  showAimNotice,
+  hideAimNotice,
 } from './ui/Effects';
 import { JinSpeech } from './ui/JinSpeech';
 import { ChallengeTracker } from './productions/Challenges';
@@ -593,6 +595,7 @@ async function bootstrap() {
     betPlaced = false;
     for (const engine of engines) engine.reset();
     for (const v of views) v.stopTenpaiFlash();
+    hideAimNotice();
     quizState.reset();
     clearAllBitaBadges();
     applyEffect('none');
@@ -766,10 +769,18 @@ async function bootstrap() {
         if (tenpai.hasPremium) sfx.tenpaiPremium();
         else sfx.tenpai();
         jinSpeech.say('tenpai');
+        // 「狙え！」演出: 残ったリールへ対象文字＋矢印を出す
+        showAimNotice({
+          symbols: tenpai.targetSymbols,
+          reelIndex: tenpai.missingReelIndex,
+          hasPremium: tenpai.hasPremium,
+        });
       }
     }
 
     if (engines.every((e) => e.state.get() === 'stopped')) {
+      // 全停止したので「狙え！」演出は閉じる
+      hideAimNotice();
       // 5ペイライン（横3+斜め2）で全件判定。同じ役が複数ライン揃いも合算。
       const grid = extractGrid(engines);
       const middleSymbols = grid[1] as [string, string, string]; // 既存UI互換用
