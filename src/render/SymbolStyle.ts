@@ -31,6 +31,8 @@ const FILLER_COLOR = 0x4a4a4a; // dark gray（地味な脇役感）
 export class SymbolColorResolver {
   /** key = `${reelIdx}:${symbol}` → 役色 */
   private cellColor = new Map<string, number>();
+  /** 役 id → 役色（成立時の動的ハイライト用） */
+  private yakuColor = new Map<string, number>();
 
   constructor(yakuList: YakuList) {
     // premium → core → bonus の順で割り当て（先勝ち）
@@ -46,6 +48,8 @@ export class SymbolColorResolver {
         yaku.category === 'premium'
           ? PREMIUM_COLOR
           : CORE_PALETTE[coreIdx++ % CORE_PALETTE.length];
+      // 役色を id でひけるよう登録
+      this.yakuColor.set(yaku.id, color);
       for (let r = 0; r < 3; r++) {
         const key = `${r}:${yaku.symbols[r]}`;
         if (!this.cellColor.has(key)) {
@@ -64,5 +68,14 @@ export class SymbolColorResolver {
   cssFor(reelIndex: number, symbol: string): string {
     const n = this.colorFor(reelIndex, symbol);
     return '#' + n.toString(16).padStart(6, '0');
+  }
+
+  /**
+   * 役 id からその役の色を返す。役成立時に「3文字を同色にする」ための取得用。
+   * 共有文字（複数役で同じ文字を使う）の色衝突は構造上避けられないが、
+   * 成立した瞬間だけはこの値で全 3 セルを動的に塗り替えて統一する。
+   */
+  colorForYakuId(yakuId: string): number | null {
+    return this.yakuColor.get(yakuId) ?? null;
   }
 }

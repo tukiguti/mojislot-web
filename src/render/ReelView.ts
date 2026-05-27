@@ -25,6 +25,13 @@ export class ReelView {
   readonly container: Container;
   /** 各セルのコンテナ（タイル背景＋文字を内包、上下方向にスクロール移動する） */
   private readonly cellContainers: Container[] = [];
+  /** 各セルの背景タイル Graphics（動的色変更用） */
+  private readonly cellTiles: Graphics[] = [];
+  /** 各セルの本来の色（ハイライト解除時に戻す用） */
+  private readonly cellOriginalColors: number[] = [];
+  /** 現在ハイライト中のセル indexes と解除タイマー */
+  private highlightTimer: number | null = null;
+  private highlightedIndexes: number[] = [];
   /** 各セルの記号文字（cellContainers と同じ index） */
   private cellSymbols: string[] = [];
   private readonly bg: Graphics;
@@ -70,18 +77,12 @@ export class ReelView {
       const cell = new Container();
 
       // 背景タイル（角丸・symbol色・薄縁取り）
+      const originalColor = this.colorForSymbol(symbol);
       const tile = new Graphics();
-      tile
-        .roundRect(
-          TILE_PAD,
-          -CELL_HEIGHT / 2 + TILE_PAD,
-          CELL_WIDTH - TILE_PAD * 2,
-          CELL_HEIGHT - TILE_PAD * 2,
-          TILE_RADIUS,
-        )
-        .fill({ color: this.colorForSymbol(symbol) })
-        .stroke({ width: 2, color: 0x000000, alpha: 0.55 });
+      this.drawTile(tile, originalColor);
       cell.addChild(tile);
+      this.cellTiles.push(tile);
+      this.cellOriginalColors.push(originalColor);
 
       // 文字（白固定・明朝体・黒ストロークでタイル上のコントラスト確保）
       const text = new Text({
@@ -215,5 +216,52 @@ export class ReelView {
     this.bg.rect(0, 0, CELL_WIDTH, VIEW_HEIGHT);
     this.bg.fill({ color: 0x000000 });
     this.bg.stroke({ width: strokeWidth, color: strokeColor });
+  }
+
+  /** タイル背景を指定色で描く（共通ロジック） */
+  private drawTile(tile: Graphics, color: number): void {
+    tile.clear();
+    tile
+      .roundRect(
+        TILE_PAD,
+        -CELL_HEIGHT / 2 + TILE_PAD,
+        CELL_WIDTH - TILE_PAD * 2,
+        CELL_HEIGHT - TILE_PAD * 2,
+        TILE_RADIUS,
+      )
+      .fill({ color })
+      .stroke({ width: 2, color: 0x000000, alpha: 0.55 });
+  }
+
+  /**
+   * 指定セル（リール内の周回 index）のタイルを役色で塗り替え、durMs 後に元に戻す。
+   * 役成立時に、3 リールにまたがる構成文字をまとめて同色化するための公開 API。
+   *
+   * 共有文字（複数役で使われる文字）はタイル静的色が衝突するが、
+   * これを使えば成立した瞬間だけは「揃った役の 3 文字」が同色で見える。
+   */
+  highlightCells(cellIndexes: readonly number[], color: number, durMs = 1400): void {
+    this.clearHighlight();
+    this.highlightedIndexes = [...cellIndexes];
+    for (const i of cellIndexes) {
+      if (i < 0 || i >= this.cellTiles.length) continue;
+      this.drawTile(this.cellTiles[i], color);
+    }
+    this.highlightTimer = window.setTimeout(() => {
+      this.clearHighlight();
+    }, durMs);
+  }
+
+  /** ハイライト中のタイルを元の色に戻す（タイマー強制終了込み） */
+  clearHighlight(): void {
+    if (this.highlightTimer !== null) {
+      window.clearTimeout(this.highlightTimer);
+      this.highlightTimer = null;
+    }
+    for (const i of this.highlightedIndexes) {
+      if (i < 0 || i >= this.cellTiles.length) continue;
+      this.drawTile(this.cellTiles[i], this.cellOriginalColors[i]);
+    }
+    this.highlightedIndexes = [];
   }
 }
