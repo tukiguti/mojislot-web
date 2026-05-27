@@ -2049,6 +2049,16 @@ body.shake {
     --reel-gap: 0px;
     --reel-panel-occupy: 0px;
     --control-h: 200px;
+    /* 狭画面では 600px キャップを外し、ビューポート全体に追随させる
+     * （Pixi 内部 600x600 を CSS で拡縮するため >600 ではやや甘くなるが、
+     * 画面サイズに合わせてジンくん・リールが伸び縮みするのを優先） */
+    --game-size: max(
+      280px,
+      min(
+        calc(100vh - var(--layout-pad) * 2 - var(--header-h) - var(--control-h)),
+        calc(100vw - var(--layout-pad) * 2)
+      )
+    );
   }
 
   body {
