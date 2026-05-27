@@ -127,6 +127,31 @@ export class SfxEngine {
       20,
     );
   }
+  /**
+   * 多重ライン HIT 用ファンファーレ。ライン本数で広がりを変える。
+   * 2本: アルペジオ + 上昇 / 3本以上: 和音を二回叩いて高音まで駆け上がる。
+   */
+  winMulti(lineCount: number): void {
+    const tail = Math.min(lineCount, 5);
+    const baseSeq = [
+      { freq: 784, durMs: 70, type: 'square' as OscillatorType, vol: 0.4 },
+      { freq: 988, durMs: 70, type: 'square' as OscillatorType, vol: 0.4 },
+      { freq: 1175, durMs: 70, type: 'square' as OscillatorType, vol: 0.4 },
+      { freq: 1568, durMs: 90, type: 'square' as OscillatorType, vol: 0.42 },
+    ];
+    const climb: { freq: number; durMs: number; type?: OscillatorType; vol?: number }[] =
+      [];
+    // 本数に応じて上方へ音階を積む（最大 5 本ぶん）
+    for (let i = 0; i < tail; i++) {
+      climb.push({
+        freq: 1760 + i * 220,
+        durMs: i === tail - 1 ? 380 : 90,
+        type: 'sawtooth',
+        vol: 0.42,
+      });
+    }
+    this.sequence([...baseSeq, ...climb], 18);
+  }
   winPremium(): void {
     this.sequence(
       [

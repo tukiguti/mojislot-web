@@ -18,7 +18,13 @@ import { SfxEngine } from './audio/SfxEngine';
 import { TenpaiDetector } from './productions/TenpaiDetector';
 import { PlayStats } from './productions/PlayStats';
 import { NearMissDetector } from './productions/NearMissDetector';
-import { flashScreen, spawnConfetti, shakeBody, showPremiumCutin } from './ui/Effects';
+import {
+  flashScreen,
+  spawnConfetti,
+  shakeBody,
+  showPremiumCutin,
+  showMultiHitBadge,
+} from './ui/Effects';
 import { JinSpeech } from './ui/JinSpeech';
 import { ChallengeTracker } from './productions/Challenges';
 import { showMissionToast } from './ui/MissionToast';
@@ -833,6 +839,18 @@ async function bootstrap() {
             showBonusBanner();
             jinSpeech.say('premium');
           }, 1300);
+        } else if (hits.length >= 2) {
+          // 多重ライン HIT: 専用ファンファーレ + バッジ + フラッシュ
+          sfx.winMulti(hits.length);
+          showMultiHitBadge(hits.length);
+          const flashColor =
+            hits.length >= 4 ? '#ff66aa' : hits.length === 3 ? '#ffaa44' : '#ffd700';
+          flashScreen({ color: flashColor, alpha: 0.55, durMs: 350 });
+          if (hits.length >= 3) {
+            spawnConfetti(40);
+            shakeBody(280);
+          }
+          jinSpeech.say('win');
         } else {
           sfx.winCore();
           jinSpeech.say('win');

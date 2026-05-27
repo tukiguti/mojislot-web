@@ -105,6 +105,23 @@ export function showPremiumCutin(yakuName: string, symbols: string[]): void {
   window.setTimeout(() => root.remove(), 2100);
 }
 
+/**
+ * 多重ライン HIT バッジ。役名トーストと別軸で「2 LINES!!」と派手に出す。
+ * ライン本数で色を変える（2=金、3=橙、4+=赤）。
+ */
+export function showMultiHitBadge(lineCount: number): void {
+  document.querySelectorAll('.multi-hit-badge').forEach((el) => el.remove());
+  const el = document.createElement('div');
+  el.className = 'multi-hit-badge';
+  if (lineCount >= 4) el.classList.add('fever');
+  else if (lineCount === 3) el.classList.add('hot');
+  el.textContent = `${lineCount} LINES!!`;
+  document.body.appendChild(el);
+  requestAnimationFrame(() => el.classList.add('show'));
+  window.setTimeout(() => el.classList.add('out'), 900);
+  window.setTimeout(() => el.remove(), 1400);
+}
+
 function escape(s: string): string {
   return s
     .replace(/&/g, '&amp;')
