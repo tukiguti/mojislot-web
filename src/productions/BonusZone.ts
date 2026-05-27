@@ -20,7 +20,12 @@ export interface BonusConfig {
 
 export const DEFAULT_BONUS_CONFIG: BonusConfig = {
   spinsPerBonus: 10,
-  bonusEffectRates: { none: 0.35, shisa: 0.4, quiz: 0.25 },
+  /**
+   * ボーナス中は必ず何らかの演出を出す（none = 0）。
+   * 「ずっと示唆 or クイズ」=「演出 100%」のためのバランス設定。
+   * shisa を厚めにしてテンポを保ち、quiz は控えめに混ぜる。
+   */
+  bonusEffectRates: { none: 0, shisa: 0.7, quiz: 0.3 },
 };
 
 export class BonusZone {

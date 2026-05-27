@@ -1880,6 +1880,71 @@ body.shake {
   background: rgba(0, 0, 0, 0.5);
 }
 
+/* ===== ボタンリップル ===== */
+.btn-ripple {
+  position: fixed;
+  border-radius: 50%;
+  border: 3px solid #ffd700;
+  pointer-events: none;
+  opacity: 0.9;
+  transform: scale(0.3);
+  transition:
+    transform 420ms cubic-bezier(0.2, 0.9, 0.3, 1),
+    opacity 420ms ease-out;
+  z-index: 80;
+  box-shadow:
+    0 0 12px rgba(255, 215, 0, 0.6),
+    inset 0 0 8px rgba(255, 215, 0, 0.4);
+}
+
+.btn-ripple.expand {
+  transform: scale(1.4);
+  opacity: 0;
+}
+
+/* ===== ボーナス中の継続スパークル演出 ===== */
+.bonus-sparkle-layer {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 90;
+  overflow: hidden;
+}
+
+.bonus-sparkle {
+  position: absolute;
+  border-radius: 50%;
+  background: radial-gradient(
+    circle at center,
+    rgba(255, 255, 255, 1) 0%,
+    rgba(255, 215, 0, 0.95) 35%,
+    rgba(255, 138, 0, 0.5) 70%,
+    transparent 100%
+  );
+  box-shadow:
+    0 0 6px rgba(255, 215, 0, 0.85),
+    0 0 14px rgba(255, 138, 0, 0.55);
+  opacity: 0;
+  transform: scale(0.4);
+  animation: bonus-sparkle-pop ease-out forwards;
+  will-change: opacity, transform;
+}
+
+@keyframes bonus-sparkle-pop {
+  0% {
+    opacity: 0;
+    transform: scale(0.4);
+  }
+  40% {
+    opacity: 1;
+    transform: scale(1.2);
+  }
+  100% {
+    opacity: 0;
+    transform: scale(0.6) translateY(-12px);
+  }
+}
+
 /* ===== 多重ライン HIT バッジ ===== */
 .multi-hit-badge {
   position: fixed;

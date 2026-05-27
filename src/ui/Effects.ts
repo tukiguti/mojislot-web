@@ -122,6 +122,78 @@ export function showMultiHitBadge(lineCount: number): void {
   window.setTimeout(() => el.remove(), 1400);
 }
 
+/**
+ * ボタン押下位置から外側へ広がる円形リップル。
+ * 短命（450ms）で残らない。LEVER/STOP/BET 等の操作フィードバック用。
+ */
+export function spawnButtonRipple(
+  buttonEl: HTMLElement,
+  color = '#ffd700',
+): void {
+  const rect = buttonEl.getBoundingClientRect();
+  const cx = rect.left + rect.width / 2;
+  const cy = rect.top + rect.height / 2;
+  const size = Math.max(rect.width, rect.height) * 1.6;
+  const ripple = document.createElement('div');
+  ripple.className = 'btn-ripple';
+  ripple.style.left = `${cx - size / 2}px`;
+  ripple.style.top = `${cy - size / 2}px`;
+  ripple.style.width = `${size}px`;
+  ripple.style.height = `${size}px`;
+  ripple.style.borderColor = color;
+  document.body.appendChild(ripple);
+  requestAnimationFrame(() => ripple.classList.add('expand'));
+  window.setTimeout(() => ripple.remove(), 500);
+}
+
+/**
+ * ボーナス期間中、画面全体に散る金色スパークルを継続的に湧かせる。
+ * startBonusSparkle() で開始、stopBonusSparkle() で停止＆掃除。
+ * 連発防止のため、内部 timer を持ち重複起動を許さない。
+ */
+let bonusSparkleTimer: number | null = null;
+let bonusSparkleContainer: HTMLElement | null = null;
+
+export function startBonusSparkle(): void {
+  if (bonusSparkleTimer !== null) return;
+  bonusSparkleContainer = document.createElement('div');
+  bonusSparkleContainer.className = 'bonus-sparkle-layer';
+  document.body.appendChild(bonusSparkleContainer);
+
+  const spawn = () => {
+    if (!bonusSparkleContainer) return;
+    // 1 度に 1〜3 粒生む
+    const burst = 1 + Math.floor(Math.random() * 3);
+    for (let i = 0; i < burst; i++) {
+      const p = document.createElement('div');
+      p.className = 'bonus-sparkle';
+      // 画面端から少し内側にランダム配置
+      p.style.left = `${5 + Math.random() * 90}%`;
+      p.style.top = `${5 + Math.random() * 90}%`;
+      const size = 4 + Math.random() * 8;
+      p.style.width = `${size}px`;
+      p.style.height = `${size}px`;
+      p.style.animationDuration = `${800 + Math.random() * 700}ms`;
+      bonusSparkleContainer.appendChild(p);
+      // 自動 cleanup（アニメーション後）
+      window.setTimeout(() => p.remove(), 1600);
+    }
+  };
+  spawn();
+  bonusSparkleTimer = window.setInterval(spawn, 180);
+}
+
+export function stopBonusSparkle(): void {
+  if (bonusSparkleTimer !== null) {
+    window.clearInterval(bonusSparkleTimer);
+    bonusSparkleTimer = null;
+  }
+  if (bonusSparkleContainer) {
+    bonusSparkleContainer.remove();
+    bonusSparkleContainer = null;
+  }
+}
+
 function escape(s: string): string {
   return s
     .replace(/&/g, '&amp;')

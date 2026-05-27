@@ -15,6 +15,7 @@ import {
 } from './productions/EffectScheduler';
 import { BonusZone } from './productions/BonusZone';
 import { SfxEngine } from './audio/SfxEngine';
+import { BgmEngine } from './audio/BgmEngine';
 import { TenpaiDetector } from './productions/TenpaiDetector';
 import { PlayStats } from './productions/PlayStats';
 import { NearMissDetector } from './productions/NearMissDetector';
@@ -24,6 +25,9 @@ import {
   shakeBody,
   showPremiumCutin,
   showMultiHitBadge,
+  startBonusSparkle,
+  stopBonusSparkle,
+  spawnButtonRipple,
 } from './ui/Effects';
 import { JinSpeech } from './ui/JinSpeech';
 import { ChallengeTracker } from './productions/Challenges';
@@ -137,6 +141,7 @@ async function bootstrap() {
   const slipResolver = new SlipResolver(yakuList);
   const bonusZone = new BonusZone();
   const sfx = new SfxEngine();
+  const bgm = new BgmEngine();
   const tenpaiDetector = new TenpaiDetector(yakuList);
   const nearMissDetector = new NearMissDetector(yakuList);
   const playStats = new PlayStats();
@@ -539,10 +544,15 @@ async function bootstrap() {
       bonusStatusEl.hidden = false;
       bonusStatusEl.textContent = `BONUS 残り${remaining}`;
       cabinetEl.classList.add('bonus');
+      startBonusSparkle();
+      // BGM 起動済みならボーナス曲へ。未起動なら placeBet 時に再生される。
+      bgm.play('bonus');
     } else {
       bonusStatusEl.hidden = true;
       bonusStatusEl.textContent = '';
       cabinetEl.classList.remove('bonus');
+      stopBonusSparkle();
+      bgm.play('normal');
     }
   };
   bonusZone.active.subscribe(updateBonusUI);
@@ -643,6 +653,9 @@ async function bootstrap() {
   const placeBet = () => {
     if (betBtn.disabled) return;
     sfx.init(); // user gesture でオーディオ起動
+    // BGM も最初の BET で起動（自動再生制限の回避）。再生中ならスキップ。
+    bgm.init();
+    bgm.play(bonusZone.isActive() ? 'bonus' : 'normal');
     if (!wallet.bet(calc.bet)) return;
     betPlaced = true;
     resultEl.classList.remove('visible');
@@ -674,6 +687,7 @@ async function bootstrap() {
     quizOverlay.dismiss();
     for (const engine of engines) engine.spin();
     flashButton(leverBtn);
+    spawnButtonRipple(leverBtn, '#ffd700');
     sfx.lever();
     updateButtons();
   };
@@ -731,6 +745,11 @@ async function bootstrap() {
     }
     views[idx].triggerStopBounce();
     flashButton(stopBtns[idx]);
+    // ビタ押し成功時のみ、強めの金色リップル。それ以外は控えめな赤
+    spawnButtonRipple(
+      stopBtns[idx],
+      result.errorMs <= BITA_MS ? '#ffd700' : '#ff5566',
+    );
 
     // 第2停止後：テンパイ検出 → 残ったリールを減速＆枠フラッシュ＆SE
     const stoppedNow = engines.map((e) => {
@@ -1089,7 +1108,9 @@ async function bootstrap() {
   };
   muteBtn.addEventListener('click', () => {
     sfx.init();
+    bgm.init(); // mute トグルを user gesture として BGM も起動
     sfx.toggleMute();
+    bgm.setMuted(sfx.isMuted());
     updateMuteUI();
   });
   updateMuteUI();
@@ -1217,7 +1238,9 @@ async function bootstrap() {
     if (key === 'm') {
       ev.preventDefault();
       sfx.init();
+      bgm.init();
       sfx.toggleMute();
+      bgm.setMuted(sfx.isMuted());
       updateMuteUI();
       return;
     }
