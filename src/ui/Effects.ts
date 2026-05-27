@@ -123,18 +123,20 @@ export function showMultiHitBadge(lineCount: number): void {
 }
 
 /**
- * 「狙え！」演出：テンパイ時に残った 1 リールへ向けて派手な煽りを出す。
- * - 画面中央上部に「狙え！」ラベル + 対象文字（複数可）
- * - 対象リールの真上に下向き矢印
+ * 「狙え！◯◯◯」レバーオン示唆演出。
+ * - リール回転開始時に「この役を狙え」と 3 文字を予告表示
+ * - 画面上部に「狙え！」ラベル + 役名 + 3 文字（左中右の順）
+ * - 各リールの上に下向き矢印を 3 本配置（プレイヤーに目標を明示）
+ * - プレミアム役なら金グラデで派手に
  *
  * 矢印位置は Pixi canvas (600x600 内部解像度) 上のリール中心 x を CSS 座標に
  * 変換して算出。canvas が CSS でスケールしても追従する。
- *
- * 連発防止: 起動時に既存の notice/arrow を一括削除してから生成。
  */
 export interface AimNoticeOptions {
+  /** 狙うべき役の 3 文字（左/中/右の順、必ず length=3） */
   symbols: readonly string[];
-  reelIndex: number;
+  /** 表示用の役名（任意） */
+  yakuName?: string;
   hasPremium: boolean;
 }
 
@@ -146,10 +148,8 @@ export function showAimNotice(opts: AimNoticeOptions): void {
   // Pixi 内部 600px における 3 リールの中心 x（main.ts 配置と合わせる）:
   // 3 リール × 130px + 2 × 16px gap = 422、左端 89px → 中心 154 / 300 / 446
   const reelCenterFracs = [154 / 600, 300 / 600, 446 / 600];
-  const idx = Math.max(0, Math.min(2, opts.reelIndex));
-  const targetX = rect.left + rect.width * reelCenterFracs[idx];
 
-  // 「狙え！」ラベル + 対象文字
+  // 「狙え！」ラベル + 役名 + 3 文字
   const notice = document.createElement('div');
   notice.className = 'aim-notice';
   if (opts.hasPremium) notice.classList.add('premium');
@@ -157,11 +157,11 @@ export function showAimNotice(opts: AimNoticeOptions): void {
   notice.style.top = `${rect.top + 8}px`;
   const label = document.createElement('div');
   label.className = 'aim-notice-label';
-  label.textContent = '狙え！';
+  label.textContent = opts.yakuName ? `狙え！ ${opts.yakuName}` : '狙え！';
   notice.appendChild(label);
   const symbolsEl = document.createElement('div');
   symbolsEl.className = 'aim-notice-symbols';
-  for (const s of opts.symbols.slice(0, 4)) {
+  for (const s of opts.symbols.slice(0, 3)) {
     const span = document.createElement('span');
     span.textContent = s;
     symbolsEl.appendChild(span);
@@ -169,20 +169,20 @@ export function showAimNotice(opts: AimNoticeOptions): void {
   notice.appendChild(symbolsEl);
   document.body.appendChild(notice);
 
-  // 対象リールへの下向き矢印（リール上端少し上）
-  const arrow = document.createElement('div');
-  arrow.className = 'aim-arrow';
-  if (opts.hasPremium) arrow.classList.add('premium');
-  // game-area 内のリール上端は LIQUID_AREA_H = 260 (canvas内部) なので
-  // CSS 上では rect.top + rect.height * (260/600)
-  arrow.style.left = `${targetX}px`;
-  arrow.style.top = `${rect.top + rect.height * (260 / 600) - 8}px`;
-  document.body.appendChild(arrow);
-
-  requestAnimationFrame(() => {
-    notice.classList.add('show');
-    arrow.classList.add('show');
-  });
+  // 3 リール全てに下向き矢印（プレイヤーに「ここで狙え」を明示）
+  const reelTopY = rect.top + rect.height * (260 / 600) - 8;
+  for (let i = 0; i < 3; i++) {
+    const arrow = document.createElement('div');
+    arrow.className = 'aim-arrow';
+    if (opts.hasPremium) arrow.classList.add('premium');
+    arrow.style.left = `${rect.left + rect.width * reelCenterFracs[i]}px`;
+    arrow.style.top = `${reelTopY}px`;
+    // 矢印は順番にバウンス（左→中→右）させる
+    arrow.style.animationDelay = `${i * 120}ms`;
+    document.body.appendChild(arrow);
+    requestAnimationFrame(() => arrow.classList.add('show'));
+  }
+  requestAnimationFrame(() => notice.classList.add('show'));
 }
 
 export function hideAimNotice(): void {

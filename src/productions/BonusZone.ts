@@ -22,10 +22,10 @@ export const DEFAULT_BONUS_CONFIG: BonusConfig = {
   spinsPerBonus: 10,
   /**
    * ボーナス中は必ず何らかの演出を出す（none = 0）。
-   * 「ずっと示唆 or クイズ」=「演出 100%」のためのバランス設定。
-   * shisa を厚めにしてテンポを保ち、quiz は控えめに混ぜる。
+   * 「ずっと示唆 / 狙え / クイズ」=「演出 100%」のためのバランス設定。
+   * shisa を厚めにしてテンポを保ち、quiz と aim を控えめに混ぜる。
    */
-  bonusEffectRates: { none: 0, shisa: 0.7, quiz: 0.3 },
+  bonusEffectRates: { none: 0, shisa: 0.5, quiz: 0.2, aim: 0.3 },
 };
 
 export class BonusZone {

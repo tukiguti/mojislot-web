@@ -1016,6 +1016,14 @@ body.shake {
   box-shadow: 0 0 16px rgba(255, 102, 204, 0.7);
 }
 
+#effect-status.aim {
+  color: #ffaa66;
+  border-color: #ff8866;
+  background: rgba(80, 40, 20, 0.85);
+  box-shadow: 0 0 14px rgba(255, 136, 102, 0.7);
+  font-weight: 900;
+}
+
 /* === ゲームエリア（Pixi canvas + 結果トースト） === */
 #game-area {
   position: relative;

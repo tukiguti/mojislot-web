@@ -306,7 +306,7 @@ async function bootstrap() {
     for (const engine of engines) engine.setSpeed(speed);
     effectVisual.apply(effect);
 
-    effectStatusEl.classList.remove('shisa', 'quiz');
+    effectStatusEl.classList.remove('shisa', 'quiz', 'aim');
     if (effect === 'shisa') {
       effectStatusEl.textContent = '示唆';
       effectStatusEl.classList.add('shisa');
@@ -319,7 +319,25 @@ async function bootstrap() {
       jinState.set('quiz');
       quizState.start(pickRandomQuiz(), yakuList);
       sfx.quiz();
+    } else if (effect === 'aim') {
+      effectStatusEl.textContent = '狙え！';
+      effectStatusEl.classList.add('aim');
+      jinState.set('shisa');
+      // 狙う役を抽選: 15% で premium、それ以外は core からランダム
+      const pickPremium = yakuList.premiumYaku.length > 0 && Math.random() < 0.15;
+      const pool = pickPremium ? yakuList.premiumYaku : yakuList.coreYaku;
+      const targetYaku = pool[Math.floor(Math.random() * pool.length)];
+      // AUTO がこの役を狙えるよう状態保持（setupAutoTarget が後で読む）
+      aimNoticeYaku = targetYaku;
+      showAimNotice({
+        symbols: targetYaku.symbols,
+        yakuName: targetYaku.name,
+        hasPremium: targetYaku.category === 'premium',
+      });
+      sfx.shisa(); // 既存の示唆 SE を流用
+      jinSpeech.say('shisa');
     } else {
+      aimNoticeYaku = null;
       effectStatusEl.textContent = '通常';
       jinState.set('idle');
     }
@@ -769,17 +787,11 @@ async function bootstrap() {
         if (tenpai.hasPremium) sfx.tenpaiPremium();
         else sfx.tenpai();
         jinSpeech.say('tenpai');
-        // 「狙え！」演出: 残ったリールへ対象文字＋矢印を出す
-        showAimNotice({
-          symbols: tenpai.targetSymbols,
-          reelIndex: tenpai.missingReelIndex,
-          hasPremium: tenpai.hasPremium,
-        });
       }
     }
 
     if (engines.every((e) => e.state.get() === 'stopped')) {
-      // 全停止したので「狙え！」演出は閉じる
+      // 全停止したので「狙え！」演出は閉じる（レバーオン示唆として出た場合）
       hideAimNotice();
       // 5ペイライン（横3+斜め2）で全件判定。同じ役が複数ライン揃いも合算。
       const grid = extractGrid(engines);
@@ -964,6 +976,8 @@ async function bootstrap() {
   let autoTimer: number | null = null;
   // 示唆/クイズ時に AUTO が狙う役。BET 直後に決定 → resetForNextSpin で null
   let autoTargetYaku: (typeof allYakusFlat)[number] | null = null;
+  /** aim 演出で狙っている役（applyEffect('aim') で設定、resetForNextSpin で null） */
+  let aimNoticeYaku: (typeof allYakusFlat)[number] | null = null;
   // 停止スケジュール済みのリール（重複スケジュール防止）
   const aimPending = new Set<number>();
 
@@ -992,6 +1006,9 @@ async function bootstrap() {
         yakuList.coreYaku[
           Math.floor(Math.random() * yakuList.coreYaku.length)
         ] ?? null;
+    } else if (currentEffect === 'aim') {
+      // 「狙え！」演出: applyEffect 時に決定された役を AUTO の狙い役にも採用
+      autoTargetYaku = aimNoticeYaku;
     } else {
       autoTargetYaku = null;
     }
