@@ -300,6 +300,12 @@ async function bootstrap() {
   const pickRandomQuiz = () =>
     quizList.quizzes[Math.floor(Math.random() * quizList.quizzes.length)];
 
+  /**
+   * aim 演出で狙っている役（applyEffect('aim') で設定、resetForNextSpin で null）。
+   * applyEffect の closure 内で参照されるため、applyEffect 定義より前で宣言する必要がある。
+   */
+  let aimNoticeYaku: (typeof allYakusFlat)[number] | null = null;
+
   const applyEffect = (effect: EffectType) => {
     currentEffect = effect;
     const speed = REEL_SPEED_BY_EFFECT[effect];
@@ -976,8 +982,8 @@ async function bootstrap() {
   let autoTimer: number | null = null;
   // 示唆/クイズ時に AUTO が狙う役。BET 直後に決定 → resetForNextSpin で null
   let autoTargetYaku: (typeof allYakusFlat)[number] | null = null;
-  /** aim 演出で狙っている役（applyEffect('aim') で設定、resetForNextSpin で null） */
-  let aimNoticeYaku: (typeof allYakusFlat)[number] | null = null;
+  // aimNoticeYaku は applyEffect より前に宣言（applyEffect の closure 内で
+  // 参照するため、TDZ 回避目的で上に移動した）。下の applyEffect 定義前を参照。
   // 停止スケジュール済みのリール（重複スケジュール防止）
   const aimPending = new Set<number>();
 
