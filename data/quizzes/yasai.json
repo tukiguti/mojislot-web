@@ -1,0 +1,71 @@
+{
+  "mode": "yasai",
+  "quizzes": [
+    {
+      "id": "q_tomato",
+      "question": "真っ赤で丸い夏野菜、サラダやパスタの定番は？",
+      "answerYakuId": "tomato",
+      "decoyYakuIds": ["nasubi", "kabura", "remon"]
+    },
+    {
+      "id": "q_okura",
+      "question": "切ると断面が星形で粘りがある夏野菜は？",
+      "answerYakuId": "okura",
+      "decoyYakuIds": ["nasubi", "moyashi", "serori"]
+    },
+    {
+      "id": "q_gobou",
+      "question": "きんぴらで使われる細長くて茶色い根菜は？",
+      "answerYakuId": "gobou",
+      "decoyYakuIds": ["kabura", "nasubi", "moyashi"]
+    },
+    {
+      "id": "q_moyashi",
+      "question": "豆から育つ安くてシャキシャキの白い野菜は？",
+      "answerYakuId": "moyashi",
+      "decoyYakuIds": ["paseri", "kinoko", "serori"]
+    },
+    {
+      "id": "q_serori",
+      "question": "独特の香りが特徴の細長い茎の野菜は？",
+      "answerYakuId": "serori",
+      "decoyYakuIds": ["paseri", "gobou", "moyashi"]
+    },
+    {
+      "id": "q_paseri",
+      "question": "洋食の彩りで皿に添えられる緑のハーブは？",
+      "answerYakuId": "paseri",
+      "decoyYakuIds": ["serori", "moyashi", "kinoko"]
+    },
+    {
+      "id": "q_nasubi",
+      "question": "紫色の皮で焼くととろける夏野菜は？",
+      "answerYakuId": "nasubi",
+      "decoyYakuIds": ["tomato", "okura", "kabura"]
+    },
+    {
+      "id": "q_kabura",
+      "question": "白い丸い根を持ち、漬物にもされる春の野菜は？",
+      "answerYakuId": "kabura",
+      "decoyYakuIds": ["gobou", "okura", "nasubi"]
+    },
+    {
+      "id": "q_kinoko",
+      "question": "シイタケやエノキなど、菌類食材の総称は？",
+      "answerYakuId": "kinoko",
+      "decoyYakuIds": ["moyashi", "paseri", "okura"]
+    },
+    {
+      "id": "q_remon",
+      "question": "黄色く酸っぱい、唐揚げに搾られる柑橘は？",
+      "answerYakuId": "remon",
+      "decoyYakuIds": ["tomato", "kinoko", "kabura"]
+    },
+    {
+      "id": "q_goya",
+      "question": "【プレミアム】苦味が特徴の沖縄の夏野菜は？",
+      "answerYakuId": "goya",
+      "decoyYakuIds": ["nasubi", "tomato", "okura"]
+    }
+  ]
+}

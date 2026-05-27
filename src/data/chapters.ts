@@ -16,6 +16,12 @@ import katakanaAnimalQuiz from '../../data/quizzes/katakana_animal.json';
 import hiraganaVerbReel from '../../data/reels/hiragana_verb.json';
 import hiraganaVerbYaku from '../../data/yaku/hiragana_verb.json';
 import hiraganaVerbQuiz from '../../data/quizzes/hiragana_verb.json';
+import yasaiReel from '../../data/reels/yasai.json';
+import yasaiYaku from '../../data/yaku/yasai.json';
+import yasaiQuiz from '../../data/quizzes/yasai.json';
+import securityReel from '../../data/reels/security.json';
+import securityYaku from '../../data/yaku/security.json';
+import securityQuiz from '../../data/quizzes/security.json';
 import hAdultReel from '../../data/reels/h_adult.json';
 import hAdultYaku from '../../data/yaku/h_adult.json';
 import hAdultQuiz from '../../data/quizzes/h_adult.json';
@@ -55,6 +61,22 @@ export const CHAPTERS: readonly ChapterBundle[] = [
     reelData: hiraganaVerbReel,
     yakuData: hiraganaVerbYaku,
     quizData: hiraganaVerbQuiz,
+  },
+  {
+    id: 'yasai',
+    name: 'カタカナ野菜',
+    description: 'トマト・オクラ・ナスビなど3文字野菜。プレミアムは「ゴーヤ」',
+    reelData: yasaiReel,
+    yakuData: yasaiYaku,
+    quizData: yasaiQuiz,
+  },
+  {
+    id: 'security',
+    name: 'セキュリティ',
+    description: 'ハック・パッチ・ワームなどセキュリティ用語。プレミアムは「シェル」',
+    reelData: securityReel,
+    yakuData: securityYaku,
+    quizData: securityQuiz,
   },
   {
     id: 'h_adult',
