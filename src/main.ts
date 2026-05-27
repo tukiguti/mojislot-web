@@ -101,7 +101,10 @@ async function bootstrap() {
     backgroundColor: 0x080808,
     antialias: true,
     resolution: window.devicePixelRatio || 1,
-    autoDensity: true,
+    // autoDensity を true にすると Pixi が canvas.style.width/height を 600px に固定し、
+    // CSS 側の width: 100% / height: 100% を上書きして cabinet 縮小に追随できなくなる。
+    // false にしておき、buffer 解像度（高 DPR）だけ確保して表示サイズは CSS に任せる。
+    autoDensity: false,
     preference: 'webgl',
   });
 
