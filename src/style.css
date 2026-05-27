@@ -166,14 +166,16 @@ body {
 /* === ヘッダー === */
 #info-bar {
   display: grid;
-  grid-template-columns: 1fr 1fr 1fr;
+  grid-template-columns: auto 1fr auto;
   align-items: center;
-  padding: 0 16px;
+  gap: 8px;
+  padding: 0 12px;
   background: rgba(0, 0, 0, 0.6);
   border-bottom: 2px solid #ffd700;
   font-size: 14px;
   font-weight: bold;
   letter-spacing: 1px;
+  white-space: nowrap;
 }
 
 #coin-display {
@@ -187,12 +189,14 @@ body {
   display: flex;
   align-items: center;
   justify-content: flex-end;
-  gap: 8px;
+  gap: 6px;
+  flex-wrap: nowrap;
 }
 
 #zukan-btn,
 #mute-btn,
-#auto-btn {
+#auto-btn,
+#reel-strip-btn {
   padding: 3px 10px;
   font-size: 11px;
   color: #ffd700;
@@ -206,8 +210,37 @@ body {
 
 #zukan-btn:hover,
 #mute-btn:hover,
-#auto-btn:hover {
+#auto-btn:hover,
+#reel-strip-btn:hover {
   background: rgba(255, 215, 0, 0.2);
+}
+
+/* ≤ 900px で出現する配列ボタン。広い画面ではパネル常駐なので不要 */
+#reel-strip-btn {
+  display: none;
+}
+
+#reel-strip-btn.on {
+  color: #1a1100;
+  background: linear-gradient(180deg, #ffe566 0%, #ffd700 100%);
+}
+
+/* リール配列パネル内の閉じるボタン（オーバーレイ表示時のみ） */
+#reel-strip-panel .strip-close {
+  display: none;
+  position: absolute;
+  top: 6px;
+  right: 6px;
+  width: 28px;
+  height: 28px;
+  font-size: 16px;
+  color: #ffd700;
+  background: rgba(0, 0, 0, 0.6);
+  border: 1px solid #ffd700;
+  border-radius: 4px;
+  cursor: pointer;
+  font-family: inherit;
+  z-index: 2;
 }
 
 #auto-btn.on {
@@ -2002,17 +2035,18 @@ body.shake {
 }
 
 /* ===== 狭画面（タブレット縦・スマホ）対応 =====
- * リール配列パネルを cabinet 下に縦並びで配置し、横幅をフル活用する。
+ * リール配列パネルを「配列」ボタンで開閉するオーバーレイ化し、
+ * 通常時は cabinet を画面いっぱいに使えるようにする。
  * touch デバイスでは hover が "stuck" になりがちなのでホバー演出を無効化。
  *
  * ブレイクポイントは 2 段階：
- *   ≤ 720px: タブレット縦・大きめスマホ → レイアウト縦並び + 軽い縮小
+ *   ≤ 900px: タブレット縦・中サイズ画面 → リール配列をオーバーレイ化 + 寸法縮小
  *   ≤ 480px: スマホ縦 → さらに寸法を詰める
  */
-@media (max-width: 720px) {
+@media (max-width: 900px) {
   :root {
     --layout-pad: 8px;
-    --reel-gap: 10px;
+    --reel-gap: 0px;
     --reel-panel-occupy: 0px;
     --control-h: 200px;
   }
@@ -2022,22 +2056,40 @@ body.shake {
     align-items: center;
   }
 
+  /* 配列パネルは既定で非表示。ヘッダーの「配列」ボタンでオーバーレイ表示 */
   #reel-strip-panel {
-    width: var(--game-size);
-    max-width: 100%;
-    max-height: none;
-    order: 2;
+    display: none;
   }
 
-  /* 狭画面では 21コマ縦並びは長すぎるので、内部スクロールに収める + フォント縮小 */
-  #reel-strip-panel .strip-grid {
-    max-height: 280px;
+  #reel-strip-panel.open {
+    display: flex;
+    position: fixed;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    width: min(360px, 92%);
+    max-height: 86vh;
+    z-index: 25;
+    overflow: hidden;
+    /* box-shadow で巨大な半透明黒を全方向に伸ばし、背後の backdrop を作る */
+    box-shadow:
+      0 0 20px rgba(255, 215, 0, 0.4),
+      0 0 0 200vmax rgba(0, 0, 0, 0.7);
+  }
+
+  /* オーバーレイ時のみ × ボタンを出す */
+  #reel-strip-panel.open .strip-close {
+    display: block;
+  }
+
+  /* オーバーレイ表示時はパネル内をスクロール可能に */
+  #reel-strip-panel.open .strip-grid {
     overflow-y: auto;
   }
 
-  #reel-strip-panel .strip-cell {
-    font-size: 13px;
-    padding: 1px 0;
+  /* 配列パネルを開くボタンを表示 */
+  #reel-strip-btn {
+    display: inline-block;
   }
 
   /* ヘッダー詰め */
@@ -2047,7 +2099,8 @@ body.shake {
   }
   #zukan-btn,
   #mute-btn,
-  #auto-btn {
+  #auto-btn,
+  #reel-strip-btn {
     padding: 3px 7px;
     font-size: 10px;
   }
@@ -2173,7 +2226,8 @@ body.shake {
   #zukan-btn,
   #mute-btn,
   #auto-btn,
-  #settings-btn {
+  #settings-btn,
+  #reel-strip-btn {
     padding: 2px 5px;
     font-size: 10px;
     letter-spacing: 0.5px;

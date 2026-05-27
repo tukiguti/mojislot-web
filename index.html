@@ -20,6 +20,7 @@
           <span id="bet-text">Bet: 3</span>
           <button id="auto-btn" type="button" title="オート [O]">AUTO</button>
           <button id="mute-btn" type="button" title="音量 [M]">♪</button>
+          <button id="reel-strip-btn" type="button" title="リール配列 [R]">配列</button>
           <button id="zukan-btn" type="button" title="図鑑 [Z]">図鑑</button>
           <button id="settings-btn" type="button" title="設定 [,]">⚙</button>
         </div>
@@ -56,11 +57,12 @@
             <button class="stop-btn" data-reel="2" data-key="[D]">STOP</button>
           </div>
         </div>
-        <div id="key-hint">B: Bet  /  Space: Lever  /  A S D: Stop  /  1〜4: Quiz  /  Z: 図鑑  /  ,: 設定  /  M: 音量  /  O: オート</div>
+        <div id="key-hint">B: Bet  /  Space: Lever  /  A S D: Stop  /  1〜4: Quiz  /  Z: 図鑑  /  R: 配列  /  ,: 設定  /  M: 音量  /  O: オート</div>
       </footer>
     </div>
 
     <aside id="reel-strip-panel">
+      <button class="strip-close" type="button" hidden>×</button>
       <h3>リール配列</h3>
       <div class="strip-grid">
         <div class="strip-column" data-reel="0">
