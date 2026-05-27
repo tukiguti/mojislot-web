@@ -1,0 +1,71 @@
+{
+  "mode": "hiragana_verb",
+  "quizzes": [
+    {
+      "id": "q_taberu",
+      "question": "お腹がすいたときにごはんを口に運ぶことを？",
+      "answerYakuId": "taberu",
+      "decoyYakuIds": ["nemuru", "asobu", "hashiru"]
+    },
+    {
+      "id": "q_hashiru",
+      "question": "マラソン選手が長距離をずっと続ける動作は？",
+      "answerYakuId": "hashiru",
+      "decoyYakuIds": ["odoru", "taberu", "warau"]
+    },
+    {
+      "id": "q_asobu",
+      "question": "子どもが公園でにぎやかにすることといえば？",
+      "answerYakuId": "asobu",
+      "decoyYakuIds": ["nemuru", "manabu", "tsukuru"]
+    },
+    {
+      "id": "q_utau",
+      "question": "カラオケでマイクを握って気持ちよくすることは？",
+      "answerYakuId": "utau",
+      "decoyYakuIds": ["warau", "odoru", "hashiru"]
+    },
+    {
+      "id": "q_manabu",
+      "question": "学校や本から知識を取り入れていく行為は？",
+      "answerYakuId": "manabu",
+      "decoyYakuIds": ["asobu", "tsukuru", "nemuru"]
+    },
+    {
+      "id": "q_nemuru",
+      "question": "夜にベッドで目を閉じてとる休息は？",
+      "answerYakuId": "nemuru",
+      "decoyYakuIds": ["taberu", "warau", "kaeru"]
+    },
+    {
+      "id": "q_kaeru",
+      "question": "外出の終わりに自分の家へ向かう動作は？",
+      "answerYakuId": "kaeru",
+      "decoyYakuIds": ["hashiru", "asobu", "nemuru"]
+    },
+    {
+      "id": "q_warau",
+      "question": "面白い話を聞いて思わずでてしまう表情は？",
+      "answerYakuId": "warau",
+      "decoyYakuIds": ["utau", "odoru", "taberu"]
+    },
+    {
+      "id": "q_odoru",
+      "question": "音楽に合わせて体を弾ませる芸事といえば？",
+      "answerYakuId": "odoru",
+      "decoyYakuIds": ["utau", "hashiru", "warau"]
+    },
+    {
+      "id": "q_tsukuru",
+      "question": "料理や工作で素材から何かを生み出す行為は？",
+      "answerYakuId": "tsukuru",
+      "decoyYakuIds": ["manabu", "kaeru", "asobu"]
+    },
+    {
+      "id": "q_ikiru",
+      "question": "【プレミアム】呼吸し続け、命をつなげていく根源の行為は？",
+      "answerYakuId": "ikiru",
+      "decoyYakuIds": ["taberu", "nemuru", "manabu"]
+    }
+  ]
+}

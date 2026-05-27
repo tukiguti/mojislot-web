@@ -1,0 +1,19 @@
+{
+  "mode": "hiragana_verb",
+  "coreYaku": [
+    { "id": "taberu", "name": "たべる", "symbols": ["た", "べ", "る"], "category": "core" },
+    { "id": "hashiru", "name": "はしる", "symbols": ["は", "し", "る"], "category": "core" },
+    { "id": "asobu", "name": "あそぶ", "symbols": ["あ", "そ", "ぶ"], "category": "core" },
+    { "id": "utau", "name": "うたう", "symbols": ["う", "た", "う"], "category": "core" },
+    { "id": "manabu", "name": "まなぶ", "symbols": ["ま", "な", "ぶ"], "category": "core" },
+    { "id": "nemuru", "name": "ねむる", "symbols": ["ね", "む", "る"], "category": "core" },
+    { "id": "kaeru", "name": "かえる", "symbols": ["か", "え", "る"], "category": "core" },
+    { "id": "warau", "name": "わらう", "symbols": ["わ", "ら", "う"], "category": "core" },
+    { "id": "odoru", "name": "おどる", "symbols": ["お", "ど", "る"], "category": "core" },
+    { "id": "tsukuru", "name": "つくる", "symbols": ["つ", "く", "る"], "category": "core" }
+  ],
+  "premiumYaku": [
+    { "id": "ikiru", "name": "いきる", "symbols": ["い", "き", "る"], "category": "premium" }
+  ],
+  "bonusYaku": []
+}

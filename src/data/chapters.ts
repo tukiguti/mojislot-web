@@ -13,6 +13,9 @@ import hiraganaFoodQuiz from '../../data/quizzes/hiragana_food.json';
 import katakanaAnimalReel from '../../data/reels/katakana_animal.json';
 import katakanaAnimalYaku from '../../data/yaku/katakana_animal.json';
 import katakanaAnimalQuiz from '../../data/quizzes/katakana_animal.json';
+import hiraganaVerbReel from '../../data/reels/hiragana_verb.json';
+import hiraganaVerbYaku from '../../data/yaku/hiragana_verb.json';
+import hiraganaVerbQuiz from '../../data/quizzes/hiragana_verb.json';
 import hAdultReel from '../../data/reels/h_adult.json';
 import hAdultYaku from '../../data/yaku/h_adult.json';
 import hAdultQuiz from '../../data/quizzes/h_adult.json';
@@ -44,6 +47,14 @@ export const CHAPTERS: readonly ChapterBundle[] = [
     reelData: katakanaAnimalReel,
     yakuData: katakanaAnimalYaku,
     quizData: katakanaAnimalQuiz,
+  },
+  {
+    id: 'hiragana_verb',
+    name: 'ひらがな動詞',
+    description: 'たべる・はしる・あそぶなど3文字動詞。プレミアムは「いきる」',
+    reelData: hiraganaVerbReel,
+    yakuData: hiraganaVerbYaku,
+    quizData: hiraganaVerbQuiz,
   },
   {
     id: 'h_adult',

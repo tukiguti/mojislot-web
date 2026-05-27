@@ -14,12 +14,14 @@
   --reel-gap: 16px;
   --header-h: 44px;
   --control-h: 228px;
+  /* 横幅から差し引く reel-strip-panel 占有。狭画面では 0 にして縦並びへ */
+  --reel-panel-occupy: calc(var(--reel-panel-w) + var(--reel-gap));
   --game-size: max(
-    360px,
+    280px,
     min(
       600px,
       calc(100vh - var(--layout-pad) * 2 - var(--header-h) - var(--control-h)),
-      calc(100vw - var(--layout-pad) * 2 - var(--reel-panel-w) - var(--reel-gap))
+      calc(100vw - var(--layout-pad) * 2 - var(--reel-panel-occupy))
     )
   );
   --cabinet-h: calc(var(--game-size) + var(--header-h) + var(--control-h));
@@ -29,6 +31,22 @@
   box-sizing: border-box;
   margin: 0;
   padding: 0;
+}
+
+/* タッチデバイス対応：
+ *  - touch-action: manipulation で ダブルタップ拡大の 300ms 遅延を排除
+ *  - tap-highlight-color: 既定の青いタップハイライトを抑止（自前で :active 演出済み）
+ *  - user-select: ボタンの長押しで文字選択になるのを防止
+ */
+button,
+.toggle-row,
+.zukan-row,
+.mission-row,
+.chapter-btn {
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
+  user-select: none;
+  -webkit-user-select: none;
 }
 
 body {
@@ -1814,6 +1832,82 @@ body.shake {
   background: rgba(0, 0, 0, 0.5);
 }
 
+/* ===== 多重ライン HIT バッジ ===== */
+.multi-hit-badge {
+  position: fixed;
+  top: 28%;
+  left: 50%;
+  z-index: 9998;
+  pointer-events: none;
+  padding: 10px 28px;
+  font-family: 'Arial Black', 'Hiragino Sans', sans-serif;
+  font-size: 44px;
+  font-weight: 900;
+  letter-spacing: 4px;
+  color: #fff;
+  background: linear-gradient(180deg, #ffe566 0%, #ffaa00 100%);
+  border: 3px solid #fff7aa;
+  border-radius: 14px;
+  text-shadow:
+    0 2px 0 #000,
+    0 0 12px rgba(255, 215, 0, 0.9);
+  box-shadow:
+    0 0 24px rgba(255, 215, 0, 0.85),
+    0 6px 16px rgba(0, 0, 0, 0.5);
+  opacity: 0;
+  transform: translate(-50%, -20px) scale(0.6) rotate(-6deg);
+  transition:
+    transform 320ms cubic-bezier(0.2, 1.6, 0.4, 1),
+    opacity 220ms ease-out;
+}
+
+.multi-hit-badge.hot {
+  background: linear-gradient(180deg, #ffb066 0%, #ff6600 100%);
+  border-color: #ffd0aa;
+  box-shadow:
+    0 0 28px rgba(255, 102, 0, 0.85),
+    0 6px 16px rgba(0, 0, 0, 0.5);
+}
+
+.multi-hit-badge.fever {
+  background: linear-gradient(180deg, #ff6688 0%, #cc1144 100%);
+  border-color: #ffaabb;
+  color: #fff7c4;
+  text-shadow:
+    0 2px 0 #000,
+    0 0 16px rgba(255, 102, 136, 1);
+  box-shadow:
+    0 0 36px rgba(255, 51, 102, 0.95),
+    0 6px 18px rgba(0, 0, 0, 0.55);
+  animation: multi-hit-shake 0.25s ease-in-out infinite;
+}
+
+.multi-hit-badge.show {
+  opacity: 1;
+  transform: translate(-50%, 0) scale(1) rotate(0deg);
+}
+
+.multi-hit-badge.out {
+  opacity: 0;
+  transform: translate(-50%, -40px) scale(1.2) rotate(0deg);
+  transition:
+    transform 420ms ease-in,
+    opacity 380ms ease-in;
+}
+
+@keyframes multi-hit-shake {
+  0%,
+  100% {
+    transform: translate(-50%, 0) scale(1) rotate(0deg);
+  }
+  25% {
+    transform: translate(calc(-50% - 3px), 0) scale(1.02) rotate(-1deg);
+  }
+  75% {
+    transform: translate(calc(-50% + 3px), 0) scale(1.02) rotate(1deg);
+  }
+}
+
 /* ===== 連チャンオーラ：cabinet の外周を脈動させる ===== */
 #cabinet.streak-aura {
   animation: streak-aura-pulse 1.6s ease-in-out infinite;
@@ -1904,5 +1998,66 @@ body.shake {
   }
   50% {
     transform: translateY(-1px) scale(1.04);
+  }
+}
+
+/* ===== 狭画面（タブレット縦・スマホ）対応 =====
+ * リール配列パネルを cabinet 下に縦並びで配置し、横幅をフル活用する。
+ * touch デバイスでは hover が "stuck" になりがちなのでホバー演出を無効化。
+ */
+@media (max-width: 720px) {
+  :root {
+    --layout-pad: 8px;
+    --reel-gap: 10px;
+    --reel-panel-occupy: 0px;
+    --control-h: 216px;
+  }
+
+  body {
+    flex-direction: column;
+    align-items: center;
+  }
+
+  #reel-strip-panel {
+    width: var(--game-size);
+    max-width: 100%;
+    max-height: none;
+    order: 2;
+  }
+
+  /* 狭画面では 21コマ縦並びは長すぎるので、内部スクロールに収める + フォント縮小 */
+  #reel-strip-panel .strip-grid {
+    max-height: 280px;
+    overflow-y: auto;
+  }
+
+  #reel-strip-panel .strip-cell {
+    font-size: 13px;
+    padding: 1px 0;
+  }
+}
+
+/* hover がない（=タッチデバイス想定）環境では :hover ベースの色変化を無効化。
+ * tap 後に :hover が "stuck" して光ったまま残るのを防ぐため、
+ * 操作頻度の高い主要ボタンの :hover を基本スタイルへ戻す。 */
+@media (hover: none) {
+  #bet-btn:hover,
+  #lever-btn:hover {
+    background: linear-gradient(180deg, #444 0%, #222 100%);
+  }
+  .stop-btn:hover {
+    background: linear-gradient(180deg, #d00 0%, #800 100%);
+  }
+  #zukan-btn:hover,
+  #mute-btn:hover,
+  #auto-btn:hover {
+    background: rgba(255, 215, 0, 0.08);
+  }
+  #settings-btn:hover {
+    background: rgba(170, 102, 204, 0.08);
+  }
+  .chapter-btn:not(.active):hover {
+    background: rgba(40, 60, 80, 0.7);
+    color: #ccc;
   }
 }
