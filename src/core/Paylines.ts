@@ -54,11 +54,18 @@ const VERTICAL_OFFSET: Record<Vertical, number> = {
 
 /** リール 1 本の position から可視 3 セルを取り出す（top/middle/bottom）。 */
 export function getVisibleCell(engine: ReelEngine, vertical: Vertical): string {
+  return engine.strip.cells[getVisibleCellIndex(engine, vertical)];
+}
+
+/**
+ * リール内 cells[] 配列上での「可視位置 (top/middle/bottom)」に対応する index。
+ * ReelView.highlightCells() に渡す cell index と同じ座標系。
+ */
+export function getVisibleCellIndex(engine: ReelEngine, vertical: Vertical): number {
   const total = engine.strip.cells.length;
   const pos = Math.round(engine.position);
   const offset = VERTICAL_OFFSET[vertical];
-  const idx = (((pos + offset) % total) + total) % total;
-  return engine.strip.cells[idx];
+  return (((pos + offset) % total) + total) % total;
 }
 
 /** strip と position から可視 3 セルを取り出す（resolver 用）。 */

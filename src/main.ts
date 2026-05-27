@@ -38,7 +38,13 @@ import { QuizQuestionView } from './render/QuizQuestionView';
 import { ZukanState } from './productions/ZukanState';
 import { ZukanOverlay } from './ui/ZukanOverlay';
 import { SlipResolver, type VisibleColumn } from './productions/SlipResolver';
-import { extractGrid, getVisibleCell, PAYLINES } from './core/Paylines';
+import {
+  extractGrid,
+  getVisibleCell,
+  getVisibleCellIndex,
+  PAYLINES,
+  type Vertical,
+} from './core/Paylines';
 import { PaylineIndicators } from './render/PaylineIndicators';
 import {
   ReelConfigSchema,
@@ -822,8 +828,41 @@ async function bootstrap() {
           recorded.add(h.yaku.id);
           zukanState.record(h.yaku.id);
         }
-        // 全リール中央セルをハイライト
+        // 全リール中央セルをハイライト（グロー演出）
         for (const v of views) v.highlightCenter(1400);
+
+        // 揃った役の構成 3 文字を、その役色でタイル統一する。
+        // 共有文字の静的色衝突を避けて「役の 3 文字が同色」を成立瞬間に実現。
+        // 複数ライン同時 HIT 時: premium > core の順で優先（同セルは先に書いた色が残る）。
+        {
+          const VERTICALS: readonly Vertical[] = ['top', 'middle', 'bottom'];
+          const perReelIdxs = new Map<number, number[]>();
+          const perReelColor = new Map<number, number>();
+          const sortedHits = [...hits].sort((a, b) =>
+            a.yaku.category === 'premium' && b.yaku.category !== 'premium'
+              ? -1
+              : b.yaku.category === 'premium' && a.yaku.category !== 'premium'
+                ? 1
+                : 0,
+          );
+          for (const h of sortedHits) {
+            const color = colorResolver.colorForYakuId(h.yaku.id);
+            if (color === null) continue;
+            const line = PAYLINES.find((p) => p.id === h.paylineId);
+            if (!line) continue;
+            for (const [row, col] of line.cells) {
+              const idx = getVisibleCellIndex(engines[col], VERTICALS[row]);
+              if (!perReelIdxs.has(col)) {
+                perReelIdxs.set(col, []);
+                perReelColor.set(col, color);
+              }
+              perReelIdxs.get(col)!.push(idx);
+            }
+          }
+          for (const [col, idxs] of perReelIdxs) {
+            views[col].highlightCells(idxs, perReelColor.get(col)!, 1400);
+          }
+        }
         // コイン獲得 +N フロート表示
         if (win > 0) showCoinFloat(win, isPremium);
         // 大配当はコインバースト（プレミアム=多め）
