@@ -518,14 +518,17 @@ body {
 
 /* === 設定モーダル === */
 #settings-overlay {
-  position: absolute;
+  /* fixed にして cabinet の overflow:hidden を越え、ビューポート全体に展開する。
+   * 狭画面では cabinet が小さくなるが modal は 88vh まで広がるため、
+   * absolute だとヘッダー(×ボタン)が cabinet 外に押し出されてクリップされる。 */
+  position: fixed;
   inset: 0;
   display: flex;
   align-items: center;
   justify-content: center;
   background: rgba(0, 0, 0, 0.85);
   pointer-events: auto;
-  z-index: 13;
+  z-index: 210;
 }
 
 #settings-overlay[hidden] {
@@ -1316,14 +1319,15 @@ body.shake {
 
 /* === 図鑑オーバーレイ === */
 #zukan-overlay {
-  position: absolute;
+  /* settings-overlay と同様、cabinet の overflow:hidden を越えるため fixed に */
+  position: fixed;
   inset: 0;
   display: flex;
   align-items: center;
   justify-content: center;
   background: rgba(0, 0, 0, 0.85);
   pointer-events: auto;
-  z-index: 12;
+  z-index: 200;
 }
 
 #zukan-overlay[hidden] {
