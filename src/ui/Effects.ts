@@ -123,6 +123,76 @@ export function showMultiHitBadge(lineCount: number): void {
 }
 
 /**
+ * 「狙え！」演出：テンパイ時に残った 1 リールへ向けて派手な煽りを出す。
+ * - 画面中央上部に「狙え！」ラベル + 対象文字（複数可）
+ * - 対象リールの真上に下向き矢印
+ *
+ * 矢印位置は Pixi canvas (600x600 内部解像度) 上のリール中心 x を CSS 座標に
+ * 変換して算出。canvas が CSS でスケールしても追従する。
+ *
+ * 連発防止: 起動時に既存の notice/arrow を一括削除してから生成。
+ */
+export interface AimNoticeOptions {
+  symbols: readonly string[];
+  reelIndex: number;
+  hasPremium: boolean;
+}
+
+export function showAimNotice(opts: AimNoticeOptions): void {
+  hideAimNotice();
+  const canvas = document.getElementById('game') as HTMLCanvasElement | null;
+  if (!canvas) return;
+  const rect = canvas.getBoundingClientRect();
+  // Pixi 内部 600px における 3 リールの中心 x（main.ts 配置と合わせる）:
+  // 3 リール × 130px + 2 × 16px gap = 422、左端 89px → 中心 154 / 300 / 446
+  const reelCenterFracs = [154 / 600, 300 / 600, 446 / 600];
+  const idx = Math.max(0, Math.min(2, opts.reelIndex));
+  const targetX = rect.left + rect.width * reelCenterFracs[idx];
+
+  // 「狙え！」ラベル + 対象文字
+  const notice = document.createElement('div');
+  notice.className = 'aim-notice';
+  if (opts.hasPremium) notice.classList.add('premium');
+  notice.style.left = `${rect.left + rect.width / 2}px`;
+  notice.style.top = `${rect.top + 8}px`;
+  const label = document.createElement('div');
+  label.className = 'aim-notice-label';
+  label.textContent = '狙え！';
+  notice.appendChild(label);
+  const symbolsEl = document.createElement('div');
+  symbolsEl.className = 'aim-notice-symbols';
+  for (const s of opts.symbols.slice(0, 4)) {
+    const span = document.createElement('span');
+    span.textContent = s;
+    symbolsEl.appendChild(span);
+  }
+  notice.appendChild(symbolsEl);
+  document.body.appendChild(notice);
+
+  // 対象リールへの下向き矢印（リール上端少し上）
+  const arrow = document.createElement('div');
+  arrow.className = 'aim-arrow';
+  if (opts.hasPremium) arrow.classList.add('premium');
+  // game-area 内のリール上端は LIQUID_AREA_H = 260 (canvas内部) なので
+  // CSS 上では rect.top + rect.height * (260/600)
+  arrow.style.left = `${targetX}px`;
+  arrow.style.top = `${rect.top + rect.height * (260 / 600) - 8}px`;
+  document.body.appendChild(arrow);
+
+  requestAnimationFrame(() => {
+    notice.classList.add('show');
+    arrow.classList.add('show');
+  });
+}
+
+export function hideAimNotice(): void {
+  document.querySelectorAll('.aim-notice, .aim-arrow').forEach((el) => {
+    el.classList.add('out');
+    window.setTimeout(() => el.remove(), 240);
+  });
+}
+
+/**
  * ボタン押下位置から外側へ広がる円形リップル。
  * 短命（450ms）で残らない。LEVER/STOP/BET 等の操作フィードバック用。
  */
