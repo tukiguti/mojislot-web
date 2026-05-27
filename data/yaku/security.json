@@ -1,0 +1,19 @@
+{
+  "mode": "security",
+  "coreYaku": [
+    { "id": "hack", "name": "ハック", "symbols": ["ハ", "ッ", "ク"], "category": "core" },
+    { "id": "patch", "name": "パッチ", "symbols": ["パ", "ッ", "チ"], "category": "core" },
+    { "id": "worm", "name": "ワーム", "symbols": ["ワ", "ー", "ム"], "category": "core" },
+    { "id": "trojan", "name": "トロイ", "symbols": ["ト", "ロ", "イ"], "category": "core" },
+    { "id": "spam", "name": "スパム", "symbols": ["ス", "パ", "ム"], "category": "core" },
+    { "id": "bot", "name": "ボット", "symbols": ["ボ", "ッ", "ト"], "category": "core" },
+    { "id": "risk", "name": "リスク", "symbols": ["リ", "ス", "ク"], "category": "core" },
+    { "id": "ping", "name": "ピング", "symbols": ["ピ", "ン", "グ"], "category": "core" },
+    { "id": "port", "name": "ポート", "symbols": ["ポ", "ー", "ト"], "category": "core" },
+    { "id": "host", "name": "ホスト", "symbols": ["ホ", "ス", "ト"], "category": "core" }
+  ],
+  "premiumYaku": [
+    { "id": "shell", "name": "シェル", "symbols": ["シ", "ェ", "ル"], "category": "premium" }
+  ],
+  "bonusYaku": []
+}
