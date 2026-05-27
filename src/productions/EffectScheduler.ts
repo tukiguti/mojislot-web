@@ -1,25 +1,29 @@
-export type EffectType = 'none' | 'shisa' | 'quiz';
+export type EffectType = 'none' | 'shisa' | 'quiz' | 'aim';
 
 export interface EffectRates {
   none: number;
   shisa: number;
   quiz: number;
+  /** レバーオン時に「狙え！◯◯◯」と特定役を予告する示唆演出 */
+  aim: number;
 }
 
 export const DEFAULT_RATES: EffectRates = {
-  none: 0.7,
+  none: 0.6,
   shisa: 0.2,
   quiz: 0.1,
+  aim: 0.1,
 };
 
 /**
  * ハマり救済時のレート（連続ハズレが規定値を超えた時に使う）。
- * 通常 30% だった「示唆 or クイズ発生」を 70% に押し上げる。
+ * 通常 40% だった「演出発生」を 70% に押し上げる。
  */
 export const RESCUE_RATES: EffectRates = {
   none: 0.3,
-  shisa: 0.45,
-  quiz: 0.25,
+  shisa: 0.35,
+  quiz: 0.2,
+  aim: 0.15,
 };
 
 /** 救済発動の連続ハズレしきい値 */
@@ -37,7 +41,8 @@ export class EffectScheduler {
     const r = Math.random();
     if (r < this.rates.none) return 'none';
     if (r < this.rates.none + this.rates.shisa) return 'shisa';
-    return 'quiz';
+    if (r < this.rates.none + this.rates.shisa + this.rates.quiz) return 'quiz';
+    return 'aim';
   }
 }
 
@@ -51,4 +56,5 @@ export const REEL_SPEED_BY_EFFECT: Record<EffectType, number> = {
   none: 20,
   shisa: 20,
   quiz: 20,
+  aim: 20,
 };

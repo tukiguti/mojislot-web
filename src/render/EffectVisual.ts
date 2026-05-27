@@ -16,6 +16,8 @@ const TINT_BY_EFFECT: Record<EffectType, number | null> = {
   none: null,
   shisa: 0x66ccff,
   quiz: 0xff66cc,
+  // 「狙え！」演出は赤系のタイトめなトーンで、視線をリールに向ける
+  aim: 0xff8866,
 };
 
 const TINT_ALPHA_LIQUID = 0.16;
