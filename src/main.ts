@@ -1021,6 +1021,21 @@ async function bootstrap() {
   zukanBtn.addEventListener('click', () => zukanOverlay.toggle());
   settingsBtn.addEventListener('click', () => settingsOverlay.toggle());
 
+  // === リール配列パネルの開閉（≤ 900px ではオーバーレイで開く） ===
+  const reelStripPanel = document.getElementById('reel-strip-panel');
+  const reelStripBtn = document.getElementById('reel-strip-btn');
+  const reelStripClose = reelStripPanel?.querySelector<HTMLButtonElement>('.strip-close');
+  const toggleReelStrip = () => {
+    if (!reelStripPanel) return;
+    const isOpen = reelStripPanel.classList.toggle('open');
+    if (reelStripBtn) reelStripBtn.classList.toggle('on', isOpen);
+  };
+  reelStripBtn?.addEventListener('click', toggleReelStrip);
+  reelStripClose?.addEventListener('click', () => {
+    reelStripPanel?.classList.remove('open');
+    reelStripBtn?.classList.remove('on');
+  });
+
   const updateMuteUI = () => {
     if (sfx.isMuted()) {
       muteBtn.textContent = '🔇';
@@ -1173,6 +1188,11 @@ async function bootstrap() {
     if (key === ',') {
       ev.preventDefault();
       settingsOverlay.toggle();
+      return;
+    }
+    if (key === 'r') {
+      ev.preventDefault();
+      toggleReelStrip();
       return;
     }
   });
