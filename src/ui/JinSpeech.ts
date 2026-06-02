@@ -32,6 +32,9 @@ const SPEECH_BY_EVENT: Record<JinSpeechEvent, readonly string[]> = {
 export class JinSpeech {
   private readonly el: HTMLElement;
   private hideTimer: number | null = null;
+  /** true の間は say()/saySpecific() を無視し、表示中の吹き出しも消す。
+   *  クイズ・カットイン等の大型演出中にジン本体と一緒に引っ込めるために使う。 */
+  private suppressed = false;
 
   constructor(parent: HTMLElement) {
     const el = document.createElement('div');
@@ -53,7 +56,25 @@ export class JinSpeech {
     this.show(text);
   }
 
+  /** 即座に吹き出しを隠す（クイズ・カットイン等、他演出と被るときに使う）。 */
+  hide(): void {
+    if (this.hideTimer !== null) {
+      window.clearTimeout(this.hideTimer);
+      this.hideTimer = null;
+    }
+    this.el.classList.remove('show');
+    this.el.hidden = true;
+  }
+
+  /** 抑制状態を切り替える。true にすると以後の say() を無視し、表示中なら即座に消す。 */
+  setSuppressed(value: boolean): void {
+    this.suppressed = value;
+    if (value) this.hide();
+  }
+
   private show(text: string): void {
+    // 大型演出中（抑制中）は一切表示しない。遷移後に say() が呼ばれても再表示させない。
+    if (this.suppressed) return;
     if (this.hideTimer !== null) {
       window.clearTimeout(this.hideTimer);
       this.hideTimer = null;
