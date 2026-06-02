@@ -12,9 +12,6 @@
         <div id="coin-display">Coin: 1000</div>
         <div id="status-stack">
           <div id="effect-status">通常</div>
-          <div id="bonus-status" hidden></div>
-          <div id="streak-status" hidden></div>
-          <div id="rescue-status" hidden></div>
         </div>
         <div id="bet-display">
           <span id="bet-text">Bet: 3</span>
@@ -28,6 +25,12 @@
 
       <div id="game-area">
         <canvas id="game"></canvas>
+        <!-- 進行ステータスは演出液晶の左上に出す（ヘッダーを溢れさせない） -->
+        <div id="lcd-status">
+          <div id="bonus-status" hidden></div>
+          <div id="streak-status" hidden></div>
+          <div id="rescue-status" hidden></div>
+        </div>
         <div id="result-display"></div>
       </div>
 

@@ -19,6 +19,8 @@ export interface DebugActions {
   triggerQuiz(): void;
   triggerWinTest(): void;
   triggerTenpaiSe(): void;
+  triggerCutin(): void;
+  triggerAim(): void;
   fillEffects(): void;
 }
 
@@ -96,6 +98,8 @@ export class SettingsOverlay {
           <div class="settings-section-label">デバッグ（演出を強制発動）</div>
           <div class="zukan-debug-buttons">
             <button data-debug="bonus" type="button">BONUS突入</button>
+            <button data-debug="cutin" type="button">カットイン</button>
+            <button data-debug="aim" type="button">狙え！予告</button>
             <button data-debug="shisa" type="button">示唆発動</button>
             <button data-debug="quiz" type="button">クイズ発動</button>
             <button data-debug="tenpai" type="button">テンパイSE</button>
@@ -172,6 +176,12 @@ export class SettingsOverlay {
             break;
           case 'quiz':
             this.debugActions.triggerQuiz();
+            break;
+          case 'cutin':
+            this.debugActions.triggerCutin();
+            break;
+          case 'aim':
+            this.debugActions.triggerAim();
             break;
           case 'tenpai':
             this.debugActions.triggerTenpaiSe();

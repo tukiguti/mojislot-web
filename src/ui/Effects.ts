@@ -1,7 +1,14 @@
 /**
- * 画面全体の派手演出（DOM ベース）。
- * Pixi 側ではなく DOM で出すので、cabinet 外まで影響を出せる（紙吹雪が画面端まで）。
+ * 派手演出（DOM ベース）。
+ * 既定の出力先は body だが、setEffectHost で液晶領域（#game-area 内の #lcd-fx）に
+ * 差し替えると、紙吹雪・フラッシュ・カットイン等が液晶内にクリップされ画面外へ出ない。
  */
+
+/** 全 DOM 演出の出力先。main.ts から液晶ホストへ差し替える。 */
+let effectHost: HTMLElement = document.body;
+export function setEffectHost(el: HTMLElement): void {
+  effectHost = el;
+}
 
 const CONFETTI_COLORS = [
   '#ffd700',
@@ -25,7 +32,7 @@ export function flashScreen(opts: {
   el.className = 'screen-flash';
   el.style.background = color;
   el.style.opacity = String(alpha);
-  document.body.appendChild(el);
+  effectHost.appendChild(el);
   requestAnimationFrame(() => {
     el.style.transition = `opacity ${durMs}ms ease-out`;
     el.style.opacity = '0';
@@ -37,7 +44,7 @@ export function flashScreen(opts: {
 export function spawnConfetti(count = 80): void {
   const container = document.createElement('div');
   container.className = 'confetti-container';
-  document.body.appendChild(container);
+  effectHost.appendChild(container);
 
   for (let i = 0; i < count; i++) {
     const piece = document.createElement('div');
@@ -64,7 +71,11 @@ export function shakeBody(durMs = 500): void {
  * 暗転 → 役名がデカく登場 → 放射状光線 → フェードアウト。
  * 完全に視覚演出なのでゲーム進行はブロックしない（pointer-events: none）。
  */
-export function showPremiumCutin(yakuName: string, symbols: string[]): void {
+export function showPremiumCutin(
+  yakuName: string,
+  symbols: string[],
+  bgImageUrl?: string,
+): void {
   // 既存のカットインがあれば消す（連発でも崩れない）
   document.querySelectorAll('.premium-cutin').forEach((el) => el.remove());
 
@@ -86,8 +97,14 @@ export function showPremiumCutin(yakuName: string, symbols: string[]): void {
     )
     .join('');
 
+  // 章ごとの一枚絵（演出液晶 600:432 に合わせた横長）。未指定/404 なら CSS のみ。
+  const artHtml = bgImageUrl
+    ? `<div class="premium-cutin-art" style="background-image:url('${encodeURI(bgImageUrl)}')"></div>`
+    : '';
+
   root.innerHTML = `
     <div class="premium-cutin-veil"></div>
+    ${artHtml}
     <div class="premium-cutin-rays">${raysHtml}</div>
     <div class="premium-cutin-content">
       <div class="premium-cutin-label">PREMIUM!</div>
@@ -95,7 +112,7 @@ export function showPremiumCutin(yakuName: string, symbols: string[]): void {
       <div class="premium-cutin-yaku">${escape(yakuName)}</div>
     </div>
   `;
-  document.body.appendChild(root);
+  effectHost.appendChild(root);
 
   // 次フレームで .show を付けて遷移開始
   requestAnimationFrame(() => root.classList.add('show'));
@@ -116,7 +133,7 @@ export function showMultiHitBadge(lineCount: number): void {
   if (lineCount >= 4) el.classList.add('fever');
   else if (lineCount === 3) el.classList.add('hot');
   el.textContent = `${lineCount} LINES!!`;
-  document.body.appendChild(el);
+  effectHost.appendChild(el);
   requestAnimationFrame(() => el.classList.add('show'));
   window.setTimeout(() => el.classList.add('out'), 900);
   window.setTimeout(() => el.remove(), 1400);
@@ -243,7 +260,7 @@ export function startBonusSparkle(): void {
   if (bonusSparkleTimer !== null) return;
   bonusSparkleContainer = document.createElement('div');
   bonusSparkleContainer.className = 'bonus-sparkle-layer';
-  document.body.appendChild(bonusSparkleContainer);
+  effectHost.appendChild(bonusSparkleContainer);
 
   const spawn = () => {
     if (!bonusSparkleContainer) return;

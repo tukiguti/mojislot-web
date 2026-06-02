@@ -30,6 +30,7 @@ import {
   spawnButtonRipple,
   showAimNotice,
   hideAimNotice,
+  setEffectHost,
 } from './ui/Effects';
 import { JinSpeech } from './ui/JinSpeech';
 import { ChallengeTracker } from './productions/Challenges';
@@ -123,6 +124,12 @@ async function bootstrap() {
 
   const chapter = getCurrentChapter();
   const chapterId = getCurrentChapterId();
+
+  // 章ごとのアート（public/art/）。画像が無い章はURLが404になり、カットインは画像なし（CSSのみ）。
+  // ※ body の章背景パネルは一旦オフ（必要になったら has-chapter-bg を復活させる）。
+  const ART_BASE = `${import.meta.env.BASE_URL}art/`;
+  const chapterCutinUrl = `${ART_BASE}cutin_${chapterId}.webp`;
+
   const reelConfig = ReelConfigSchema.parse(chapter.reelData);
   const yakuList = YakuListSchema.parse(chapter.yakuData);
   const payout = PayoutSchema.parse(payoutDataRaw);
@@ -202,6 +209,13 @@ async function bootstrap() {
   jinView.container.x = JIN_X;
   jinView.container.y = JIN_FOOT_Y - 102 * JIN_SCALE;
   app.stage.addChild(jinView.container);
+
+  // 液晶内の演出ホスト。全画面 DOM 演出（フラッシュ/紙吹雪/カットイン/キラキラ/HIT）を
+  // ここに出して液晶外へはみ出させない（overflow:hidden）。
+  const lcdFx = document.createElement('div');
+  lcdFx.id = 'lcd-fx';
+  requireEl('game-area').appendChild(lcdFx);
+  setEffectHost(lcdFx);
 
   // ジンのセリフ吹き出し（DOM, 演出エリア内）。ジン本体の可視制御と同じ信号で抑制する。
   const jinSpeech = new JinSpeech(requireEl('game-area'));
@@ -542,7 +556,7 @@ async function bootstrap() {
       // デバッグ：プレミアム役が無くても代表的な役名でカットインを試せる
       const premium = yakuList.premiumYaku[0];
       if (premium) {
-        showPremiumCutin(premium.name, premium.symbols);
+        showPremiumCutin(premium.name, premium.symbols, chapterCutinUrl);
       }
       flashScreen({ color: '#ffd700', alpha: 0.85, durMs: 400 });
       spawnConfetti(100);
@@ -559,6 +573,19 @@ async function bootstrap() {
     triggerQuiz: () => {
       // 強制クイズ：演出＋液晶に出題を出す
       applyEffect('quiz');
+    },
+    triggerCutin: () => {
+      // 現在の章のプレミアム役＋章カットイン画像でカットインを確認
+      const premium = yakuList.premiumYaku[0] ?? yakuList.coreYaku[0];
+      if (premium) {
+        showPremiumCutin(premium.name, premium.symbols, chapterCutinUrl);
+        flashScreen({ color: '#ffd700', alpha: 0.7, durMs: 320 });
+        sfx.winCore();
+      }
+    },
+    triggerAim: () => {
+      // 狙え！予告を強制発動（applyEffect('aim') が showAimNotice を呼ぶ）
+      applyEffect('aim');
     },
     triggerWinTest: () => {
       // 役成立SE＋中央ハイライト＋コインフロート＋紙吹雪少々
@@ -940,7 +967,7 @@ async function bootstrap() {
         if (isPremium && premiumHit) {
           bonusZone.trigger();
           sfx.bonusEnter();
-          showPremiumCutin(premiumHit.yaku.name, premiumHit.yaku.symbols);
+          showPremiumCutin(premiumHit.yaku.name, premiumHit.yaku.symbols, chapterCutinUrl);
           flashScreen({ color: '#ffd700', alpha: 0.85, durMs: 400 });
           spawnConfetti(100);
           shakeBody(600);
