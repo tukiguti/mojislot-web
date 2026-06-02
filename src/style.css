@@ -63,6 +63,17 @@ body {
   gap: var(--reel-gap);
 }
 
+/* 章ごとの背景パネル（main.ts が --chapter-bg を設定）。
+   画像が無い章は url が 404 になり、背景色(#050505)にフォールバックする。
+   背景は中央ビネットが暗い設計なので、中央に乗る筐体は読みやすい。 */
+body.has-chapter-bg {
+  background-image: var(--chapter-bg);
+  background-size: cover;
+  background-position: center center;
+  background-repeat: no-repeat;
+  background-attachment: fixed;
+}
+
 /* === リール配列パネル === */
 #reel-strip-panel {
   width: var(--reel-panel-w);
@@ -909,14 +920,14 @@ body {
 
 /* === 全画面エフェクト === */
 .screen-flash {
-  position: fixed;
+  position: absolute;
   inset: 0;
   pointer-events: none;
   z-index: 200;
 }
 
 .confetti-container {
-  position: fixed;
+  position: absolute;
   inset: 0;
   pointer-events: none;
   z-index: 150;
@@ -1035,6 +1046,39 @@ body.shake {
   background: #000;
   border-bottom: 2px solid #ffd700;
   box-shadow: inset 0 -8px 16px rgba(0, 0, 0, 0.6);
+}
+
+/* 演出液晶ホスト。全 DOM 演出（フラッシュ/紙吹雪/カットイン/キラキラ/HIT）を
+   ここに出し、overflow:hidden で外へはみ出さないよう収める。
+   範囲は canvas 上部の「演出液晶」エリアのみ＝ Pixi の LIQUID_AREA_H(432) / CANVAS_H(732)。
+   下部のリール領域には演出を被せない（スマスロの上部液晶イメージ）。
+   結果この枠は 600:432 ≒ 1.389:1 の横長。カットイン画像もこのアスペクトで作る。 */
+#lcd-fx {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: calc(432 / 732 * 100%);
+  overflow: hidden;
+  pointer-events: none;
+  z-index: 50;
+  /* カットイン等の文字を演出液晶幅(cqw)基準でスケールさせる（はみ出し防止） */
+  container-type: size;
+}
+
+/* 進行ステータス（BONUS残り/連チャン/レスキュー）を演出液晶の左上に縦積み。
+   ヘッダーから追い出してヘッダー溢れ・設定ボタンの押しにくさを解消する。
+   演出レイヤー(#lcd-fx z50)より前面にして常に読めるようにする。 */
+#lcd-status {
+  position: absolute;
+  top: 8px;
+  left: 8px;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 4px;
+  z-index: 60;
+  pointer-events: none;
 }
 
 #game {
@@ -1728,7 +1772,7 @@ body.shake {
 
 /* ===== プレミアム成立カットイン ===== */
 .premium-cutin {
-  position: fixed;
+  position: absolute;
   inset: 0;
   z-index: 9999;
   pointer-events: none;
@@ -1757,6 +1801,26 @@ body.shake {
     rgba(80, 30, 0, 0.55) 0%,
     rgba(0, 0, 0, 0.92) 70%
   );
+}
+
+/* 章ごとの一枚絵（演出液晶 600:432 横長にフィット）。veil の上・rays/text の下に敷く。
+   出現時に軽くズームインさせて派手さを出す。画像が無ければ要素自体が生成されない。 */
+.premium-cutin-art {
+  position: absolute;
+  inset: 0;
+  background-size: cover;
+  background-position: center center;
+  background-repeat: no-repeat;
+  transform: scale(1.08);
+  opacity: 0;
+  transition:
+    opacity 300ms ease-out,
+    transform 800ms ease-out;
+}
+
+.premium-cutin.show .premium-cutin-art {
+  opacity: 1;
+  transform: scale(1);
 }
 
 .premium-cutin-rays {
@@ -1823,7 +1887,7 @@ body.shake {
 }
 
 .premium-cutin-label {
-  font-size: 56px;
+  font-size: clamp(20px, 10cqw, 56px);
   font-weight: 900;
   letter-spacing: 6px;
   background: linear-gradient(180deg, #fff7c4 0%, #ffd700 45%, #ff8a00 100%);
@@ -1850,12 +1914,12 @@ body.shake {
 
 .premium-cutin-symbols {
   display: flex;
-  gap: 24px;
+  gap: clamp(8px, 4cqw, 24px);
 }
 
 .premium-cutin-symbol {
   display: inline-block;
-  font-size: 96px;
+  font-size: clamp(36px, 18cqw, 96px);
   font-weight: 900;
   font-family: 'Yu Gothic', 'Hiragino Sans', system-ui, sans-serif;
   color: #fff;
@@ -1884,7 +1948,7 @@ body.shake {
 }
 
 .premium-cutin-yaku {
-  font-size: 36px;
+  font-size: clamp(14px, 6.5cqw, 36px);
   font-weight: 900;
   letter-spacing: 4px;
   color: #fff;
@@ -2083,7 +2147,7 @@ body.shake {
 
 /* ===== ボーナス中の継続スパークル演出 ===== */
 .bonus-sparkle-layer {
-  position: fixed;
+  position: absolute;
   inset: 0;
   pointer-events: none;
   z-index: 90;
@@ -2126,7 +2190,7 @@ body.shake {
 
 /* ===== 多重ライン HIT バッジ ===== */
 .multi-hit-badge {
-  position: fixed;
+  position: absolute;
   top: 28%;
   left: 50%;
   z-index: 9998;
