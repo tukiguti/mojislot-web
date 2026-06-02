@@ -135,9 +135,15 @@ export function showMultiHitBadge(lineCount: number): void {
 export interface AimNoticeOptions {
   /** 狙うべき役の 3 文字（左/中/右の順、必ず length=3） */
   symbols: readonly string[];
+  /** 各文字の色（実リールのセル色に合わせる。CSS color 文字列、length=3 想定） */
+  colors?: readonly string[];
   /** 表示用の役名（任意） */
   yakuName?: string;
   hasPremium: boolean;
+  /** 各リール中心 x の canvas 幅比（0〜1）。未指定なら旧 600px 基準の既定値。 */
+  reelCentersXFrac?: readonly number[];
+  /** リール上端 y の canvas 高さ比（0〜1）。矢印をリール直上に置く。未指定なら旧既定値。 */
+  reelTopYFrac?: number;
 }
 
 export function showAimNotice(opts: AimNoticeOptions): void {
@@ -145,9 +151,9 @@ export function showAimNotice(opts: AimNoticeOptions): void {
   const canvas = document.getElementById('game') as HTMLCanvasElement | null;
   if (!canvas) return;
   const rect = canvas.getBoundingClientRect();
-  // Pixi 内部 600px における 3 リールの中心 x（main.ts 配置と合わせる）:
-  // 3 リール × 130px + 2 × 16px gap = 422、左端 89px → 中心 154 / 300 / 446
-  const reelCenterFracs = [154 / 600, 300 / 600, 446 / 600];
+  // リール座標比は呼び出し側（現行 canvas 寸法を知る main.ts）から受け取る。
+  // 未指定時のフォールバックは旧 600x600 時代の値。
+  const reelCenterFracs = opts.reelCentersXFrac ?? [154 / 600, 300 / 600, 446 / 600];
 
   // 「狙え！」ラベル + 役名 + 3 文字
   const notice = document.createElement('div');
@@ -161,16 +167,25 @@ export function showAimNotice(opts: AimNoticeOptions): void {
   notice.appendChild(label);
   const symbolsEl = document.createElement('div');
   symbolsEl.className = 'aim-notice-symbols';
-  for (const s of opts.symbols.slice(0, 3)) {
+  opts.symbols.slice(0, 3).forEach((s, i) => {
     const span = document.createElement('span');
     span.textContent = s;
+    // 文字色を実リールのセル色に合わせる（揃った時の見た目と一致させる）。
+    const c = opts.colors?.[i];
+    if (c) {
+      span.style.color = c;
+      span.style.borderColor = c;
+      span.style.textShadow = `0 0 4px rgba(0,0,0,1), 0 0 10px ${c}`;
+    }
     symbolsEl.appendChild(span);
-  }
+  });
   notice.appendChild(symbolsEl);
   document.body.appendChild(notice);
 
-  // 3 リール全てに下向き矢印（プレイヤーに「ここで狙え」を明示）
-  const reelTopY = rect.top + rect.height * (260 / 600) - 8;
+  // 3 リール全てに下向き矢印（プレイヤーに「ここで狙え」を明示）。
+  // 矢印先端をリール上端の少し上に置く（リールを指す）。
+  const reelTopFrac = opts.reelTopYFrac ?? 260 / 600;
+  const reelTopY = rect.top + rect.height * reelTopFrac - 8;
   for (let i = 0; i < 3; i++) {
     const arrow = document.createElement('div');
     arrow.className = 'aim-arrow';

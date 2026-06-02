@@ -25,3 +25,6 @@ dist-ssr
 
 # AI assistant local notes
 CLAUDE.md
+
+# 画像生成マスター(PNG, 大容量) はローカル保持。public/ の WebP/PNG のみデプロイ
+assets/art-src/

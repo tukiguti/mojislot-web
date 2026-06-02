@@ -4,27 +4,32 @@
   background: #050505;
 
   /* === レイアウト寸法（ビューポートに収める） ===
-   * cabinet 内の固定高さ: header(44) + control-panel(実測 約228)
-   * game-area は正方形 (Pixi 内部 600x600) なので、cabinet width = game-area サイズ
-   * 横は、reel-strip-panel(240) + gap(16) + body padding(24) = 280 を引いた残り
-   * 縦は、header + control + body padding(24) を引いた残り
+   * メイン液晶は縦長（約 1:1.22、Pixi 内部 600x732）。演出液晶1.3 : リール0.9 を canvas 内で配分。
+   * cabinet width = game 幅(--game-w)、game 高さ = 幅 x 1.22(--game-h)。
+   * cabinet 内の固定高さ: header(44) + control-panel(--control-h)
+   * 縦比率の体感: 演出液晶 : リール : ボタン ≒ 1.3 : 0.9 : 0.8
+   * 横は reel-strip-panel(240) + gap(16) を引いた残り、縦は header + control を引いた残りを 1.22 で割る。
    */
   --layout-pad: 12px;
   --reel-panel-w: 240px;
   --reel-gap: 16px;
   --header-h: 44px;
-  --control-h: 228px;
+  /* ボタンエリア（帯）の高さ。ボタン自体は 0.8 倍で、帯はそれを 0.8 比率で収める高さ。 */
+  --control-h: 176px;
   /* 横幅から差し引く reel-strip-panel 占有。狭画面では 0 にして縦並びへ */
   --reel-panel-occupy: calc(var(--reel-panel-w) + var(--reel-gap));
-  --game-size: max(
-    280px,
+  --game-w: max(
+    240px,
     min(
-      600px,
-      calc(100vh - var(--layout-pad) * 2 - var(--header-h) - var(--control-h)),
+      440px,
+      calc(
+        (100vh - var(--layout-pad) * 2 - var(--header-h) - var(--control-h)) / 1.22
+      ),
       calc(100vw - var(--layout-pad) * 2 - var(--reel-panel-occupy))
     )
   );
-  --cabinet-h: calc(var(--game-size) + var(--header-h) + var(--control-h));
+  --game-h: calc(var(--game-w) * 1.22);
+  --cabinet-h: calc(var(--game-h) + var(--header-h) + var(--control-h));
 }
 
 * {
@@ -150,8 +155,8 @@ body {
 
 #cabinet {
   display: grid;
-  grid-template-rows: var(--header-h) var(--game-size) 1fr;
-  width: var(--game-size);
+  grid-template-rows: var(--header-h) var(--game-h) var(--control-h);
+  width: var(--game-w);
   height: var(--cabinet-h);
   background: linear-gradient(180deg, #1a1a1a 0%, #0d0d0d 100%);
   border: 3px solid #ffd700;
@@ -1079,24 +1084,24 @@ body.shake {
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 10px;
-  /* 上を少し広めに取って、リール下端と BET ボタンの間に空気を入れる */
-  padding: 20px 16px 12px;
+  gap: 6px;
+  /* ボタン帯は縮小。液晶を主役に。ボタンは 0.8 倍まで詰める */
+  padding: 7px 12px 5px;
   background: linear-gradient(180deg, #1a1a1a 0%, #050505 100%);
   border-top: 2px solid #ffd700;
 }
 
 .ctrl-row {
   display: flex;
-  gap: 16px;
+  gap: 11px;
   justify-content: center;
 }
 
 #bet-btn,
 #lever-btn {
-  width: 130px;
-  height: 56px;
-  font-size: 18px;
+  width: 86px;
+  height: 37px;
+  font-size: 13px;
   font-weight: bold;
   color: #ffd700;
   background: linear-gradient(180deg, #444 0%, #222 100%);
@@ -1126,15 +1131,15 @@ body.shake {
 }
 
 .bita-badge {
-  min-width: 80px;
-  height: 22px;
-  padding: 2px 8px;
-  font-size: 11px;
+  min-width: 52px;
+  height: 16px;
+  padding: 1px 5px;
+  font-size: 9px;
   font-weight: bold;
   letter-spacing: 1px;
   border-radius: 4px;
   text-align: center;
-  line-height: 18px;
+  line-height: 13px;
   opacity: 0;
   transform: translateY(4px);
   transition:
@@ -1167,9 +1172,9 @@ body.shake {
 }
 
 .stop-btn {
-  width: 90px;
-  height: 64px;
-  font-size: 20px;
+  width: 61px;
+  height: 40px;
+  font-size: 14px;
   font-weight: bold;
   color: #fff;
   background: linear-gradient(180deg, #d00 0%, #800 100%);
@@ -1646,13 +1651,17 @@ body.shake {
 /* === ジンの吹き出し === */
 .jin-speech {
   position: absolute;
-  top: 30px;
-  right: 60px;
+  /* スマスロ風に左下のジンの頭上へ。% 指定で canvas 拡縮に追随させる。
+     ジンは左下（中心 x≒20%、頭頂 ≒38%）に居るので、その直上に小さく出す。
+     中央のクイズ問題文／カットインに被らないよう、左カラム内（max-width 44%）に収める。 */
+  top: 30%;
+  left: 6%;
+  max-width: 44%;
   background: rgba(255, 255, 255, 0.96);
   color: #222;
-  padding: 7px 14px;
+  padding: 6px 12px;
   border-radius: 12px;
-  font-size: 14px;
+  font-size: 13px;
   font-weight: bold;
   font-family: 'Hiragino Sans', 'Yu Gothic', sans-serif;
   z-index: 20;
@@ -2298,17 +2307,19 @@ body.shake {
     --layout-pad: 8px;
     --reel-gap: 0px;
     --reel-panel-occupy: 0px;
-    --control-h: 200px;
-    /* 狭画面では 600px キャップを外し、ビューポート全体に追随させる
-     * （Pixi 内部 600x600 を CSS で拡縮するため >600 ではやや甘くなるが、
-     * 画面サイズに合わせてジンくん・リールが伸び縮みするのを優先） */
-    --game-size: max(
-      280px,
+    --control-h: 154px;
+    /* 狭画面では 440px キャップを外し、ビューポート全体に追随させる。
+     * 縦長 約1:1.22 なので、高さ制約 (100vh - 各帯) を 1.22 で割って game 幅を決める。 */
+    --game-w: max(
+      240px,
       min(
-        calc(100vh - var(--layout-pad) * 2 - var(--header-h) - var(--control-h)),
+        calc(
+          (100vh - var(--layout-pad) * 2 - var(--header-h) - var(--control-h)) / 1.22
+        ),
         calc(100vw - var(--layout-pad) * 2)
       )
     );
+    --game-h: calc(var(--game-w) * 1.22);
   }
 
   body {
@@ -2375,28 +2386,28 @@ body.shake {
 
   /* コントロール: ボタン縮小 */
   #control-panel {
-    gap: 8px;
-    padding: 14px 12px 10px;
+    gap: 5px;
+    padding: 6px 10px 5px;
   }
   #bet-btn,
   #lever-btn {
-    width: 110px;
-    height: 50px;
-    font-size: 16px;
+    width: 80px;
+    height: 36px;
+    font-size: 13px;
   }
   .stop-btn {
-    width: 78px;
-    height: 56px;
-    font-size: 17px;
+    width: 56px;
+    height: 38px;
+    font-size: 14px;
   }
   .ctrl-row {
-    gap: 12px;
+    gap: 10px;
   }
   .bita-badge {
-    min-width: 70px;
-    height: 20px;
-    font-size: 10px;
-    line-height: 16px;
+    min-width: 48px;
+    height: 16px;
+    font-size: 9px;
+    line-height: 13px;
   }
   #key-hint {
     display: none; /* スマホ・タブレットではキーボード操作しないので */
@@ -2468,7 +2479,7 @@ body.shake {
 @media (max-width: 480px) {
   :root {
     --layout-pad: 6px;
-    --control-h: 184px;
+    --control-h: 140px;
   }
 
   /* ヘッダーをさらに詰める。AUTO/♪/図鑑/⚙ を 1 行に押し込む */

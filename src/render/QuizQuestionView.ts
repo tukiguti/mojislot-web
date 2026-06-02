@@ -54,7 +54,9 @@ export class QuizQuestionView {
     this.container.visible = false;
 
     state.current.subscribe((quiz) => {
-      this.text.text = quiz?.question ?? '';
+      // 先頭の【…】タグ（例:【プレミアム】）は次行に分けて見やすくする。
+      const q = quiz?.question ?? '';
+      this.text.text = q.replace(/^(【[^】]*】)\s*/, '$1\n');
     });
     state.phase.subscribe((phase) => {
       this.container.visible = phase !== 'inactive';

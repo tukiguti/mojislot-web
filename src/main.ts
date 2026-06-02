@@ -70,11 +70,12 @@ import './style.css';
 const REEL_GAP = 16;
 const REEL_COUNT = 3;
 const CANVAS_W = 600;
-const CANVAS_H = 600;
-// 液晶エリア（マスコット領域）の高さ。
-// CANVAS_H - LIQUID_AREA_H - (CELL_HEIGHT*VISIBLE_CELLS) = 上下余白の合計。
-// 260 のとき、上下に20px ずつの余白でリールが収まる。
-const LIQUID_AREA_H = 260;
+const CANVAS_H = 732;
+// 液晶エリア（演出液晶＋マスコット領域）の高さ。
+// 「演出液晶1.3 : リール0.9」の比率にするため、リール実体(CELL_HEIGHT*VISIBLE_CELLS=300=0.9相当)に対し
+// 1.3/0.9倍 = 432 を割り当てる。CANVAS_H(732) = LIQUID_AREA_H(432) + リール領域(300)。
+// 上部の空間にカットイン・演出を表示し、ジンはリール際（下部）に立たせる。
+const LIQUID_AREA_H = 432;
 
 /**
  * 複数ペイラインで揃った役の一覧を文字列要約。
@@ -182,17 +183,28 @@ async function bootstrap() {
   });
   app.stage.addChild(effectVisual.bgLayer);
 
-  // 液晶下端をうっすら明るく（ジンの足元に光を当てたような感じ）
+  // ジンはスマスロ風に「演出液晶の左下」に小さく配置する。
+  // 中央〜上部の広い空間はカットイン・演出のために空けておく。
+  const JIN_SCALE = 0.62;
+  const JIN_X = 118; // 左寄せ（縮小後の半幅ぶん内側に置く）
+  const JIN_FOOT_Y = LIQUID_AREA_H - 12; // 足元＝液晶下端付近（リール直上）
+
+  // 液晶下端をうっすら明るく（ジンの足元に光を当てたような感じ）。左下のジンに合わせる。
   const liquidFloor = new Graphics();
-  liquidFloor.ellipse(CANVAS_W / 2, LIQUID_AREA_H - 8, 180, 24);
-  liquidFloor.fill({ color: 0xffd700, alpha: 0.08 });
+  liquidFloor.ellipse(JIN_X, JIN_FOOT_Y, 96, 16);
+  liquidFloor.fill({ color: 0xffd700, alpha: 0.09 });
   app.stage.addChild(liquidFloor);
 
-  // ジン（マスコット）配置
+  // ジン（マスコット）配置。container は原点中心描画なので、足元が JIN_FOOT_Y に来るよう
+  // 中心を半身ぶん上げる（従来の中心-床=102px を scale 倍して算出）。
   const jinView = new JinView(jinState);
-  jinView.container.x = CANVAS_W / 2;
-  jinView.container.y = LIQUID_AREA_H / 2 + 20;
+  jinView.container.scale.set(JIN_SCALE);
+  jinView.container.x = JIN_X;
+  jinView.container.y = JIN_FOOT_Y - 102 * JIN_SCALE;
   app.stage.addChild(jinView.container);
+
+  // ジンのセリフ吹き出し（DOM, 演出エリア内）。ジン本体の可視制御と同じ信号で抑制する。
+  const jinSpeech = new JinSpeech(requireEl('game-area'));
 
   // クイズ中はジンを隠して、ここにクイズ文章を大きく出す
   const quizQuestionView = new QuizQuestionView(quizState, {
@@ -203,9 +215,11 @@ async function bootstrap() {
   quizQuestionView.container.y = LIQUID_AREA_H / 2;
   app.stage.addChild(quizQuestionView.container);
 
-  // クイズ表示中はマスコットを隠す
+  // クイズ表示中はマスコットを隠す。同時にセリフ吹き出しも抑制し、問題文への被りを防ぐ。
   quizState.phase.subscribe((phase) => {
-    jinView.container.visible = phase === 'inactive';
+    const idle = phase === 'inactive';
+    jinView.container.visible = idle;
+    jinSpeech.setSuppressed(!idle);
   });
 
   // リールエリアの背景帯
@@ -290,8 +304,6 @@ async function bootstrap() {
   const streakStatusEl = requireEl('streak-status');
   const rescueStatusEl = requireEl('rescue-status');
   const bonusBannerEl = requireEl('bonus-banner');
-  const jinSpeech = new JinSpeech(requireEl('game-area'));
-
   betTextEl.textContent = `Bet: ${calc.bet}`;
   const effectStatusEl = requireEl('effect-status');
   let betPlaced = false;
@@ -337,8 +349,15 @@ async function bootstrap() {
       aimNoticeYaku = targetYaku;
       showAimNotice({
         symbols: targetYaku.symbols,
+        // 各文字を実リールのセル色に合わせる（左/中/右）
+        colors: targetYaku.symbols.map((s, i) => colorResolver.cssFor(i, s)),
         yakuName: targetYaku.name,
         hasPremium: targetYaku.category === 'premium',
+        // 現行 canvas 寸法に基づくリール座標比（旧ハードコードのズレを解消）
+        reelCentersXFrac: [0, 1, 2].map(
+          (i) => (startX + i * (CELL_WIDTH + REEL_GAP) + CELL_WIDTH / 2) / CANVAS_W,
+        ),
+        reelTopYFrac: LIQUID_AREA_H / CANVAS_H,
       });
       sfx.shisa(); // 既存の示唆 SE を流用
       jinSpeech.say('shisa');
