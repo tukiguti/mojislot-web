@@ -11,7 +11,7 @@
       "id": "q_kirin",
       "question": "首が長い、サバンナの草原にいる動物は？",
       "answerYakuId": "kirin",
-      "decoyYakuIds": ["gorira", "rakuda", "hyou"]
+      "decoyYakuIds": ["gorira", "koara", "kujira"]
     },
     {
       "id": "q_kujira",
@@ -29,7 +29,7 @@
       "id": "q_usagi",
       "question": "ぴょんぴょん跳ねる、耳の長い動物は？",
       "answerYakuId": "usagi",
-      "decoyYakuIds": ["tanuki", "koara", "hyou"]
+      "decoyYakuIds": ["tanuki", "koara", "kirin"]
     },
     {
       "id": "q_tanuki",
@@ -41,25 +41,7 @@
       "id": "q_gorira",
       "question": "ジャングルにいる大型の類人猿は？",
       "answerYakuId": "gorira",
-      "decoyYakuIds": ["kirin", "hyou", "kujira"]
-    },
-    {
-      "id": "q_hyou",
-      "question": "斑点模様の俊敏な大型ネコ科の動物は？",
-      "answerYakuId": "hyou",
-      "decoyYakuIds": ["gorira", "hitsuji", "rakuda"]
-    },
-    {
-      "id": "q_rakuda",
-      "question": "コブで水を貯める、砂漠の動物は？",
-      "answerYakuId": "rakuda",
-      "decoyYakuIds": ["kirin", "hyou", "hitsuji"]
-    },
-    {
-      "id": "q_hitsuji",
-      "question": "メーメー鳴く、毛が縮れた家畜は？",
-      "answerYakuId": "hitsuji",
-      "decoyYakuIds": ["rakuda", "usagi", "panda"]
+      "decoyYakuIds": ["kirin", "kujira", "koara"]
     },
     {
       "id": "q_dragon",

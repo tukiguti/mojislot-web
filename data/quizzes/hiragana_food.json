@@ -2,22 +2,16 @@
   "mode": "hiragana_food",
   "quizzes": [
     {
-      "id": "q_purin",
-      "question": "おじゃる丸が好きなものは？",
-      "answerYakuId": "purin",
-      "decoyYakuIds": ["mikan", "ichigo", "ocha"]
-    },
-    {
       "id": "q_ichigo",
       "question": "ショートケーキの上にのる赤い果物は？",
       "answerYakuId": "ichigo",
-      "decoyYakuIds": ["mikan", "suika", "purin"]
+      "decoyYakuIds": ["mikan", "suika", "wakame"]
     },
     {
       "id": "q_mikan",
       "question": "冬のこたつで食べるオレンジ色の果物は？",
       "answerYakuId": "mikan",
-      "decoyYakuIds": ["ichigo", "suika", "monaka"]
+      "decoyYakuIds": ["ichigo", "suika", "wakame"]
     },
     {
       "id": "q_suika",
@@ -41,25 +35,13 @@
       "id": "q_maguro",
       "question": "お寿司の代表的なネタといえば？",
       "answerYakuId": "maguro",
-      "decoyYakuIds": ["unagi", "wakame", "monaka"]
+      "decoyYakuIds": ["unagi", "wakame", "ichigo"]
     },
     {
       "id": "q_gohan",
       "question": "日本人の主食といえば？",
       "answerYakuId": "gohan",
-      "decoyYakuIds": ["monaka", "purin", "ocha"]
-    },
-    {
-      "id": "q_monaka",
-      "question": "あんこを薄いパリパリの皮ではさんだ和菓子は？",
-      "answerYakuId": "monaka",
-      "decoyYakuIds": ["purin", "gohan", "ocha"]
-    },
-    {
-      "id": "q_ocha",
-      "question": "急須でいれる、和菓子と相性のいい緑色の飲み物は？",
-      "answerYakuId": "ocha",
-      "decoyYakuIds": ["gohan", "purin", "monaka"]
+      "decoyYakuIds": ["ichigo", "mikan", "suika"]
     },
     {
       "id": "q_sushiya",

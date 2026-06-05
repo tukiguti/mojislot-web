@@ -11,55 +11,37 @@
       "id": "q_hashiru",
       "question": "マラソン選手が長距離をずっと続ける動作は？",
       "answerYakuId": "hashiru",
-      "decoyYakuIds": ["odoru", "taberu", "warau"]
+      "decoyYakuIds": ["taberu", "asobu", "utau"]
     },
     {
       "id": "q_asobu",
       "question": "子どもが公園でにぎやかにすることといえば？",
       "answerYakuId": "asobu",
-      "decoyYakuIds": ["nemuru", "manabu", "tsukuru"]
+      "decoyYakuIds": ["nemuru", "manabu", "taberu"]
     },
     {
       "id": "q_utau",
       "question": "カラオケでマイクを握って気持ちよくすることは？",
       "answerYakuId": "utau",
-      "decoyYakuIds": ["warau", "odoru", "hashiru"]
+      "decoyYakuIds": ["hashiru", "taberu", "asobu"]
     },
     {
       "id": "q_manabu",
       "question": "学校や本から知識を取り入れていく行為は？",
       "answerYakuId": "manabu",
-      "decoyYakuIds": ["asobu", "tsukuru", "nemuru"]
+      "decoyYakuIds": ["asobu", "nemuru", "taberu"]
     },
     {
       "id": "q_nemuru",
       "question": "夜にベッドで目を閉じてとる休息は？",
       "answerYakuId": "nemuru",
-      "decoyYakuIds": ["taberu", "warau", "kaeru"]
+      "decoyYakuIds": ["taberu", "kaeru", "hashiru"]
     },
     {
       "id": "q_kaeru",
       "question": "外出の終わりに自分の家へ向かう動作は？",
       "answerYakuId": "kaeru",
       "decoyYakuIds": ["hashiru", "asobu", "nemuru"]
-    },
-    {
-      "id": "q_warau",
-      "question": "面白い話を聞いて思わずでてしまう表情は？",
-      "answerYakuId": "warau",
-      "decoyYakuIds": ["utau", "odoru", "taberu"]
-    },
-    {
-      "id": "q_odoru",
-      "question": "音楽に合わせて体を弾ませる芸事といえば？",
-      "answerYakuId": "odoru",
-      "decoyYakuIds": ["utau", "hashiru", "warau"]
-    },
-    {
-      "id": "q_tsukuru",
-      "question": "料理や工作で素材から何かを生み出す行為は？",
-      "answerYakuId": "tsukuru",
-      "decoyYakuIds": ["manabu", "kaeru", "asobu"]
     },
     {
       "id": "q_ikiru",

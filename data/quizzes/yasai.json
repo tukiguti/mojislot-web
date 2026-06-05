@@ -5,7 +5,7 @@
       "id": "q_tomato",
       "question": "真っ赤で丸い夏野菜、サラダやパスタの定番は？",
       "answerYakuId": "tomato",
-      "decoyYakuIds": ["nasubi", "kabura", "remon"]
+      "decoyYakuIds": ["nasubi", "okura", "gobou"]
     },
     {
       "id": "q_okura",
@@ -17,13 +17,13 @@
       "id": "q_gobou",
       "question": "きんぴらで使われる細長くて茶色い根菜は？",
       "answerYakuId": "gobou",
-      "decoyYakuIds": ["kabura", "nasubi", "moyashi"]
+      "decoyYakuIds": ["nasubi", "moyashi", "tomato"]
     },
     {
       "id": "q_moyashi",
       "question": "豆から育つ安くてシャキシャキの白い野菜は？",
       "answerYakuId": "moyashi",
-      "decoyYakuIds": ["paseri", "kinoko", "serori"]
+      "decoyYakuIds": ["paseri", "serori", "tomato"]
     },
     {
       "id": "q_serori",
@@ -35,31 +35,13 @@
       "id": "q_paseri",
       "question": "洋食の彩りで皿に添えられる緑のハーブは？",
       "answerYakuId": "paseri",
-      "decoyYakuIds": ["serori", "moyashi", "kinoko"]
+      "decoyYakuIds": ["serori", "moyashi", "tomato"]
     },
     {
       "id": "q_nasubi",
       "question": "紫色の皮で焼くととろける夏野菜は？",
       "answerYakuId": "nasubi",
-      "decoyYakuIds": ["tomato", "okura", "kabura"]
-    },
-    {
-      "id": "q_kabura",
-      "question": "白い丸い根を持ち、漬物にもされる春の野菜は？",
-      "answerYakuId": "kabura",
-      "decoyYakuIds": ["gobou", "okura", "nasubi"]
-    },
-    {
-      "id": "q_kinoko",
-      "question": "シイタケやエノキなど、菌類食材の総称は？",
-      "answerYakuId": "kinoko",
-      "decoyYakuIds": ["moyashi", "paseri", "okura"]
-    },
-    {
-      "id": "q_remon",
-      "question": "黄色く酸っぱい、唐揚げに搾られる柑橘は？",
-      "answerYakuId": "remon",
-      "decoyYakuIds": ["tomato", "kinoko", "kabura"]
+      "decoyYakuIds": ["tomato", "okura", "gobou"]
     },
     {
       "id": "q_goya",
