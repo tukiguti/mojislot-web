@@ -11,15 +11,21 @@ import type { EffectRates } from './EffectScheduler';
  *  - 既に active 中に再トリガーされたら残り回数をリセット（おかわり）
  */
 
+/** ボーナス種別: big=プレミアム役(すしや等) / reg=レギュラー役(すし＋別字) */
+export type BonusKind = 'big' | 'reg';
+
 export interface BonusConfig {
-  /** ボーナス1回の継続スピン数 */
+  /** ビッグボーナス1回の継続スピン数 */
   spinsPerBonus: number;
+  /** レギュラーボーナス1回の継続スピン数（ビッグより短い） */
+  spinsPerReg: number;
   /** ボーナス中の演出レート（none/shisa/quiz の合計が 1.0 になる必要あり） */
   bonusEffectRates: EffectRates;
 }
 
 export const DEFAULT_BONUS_CONFIG: BonusConfig = {
   spinsPerBonus: 10,
+  spinsPerReg: 5,
   /**
    * ボーナス中は必ず何らかの演出を出す（none = 0）。
    * 「ずっと示唆 / 狙え / クイズ」=「演出 100%」のためのバランス設定。
@@ -31,12 +37,21 @@ export const DEFAULT_BONUS_CONFIG: BonusConfig = {
 export class BonusZone {
   readonly remaining = new Observable<number>(0);
   readonly active = new Observable<boolean>(false);
+  /** 現在のボーナス種別（非アクティブ時は null） */
+  readonly kind = new Observable<BonusKind | null>(null);
 
   constructor(readonly config: BonusConfig = DEFAULT_BONUS_CONFIG) {}
 
-  /** ボーナス発動 or 残り回数リセット（おかわり） */
-  trigger(): void {
-    this.remaining.set(this.config.spinsPerBonus);
+  /**
+   * ボーナス発動 or 残り回数リセット（おかわり）。
+   * kind='big' はプレミアム役、'reg' はレギュラー役で短め。
+   * 既に active 中の再トリガーは、種別が上書きされ残り回数がリセットされる
+   * （reg 中に big を引いたら big に昇格）。
+   */
+  trigger(kind: BonusKind = 'big'): void {
+    const spins = kind === 'reg' ? this.config.spinsPerReg : this.config.spinsPerBonus;
+    this.remaining.set(spins);
+    this.kind.set(kind);
     this.active.set(true);
   }
 
@@ -48,7 +63,10 @@ export class BonusZone {
     if (!this.active.get()) return;
     const next = this.remaining.get() - 1;
     this.remaining.set(Math.max(0, next));
-    if (next <= 0) this.active.set(false);
+    if (next <= 0) {
+      this.active.set(false);
+      this.kind.set(null);
+    }
   }
 
   isActive(): boolean {

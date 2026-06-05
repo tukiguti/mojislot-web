@@ -12,5 +12,7 @@
   "premiumYaku": [
     { "id": "shell", "name": "シェル", "symbols": ["シ", "ェ", "ル"], "category": "premium" }
   ],
-  "bonusYaku": []
+  "bonusYaku": [
+    { "id": "reg", "name": "シェア", "symbols": ["シ", "ェ", "ア"], "category": "bonus" }
+  ]
 }

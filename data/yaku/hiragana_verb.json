@@ -12,5 +12,7 @@
   "premiumYaku": [
     { "id": "ikiru", "name": "いきる", "symbols": ["い", "き", "る"], "category": "premium" }
   ],
-  "bonusYaku": []
+  "bonusYaku": [
+    { "id": "reg", "name": "いきみ", "symbols": ["い", "き", "み"], "category": "bonus" }
+  ]
 }
