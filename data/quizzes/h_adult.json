@@ -5,49 +5,49 @@
       "id": "q_ecchi",
       "question": "アルファベットの「H」をカタカナで言うと？",
       "answerYakuId": "ecchi",
-      "decoyYakuIds": ["sukebe", "eroi", "pantsu"]
+      "decoyYakuIds": ["sukebe", "pantsu", "nudo"]
     },
     {
       "id": "q_sukebe",
       "question": "下心まみれの人を表す古風な言葉は？",
       "answerYakuId": "sukebe",
-      "decoyYakuIds": ["ecchi", "eroi", "pantsu"]
+      "decoyYakuIds": ["pantsu", "nudo", "hadaka"]
     },
     {
       "id": "q_pantsu",
       "question": "下着の代表選手といえば？",
       "answerYakuId": "pantsu",
-      "decoyYakuIds": ["hadaka", "chikubi", "ecchi"]
+      "decoyYakuIds": ["nudo", "hadaka", "chikubi"]
     },
     {
       "id": "q_nudo",
       "question": "美術モデルの基本ポーズ、何も着ない状態を英語風に？",
       "answerYakuId": "nudo",
-      "decoyYakuIds": ["hadaka", "eroi", "ecchi"]
-    },
-    {
-      "id": "q_eroi",
-      "question": "ちょっと色っぽい・卑猥なものを表す形容詞は？",
-      "answerYakuId": "eroi",
-      "decoyYakuIds": ["sukebe", "ecchi", "pantsu"]
+      "decoyYakuIds": ["hadaka", "chikubi", "bikini"]
     },
     {
       "id": "q_hadaka",
       "question": "服を全部脱いだ状態を日本語で？",
       "answerYakuId": "hadaka",
-      "decoyYakuIds": ["nudo", "pantsu", "chikubi"]
+      "decoyYakuIds": ["chikubi", "bikini", "ecchi"]
     },
     {
       "id": "q_chikubi",
       "question": "胸の先端の小さな突起を指す言葉は？",
       "answerYakuId": "chikubi",
-      "decoyYakuIds": ["hadaka", "ecchi", "sukebe"]
+      "decoyYakuIds": ["bikini", "ecchi", "sukebe"]
+    },
+    {
+      "id": "q_bikini",
+      "question": "セパレートタイプの、大胆な女性用水着は？",
+      "answerYakuId": "bikini",
+      "decoyYakuIds": ["ecchi", "sukebe", "pantsu"]
     },
     {
       "id": "q_rabuho",
       "question": "【プレミアム】カップル専用、時間制で借りる宿の略称は？",
       "answerYakuId": "rabuho",
-      "decoyYakuIds": ["sukebe", "ecchi", "pantsu"]
+      "decoyYakuIds": ["ecchi", "sukebe", "pantsu"]
     }
   ]
 }

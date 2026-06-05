@@ -5,49 +5,49 @@
       "id": "q_hack",
       "question": "コンピュータに不正侵入する攻撃行為のことを？",
       "answerYakuId": "hack",
-      "decoyYakuIds": ["bot", "spam", "risk"]
-    },
-    {
-      "id": "q_patch",
-      "question": "ソフトウェアの脆弱性を修正する更新プログラムは？",
-      "answerYakuId": "patch",
-      "decoyYakuIds": ["worm", "hack", "trojan"]
-    },
-    {
-      "id": "q_worm",
-      "question": "自己複製してネット上を広がる悪性プログラムは？",
-      "answerYakuId": "worm",
-      "decoyYakuIds": ["trojan", "spam", "bot"]
+      "decoyYakuIds": ["trojan", "spam", "baito"]
     },
     {
       "id": "q_trojan",
       "question": "無害を装って侵入する古代の馬の名を持つマルウェアは？",
       "answerYakuId": "trojan",
-      "decoyYakuIds": ["worm", "bot", "hack"]
+      "decoyYakuIds": ["spam", "baito", "kodo"]
     },
     {
       "id": "q_spam",
       "question": "不特定多数に送り付けられる迷惑メールは？",
       "answerYakuId": "spam",
-      "decoyYakuIds": ["bot", "worm", "trojan"]
+      "decoyYakuIds": ["baito", "kodo", "furagu"]
     },
     {
-      "id": "q_bot",
-      "question": "自動で動作するプログラムで、ネットワーク攻撃にも使われるのは？",
-      "answerYakuId": "bot",
-      "decoyYakuIds": ["worm", "hack", "trojan"]
+      "id": "q_baito",
+      "question": "8ビットをまとめた、データ量の基本単位は？",
+      "answerYakuId": "baito",
+      "decoyYakuIds": ["kodo", "furagu", "memori"]
     },
     {
-      "id": "q_risk",
-      "question": "脅威 × 脆弱性 で測られる、情報セキュリティの基本概念は？",
-      "answerYakuId": "risk",
-      "decoyYakuIds": ["hack", "patch", "worm"]
+      "id": "q_kodo",
+      "question": "プログラムの命令を書き並べたものを？",
+      "answerYakuId": "kodo",
+      "decoyYakuIds": ["furagu", "memori", "hack"]
+    },
+    {
+      "id": "q_furagu",
+      "question": "状態を表す、真偽の目印になる変数を？",
+      "answerYakuId": "furagu",
+      "decoyYakuIds": ["memori", "hack", "trojan"]
+    },
+    {
+      "id": "q_memori",
+      "question": "データを一時的に記憶する装置は？",
+      "answerYakuId": "memori",
+      "decoyYakuIds": ["hack", "trojan", "spam"]
     },
     {
       "id": "q_shell",
       "question": "【プレミアム】OS にコマンドを直接打てる対話的環境は？",
       "answerYakuId": "shell",
-      "decoyYakuIds": ["bot", "patch", "hack"]
+      "decoyYakuIds": ["hack", "trojan", "spam"]
     }
   ]
 }

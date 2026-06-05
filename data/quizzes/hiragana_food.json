@@ -5,49 +5,49 @@
       "id": "q_ichigo",
       "question": "ショートケーキの上にのる赤い果物は？",
       "answerYakuId": "ichigo",
-      "decoyYakuIds": ["mikan", "suika", "wakame"]
+      "decoyYakuIds": ["mikan", "unagi", "maguro"]
     },
     {
       "id": "q_mikan",
       "question": "冬のこたつで食べるオレンジ色の果物は？",
       "answerYakuId": "mikan",
-      "decoyYakuIds": ["ichigo", "suika", "wakame"]
-    },
-    {
-      "id": "q_suika",
-      "question": "夏に塩をかけて食べる、緑のしま模様の果物は？",
-      "answerYakuId": "suika",
-      "decoyYakuIds": ["ichigo", "mikan", "wakame"]
-    },
-    {
-      "id": "q_wakame",
-      "question": "おみそ汁によく入る海藻は？",
-      "answerYakuId": "wakame",
-      "decoyYakuIds": ["unagi", "maguro", "gohan"]
+      "decoyYakuIds": ["unagi", "maguro", "tofu"]
     },
     {
       "id": "q_unagi",
       "question": "土用の丑の日に食べる、かば焼きが有名な魚は？",
       "answerYakuId": "unagi",
-      "decoyYakuIds": ["maguro", "wakame", "ichigo"]
+      "decoyYakuIds": ["maguro", "tofu", "budou"]
     },
     {
       "id": "q_maguro",
       "question": "お寿司の代表的なネタといえば？",
       "answerYakuId": "maguro",
-      "decoyYakuIds": ["unagi", "wakame", "ichigo"]
+      "decoyYakuIds": ["tofu", "budou", "sanma"]
     },
     {
-      "id": "q_gohan",
-      "question": "日本人の主食といえば？",
-      "answerYakuId": "gohan",
-      "decoyYakuIds": ["ichigo", "mikan", "suika"]
+      "id": "q_tofu",
+      "question": "大豆から作られる、白くて柔らかい食品は？",
+      "answerYakuId": "tofu",
+      "decoyYakuIds": ["budou", "sanma", "ichigo"]
+    },
+    {
+      "id": "q_budou",
+      "question": "房になって実り、ワインの原料にもなる果物は？",
+      "answerYakuId": "budou",
+      "decoyYakuIds": ["sanma", "ichigo", "mikan"]
+    },
+    {
+      "id": "q_sanma",
+      "question": "秋が旬で、塩焼きが定番の細長い魚は？",
+      "answerYakuId": "sanma",
+      "decoyYakuIds": ["ichigo", "mikan", "unagi"]
     },
     {
       "id": "q_sushiya",
       "question": "【プレミアム】まぐろやうなぎを握って出してくれるお店は？",
       "answerYakuId": "sushiya",
-      "decoyYakuIds": ["maguro", "unagi", "wakame"]
+      "decoyYakuIds": ["ichigo", "mikan", "unagi"]
     }
   ]
 }
