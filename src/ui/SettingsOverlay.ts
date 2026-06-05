@@ -15,6 +15,7 @@ import type { ChallengeTracker } from '../productions/Challenges';
 
 export interface DebugActions {
   triggerBonus(): void;
+  triggerRegular(): void;
   triggerShisa(): void;
   triggerQuiz(): void;
   triggerWinTest(): void;
@@ -97,7 +98,8 @@ export class SettingsOverlay {
         <div class="settings-section">
           <div class="settings-section-label">デバッグ（演出を強制発動）</div>
           <div class="zukan-debug-buttons">
-            <button data-debug="bonus" type="button">BONUS突入</button>
+            <button data-debug="bonus" type="button">BIG BONUS</button>
+            <button data-debug="regular" type="button">REG BONUS</button>
             <button data-debug="cutin" type="button">カットイン</button>
             <button data-debug="aim" type="button">狙え！予告</button>
             <button data-debug="shisa" type="button">示唆発動</button>
@@ -170,6 +172,9 @@ export class SettingsOverlay {
         switch (action) {
           case 'bonus':
             this.debugActions.triggerBonus();
+            break;
+          case 'regular':
+            this.debugActions.triggerRegular();
             break;
           case 'shisa':
             this.debugActions.triggerShisa();

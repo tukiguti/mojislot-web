@@ -12,5 +12,7 @@
   "premiumYaku": [
     { "id": "goya", "name": "ゴーヤ", "symbols": ["ゴ", "ー", "ヤ"], "category": "premium" }
   ],
-  "bonusYaku": []
+  "bonusYaku": [
+    { "id": "reg", "name": "ゴール", "symbols": ["ゴ", "ー", "ル"], "category": "bonus" }
+  ]
 }

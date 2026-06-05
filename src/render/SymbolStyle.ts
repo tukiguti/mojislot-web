@@ -25,7 +25,8 @@ const CORE_PALETTE: number[] = [
   0xff2d92, // magenta
 ];
 
-const PREMIUM_COLOR = 0xffd700; // gold
+const PREMIUM_COLOR = 0xffd700; // gold（ビッグボーナス役）
+const BONUS_COLOR = 0xc0c0c0; // silver（レギュラーボーナス役 = すし＋別字）
 const FILLER_COLOR = 0x4a4a4a; // dark gray（地味な脇役感）
 
 export class SymbolColorResolver {
@@ -47,7 +48,9 @@ export class SymbolColorResolver {
       const color =
         yaku.category === 'premium'
           ? PREMIUM_COLOR
-          : CORE_PALETTE[coreIdx++ % CORE_PALETTE.length];
+          : yaku.category === 'bonus'
+            ? BONUS_COLOR
+            : CORE_PALETTE[coreIdx++ % CORE_PALETTE.length];
       // 役色を id でひけるよう登録
       this.yakuColor.set(yaku.id, color);
       for (let r = 0; r < 3; r++) {

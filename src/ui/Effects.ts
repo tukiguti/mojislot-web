@@ -75,12 +75,13 @@ export function showPremiumCutin(
   yakuName: string,
   symbols: string[],
   bgImageUrl?: string,
+  variant: 'big' | 'reg' = 'big',
 ): void {
   // 既存のカットインがあれば消す（連発でも崩れない）
   document.querySelectorAll('.premium-cutin').forEach((el) => el.remove());
 
   const root = document.createElement('div');
-  root.className = 'premium-cutin';
+  root.className = variant === 'reg' ? 'premium-cutin reg' : 'premium-cutin';
 
   // 8 本の光線を放射
   const raysHtml = Array.from({ length: 12 })
@@ -107,7 +108,7 @@ export function showPremiumCutin(
     ${artHtml}
     <div class="premium-cutin-rays">${raysHtml}</div>
     <div class="premium-cutin-content">
-      <div class="premium-cutin-label">PREMIUM!</div>
+      <div class="premium-cutin-label">${variant === 'reg' ? 'REGULAR!' : 'PREMIUM!'}</div>
       <div class="premium-cutin-symbols">${symbolsHtml}</div>
       <div class="premium-cutin-yaku">${escape(yakuName)}</div>
     </div>

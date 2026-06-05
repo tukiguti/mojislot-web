@@ -12,5 +12,7 @@
   "premiumYaku": [
     { "id": "sushiya", "name": "すしや", "symbols": ["す", "し", "や"], "category": "premium" }
   ],
-  "bonusYaku": []
+  "bonusYaku": [
+    { "id": "reg", "name": "すしこ", "symbols": ["す", "し", "こ"], "category": "bonus" }
+  ]
 }

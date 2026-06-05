@@ -540,8 +540,9 @@ async function bootstrap() {
   updateRescueUI(playStats.stats.get().missStreak);
 
   // BONUS! バナー
-  const showBonusBanner = () => {
-    bonusBannerEl.innerHTML = '<div class="bonus-banner-text">BONUS!</div>';
+  const showBonusBanner = (kind: 'big' | 'reg' = 'big') => {
+    const text = kind === 'reg' ? 'REGULAR!' : 'BIG BONUS!';
+    bonusBannerEl.innerHTML = `<div class="bonus-banner-text${kind === 'reg' ? ' reg' : ''}">${text}</div>`;
     bonusBannerEl.hidden = false;
     window.setTimeout(() => {
       bonusBannerEl.hidden = true;
@@ -552,18 +553,34 @@ async function bootstrap() {
   // === デバッグアクション（設定モーダルから呼ばれる） ===
   settingsOverlay.setDebugActions({
     triggerBonus: () => {
-      bonusZone.trigger();
+      bonusZone.trigger('big');
       sfx.bonusEnter();
       // デバッグ：プレミアム役が無くても代表的な役名でカットインを試せる
       const premium = yakuList.premiumYaku[0];
       if (premium) {
-        showPremiumCutin(premium.name, premium.symbols, chapterCutinUrl);
+        showPremiumCutin(premium.name, premium.symbols, chapterCutinUrl, 'big');
       }
       flashScreen({ color: '#ffd700', alpha: 0.85, durMs: 400 });
       spawnConfetti(100);
       shakeBody(600);
       window.setTimeout(() => {
-        showBonusBanner();
+        showBonusBanner('big');
+        jinSpeech.say('premium');
+      }, 1300);
+    },
+    triggerRegular: () => {
+      // レギュラーボーナス（すし＋別字）を強制発動。シルバー基調・短め
+      bonusZone.trigger('reg');
+      sfx.bonusEnter();
+      const reg = yakuList.bonusYaku[0];
+      if (reg) {
+        showPremiumCutin(reg.name, reg.symbols, chapterCutinUrl, 'reg');
+      }
+      flashScreen({ color: '#cdd6e0', alpha: 0.75, durMs: 360 });
+      spawnConfetti(60);
+      shakeBody(400);
+      window.setTimeout(() => {
+        showBonusBanner('reg');
         jinSpeech.say('premium');
       }, 1300);
     },
@@ -614,8 +631,9 @@ async function bootstrap() {
     const active = bonusZone.active.get();
     const remaining = bonusZone.remaining.get();
     if (active) {
+      const label = bonusZone.kind.get() === 'reg' ? 'REG' : 'BIG';
       bonusStatusEl.hidden = false;
-      bonusStatusEl.textContent = `BONUS 残り${remaining}`;
+      bonusStatusEl.textContent = `${label} 残り${remaining}`;
       cabinetEl.classList.add('bonus');
       startBonusSparkle();
       // BGM 起動済みならボーナス曲へ。未起動なら placeBet 時に再生される。
@@ -630,6 +648,7 @@ async function bootstrap() {
   };
   bonusZone.active.subscribe(updateBonusUI);
   bonusZone.remaining.subscribe(updateBonusUI);
+  bonusZone.kind.subscribe(updateBonusUI);
   updateBonusUI();
 
   const updateButtons = () => {
@@ -853,6 +872,9 @@ async function bootstrap() {
       const willHit = hits.length > 0;
       const premiumHit = hits.find((h) => h.yaku.category === 'premium') ?? null;
       const isPremium = premiumHit !== null;
+      // レギュラー役（すし＋別字）。プレミアムが無いときだけ REG 扱い
+      const bonusHit = hits.find((h) => h.yaku.category === 'bonus') ?? null;
+      const isRegular = !isPremium && bonusHit !== null;
       // 成立後の連チャン数で配当倍率を評価（3連達成スピンから恩恵が乗る）
       const streakAfter = willHit ? playStats.stats.get().streak + 1 : 0;
       const streakMult = streakMultiplier(streakAfter);
@@ -864,7 +886,7 @@ async function bootstrap() {
         win,
         hit: willHit,
         premium: isPremium,
-        bonusTriggered: isPremium,
+        bonusTriggered: isPremium || isRegular,
       });
 
       // ビタ押し集計：役成立時のみ、貢献したリールごとに
@@ -908,7 +930,7 @@ async function bootstrap() {
           leftIndicators.highlight(h.paylineId);
           rightIndicators.highlight(h.paylineId);
         }
-        const cls = isPremium ? 'premium' : 'win';
+        const cls = isPremium || isRegular ? 'premium' : 'win';
         const bonusTag = bonusZone.isActive() ? ' ×BONUS' : '';
         const streakTag = streakMult > 1 ? ` ×${streakMult}連` : '';
         const lineTag = hits.length > 1 ? ` (${hits.length}ライン)` : '';
@@ -960,20 +982,33 @@ async function bootstrap() {
         }
         // コイン獲得 +N フロート表示
         if (win > 0) showCoinFloat(win, isPremium);
-        // 大配当はコインバースト（プレミアム=多め）
+        // 大配当はコインバースト（プレミアム=多め / レギュラー=中程度）
         if (isPremium) showCoinBurst(28);
+        else if (isRegular) showCoinBurst(16);
         else if (win >= 50) showCoinBurst(12);
         else if (win >= 24) showCoinBurst(5);
-        // プレミアム成立でボーナス突入＋全画面演出
+        // プレミアム成立でビッグボーナス突入＋全画面演出
         if (isPremium && premiumHit) {
-          bonusZone.trigger();
+          bonusZone.trigger('big');
           sfx.bonusEnter();
-          showPremiumCutin(premiumHit.yaku.name, premiumHit.yaku.symbols, chapterCutinUrl);
+          showPremiumCutin(premiumHit.yaku.name, premiumHit.yaku.symbols, chapterCutinUrl, 'big');
           flashScreen({ color: '#ffd700', alpha: 0.85, durMs: 400 });
           spawnConfetti(100);
           shakeBody(600);
           window.setTimeout(() => {
-            showBonusBanner();
+            showBonusBanner('big');
+            jinSpeech.say('premium');
+          }, 1300);
+        } else if (isRegular && bonusHit) {
+          // レギュラーボーナス（すし＋別字）突入。シルバー基調・控えめ
+          bonusZone.trigger('reg');
+          sfx.bonusEnter();
+          showPremiumCutin(bonusHit.yaku.name, bonusHit.yaku.symbols, chapterCutinUrl, 'reg');
+          flashScreen({ color: '#cdd6e0', alpha: 0.75, durMs: 360 });
+          spawnConfetti(60);
+          shakeBody(400);
+          window.setTimeout(() => {
+            showBonusBanner('reg');
             jinSpeech.say('premium');
           }, 1300);
         } else if (hits.length >= 2) {

@@ -12,5 +12,7 @@
   "premiumYaku": [
     { "id": "dragon", "name": "ドラゴン", "symbols": ["ド", "ラ", "ゴ"], "category": "premium" }
   ],
-  "bonusYaku": []
+  "bonusYaku": [
+    { "id": "reg", "name": "ドラム", "symbols": ["ド", "ラ", "ム"], "category": "bonus" }
+  ]
 }

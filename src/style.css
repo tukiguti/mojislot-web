@@ -852,6 +852,17 @@ body.has-chapter-bg {
   font-family: 'Arial Black', 'Hiragino Sans', sans-serif;
 }
 
+/* レギュラーボーナスのバナーはシルバー基調 */
+#bonus-banner .bonus-banner-text.reg {
+  background: linear-gradient(180deg, #ffffff 0%, #cdd6e0 50%, #8a97a6 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  text-shadow:
+    0 0 18px rgba(205, 214, 224, 0.9),
+    0 4px 0 #000,
+    0 6px 18px rgba(0, 0, 0, 0.8);
+}
+
 @keyframes bonus-banner-zoom {
   0% {
     transform: scale(0.2) rotate(-12deg);
@@ -1959,6 +1970,39 @@ body.shake {
   border: 2px solid #ffd700;
   border-radius: 999px;
   background: rgba(0, 0, 0, 0.5);
+}
+
+/* ===== レギュラーボーナス（REG）= シルバー基調 ===== */
+.premium-cutin.reg .premium-cutin-ray {
+  background: linear-gradient(
+    180deg,
+    transparent 0%,
+    rgba(200, 220, 240, 0.85) 30%,
+    rgba(235, 245, 255, 0.95) 50%,
+    rgba(200, 220, 240, 0.85) 70%,
+    transparent 100%
+  );
+}
+
+.premium-cutin.reg .premium-cutin-label {
+  background: linear-gradient(180deg, #ffffff 0%, #cdd6e0 45%, #8a97a6 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  text-shadow: 0 0 18px rgba(200, 220, 240, 0.55);
+}
+
+.premium-cutin.reg .premium-cutin-symbol {
+  text-shadow:
+    0 0 18px rgba(210, 230, 245, 1),
+    0 0 4px rgba(0, 0, 0, 0.9),
+    0 6px 14px rgba(0, 0, 0, 0.6);
+}
+
+.premium-cutin.reg .premium-cutin-yaku {
+  border-color: #c8d6e2;
+  text-shadow:
+    0 0 10px rgba(200, 220, 240, 0.9),
+    0 4px 8px rgba(0, 0, 0, 0.7);
 }
 
 /* ===== 「狙え！」演出（テンパイ時の煽り） ===== */

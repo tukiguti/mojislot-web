@@ -12,5 +12,7 @@
   "premiumYaku": [
     { "id": "rabuho", "name": "ラブホ", "symbols": ["ラ", "ブ", "ホ"], "category": "premium" }
   ],
-  "bonusYaku": []
+  "bonusYaku": [
+    { "id": "reg", "name": "ラブリ", "symbols": ["ラ", "ブ", "リ"], "category": "bonus" }
+  ]
 }
