@@ -1987,6 +1987,40 @@ body.shake {
     opacity 220ms ease-in;
 }
 
+.aim-notice-img {
+  display: block;
+  width: 74%;
+  max-width: 360px;
+  margin: 0 auto;
+  filter: drop-shadow(0 4px 8px rgba(0, 0, 0, 0.6));
+  animation: aim-label-pulse 0.55s ease-in-out infinite;
+}
+
+.aim-notice.premium .aim-notice-img {
+  filter:
+    drop-shadow(0 0 14px rgba(255, 215, 0, 0.85))
+    drop-shadow(0 4px 10px rgba(0, 0, 0, 0.6));
+}
+
+.aim-notice-yaku {
+  margin-top: 2px;
+  font-family: 'Hiragino Sans', 'Yu Gothic', sans-serif;
+  font-weight: 900;
+  font-size: 15px;
+  letter-spacing: 3px;
+  color: #fff;
+  text-shadow:
+    0 1px 0 #000,
+    0 0 8px rgba(255, 102, 136, 0.9);
+}
+
+.aim-notice.premium .aim-notice-yaku {
+  color: #ffe066;
+  text-shadow:
+    0 1px 0 #000,
+    0 0 10px rgba(255, 200, 0, 0.95);
+}
+
 .aim-notice-label {
   font-family: 'Hiragino Sans', 'Yu Gothic', sans-serif;
   font-weight: 900;

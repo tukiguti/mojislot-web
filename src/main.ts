@@ -366,6 +366,7 @@ async function bootstrap() {
         // 各文字を実リールのセル色に合わせる（左/中/右）
         colors: targetYaku.symbols.map((s, i) => colorResolver.cssFor(i, s)),
         yakuName: targetYaku.name,
+        imageUrl: `${ART_BASE}aim_text.webp`,
         hasPremium: targetYaku.category === 'premium',
         // 現行 canvas 寸法に基づくリール座標比（旧ハードコードのズレを解消）
         reelCentersXFrac: [0, 1, 2].map(

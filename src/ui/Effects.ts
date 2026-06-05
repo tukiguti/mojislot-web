@@ -156,6 +156,8 @@ export interface AimNoticeOptions {
   colors?: readonly string[];
   /** 表示用の役名（任意） */
   yakuName?: string;
+  /** 「狙え！」グラフィック画像の URL（任意。未指定なら CSS 文字ラベルにフォールバック） */
+  imageUrl?: string;
   hasPremium: boolean;
   /** 各リール中心 x の canvas 幅比（0〜1）。未指定なら旧 600px 基準の既定値。 */
   reelCentersXFrac?: readonly number[];
@@ -178,10 +180,27 @@ export function showAimNotice(opts: AimNoticeOptions): void {
   if (opts.hasPremium) notice.classList.add('premium');
   notice.style.left = `${rect.left + rect.width / 2}px`;
   notice.style.top = `${rect.top + 8}px`;
-  const label = document.createElement('div');
-  label.className = 'aim-notice-label';
-  label.textContent = opts.yakuName ? `狙え！ ${opts.yakuName}` : '狙え！';
-  notice.appendChild(label);
+  notice.style.width = `${rect.width}px`;
+  // 「狙え！」見出し: 画像があれば一枚絵、無ければ CSS 文字ラベルにフォールバック。
+  if (opts.imageUrl) {
+    const img = document.createElement('img');
+    img.className = 'aim-notice-img';
+    img.src = opts.imageUrl;
+    img.alt = '狙え！';
+    img.decoding = 'async';
+    notice.appendChild(img);
+    if (opts.yakuName) {
+      const yaku = document.createElement('div');
+      yaku.className = 'aim-notice-yaku';
+      yaku.textContent = `${opts.yakuName} を狙え`;
+      notice.appendChild(yaku);
+    }
+  } else {
+    const label = document.createElement('div');
+    label.className = 'aim-notice-label';
+    label.textContent = opts.yakuName ? `狙え！ ${opts.yakuName}` : '狙え！';
+    notice.appendChild(label);
+  }
   const symbolsEl = document.createElement('div');
   symbolsEl.className = 'aim-notice-symbols';
   opts.symbols.slice(0, 3).forEach((s, i) => {
