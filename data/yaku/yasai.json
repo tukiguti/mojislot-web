@@ -7,10 +7,7 @@
     { "id": "moyashi", "name": "モヤシ", "symbols": ["モ", "ヤ", "シ"], "category": "core" },
     { "id": "serori", "name": "セロリ", "symbols": ["セ", "ロ", "リ"], "category": "core" },
     { "id": "paseri", "name": "パセリ", "symbols": ["パ", "セ", "リ"], "category": "core" },
-    { "id": "nasubi", "name": "ナスビ", "symbols": ["ナ", "ス", "ビ"], "category": "core" },
-    { "id": "kabura", "name": "カブラ", "symbols": ["カ", "ブ", "ラ"], "category": "core" },
-    { "id": "kinoko", "name": "キノコ", "symbols": ["キ", "ノ", "コ"], "category": "core" },
-    { "id": "remon", "name": "レモン", "symbols": ["レ", "モ", "ン"], "category": "core" }
+    { "id": "nasubi", "name": "ナスビ", "symbols": ["ナ", "ス", "ビ"], "category": "core" }
   ],
   "premiumYaku": [
     { "id": "goya", "name": "ゴーヤ", "symbols": ["ゴ", "ー", "ヤ"], "category": "premium" }

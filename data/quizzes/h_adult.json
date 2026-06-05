@@ -5,7 +5,7 @@
       "id": "q_ecchi",
       "question": "アルファベットの「H」をカタカナで言うと？",
       "answerYakuId": "ecchi",
-      "decoyYakuIds": ["sukebe", "eroi", "sekushi"]
+      "decoyYakuIds": ["sukebe", "eroi", "pantsu"]
     },
     {
       "id": "q_sukebe",
@@ -17,19 +17,19 @@
       "id": "q_pantsu",
       "question": "下着の代表選手といえば？",
       "answerYakuId": "pantsu",
-      "decoyYakuIds": ["hadaka", "chikubi", "pinku"]
+      "decoyYakuIds": ["hadaka", "chikubi", "ecchi"]
     },
     {
       "id": "q_nudo",
       "question": "美術モデルの基本ポーズ、何も着ない状態を英語風に？",
       "answerYakuId": "nudo",
-      "decoyYakuIds": ["hadaka", "sekushi", "eroi"]
+      "decoyYakuIds": ["hadaka", "eroi", "ecchi"]
     },
     {
       "id": "q_eroi",
       "question": "ちょっと色っぽい・卑猥なものを表す形容詞は？",
       "answerYakuId": "eroi",
-      "decoyYakuIds": ["sukebe", "ecchi", "sekushi"]
+      "decoyYakuIds": ["sukebe", "ecchi", "pantsu"]
     },
     {
       "id": "q_hadaka",
@@ -41,31 +41,13 @@
       "id": "q_chikubi",
       "question": "胸の先端の小さな突起を指す言葉は？",
       "answerYakuId": "chikubi",
-      "decoyYakuIds": ["pinku", "hadaka", "sekushi"]
-    },
-    {
-      "id": "q_pinku",
-      "question": "アダルトな映画やお店を象徴する色は？",
-      "answerYakuId": "pinku",
-      "decoyYakuIds": ["hoteru", "sekushi", "sukebe"]
-    },
-    {
-      "id": "q_hoteru",
-      "question": "「ラブ」のあとに付く施設の名前は？",
-      "answerYakuId": "hoteru",
-      "decoyYakuIds": ["rabuho", "pantsu", "pinku"]
-    },
-    {
-      "id": "q_sekushi",
-      "question": "色気のある人を表す英語由来の形容詞は？",
-      "answerYakuId": "sekushi",
-      "decoyYakuIds": ["eroi", "sukebe", "ecchi"]
+      "decoyYakuIds": ["hadaka", "ecchi", "sukebe"]
     },
     {
       "id": "q_rabuho",
       "question": "【プレミアム】カップル専用、時間制で借りる宿の略称は？",
       "answerYakuId": "rabuho",
-      "decoyYakuIds": ["hoteru", "pinku", "sukebe"]
+      "decoyYakuIds": ["sukebe", "ecchi", "pantsu"]
     }
   ]
 }

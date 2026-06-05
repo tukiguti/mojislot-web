@@ -11,7 +11,7 @@
       "id": "q_patch",
       "question": "ソフトウェアの脆弱性を修正する更新プログラムは？",
       "answerYakuId": "patch",
-      "decoyYakuIds": ["worm", "host", "port"]
+      "decoyYakuIds": ["worm", "hack", "trojan"]
     },
     {
       "id": "q_worm",
@@ -41,31 +41,13 @@
       "id": "q_risk",
       "question": "脅威 × 脆弱性 で測られる、情報セキュリティの基本概念は？",
       "answerYakuId": "risk",
-      "decoyYakuIds": ["hack", "patch", "host"]
-    },
-    {
-      "id": "q_ping",
-      "question": "ネットワークの疎通確認に使う基本コマンドは？",
-      "answerYakuId": "ping",
-      "decoyYakuIds": ["port", "host", "patch"]
-    },
-    {
-      "id": "q_port",
-      "question": "ネットワーク通信の入口となる番号付きの口は？",
-      "answerYakuId": "port",
-      "decoyYakuIds": ["host", "ping", "patch"]
-    },
-    {
-      "id": "q_host",
-      "question": "ネット上でサービスを提供するサーバー機器を指す言葉は？",
-      "answerYakuId": "host",
-      "decoyYakuIds": ["port", "ping", "bot"]
+      "decoyYakuIds": ["hack", "patch", "worm"]
     },
     {
       "id": "q_shell",
       "question": "【プレミアム】OS にコマンドを直接打てる対話的環境は？",
       "answerYakuId": "shell",
-      "decoyYakuIds": ["bot", "patch", "host"]
+      "decoyYakuIds": ["bot", "patch", "hack"]
     }
   ]
 }
