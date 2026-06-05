@@ -2,52 +2,52 @@
   "mode": "katakana_animal",
   "quizzes": [
     {
-      "id": "q_koara",
-      "question": "ユーカリの葉を食べる、オーストラリアの動物は？",
-      "answerYakuId": "koara",
-      "decoyYakuIds": ["panda", "usagi", "kirin"]
-    },
-    {
       "id": "q_kirin",
       "question": "首が長い、サバンナの草原にいる動物は？",
       "answerYakuId": "kirin",
-      "decoyYakuIds": ["gorira", "koara", "kujira"]
-    },
-    {
-      "id": "q_kujira",
-      "question": "海にいる、世界最大の哺乳類は？",
-      "answerYakuId": "kujira",
       "decoyYakuIds": ["panda", "usagi", "tanuki"]
     },
     {
       "id": "q_panda",
       "question": "白黒の毛色で、笹を食べる動物は？",
       "answerYakuId": "panda",
-      "decoyYakuIds": ["koara", "tanuki", "kirin"]
+      "decoyYakuIds": ["usagi", "tanuki", "iruka"]
     },
     {
       "id": "q_usagi",
       "question": "ぴょんぴょん跳ねる、耳の長い動物は？",
       "answerYakuId": "usagi",
-      "decoyYakuIds": ["tanuki", "koara", "kirin"]
+      "decoyYakuIds": ["tanuki", "iruka", "higuma"]
     },
     {
       "id": "q_tanuki",
       "question": "化けるのが得意とされる日本の動物は？",
       "answerYakuId": "tanuki",
-      "decoyYakuIds": ["usagi", "panda", "koara"]
+      "decoyYakuIds": ["iruka", "higuma", "tokage"]
     },
     {
-      "id": "q_gorira",
-      "question": "ジャングルにいる大型の類人猿は？",
-      "answerYakuId": "gorira",
-      "decoyYakuIds": ["kirin", "kujira", "koara"]
+      "id": "q_iruka",
+      "question": "賢くて芸もする、海にすむ哺乳類は？",
+      "answerYakuId": "iruka",
+      "decoyYakuIds": ["higuma", "tokage", "kirin"]
+    },
+    {
+      "id": "q_higuma",
+      "question": "北海道の山にすむ、日本最大級のクマは？",
+      "answerYakuId": "higuma",
+      "decoyYakuIds": ["tokage", "kirin", "panda"]
+    },
+    {
+      "id": "q_tokage",
+      "question": "しっぽが切れても再生する、小型の爬虫類は？",
+      "answerYakuId": "tokage",
+      "decoyYakuIds": ["kirin", "panda", "usagi"]
     },
     {
       "id": "q_dragon",
       "question": "【プレミアム】火を吐く、伝説の生き物は？",
       "answerYakuId": "dragon",
-      "decoyYakuIds": ["kirin", "kujira", "gorira"]
+      "decoyYakuIds": ["kirin", "panda", "usagi"]
     }
   ]
 }

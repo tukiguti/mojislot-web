@@ -12,17 +12,17 @@ import type { YakuList } from '../data/schemas';
  *  3リールにまたがる「色の縦並び」で何の役が揃っているかが視覚的にわかる。
  */
 
+// コア役は7役（[12b]）。役被り文字を解消したので 1 リール内で色が 1:1 に対応する。
+// 各リールで隣り合っても識別しやすいよう、色相を大きく離した高コントラスト7色。
+// 黄〜金はプレミアム(ゴールド)専用なので避ける。
 const CORE_PALETTE: number[] = [
-  0xe74c3c, // red
-  0xff8c1a, // orange
-  0x4ade80, // green
-  0x14b8a6, // teal
-  0x3b82f6, // blue
-  0xa78bfa, // purple
-  0xec4899, // pink
-  0x06b6d4, // cyan
-  0xf472b6, // rose
-  0xfacc15, // amber
+  0xff3b30, // red
+  0xff9500, // orange
+  0x34c759, // green
+  0x00c7be, // teal/cyan
+  0x0a84ff, // blue
+  0xbf5af2, // purple
+  0xff2d92, // magenta
 ];
 
 const PREMIUM_COLOR = 0xffd700; // gold

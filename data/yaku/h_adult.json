@@ -5,9 +5,9 @@
     { "id": "sukebe", "name": "スケベ", "symbols": ["ス", "ケ", "ベ"], "category": "core" },
     { "id": "pantsu", "name": "パンツ", "symbols": ["パ", "ン", "ツ"], "category": "core" },
     { "id": "nudo", "name": "ヌード", "symbols": ["ヌ", "ー", "ド"], "category": "core" },
-    { "id": "eroi", "name": "エロイ", "symbols": ["エ", "ロ", "イ"], "category": "core" },
     { "id": "hadaka", "name": "ハダカ", "symbols": ["ハ", "ダ", "カ"], "category": "core" },
-    { "id": "chikubi", "name": "チクビ", "symbols": ["チ", "ク", "ビ"], "category": "core" }
+    { "id": "chikubi", "name": "チクビ", "symbols": ["チ", "ク", "ビ"], "category": "core" },
+    { "id": "bikini", "name": "ビキニ", "symbols": ["ビ", "キ", "ニ"], "category": "core" }
   ],
   "premiumYaku": [
     { "id": "rabuho", "name": "ラブホ", "symbols": ["ラ", "ブ", "ホ"], "category": "premium" }

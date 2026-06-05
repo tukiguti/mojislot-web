@@ -2,52 +2,52 @@
   "mode": "hiragana_verb",
   "quizzes": [
     {
-      "id": "q_taberu",
-      "question": "お腹がすいたときにごはんを口に運ぶことを？",
-      "answerYakuId": "taberu",
-      "decoyYakuIds": ["nemuru", "asobu", "hashiru"]
-    },
-    {
-      "id": "q_hashiru",
-      "question": "マラソン選手が長距離をずっと続ける動作は？",
-      "answerYakuId": "hashiru",
-      "decoyYakuIds": ["taberu", "asobu", "utau"]
+      "id": "q_utau",
+      "question": "カラオケでマイクを握って気持ちよくすることは？",
+      "answerYakuId": "utau",
+      "decoyYakuIds": ["asobu", "migaku", "oyogu"]
     },
     {
       "id": "q_asobu",
       "question": "子どもが公園でにぎやかにすることといえば？",
       "answerYakuId": "asobu",
-      "decoyYakuIds": ["nemuru", "manabu", "taberu"]
+      "decoyYakuIds": ["migaku", "oyogu", "hanasu"]
     },
     {
-      "id": "q_utau",
-      "question": "カラオケでマイクを握って気持ちよくすることは？",
-      "answerYakuId": "utau",
-      "decoyYakuIds": ["hashiru", "taberu", "asobu"]
+      "id": "q_migaku",
+      "question": "歯や靴をこすってきれいにする動作は？",
+      "answerYakuId": "migaku",
+      "decoyYakuIds": ["oyogu", "hanasu", "yasumu"]
     },
     {
-      "id": "q_manabu",
-      "question": "学校や本から知識を取り入れていく行為は？",
-      "answerYakuId": "manabu",
-      "decoyYakuIds": ["asobu", "nemuru", "taberu"]
+      "id": "q_oyogu",
+      "question": "プールや海で、水の中を進む動作は？",
+      "answerYakuId": "oyogu",
+      "decoyYakuIds": ["hanasu", "yasumu", "sodatsu"]
     },
     {
-      "id": "q_nemuru",
-      "question": "夜にベッドで目を閉じてとる休息は？",
-      "answerYakuId": "nemuru",
-      "decoyYakuIds": ["taberu", "kaeru", "hashiru"]
+      "id": "q_hanasu",
+      "question": "言葉を口に出して相手に伝えることを？",
+      "answerYakuId": "hanasu",
+      "decoyYakuIds": ["yasumu", "sodatsu", "utau"]
     },
     {
-      "id": "q_kaeru",
-      "question": "外出の終わりに自分の家へ向かう動作は？",
-      "answerYakuId": "kaeru",
-      "decoyYakuIds": ["hashiru", "asobu", "nemuru"]
+      "id": "q_yasumu",
+      "question": "疲れたときに体を休めることを？",
+      "answerYakuId": "yasumu",
+      "decoyYakuIds": ["sodatsu", "utau", "asobu"]
+    },
+    {
+      "id": "q_sodatsu",
+      "question": "子どもや植物が大きくなっていくことを？",
+      "answerYakuId": "sodatsu",
+      "decoyYakuIds": ["utau", "asobu", "migaku"]
     },
     {
       "id": "q_ikiru",
       "question": "【プレミアム】呼吸し続け、命をつなげていく根源の行為は？",
       "answerYakuId": "ikiru",
-      "decoyYakuIds": ["taberu", "nemuru", "manabu"]
+      "decoyYakuIds": ["utau", "asobu", "migaku"]
     }
   ]
 }

@@ -5,49 +5,49 @@
       "id": "q_tomato",
       "question": "真っ赤で丸い夏野菜、サラダやパスタの定番は？",
       "answerYakuId": "tomato",
-      "decoyYakuIds": ["nasubi", "okura", "gobou"]
+      "decoyYakuIds": ["okura", "moyashi", "serori"]
     },
     {
       "id": "q_okura",
       "question": "切ると断面が星形で粘りがある夏野菜は？",
       "answerYakuId": "okura",
-      "decoyYakuIds": ["nasubi", "moyashi", "serori"]
-    },
-    {
-      "id": "q_gobou",
-      "question": "きんぴらで使われる細長くて茶色い根菜は？",
-      "answerYakuId": "gobou",
-      "decoyYakuIds": ["nasubi", "moyashi", "tomato"]
+      "decoyYakuIds": ["moyashi", "serori", "nasubi"]
     },
     {
       "id": "q_moyashi",
       "question": "豆から育つ安くてシャキシャキの白い野菜は？",
       "answerYakuId": "moyashi",
-      "decoyYakuIds": ["paseri", "serori", "tomato"]
+      "decoyYakuIds": ["serori", "nasubi", "retasu"]
     },
     {
       "id": "q_serori",
       "question": "独特の香りが特徴の細長い茎の野菜は？",
       "answerYakuId": "serori",
-      "decoyYakuIds": ["paseri", "gobou", "moyashi"]
-    },
-    {
-      "id": "q_paseri",
-      "question": "洋食の彩りで皿に添えられる緑のハーブは？",
-      "answerYakuId": "paseri",
-      "decoyYakuIds": ["serori", "moyashi", "tomato"]
+      "decoyYakuIds": ["nasubi", "retasu", "mitsuba"]
     },
     {
       "id": "q_nasubi",
       "question": "紫色の皮で焼くととろける夏野菜は？",
       "answerYakuId": "nasubi",
-      "decoyYakuIds": ["tomato", "okura", "gobou"]
+      "decoyYakuIds": ["retasu", "mitsuba", "tomato"]
+    },
+    {
+      "id": "q_retasu",
+      "question": "サラダの定番、葉が丸く重なる緑の野菜は？",
+      "answerYakuId": "retasu",
+      "decoyYakuIds": ["mitsuba", "tomato", "okura"]
+    },
+    {
+      "id": "q_mitsuba",
+      "question": "お吸い物に添える、香りのよい三つ葉の野菜は？",
+      "answerYakuId": "mitsuba",
+      "decoyYakuIds": ["tomato", "okura", "moyashi"]
     },
     {
       "id": "q_goya",
       "question": "【プレミアム】苦味が特徴の沖縄の夏野菜は？",
       "answerYakuId": "goya",
-      "decoyYakuIds": ["nasubi", "tomato", "okura"]
+      "decoyYakuIds": ["tomato", "okura", "moyashi"]
     }
   ]
 }
