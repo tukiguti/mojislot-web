@@ -36,6 +36,18 @@
       "question": "空飛ぶトカゲの仲間「ド・ラ・コ」。ドラゴンとインコが半分ずつの役は？（RB）",
       "answerYakuId": "reg",
       "decoyYakuIds": ["dragon", "inko", "tanuki"]
+    },
+    {
+      "id": "q_tokage",
+      "question": "細長い体に長いしっぽ、壁を素早く走る爬虫類は？",
+      "answerYakuId": "tokage",
+      "decoyYakuIds": ["usagi", "kirin", "tanuki"]
+    },
+    {
+      "id": "q_sai",
+      "question": "鼻の上に大きな角を持つ、灰色の大型動物。チェリー役は？",
+      "answerYakuId": "sai",
+      "decoyYakuIds": ["usagi", "dragon", "inko"]
     }
   ]
 }

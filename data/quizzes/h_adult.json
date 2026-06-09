@@ -42,6 +42,12 @@
       "question": "成人のこと。オトコの「オ・ト」＋オンナの「ナ」、章名でもある役は？（RB）",
       "answerYakuId": "reg",
       "decoyYakuIds": ["otoko", "onna", "pantsu"]
+    },
+    {
+      "id": "q_kiss",
+      "question": "唇を合わせる愛情表現。左＋中で揃うチェリー役は？",
+      "answerYakuId": "kiss",
+      "decoyYakuIds": ["ecchi", "otoko", "onna"]
     }
   ]
 }

@@ -36,6 +36,18 @@
       "question": "寿司めしを作るのに、ごはんに混ぜる調味料は？（RB）",
       "answerYakuId": "reg",
       "decoyYakuIds": ["sushiya", "namazu", "ocha"]
+    },
+    {
+      "id": "q_mikan",
+      "question": "冬にこたつで食べる、皮をむくオレンジ色の果物は？",
+      "answerYakuId": "mikan",
+      "decoyYakuIds": ["budou", "dango", "ocha"]
+    },
+    {
+      "id": "q_nasu",
+      "question": "紫色で細長い夏野菜。左＋中で揃うチェリー役は？",
+      "answerYakuId": "nasu",
+      "decoyYakuIds": ["budou", "sushiya", "namazu"]
     }
   ]
 }

@@ -36,6 +36,18 @@
       "question": "力を入れてふんばる動詞。いきるの「い・き」＋やすむの「む」の役は？（RB）",
       "answerYakuId": "reg",
       "decoyYakuIds": ["ikiru", "yasumu", "oyogu"]
+    },
+    {
+      "id": "q_hanasu",
+      "question": "口を使って言葉を相手に伝える動作は？",
+      "answerYakuId": "hanasu",
+      "decoyYakuIds": ["utau", "asobu", "oyogu"]
+    },
+    {
+      "id": "q_neru",
+      "question": "布団に入って目を閉じ、眠る動作。左＋中で揃うチェリー役は？",
+      "answerYakuId": "neru",
+      "decoyYakuIds": ["utau", "ikiru", "yasumu"]
     }
   ]
 }
