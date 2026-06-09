@@ -255,7 +255,10 @@ async function bootstrap() {
   // 章ごとの図柄画像（あれば）。(reelIdx, symbol) -> URL / Texture を「色と同じ先勝ち順」で構築。
   // 画像が無い章は空のままで、ReelView は従来の色タイル＋文字にフォールバックする。
   // ART_VER: 図柄を作り直すたびに上げる（同名 webp のブラウザキャッシュ対策）。
-  const CHAPTERS_WITH_SYMBOL_ART = new Set<string>(['hiragana_food']);
+  const CHAPTERS_WITH_SYMBOL_ART = new Set<string>([
+    'hiragana_food',
+    'katakana_animal',
+  ]);
   const ART_VER = '3';
   const symbolTileUrls = new Map<string, string>(); // 右パネル用（クエリ無しの素URL）
   const symbolTextures = new Map<string, Texture>();
