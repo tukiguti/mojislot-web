@@ -262,6 +262,7 @@ async function bootstrap() {
     'yasai',
     'hiragana_verb',
     'security',
+    'h_adult',
   ]);
   const ART_VER = '4';
   const symbolTileUrls = new Map<string, string>(); // 右パネル用（文字あり版の素URL）
