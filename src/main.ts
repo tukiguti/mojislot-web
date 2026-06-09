@@ -302,10 +302,18 @@ async function bootstrap() {
       symbolTexturesPlain.clear();
     }
   }
+  // 文字あり版 / 文字なし版(_plain) の URL（右パネル用）
   const tileUrlWithVer = (reelIdx: number, symbol: string): string | null => {
     const u = symbolTileUrls.get(`${reelIdx}:${symbol}`);
     return u ? `${u}?v=${ART_VER}` : null;
   };
+  const tilePlainUrlWithVer = (reelIdx: number, symbol: string): string | null => {
+    const u = symbolTileUrls.get(`${reelIdx}:${symbol}`);
+    return u ? `${u.replace(/\.webp$/, '_plain.webp')}?v=${ART_VER}` : null;
+  };
+  // 右パネルの図柄セル（文字ON/OFFで背景画像を差し替えるため保持）
+  const stripGlyphCells: { el: HTMLElement; glyph: string; plain: string }[] = [];
+  let reelGlyphsOn = localStorage.getItem('reelShowGlyphs') === '1';
 
   for (let i = 0; i < REEL_COUNT; i++) {
     const engine = new ReelEngine(reelConfig.reels[i]);
@@ -326,12 +334,17 @@ async function bootstrap() {
   }
 
   // リール文字表示トグル（既定OFF＝図柄のみ／設定でON）。localStorage に永続化。
+  // リール本体・右の「リール配列」パネルの両方を連動させる。
   const REEL_GLYPHS_KEY = 'reelShowGlyphs';
   const applyReelGlyphs = (show: boolean) => {
+    reelGlyphsOn = show;
     localStorage.setItem(REEL_GLYPHS_KEY, show ? '1' : '0');
     for (const v of views) v.setShowGlyphs(show);
+    for (const c of stripGlyphCells) {
+      c.el.style.backgroundImage = `url("${show ? c.glyph : c.plain}")`;
+    }
   };
-  const initialReelGlyphs = localStorage.getItem(REEL_GLYPHS_KEY) === '1';
+  const initialReelGlyphs = reelGlyphsOn;
   applyReelGlyphs(initialReelGlyphs);
   settingsOverlay.setReelGlyphsControl(initialReelGlyphs, applyReelGlyphs);
 
@@ -1349,10 +1362,12 @@ async function bootstrap() {
       const cell = document.createElement('div');
       cell.className = 'strip-cell';
       const tileUrl = tileUrlWithVer(idx, symbol);
-      if (tileUrl) {
-        // 図柄画像をそのまま縮小表示（リール本体と同じ絵柄）。文字は画像に内蔵。
+      const plainUrl = tilePlainUrlWithVer(idx, symbol);
+      if (tileUrl && plainUrl) {
+        // 図柄画像をそのまま縮小表示。文字ON/OFF で文字あり/なし版を差し替え。
         cell.classList.add('has-art');
-        cell.style.backgroundImage = `url("${tileUrl}")`;
+        cell.style.backgroundImage = `url("${reelGlyphsOn ? tileUrl : plainUrl}")`;
+        stripGlyphCells.push({ el: cell, glyph: tileUrl, plain: plainUrl });
       } else {
         // 画像が無い章：従来の役単位カラー＋白文字
         cell.textContent = symbol;
