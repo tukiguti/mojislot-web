@@ -260,6 +260,7 @@ async function bootstrap() {
     'hiragana_food',
     'katakana_animal',
     'yasai',
+    'hiragana_verb',
   ]);
   const ART_VER = '3';
   const symbolTileUrls = new Map<string, string>(); // 右パネル用（クエリ無しの素URL）

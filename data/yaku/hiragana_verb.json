@@ -3,16 +3,16 @@
   "coreYaku": [
     { "id": "utau", "name": "うたう", "symbols": ["う", "た", "う"], "category": "core" },
     { "id": "asobu", "name": "あそぶ", "symbols": ["あ", "そ", "ぶ"], "category": "core" },
-    { "id": "migaku", "name": "みがく", "symbols": ["み", "が", "く"], "category": "core" },
-    { "id": "oyogu", "name": "およぐ", "symbols": ["お", "よ", "ぐ"], "category": "core" },
-    { "id": "hanasu", "name": "はなす", "symbols": ["は", "な", "す"], "category": "core" },
-    { "id": "yasumu", "name": "やすむ", "symbols": ["や", "す", "む"], "category": "core" },
-    { "id": "sodatsu", "name": "そだつ", "symbols": ["そ", "だ", "つ"], "category": "core" }
+    { "id": "oyogu", "name": "およぐ", "symbols": ["お", "よ", "ぐ"], "category": "core" }
+  ],
+  "cherryYaku": [
+    { "id": "neru", "name": "ねる", "symbols": ["ね", "る"], "category": "cherry" }
   ],
   "premiumYaku": [
-    { "id": "ikiru", "name": "いきる", "symbols": ["い", "き", "る"], "category": "premium" }
+    { "id": "ikiru", "name": "いきる", "symbols": ["い", "き", "る"], "category": "premium" },
+    { "id": "yasumu", "name": "やすむ", "symbols": ["や", "す", "む"], "category": "premium" }
   ],
   "bonusYaku": [
-    { "id": "reg", "name": "いきみ", "symbols": ["い", "き", "み"], "category": "bonus" }
+    { "id": "reg", "name": "いきむ", "symbols": ["い", "き", "む"], "category": "bonus" }
   ]
 }

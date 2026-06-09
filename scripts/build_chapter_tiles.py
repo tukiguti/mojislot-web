@@ -45,13 +45,15 @@ def main():
     count = 0
     for yaku in ordered:
         art = os.path.join(art_dir, f"{yaku['id']}.png")
-        if not os.path.exists(art):
-            sys.exit(f"missing art: {art}")
         for r, sym in enumerate(yaku["symbols"]):
             key = (r, sym)
             if key in seen:
-                continue
+                continue  # 先勝ち：上位役が主張済みのセルは飛ばす
             seen.add(key)
+            # ここで初めてアートが必要。RB のように全セルを借用する役は
+            # ループに入ってこない（=アート不要）。実際に合成する時だけ存在を要求。
+            if not os.path.exists(art):
+                sys.exit(f"missing art: {art} (役 {yaku['id']} の {sym} 用)")
             out = os.path.join(out_dir, f"{yaku['id']}_{r}.webp")
             compose(art, sym, FONT, FONT_INDEX, out)
             count += 1
