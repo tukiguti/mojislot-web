@@ -255,8 +255,10 @@ async function bootstrap() {
   for (let i = 0; i < REEL_COUNT; i++) {
     const engine = new ReelEngine(reelConfig.reels[i]);
     const reelIdx = i;
-    const view = new ReelView(engine, (symbol) =>
-      colorResolver.colorFor(reelIdx, symbol),
+    const view = new ReelView(
+      engine,
+      (symbol) => colorResolver.colorFor(reelIdx, symbol),
+      (symbol) => colorResolver.tierFor(reelIdx, symbol),
     );
     view.container.x = startX + i * (CELL_WIDTH + REEL_GAP);
     view.container.y = reelY;
