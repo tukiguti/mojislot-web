@@ -1,18 +1,18 @@
 {
   "mode": "yasai",
   "coreYaku": [
-    { "id": "tomato", "name": "トマト", "symbols": ["ト", "マ", "ト"], "category": "core" },
     { "id": "okura", "name": "オクラ", "symbols": ["オ", "ク", "ラ"], "category": "core" },
     { "id": "moyashi", "name": "モヤシ", "symbols": ["モ", "ヤ", "シ"], "category": "core" },
-    { "id": "serori", "name": "セロリ", "symbols": ["セ", "ロ", "リ"], "category": "core" },
-    { "id": "nasubi", "name": "ナスビ", "symbols": ["ナ", "ス", "ビ"], "category": "core" },
-    { "id": "retasu", "name": "レタス", "symbols": ["レ", "タ", "ス"], "category": "core" },
-    { "id": "mitsuba", "name": "ミツバ", "symbols": ["ミ", "ツ", "バ"], "category": "core" }
+    { "id": "serori", "name": "セロリ", "symbols": ["セ", "ロ", "リ"], "category": "core" }
+  ],
+  "cherryYaku": [
+    { "id": "nasubi", "name": "ナス", "symbols": ["ナ", "ス"], "category": "cherry" }
   ],
   "premiumYaku": [
-    { "id": "goya", "name": "ゴーヤ", "symbols": ["ゴ", "ー", "ヤ"], "category": "premium" }
+    { "id": "potechi", "name": "ポテチ", "symbols": ["ポ", "テ", "チ"], "category": "premium" },
+    { "id": "tomato", "name": "トマト", "symbols": ["ト", "マ", "ト"], "category": "premium" }
   ],
   "bonusYaku": [
-    { "id": "reg", "name": "ゴール", "symbols": ["ゴ", "ー", "ル"], "category": "bonus" }
+    { "id": "reg", "name": "ポテト", "symbols": ["ポ", "テ", "ト"], "category": "bonus" }
   ]
 }

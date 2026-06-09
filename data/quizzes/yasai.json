@@ -2,52 +2,40 @@
   "mode": "yasai",
   "quizzes": [
     {
-      "id": "q_tomato",
-      "question": "真っ赤で丸い夏野菜、サラダやパスタの定番は？",
-      "answerYakuId": "tomato",
-      "decoyYakuIds": ["okura", "moyashi", "serori"]
-    },
-    {
       "id": "q_okura",
-      "question": "切ると断面が星形で粘りがある夏野菜は？",
+      "question": "切ると星形で、ねばねばした緑の野菜は？",
       "answerYakuId": "okura",
-      "decoyYakuIds": ["moyashi", "serori", "nasubi"]
+      "decoyYakuIds": ["moyashi", "serori", "tomato"]
     },
     {
       "id": "q_moyashi",
-      "question": "豆から育つ安くてシャキシャキの白い野菜は？",
+      "question": "豆を発芽させた、白くて細長い野菜は？",
       "answerYakuId": "moyashi",
-      "decoyYakuIds": ["serori", "nasubi", "retasu"]
+      "decoyYakuIds": ["serori", "okura", "potechi"]
     },
     {
       "id": "q_serori",
-      "question": "独特の香りが特徴の細長い茎の野菜は？",
+      "question": "シャキッとした食感で、独特の香りがある緑の茎野菜は？",
       "answerYakuId": "serori",
-      "decoyYakuIds": ["nasubi", "retasu", "mitsuba"]
+      "decoyYakuIds": ["okura", "moyashi", "reg"]
     },
     {
-      "id": "q_nasubi",
-      "question": "紫色の皮で焼くととろける夏野菜は？",
-      "answerYakuId": "nasubi",
-      "decoyYakuIds": ["retasu", "mitsuba", "tomato"]
+      "id": "q_potechi",
+      "question": "じゃがいもを薄く切って揚げた、袋入りのスナック菓子は？（7揃い・BIG）",
+      "answerYakuId": "potechi",
+      "decoyYakuIds": ["tomato", "reg", "okura"]
     },
     {
-      "id": "q_retasu",
-      "question": "サラダの定番、葉が丸く重なる緑の野菜は？",
-      "answerYakuId": "retasu",
-      "decoyYakuIds": ["mitsuba", "tomato", "okura"]
+      "id": "q_tomato",
+      "question": "真っ赤で、サラダやケチャップにする実野菜は？（バー揃い・BIG）",
+      "answerYakuId": "tomato",
+      "decoyYakuIds": ["potechi", "reg", "moyashi"]
     },
     {
-      "id": "q_mitsuba",
-      "question": "お吸い物に添える、香りのよい三つ葉の野菜は？",
-      "answerYakuId": "mitsuba",
-      "decoyYakuIds": ["tomato", "okura", "moyashi"]
-    },
-    {
-      "id": "q_goya",
-      "question": "【プレミアム】苦味が特徴の沖縄の夏野菜は？",
-      "answerYakuId": "goya",
-      "decoyYakuIds": ["tomato", "okura", "moyashi"]
+      "id": "q_reg",
+      "question": "じゃがいもを揚げた料理。ポテチの「ポ・テ」＋トマトの「ト」の役は？（RB）",
+      "answerYakuId": "reg",
+      "decoyYakuIds": ["potechi", "tomato", "serori"]
     }
   ]
 }
