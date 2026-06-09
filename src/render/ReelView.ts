@@ -1,12 +1,47 @@
 import { Container, Graphics, Text } from 'pixi.js';
 import type { ReelEngine } from '../core/ReelEngine';
+import type { SymbolTier } from './SymbolStyle';
 
 /** ReelView 用の色解決関数（reel ごとに事前 bind した役色を返す） */
 export type SymbolColorFn = (symbol: string) => number;
+/** ReelView 用の強さ階層解決関数（reel ごとに事前 bind） */
+export type SymbolTierFn = (symbol: string) => SymbolTier;
 
 export const CELL_WIDTH = 130;
 export const CELL_HEIGHT = 100;
 export const VISIBLE_CELLS = 3;
+
+/**
+ * 役柄の強さ階層ごとのタイル見た目。
+ * 「強い柄ほどデカい」を再現：premium が枠いっぱい、filler は小さく地味。
+ * リール送り（1コマ=CELL_HEIGHT）は不変で、コマ枠内に描く柄の大きさだけ変える。
+ */
+interface TileStyle {
+  /** タイルの左右余白（小さいほど大きいタイル） */
+  padX: number;
+  /** タイルの上下余白 */
+  padY: number;
+  /** 角丸半径 */
+  radius: number;
+  /** 外枠（黒）の太さ・濃さ */
+  strokeWidth: number;
+  strokeAlpha: number;
+  /** 内側のアクセント縁（金/銀）。null なら描かない */
+  innerFrame: number | null;
+  /** 文字サイズ */
+  fontSize: number;
+}
+
+const TILE_STYLES: Record<SymbolTier, TileStyle> = {
+  // BIG：枠いっぱい＋金の内縁＋極太文字
+  premium: { padX: 3, padY: 3, radius: 10, strokeWidth: 4, strokeAlpha: 0.85, innerFrame: 0xfff2a8, fontSize: 70 },
+  // REG：やや大きめ＋銀の内縁
+  bonus: { padX: 11, padY: 9, radius: 11, strokeWidth: 3.5, strokeAlpha: 0.8, innerFrame: 0xe8e8f0, fontSize: 60 },
+  // コア：標準
+  core: { padX: 19, padY: 16, radius: 12, strokeWidth: 2, strokeAlpha: 0.55, innerFrame: null, fontSize: 52 },
+  // 脇役：小さく地味
+  filler: { padX: 35, padY: 28, radius: 12, strokeWidth: 1.5, strokeAlpha: 0.45, innerFrame: null, fontSize: 36 },
+};
 
 const VIEW_HEIGHT = CELL_HEIGHT * VISIBLE_CELLS;
 const PAYLINE_Y = CELL_HEIGHT * 1.5;
@@ -17,10 +52,6 @@ const PAYLINE_Y = CELL_HEIGHT * 1.5;
  */
 const PRE_BUFFER = CELL_HEIGHT;
 
-/** タイル余白（cell の周囲に空けるピクセル） */
-const TILE_PAD = 4;
-const TILE_RADIUS = 12;
-
 export class ReelView {
   readonly container: Container;
   /** 各セルのコンテナ（タイル背景＋文字を内包、上下方向にスクロール移動する） */
@@ -29,6 +60,8 @@ export class ReelView {
   private readonly cellTiles: Graphics[] = [];
   /** 各セルの本来の色（ハイライト解除時に戻す用） */
   private readonly cellOriginalColors: number[] = [];
+  /** 各セルのタイル見た目（強さ階層ごと・再描画で形を保つ用） */
+  private readonly cellStyles: TileStyle[] = [];
   /** 現在ハイライト中のセル indexes と解除タイマー */
   private highlightTimer: number | null = null;
   private highlightedIndexes: number[] = [];
@@ -49,6 +82,7 @@ export class ReelView {
   constructor(
     private readonly engine: ReelEngine,
     private readonly colorForSymbol: SymbolColorFn,
+    private readonly tierForSymbol: SymbolTierFn = () => 'core',
   ) {
     this.container = new Container();
 
@@ -76,20 +110,23 @@ export class ReelView {
       // セル単位のコンテナ：背景タイル + 文字
       const cell = new Container();
 
-      // 背景タイル（角丸・symbol色・薄縁取り）
+      // 背景タイル（角丸・symbol色・薄縁取り）。強さ階層でサイズ・縁飾りが変わる
       const originalColor = this.colorForSymbol(symbol);
+      const style = TILE_STYLES[this.tierForSymbol(symbol)];
       const tile = new Graphics();
-      this.drawTile(tile, originalColor);
+      this.drawTile(tile, originalColor, style);
       cell.addChild(tile);
       this.cellTiles.push(tile);
       this.cellOriginalColors.push(originalColor);
+      this.cellStyles.push(style);
 
       // 文字（白固定・明朝体・黒ストロークでタイル上のコントラスト確保）
+      // フォントサイズも強さ階層で変える（強い柄ほどデカ文字）
       const text = new Text({
         text: symbol,
         style: {
           fill: 0xffffff,
-          fontSize: 60,
+          fontSize: style.fontSize,
           fontFamily:
             '"Hiragino Mincho ProN", "Yu Mincho", "MS PMincho", serif',
           fontWeight: '900',
@@ -218,19 +255,30 @@ export class ReelView {
     this.bg.stroke({ width: strokeWidth, color: strokeColor });
   }
 
-  /** タイル背景を指定色で描く（共通ロジック） */
-  private drawTile(tile: Graphics, color: number): void {
+  /** タイル背景を指定色・指定スタイル（強さ階層）で描く（共通ロジック） */
+  private drawTile(tile: Graphics, color: number, style: TileStyle): void {
     tile.clear();
+    const x = style.padX;
+    const y = -CELL_HEIGHT / 2 + style.padY;
+    const w = CELL_WIDTH - style.padX * 2;
+    const h = CELL_HEIGHT - style.padY * 2;
     tile
-      .roundRect(
-        TILE_PAD,
-        -CELL_HEIGHT / 2 + TILE_PAD,
-        CELL_WIDTH - TILE_PAD * 2,
-        CELL_HEIGHT - TILE_PAD * 2,
-        TILE_RADIUS,
-      )
+      .roundRect(x, y, w, h, style.radius)
       .fill({ color })
-      .stroke({ width: 2, color: 0x000000, alpha: 0.55 });
+      .stroke({ width: style.strokeWidth, color: 0x000000, alpha: style.strokeAlpha });
+    // 強い柄（premium/bonus）は内側に金/銀のアクセント縁を重ねて格を出す
+    if (style.innerFrame !== null) {
+      const inset = 4;
+      tile
+        .roundRect(
+          x + inset,
+          y + inset,
+          w - inset * 2,
+          h - inset * 2,
+          Math.max(2, style.radius - 3),
+        )
+        .stroke({ width: 2, color: style.innerFrame, alpha: 0.9 });
+    }
   }
 
   /**
@@ -245,7 +293,7 @@ export class ReelView {
     this.highlightedIndexes = [...cellIndexes];
     for (const i of cellIndexes) {
       if (i < 0 || i >= this.cellTiles.length) continue;
-      this.drawTile(this.cellTiles[i], color);
+      this.drawTile(this.cellTiles[i], color, this.cellStyles[i]);
     }
     this.highlightTimer = window.setTimeout(() => {
       this.clearHighlight();
@@ -260,7 +308,7 @@ export class ReelView {
     }
     for (const i of this.highlightedIndexes) {
       if (i < 0 || i >= this.cellTiles.length) continue;
-      this.drawTile(this.cellTiles[i], this.cellOriginalColors[i]);
+      this.drawTile(this.cellTiles[i], this.cellOriginalColors[i], this.cellStyles[i]);
     }
     this.highlightedIndexes = [];
   }

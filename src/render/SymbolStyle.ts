@@ -1,6 +1,13 @@
 import type { YakuList } from '../data/schemas';
 
 /**
+ * 役柄の「強さ」階層。リール上のタイルの大きさ・文字サイズ・縁飾りを決める。
+ *  premium(BIG) > bonus(REG) > core(コア7役) > filler(脇役)
+ * 実機の「強い柄ほど大きくデカい」見た目を再現するための軸。
+ */
+export type SymbolTier = 'premium' | 'bonus' | 'core' | 'filler';
+
+/**
  * 役（やく）単位で色を割り当て、その役の構成文字（各リール 1 文字ずつ）に色を伝播させる。
  *
  *  - プレミアム役 → ゴールド固定
@@ -32,6 +39,8 @@ const FILLER_COLOR = 0x4a4a4a; // dark gray（地味な脇役感）
 export class SymbolColorResolver {
   /** key = `${reelIdx}:${symbol}` → 役色 */
   private cellColor = new Map<string, number>();
+  /** key = `${reelIdx}:${symbol}` → 役柄の強さ階層（タイルサイズ用） */
+  private cellTier = new Map<string, SymbolTier>();
   /** 役 id → 役色（成立時の動的ハイライト用） */
   private yakuColor = new Map<string, number>();
 
@@ -51,12 +60,20 @@ export class SymbolColorResolver {
           : yaku.category === 'bonus'
             ? BONUS_COLOR
             : CORE_PALETTE[coreIdx++ % CORE_PALETTE.length];
+      const tier: SymbolTier =
+        yaku.category === 'premium'
+          ? 'premium'
+          : yaku.category === 'bonus'
+            ? 'bonus'
+            : 'core';
       // 役色を id でひけるよう登録
       this.yakuColor.set(yaku.id, color);
       for (let r = 0; r < 3; r++) {
         const key = `${r}:${yaku.symbols[r]}`;
+        // 先勝ち（premium→core→bonus の順）で色・階層を確定
         if (!this.cellColor.has(key)) {
           this.cellColor.set(key, color);
+          this.cellTier.set(key, tier);
         }
       }
     }
@@ -65,6 +82,11 @@ export class SymbolColorResolver {
   /** 0xRRGGBB の数値で返す（Pixi 用） */
   colorFor(reelIndex: number, symbol: string): number {
     return this.cellColor.get(`${reelIndex}:${symbol}`) ?? FILLER_COLOR;
+  }
+
+  /** 役柄の強さ階層を返す（どの役にも属さない文字は filler=脇役） */
+  tierFor(reelIndex: number, symbol: string): SymbolTier {
+    return this.cellTier.get(`${reelIndex}:${symbol}`) ?? 'filler';
   }
 
   /** '#rrggbb' で返す（CSS 用） */
