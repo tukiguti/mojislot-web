@@ -26,12 +26,19 @@ export interface MultiJudgeResult {
 }
 
 export class YakuJudge {
+  /** 3文字役（左中右の完全一致）の索引 */
   private readonly index = new Map<string, Yaku>();
+  /** チェリー等の2文字役（左+中の2リールで成立、右は不問）の索引 */
+  private readonly cherryIndex = new Map<string, Yaku>();
 
   constructor(list: YakuList) {
     const all = [...list.premiumYaku, ...list.coreYaku, ...list.bonusYaku];
     for (const y of all) {
       this.index.set(y.symbols.join(''), y);
+    }
+    // 2文字役（チェリー）：先頭2リールのキーで索引
+    for (const y of list.cherryYaku) {
+      this.cherryIndex.set(y.symbols.slice(0, 2).join(''), y);
     }
   }
 
@@ -58,6 +65,17 @@ export class YakuJudge {
           paylineId: line.id,
           paylineName: line.name,
           yaku,
+          symbols,
+        });
+        continue; // 3文字役が成立したラインはチェリー判定しない
+      }
+      // チェリー（2文字役）：左+中が一致すれば成立（右は不問）
+      const cherry = this.cherryIndex.get(symbols[0] + symbols[1]);
+      if (cherry) {
+        hits.push({
+          paylineId: line.id,
+          paylineName: line.name,
+          yaku: cherry,
           symbols,
         });
       }

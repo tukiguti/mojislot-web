@@ -14,12 +14,14 @@ export const ReelConfigSchema = z.object({
 export type ReelStrip = z.infer<typeof ReelStripSchema>;
 export type ReelConfig = z.infer<typeof ReelConfigSchema>;
 
-export const YakuCategorySchema = z.enum(['core', 'premium', 'bonus']);
+// core=小役 / premium=BIG(7・バー揃い) / bonus=RB / cherry=チェリー(2文字役)
+export const YakuCategorySchema = z.enum(['core', 'premium', 'bonus', 'cherry']);
 
 export const YakuSchema = z.object({
   id: z.string(),
   name: z.string(),
-  symbols: z.array(z.string()).length(3),
+  // 通常は3文字。チェリー(2文字役=左+中)のみ2文字を許容
+  symbols: z.array(z.string()).min(2).max(3),
   category: YakuCategorySchema,
 });
 
@@ -28,6 +30,8 @@ export const YakuListSchema = z.object({
   coreYaku: z.array(YakuSchema),
   premiumYaku: z.array(YakuSchema),
   bonusYaku: z.array(YakuSchema).default([]),
+  // チェリー（2文字役・左+中の2リールで成立）。ジャグラー型のみ使用
+  cherryYaku: z.array(YakuSchema).default([]),
 });
 
 export type YakuCategory = z.infer<typeof YakuCategorySchema>;
@@ -40,6 +44,7 @@ export const PayoutSchema = z.object({
     core: z.number(),
     premium: z.number(),
     bonus: z.number(),
+    cherry: z.number().default(2),
   }),
   bonusZoneMultiplier: z.number(),
   initialCoins: z.number().int().nonnegative(),

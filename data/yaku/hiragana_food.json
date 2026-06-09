@@ -1,18 +1,18 @@
 {
   "mode": "hiragana_food",
   "coreYaku": [
-    { "id": "ichigo", "name": "いちご", "symbols": ["い", "ち", "ご"], "category": "core" },
-    { "id": "mikan", "name": "みかん", "symbols": ["み", "か", "ん"], "category": "core" },
-    { "id": "unagi", "name": "うなぎ", "symbols": ["う", "な", "ぎ"], "category": "core" },
-    { "id": "maguro", "name": "まぐろ", "symbols": ["ま", "ぐ", "ろ"], "category": "core" },
-    { "id": "tofu", "name": "とうふ", "symbols": ["と", "う", "ふ"], "category": "core" },
     { "id": "budou", "name": "ぶどう", "symbols": ["ぶ", "ど", "う"], "category": "core" },
-    { "id": "sanma", "name": "さんま", "symbols": ["さ", "ん", "ま"], "category": "core" }
+    { "id": "dango", "name": "だんご", "symbols": ["だ", "ん", "ご"], "category": "core" },
+    { "id": "ocha", "name": "おちゃ", "symbols": ["お", "ち", "ゃ"], "category": "core" }
+  ],
+  "cherryYaku": [
+    { "id": "nasu", "name": "ナス", "symbols": ["な", "す"], "category": "cherry" }
   ],
   "premiumYaku": [
-    { "id": "sushiya", "name": "すしや", "symbols": ["す", "し", "や"], "category": "premium" }
+    { "id": "sushiya", "name": "寿司屋", "symbols": ["す", "し", "や"], "category": "premium" },
+    { "id": "namazu", "name": "ナマズ", "symbols": ["な", "ま", "ず"], "category": "premium" }
   ],
   "bonusYaku": [
-    { "id": "reg", "name": "すしこ", "symbols": ["す", "し", "こ"], "category": "bonus" }
+    { "id": "reg", "name": "寿司酢", "symbols": ["す", "し", "ず"], "category": "bonus" }
   ]
 }

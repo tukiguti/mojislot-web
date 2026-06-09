@@ -33,7 +33,13 @@ def main():
     os.makedirs(out_dir, exist_ok=True)
 
     data = json.load(open(os.path.join(ROOT, "data/yaku", f"{chapter}.json")))
-    ordered = data["premiumYaku"] + data["coreYaku"] + data["bonusYaku"]
+    # 先勝ち順は SymbolStyle / main.ts と揃える: premium → core → cherry → bonus
+    ordered = (
+        data["premiumYaku"]
+        + data["coreYaku"]
+        + data.get("cherryYaku", [])
+        + data["bonusYaku"]
+    )
 
     seen = set()
     count = 0

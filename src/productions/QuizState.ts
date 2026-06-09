@@ -70,6 +70,7 @@ function buildRenderedQuiz(quiz: Quiz, yakuList: YakuList): RenderedQuiz {
     ...yakuList.coreYaku,
     ...yakuList.premiumYaku,
     ...yakuList.bonusYaku,
+    ...yakuList.cherryYaku,
   ];
   const byId = new Map(all.map((y) => [y.id, y]));
 

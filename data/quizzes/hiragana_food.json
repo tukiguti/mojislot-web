@@ -2,52 +2,40 @@
   "mode": "hiragana_food",
   "quizzes": [
     {
-      "id": "q_ichigo",
-      "question": "ショートケーキの上にのる赤い果物は？",
-      "answerYakuId": "ichigo",
-      "decoyYakuIds": ["mikan", "unagi", "maguro"]
-    },
-    {
-      "id": "q_mikan",
-      "question": "冬のこたつで食べるオレンジ色の果物は？",
-      "answerYakuId": "mikan",
-      "decoyYakuIds": ["unagi", "maguro", "tofu"]
-    },
-    {
-      "id": "q_unagi",
-      "question": "土用の丑の日に食べる、かば焼きが有名な魚は？",
-      "answerYakuId": "unagi",
-      "decoyYakuIds": ["maguro", "tofu", "budou"]
-    },
-    {
-      "id": "q_maguro",
-      "question": "お寿司の代表的なネタといえば？",
-      "answerYakuId": "maguro",
-      "decoyYakuIds": ["tofu", "budou", "sanma"]
-    },
-    {
-      "id": "q_tofu",
-      "question": "大豆から作られる、白くて柔らかい食品は？",
-      "answerYakuId": "tofu",
-      "decoyYakuIds": ["budou", "sanma", "ichigo"]
-    },
-    {
       "id": "q_budou",
-      "question": "房になって実り、ワインの原料にもなる果物は？",
+      "question": "房（ふさ）になって実る、紫色の果物は？",
       "answerYakuId": "budou",
-      "decoyYakuIds": ["sanma", "ichigo", "mikan"]
+      "decoyYakuIds": ["dango", "ocha", "namazu"]
     },
     {
-      "id": "q_sanma",
-      "question": "秋が旬で、塩焼きが定番の細長い魚は？",
-      "answerYakuId": "sanma",
-      "decoyYakuIds": ["ichigo", "mikan", "unagi"]
+      "id": "q_dango",
+      "question": "串にさして食べる、三色の和菓子は？",
+      "answerYakuId": "dango",
+      "decoyYakuIds": ["ocha", "budou", "sushiya"]
+    },
+    {
+      "id": "q_ocha",
+      "question": "湯のみで飲む、緑色の日本の飲み物は？",
+      "answerYakuId": "ocha",
+      "decoyYakuIds": ["budou", "dango", "reg"]
     },
     {
       "id": "q_sushiya",
-      "question": "【プレミアム】まぐろやうなぎを握って出してくれるお店は？",
+      "question": "暖簾をくぐって入る、寿司を握る店は？（7揃い・BIG）",
       "answerYakuId": "sushiya",
-      "decoyYakuIds": ["ichigo", "mikan", "unagi"]
+      "decoyYakuIds": ["namazu", "reg", "budou"]
+    },
+    {
+      "id": "q_namazu",
+      "question": "長いヒゲを持ち、地震を予知すると言われる魚は？（バー揃い・BIG）",
+      "answerYakuId": "namazu",
+      "decoyYakuIds": ["sushiya", "reg", "dango"]
+    },
+    {
+      "id": "q_reg",
+      "question": "寿司めしを作るのに、ごはんに混ぜる調味料は？（RB）",
+      "answerYakuId": "reg",
+      "decoyYakuIds": ["sushiya", "namazu", "ocha"]
     }
   ]
 }

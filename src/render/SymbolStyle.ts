@@ -34,6 +34,7 @@ const CORE_PALETTE: number[] = [
 
 const PREMIUM_COLOR = 0xffd700; // gold（ビッグボーナス役）
 const BONUS_COLOR = 0xc0c0c0; // silver（レギュラーボーナス役 = すし＋別字）
+const CHERRY_COLOR = 0xff4d6d; // cherry red（2文字役チェリー）
 const FILLER_COLOR = 0x4a4a4a; // dark gray（地味な脇役感）
 
 export class SymbolColorResolver {
@@ -45,10 +46,11 @@ export class SymbolColorResolver {
   private yakuColor = new Map<string, number>();
 
   constructor(yakuList: YakuList) {
-    // premium → core → bonus の順で割り当て（先勝ち）
+    // premium → core → cherry → bonus の順で割り当て（先勝ち）
     const ordered = [
       ...yakuList.premiumYaku,
       ...yakuList.coreYaku,
+      ...yakuList.cherryYaku,
       ...yakuList.bonusYaku,
     ];
 
@@ -59,7 +61,10 @@ export class SymbolColorResolver {
           ? PREMIUM_COLOR
           : yaku.category === 'bonus'
             ? BONUS_COLOR
-            : CORE_PALETTE[coreIdx++ % CORE_PALETTE.length];
+            : yaku.category === 'cherry'
+              ? CHERRY_COLOR
+              : CORE_PALETTE[coreIdx++ % CORE_PALETTE.length];
+      // cherry は小役なので size は core 扱い（小さく枠なし）
       const tier: SymbolTier =
         yaku.category === 'premium'
           ? 'premium'
@@ -68,9 +73,10 @@ export class SymbolColorResolver {
             : 'core';
       // 役色を id でひけるよう登録
       this.yakuColor.set(yaku.id, color);
-      for (let r = 0; r < 3; r++) {
+      // チェリーは2文字（symbols.length=2）なので存在する文字だけ登録
+      for (let r = 0; r < yaku.symbols.length; r++) {
         const key = `${r}:${yaku.symbols[r]}`;
-        // 先勝ち（premium→core→bonus の順）で色・階層を確定
+        // 先勝ち（premium→core→cherry→bonus の順）で色・階層を確定
         if (!this.cellColor.has(key)) {
           this.cellColor.set(key, color);
           this.cellTier.set(key, tier);

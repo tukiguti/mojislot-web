@@ -3,7 +3,8 @@
   "baseMultiplier": {
     "core": 8,
     "premium": 100,
-    "bonus": 10
+    "bonus": 10,
+    "cherry": 2
   },
   "bonusZoneMultiplier": 1.5,
   "initialCoins": 0
