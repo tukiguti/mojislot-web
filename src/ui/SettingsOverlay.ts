@@ -89,6 +89,17 @@ export class SettingsOverlay {
           </label>
         </div>
         <div class="settings-section">
+          <div class="settings-section-label">表示</div>
+          <label class="toggle-row">
+            <span class="toggle-text">
+              <span class="toggle-title">リールに文字を表示</span>
+              <span class="toggle-sub">OFFで図柄のみ（実機風）／ONでかな文字も表示（学習用）</span>
+            </span>
+            <input type="checkbox" class="reel-glyphs-toggle">
+            <span class="toggle-switch"></span>
+          </label>
+        </div>
+        <div class="settings-section">
           <div class="settings-section-label">リセット</div>
           <div class="zukan-reset">
             <button class="reset-coin" type="button">コインを${this.initialCoins}に戻す</button>
@@ -206,6 +217,14 @@ export class SettingsOverlay {
 
   setDebugActions(actions: DebugActions): void {
     this.debugActions = actions;
+  }
+
+  /** 「リールに文字を表示」トグルを配線（初期値＋変更コールバック） */
+  setReelGlyphsControl(initial: boolean, onChange: (show: boolean) => void): void {
+    const toggle = this.root.querySelector<HTMLInputElement>('.reel-glyphs-toggle');
+    if (!toggle) return;
+    toggle.checked = initial;
+    toggle.addEventListener('change', () => onChange(toggle.checked));
   }
 
   open(): void {
