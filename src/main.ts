@@ -374,8 +374,35 @@ async function bootstrap() {
   let betPlaced = false;
   let resultTimer: number | null = null;
 
+  // 演出ターゲットを「リール枚数」に比例させるためのウェイト。
+  // 役の各文字がそのリールに何枚あるかの平均 ＝ その役の出やすさ。
+  // → ぶどう等の最頻役は演出で多く狙われ、7/バー等のレア役は稀になる。
+  const reelSymbolCount = (reelIdx: number, symbol: string): number =>
+    reelConfig.reels[reelIdx].cells.filter((c) => c === symbol).length;
+  const yakuReelWeight = (yaku: { symbols: string[] }): number => {
+    let sum = 0;
+    for (let r = 0; r < yaku.symbols.length; r++) {
+      sum += reelSymbolCount(r, yaku.symbols[r]);
+    }
+    return Math.max(1, sum / yaku.symbols.length);
+  };
+  const weightedPick = <T>(items: readonly T[], weight: (t: T) => number): T => {
+    const ws = items.map(weight);
+    const total = ws.reduce((a, b) => a + b, 0);
+    let r = Math.random() * total;
+    for (let i = 0; i < items.length; i++) {
+      r -= ws[i];
+      if (r <= 0) return items[i];
+    }
+    return items[items.length - 1];
+  };
+
+  // クイズは「答えの役のリール枚数」に比例して出題（最頻役のクイズが多く出る）
   const pickRandomQuiz = () =>
-    quizList.quizzes[Math.floor(Math.random() * quizList.quizzes.length)];
+    weightedPick(quizList.quizzes, (q) => {
+      const y = allYakusFlat.find((yy) => yy.id === q.answerYakuId);
+      return y ? yakuReelWeight(y) : 1;
+    });
 
   /**
    * aim 演出で狙っている役（applyEffect('aim') で設定、resetForNextSpin で null）。
@@ -406,10 +433,14 @@ async function bootstrap() {
       effectStatusEl.textContent = '狙え！';
       effectStatusEl.classList.add('aim');
       jinState.set('shisa');
-      // 狙う役を抽選: 15% で premium、それ以外は core からランダム
-      const pickPremium = yakuList.premiumYaku.length > 0 && Math.random() < 0.15;
-      const pool = pickPremium ? yakuList.premiumYaku : yakuList.coreYaku;
-      const targetYaku = pool[Math.floor(Math.random() * pool.length)];
+      // 狙う役をリール枚数に比例して抽選（最頻役が多く、7/バー/RBは稀）。
+      // 3文字役のみ対象（2文字チェリーは aim UI 上 3リール表示にならないので除外）。
+      const aimPool = [
+        ...yakuList.coreYaku,
+        ...yakuList.premiumYaku,
+        ...yakuList.bonusYaku,
+      ];
+      const targetYaku = weightedPick(aimPool, yakuReelWeight);
       // AUTO がこの役を狙えるよう状態保持（setupAutoTarget が後で読む）
       aimNoticeYaku = targetYaku;
       showAimNotice({
