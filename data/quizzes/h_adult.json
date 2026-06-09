@@ -3,51 +3,45 @@
   "quizzes": [
     {
       "id": "q_ecchi",
-      "question": "アルファベットの「H」をカタカナで言うと？",
+      "question": "ちょっとHな、いやらしい様子を表す3文字の言葉は？",
       "answerYakuId": "ecchi",
-      "decoyYakuIds": ["sukebe", "pantsu", "nudo"]
+      "decoyYakuIds": ["sukebe", "pantsu", "otoko"]
     },
     {
       "id": "q_sukebe",
-      "question": "下心まみれの人を表す古風な言葉は？",
+      "question": "鼻の下を伸ばした、エッチ好きな人をからかう言葉は？",
       "answerYakuId": "sukebe",
-      "decoyYakuIds": ["pantsu", "nudo", "hadaka"]
+      "decoyYakuIds": ["ecchi", "bikini", "onna"]
     },
     {
       "id": "q_pantsu",
-      "question": "下着の代表選手といえば？",
+      "question": "下着の一種。ズボンの下にはく布は？",
       "answerYakuId": "pantsu",
-      "decoyYakuIds": ["nudo", "hadaka", "chikubi"]
-    },
-    {
-      "id": "q_nudo",
-      "question": "美術モデルの基本ポーズ、何も着ない状態を英語風に？",
-      "answerYakuId": "nudo",
-      "decoyYakuIds": ["hadaka", "chikubi", "bikini"]
-    },
-    {
-      "id": "q_hadaka",
-      "question": "服を全部脱いだ状態を日本語で？",
-      "answerYakuId": "hadaka",
-      "decoyYakuIds": ["chikubi", "bikini", "ecchi"]
-    },
-    {
-      "id": "q_chikubi",
-      "question": "胸の先端の小さな突起を指す言葉は？",
-      "answerYakuId": "chikubi",
-      "decoyYakuIds": ["bikini", "ecchi", "sukebe"]
+      "decoyYakuIds": ["bikini", "ecchi", "reg"]
     },
     {
       "id": "q_bikini",
-      "question": "セパレートタイプの、大胆な女性用水着は？",
+      "question": "夏の海辺で着る、セパレート型の女性用水着は？",
       "answerYakuId": "bikini",
-      "decoyYakuIds": ["ecchi", "sukebe", "pantsu"]
+      "decoyYakuIds": ["pantsu", "sukebe", "otoko"]
     },
     {
-      "id": "q_rabuho",
-      "question": "【プレミアム】カップル専用、時間制で借りる宿の略称は？",
-      "answerYakuId": "rabuho",
-      "decoyYakuIds": ["ecchi", "sukebe", "pantsu"]
+      "id": "q_otoko",
+      "question": "記号「♂」で表される、男性のことは？（7揃い・BIG）",
+      "answerYakuId": "otoko",
+      "decoyYakuIds": ["onna", "reg", "sukebe"]
+    },
+    {
+      "id": "q_onna",
+      "question": "記号「♀」で表される、女性のことは？（バー揃い・BIG）",
+      "answerYakuId": "onna",
+      "decoyYakuIds": ["otoko", "reg", "ecchi"]
+    },
+    {
+      "id": "q_reg",
+      "question": "成人のこと。オトコの「オ・ト」＋オンナの「ナ」、章名でもある役は？（RB）",
+      "answerYakuId": "reg",
+      "decoyYakuIds": ["otoko", "onna", "pantsu"]
     }
   ]
 }
