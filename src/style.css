@@ -148,9 +148,9 @@ body.has-chapter-bg {
 }
 
 #reel-strip-panel .strip-cell.has-art {
-  /* 図柄画像をそのまま縮小表示。タイルと同じ 13:10 で全体が切れず収まる */
+  /* 図柄画像を小さく表示。21コマが1画面に収まるよう低めの固定高さ＋cover */
   padding: 0;
-  aspect-ratio: 13 / 10;
+  height: 28px;
   background-color: #000;
   background-size: cover;
   background-position: center;

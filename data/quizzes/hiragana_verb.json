@@ -3,51 +3,39 @@
   "quizzes": [
     {
       "id": "q_utau",
-      "question": "カラオケでマイクを握って気持ちよくすることは？",
+      "question": "マイクを持って、声で音楽を奏でる動作は？",
       "answerYakuId": "utau",
-      "decoyYakuIds": ["asobu", "migaku", "oyogu"]
+      "decoyYakuIds": ["asobu", "oyogu", "yasumu"]
     },
     {
       "id": "q_asobu",
-      "question": "子どもが公園でにぎやかにすることといえば？",
+      "question": "ボールやおもちゃで楽しく時間を過ごす動作は？",
       "answerYakuId": "asobu",
-      "decoyYakuIds": ["migaku", "oyogu", "hanasu"]
-    },
-    {
-      "id": "q_migaku",
-      "question": "歯や靴をこすってきれいにする動作は？",
-      "answerYakuId": "migaku",
-      "decoyYakuIds": ["oyogu", "hanasu", "yasumu"]
+      "decoyYakuIds": ["oyogu", "utau", "ikiru"]
     },
     {
       "id": "q_oyogu",
-      "question": "プールや海で、水の中を進む動作は？",
+      "question": "水の中を手足を使って進む動作は？",
       "answerYakuId": "oyogu",
-      "decoyYakuIds": ["hanasu", "yasumu", "sodatsu"]
-    },
-    {
-      "id": "q_hanasu",
-      "question": "言葉を口に出して相手に伝えることを？",
-      "answerYakuId": "hanasu",
-      "decoyYakuIds": ["yasumu", "sodatsu", "utau"]
-    },
-    {
-      "id": "q_yasumu",
-      "question": "疲れたときに体を休めることを？",
-      "answerYakuId": "yasumu",
-      "decoyYakuIds": ["sodatsu", "utau", "asobu"]
-    },
-    {
-      "id": "q_sodatsu",
-      "question": "子どもや植物が大きくなっていくことを？",
-      "answerYakuId": "sodatsu",
-      "decoyYakuIds": ["utau", "asobu", "migaku"]
+      "decoyYakuIds": ["utau", "asobu", "reg"]
     },
     {
       "id": "q_ikiru",
-      "question": "【プレミアム】呼吸し続け、命をつなげていく根源の行為は？",
+      "question": "命があって、この世に存在し続けることを表す動詞は？（7揃い・BIG）",
       "answerYakuId": "ikiru",
-      "decoyYakuIds": ["utau", "asobu", "migaku"]
+      "decoyYakuIds": ["yasumu", "reg", "asobu"]
+    },
+    {
+      "id": "q_yasumu",
+      "question": "布団に入って体を休め、眠ることを表す動詞は？（バー揃い・BIG）",
+      "answerYakuId": "yasumu",
+      "decoyYakuIds": ["ikiru", "reg", "utau"]
+    },
+    {
+      "id": "q_reg",
+      "question": "力を入れてふんばる動詞。いきるの「い・き」＋やすむの「む」の役は？（RB）",
+      "answerYakuId": "reg",
+      "decoyYakuIds": ["ikiru", "yasumu", "oyogu"]
     }
   ]
 }
