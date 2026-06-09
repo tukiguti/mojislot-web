@@ -87,32 +87,67 @@ def ring_dist(a, b, n):
     return min(d, n - d)
 
 
-def valid(seq, specials):
-    """ボーナス図柄(7/バー)を離し、自分自身の隣接を禁止。小役の隣接は許容。"""
+def valid(seq, specials, cherry):
+    """実機ルール：①同じ図柄を隣接させない(リング込み) ②ボーナス図柄を離す
+    ③チェリーは7(specials[0])の近く(±2)に最低1枚（告知）。"""
     n = len(seq)
+    # ① 同一図柄の隣接禁止（ぶどう連続も禁止）
+    for i in range(n):
+        if seq[i] == seq[(i + 1) % n]:
+            return False
+    # ② ボーナス図柄を離す
     for sp in specials:
         idx = [i for i, x in enumerate(seq) if x == sp]
         for a in range(len(idx)):
             for b in range(a + 1, len(idx)):
                 if ring_dist(idx[a], idx[b], n) < MIN_SPECIAL_GAP:
                     return False
-    # ボーナス図柄同士・同一が隣接しないように（7や バーが連続しない）
-    for i in range(n):
-        if seq[i] in specials and seq[(i + 1) % n] in specials:
-            return False
+    # ③ チェリー告知：7の±2にチェリーが1枚以上
+    if cherry and specials:
+        seven_idx = [i for i, x in enumerate(seq) if x == specials[0]]
+        cher_idx = [i for i, x in enumerate(seq) if x == cherry]
+        if seven_idx and cher_idx:
+            ok = any(
+                ring_dist(s, c, n) <= 2 for s in seven_idx for c in cher_idx
+            )
+            if not ok:
+                return False
     return True
 
 
-def build(counts, specials):
-    pool = []
-    for s, n in counts.items():
-        pool += [s] * n
-    for seed in range(300000):
-        rng = random.Random(seed)
-        seq = pool[:]
-        rng.shuffle(seq)
-        if valid(seq, specials):
-            return seq, seed
+def greedy(counts, rng):
+    """各位置で「残り枚数が最も多く・直前と異なる」図柄を置く貪欲法。
+    最頻図柄(ぶどう)が自然に1コマおきへ散る。詰まったら None。"""
+    remaining = dict(counts)
+    total = sum(counts.values())
+    seq = []
+    for pos in range(total):
+        cands = [
+            s for s in remaining
+            if remaining[s] > 0 and (not seq or s != seq[-1])
+        ]
+        if pos == total - 1 and seq:
+            cands = [s for s in cands if s != seq[0]]  # リング末尾の隣接回避
+        if not cands:
+            return None
+        rng.shuffle(cands)
+        cands.sort(key=lambda s: -remaining[s])
+        # 残り最多の図柄を優先しつつ、同率はランダム
+        top = remaining[cands[0]]
+        pick = rng.choice([s for s in cands if remaining[s] == top])
+        seq.append(pick)
+        remaining[pick] -= 1
+    return seq
+
+
+def build(counts, specials, cherry, reel_idx):
+    """リールごとに別シードで貪欲生成→実機ルール検証。"""
+    base = reel_idx * 100003
+    for k in range(300000):
+        rng = random.Random(base + k)
+        seq = greedy(counts, rng)
+        if seq and valid(seq, specials, cherry):
+            return seq, base + k
     raise RuntimeError("no valid arrangement")
 
 
@@ -125,10 +160,11 @@ def main():
     claims = claimed_per_reel(data)
 
     reels = []
-    for rid, claim in zip(("left", "middle", "right"), claims):
+    for ridx, (rid, claim) in enumerate(zip(("left", "middle", "right"), claims)):
         counts = counts_for_reel(claim, grape_id)
         specials = [s for s, (c, _) in claim.items() if c == "premium"]
-        seq, seed = build(counts, specials)
+        cherry = next((s for s, (c, _) in claim.items() if c == "cherry"), None)
+        seq, seed = build(counts, specials, cherry, ridx)
         reels.append((rid, seq))
         print(f"{chapter} {rid} (seed {seed}) -> {' '.join(seq)}")
 
