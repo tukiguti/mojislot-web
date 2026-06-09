@@ -2,52 +2,40 @@
   "mode": "katakana_animal",
   "quizzes": [
     {
-      "id": "q_kirin",
-      "question": "首が長い、サバンナの草原にいる動物は？",
-      "answerYakuId": "kirin",
-      "decoyYakuIds": ["panda", "usagi", "tanuki"]
-    },
-    {
-      "id": "q_panda",
-      "question": "白黒の毛色で、笹を食べる動物は？",
-      "answerYakuId": "panda",
-      "decoyYakuIds": ["usagi", "tanuki", "iruka"]
-    },
-    {
       "id": "q_usagi",
-      "question": "ぴょんぴょん跳ねる、耳の長い動物は？",
+      "question": "長い耳とぴょんと跳ねる脚が特徴の動物は？",
       "answerYakuId": "usagi",
-      "decoyYakuIds": ["tanuki", "iruka", "higuma"]
+      "decoyYakuIds": ["kirin", "tanuki", "inko"]
+    },
+    {
+      "id": "q_kirin",
+      "question": "首がとても長く、高い木の葉を食べる動物は？",
+      "answerYakuId": "kirin",
+      "decoyYakuIds": ["tanuki", "usagi", "dragon"]
     },
     {
       "id": "q_tanuki",
-      "question": "化けるのが得意とされる日本の動物は？",
+      "question": "ぽんぽこお腹で、人を化かすと言われる動物は？",
       "answerYakuId": "tanuki",
-      "decoyYakuIds": ["iruka", "higuma", "tokage"]
-    },
-    {
-      "id": "q_iruka",
-      "question": "賢くて芸もする、海にすむ哺乳類は？",
-      "answerYakuId": "iruka",
-      "decoyYakuIds": ["higuma", "tokage", "kirin"]
-    },
-    {
-      "id": "q_higuma",
-      "question": "北海道の山にすむ、日本最大級のクマは？",
-      "answerYakuId": "higuma",
-      "decoyYakuIds": ["tokage", "kirin", "panda"]
-    },
-    {
-      "id": "q_tokage",
-      "question": "しっぽが切れても再生する、小型の爬虫類は？",
-      "answerYakuId": "tokage",
-      "decoyYakuIds": ["kirin", "panda", "usagi"]
+      "decoyYakuIds": ["usagi", "kirin", "reg"]
     },
     {
       "id": "q_dragon",
-      "question": "【プレミアム】火を吐く、伝説の生き物は？",
+      "question": "東洋で神聖視される、空を飛ぶ伝説の生き物は？（7揃い・BIG）",
       "answerYakuId": "dragon",
-      "decoyYakuIds": ["kirin", "panda", "usagi"]
+      "decoyYakuIds": ["inko", "reg", "kirin"]
+    },
+    {
+      "id": "q_inko",
+      "question": "色鮮やかで、言葉を真似することもある飼い鳥は？（バー揃い・BIG）",
+      "answerYakuId": "inko",
+      "decoyYakuIds": ["dragon", "reg", "usagi"]
+    },
+    {
+      "id": "q_reg",
+      "question": "空飛ぶトカゲの仲間「ド・ラ・コ」。ドラゴンとインコが半分ずつの役は？（RB）",
+      "answerYakuId": "reg",
+      "decoyYakuIds": ["dragon", "inko", "tanuki"]
     }
   ]
 }
