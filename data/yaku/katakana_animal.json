@@ -1,18 +1,18 @@
 {
   "mode": "katakana_animal",
   "coreYaku": [
-    { "id": "kirin", "name": "キリン", "symbols": ["キ", "リ", "ン"], "category": "core" },
-    { "id": "panda", "name": "パンダ", "symbols": ["パ", "ン", "ダ"], "category": "core" },
     { "id": "usagi", "name": "ウサギ", "symbols": ["ウ", "サ", "ギ"], "category": "core" },
-    { "id": "tanuki", "name": "タヌキ", "symbols": ["タ", "ヌ", "キ"], "category": "core" },
-    { "id": "iruka", "name": "イルカ", "symbols": ["イ", "ル", "カ"], "category": "core" },
-    { "id": "higuma", "name": "ヒグマ", "symbols": ["ヒ", "グ", "マ"], "category": "core" },
-    { "id": "tokage", "name": "トカゲ", "symbols": ["ト", "カ", "ゲ"], "category": "core" }
+    { "id": "kirin", "name": "キリン", "symbols": ["キ", "リ", "ン"], "category": "core" },
+    { "id": "tanuki", "name": "タヌキ", "symbols": ["タ", "ヌ", "キ"], "category": "core" }
+  ],
+  "cherryYaku": [
+    { "id": "sai", "name": "サイ", "symbols": ["サ", "イ"], "category": "cherry" }
   ],
   "premiumYaku": [
-    { "id": "dragon", "name": "ドラゴン", "symbols": ["ド", "ラ", "ゴ"], "category": "premium" }
+    { "id": "dragon", "name": "ドラゴン", "symbols": ["ド", "ラ", "ゴ"], "category": "premium" },
+    { "id": "inko", "name": "インコ", "symbols": ["イ", "ン", "コ"], "category": "premium" }
   ],
   "bonusYaku": [
-    { "id": "reg", "name": "ドラム", "symbols": ["ド", "ラ", "ム"], "category": "bonus" }
+    { "id": "reg", "name": "ドラコ", "symbols": ["ド", "ラ", "コ"], "category": "bonus" }
   ]
 }
