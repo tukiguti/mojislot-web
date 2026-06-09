@@ -147,6 +147,17 @@ body.has-chapter-bg {
     0 1px 2px rgba(0, 0, 0, 0.85);
 }
 
+#reel-strip-panel .strip-cell.has-art {
+  /* 図柄画像をそのまま縮小表示。タイルと同じ 13:10 で全体が切れず収まる */
+  padding: 0;
+  aspect-ratio: 13 / 10;
+  background-color: #000;
+  background-size: cover;
+  background-position: center;
+  background-repeat: no-repeat;
+  text-shadow: none;
+}
+
 #reel-strip-panel .strip-cell.current {
   /* タイル背景色は活かしつつ、外側に金色のリングで強調 */
   border-color: #ffd700;

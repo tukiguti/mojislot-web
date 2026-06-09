@@ -55,8 +55,8 @@ const TILE_STYLES: Record<SymbolTier, TileStyle> = {
 const SPRITE_SCALE: Record<SymbolTier, number> = {
   premium: 1.0, // 枠つき・セルいっぱい
   bonus: 0.9, // 枠つき・やや大
-  core: 0.78, // フチなし・一回り小（強弱を size でしっかり区別）
-  filler: 0.66,
+  core: 0.7, // 枠なし・はっきり小さく（強弱を size で明確に区別）
+  filler: 0.58,
 };
 
 const VIEW_HEIGHT = CELL_HEIGHT * VISIBLE_CELLS;

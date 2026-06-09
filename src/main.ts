@@ -252,9 +252,12 @@ async function bootstrap() {
   // 役単位のカラー解決：同じ役の3文字（左/中/右）が同じ色になる
   const colorResolver = new SymbolColorResolver(yakuList);
 
-  // 章ごとの図柄画像（あれば）。(reelIdx, symbol) -> Texture を「色と同じ先勝ち順」で構築。
+  // 章ごとの図柄画像（あれば）。(reelIdx, symbol) -> URL / Texture を「色と同じ先勝ち順」で構築。
   // 画像が無い章は空のままで、ReelView は従来の色タイル＋文字にフォールバックする。
+  // ART_VER: 図柄を作り直すたびに上げる（同名 webp のブラウザキャッシュ対策）。
   const CHAPTERS_WITH_SYMBOL_ART = new Set<string>(['hiragana_food']);
+  const ART_VER = '3';
+  const symbolTileUrls = new Map<string, string>(); // 右パネル用（クエリ無しの素URL）
   const symbolTextures = new Map<string, Texture>();
   if (CHAPTERS_WITH_SYMBOL_ART.has(chapterId)) {
     const orderedForArt = [
@@ -262,26 +265,32 @@ async function bootstrap() {
       ...yakuList.coreYaku,
       ...yakuList.bonusYaku,
     ];
-    const urlByKey = new Map<string, string>();
     for (const y of orderedForArt) {
       for (let r = 0; r < 3; r++) {
         const key = `${r}:${y.symbols[r]}`;
-        if (!urlByKey.has(key)) {
-          urlByKey.set(key, `${ART_BASE}symbols/${chapterId}/${y.id}_${r}.webp`);
+        if (!symbolTileUrls.has(key)) {
+          symbolTileUrls.set(
+            key,
+            `${ART_BASE}symbols/${chapterId}/${y.id}_${r}.webp`,
+          );
         }
       }
     }
     try {
-      const uniqueUrls = [...new Set(urlByKey.values())];
-      await Promise.all(uniqueUrls.map((u) => Assets.load(u)));
-      for (const [key, url] of urlByKey) {
-        symbolTextures.set(key, Assets.get(url) as Texture);
+      const uniqueUrls = [...new Set(symbolTileUrls.values())];
+      await Promise.all(uniqueUrls.map((u) => Assets.load(`${u}?v=${ART_VER}`)));
+      for (const [key, url] of symbolTileUrls) {
+        symbolTextures.set(key, Assets.get(`${url}?v=${ART_VER}`) as Texture);
       }
     } catch (err) {
       console.warn('図柄画像の読み込みに失敗。色タイルにフォールバックします', err);
       symbolTextures.clear();
     }
   }
+  const tileUrlWithVer = (reelIdx: number, symbol: string): string | null => {
+    const u = symbolTileUrls.get(`${reelIdx}:${symbol}`);
+    return u ? `${u}?v=${ART_VER}` : null;
+  };
 
   for (let i = 0; i < REEL_COUNT; i++) {
     const engine = new ReelEngine(reelConfig.reels[i]);
@@ -1281,10 +1290,17 @@ async function bootstrap() {
       const symbol = cells[i];
       const cell = document.createElement('div');
       cell.className = 'strip-cell';
-      cell.textContent = symbol;
-      // タイル背景＋白文字に統一（リール本体と同じ役単位カラー）
-      cell.style.background = colorResolver.cssFor(idx, symbol);
-      cell.style.color = '#fff';
+      const tileUrl = tileUrlWithVer(idx, symbol);
+      if (tileUrl) {
+        // 図柄画像をそのまま縮小表示（リール本体と同じ絵柄）。文字は画像に内蔵。
+        cell.classList.add('has-art');
+        cell.style.backgroundImage = `url("${tileUrl}")`;
+      } else {
+        // 画像が無い章：従来の役単位カラー＋白文字
+        cell.textContent = symbol;
+        cell.style.background = colorResolver.cssFor(idx, symbol);
+        cell.style.color = '#fff';
+      }
       cell.dataset.index = String(i);
       cellsEl.appendChild(cell);
     }
