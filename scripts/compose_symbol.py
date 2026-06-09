@@ -47,9 +47,16 @@ def center_vignette(size, strength=VIGNETTE_STRENGTH, blur=60) -> Image.Image:
     return dark
 
 
-def compose(art_path, glyph, font_path, font_index, out_path):
+def compose(art_path, glyph, font_path, font_index, out_path, zoom=1.0):
+    """zoom>1.0 で内側へクロップ＝ネオン枠を切り落として食材を全面化（通常役用）。"""
     art = Image.open(art_path).convert("RGBA")
-    art = crop_to_ratio(art, TARGET_RATIO).resize((CELL_W, CELL_H), Image.LANCZOS)
+    art = crop_to_ratio(art, TARGET_RATIO)
+    if zoom > 1.0:
+        w, h = art.size
+        cw, ch = int(w / zoom), int(h / zoom)
+        x, y = (w - cw) // 2, (h - ch) // 2
+        art = art.crop((x, y, x + cw, y + ch))
+    art = art.resize((CELL_W, CELL_H), Image.LANCZOS)
 
     # 中央を少し暗く落として文字を浮かせる
     art = Image.alpha_composite(art, center_vignette((CELL_W, CELL_H)))
@@ -83,7 +90,8 @@ def compose(art_path, glyph, font_path, font_index, out_path):
 
 
 def main():
-    compose(sys.argv[1], sys.argv[2], sys.argv[3], int(sys.argv[4]), sys.argv[5])
+    zoom = float(sys.argv[6]) if len(sys.argv) > 6 else 1.0
+    compose(sys.argv[1], sys.argv[2], sys.argv[3], int(sys.argv[4]), sys.argv[5], zoom)
 
 
 if __name__ == "__main__":

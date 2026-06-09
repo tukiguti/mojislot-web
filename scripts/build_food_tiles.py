@@ -45,13 +45,16 @@ def main():
     count = 0
     for yaku in ordered:
         art = os.path.join(ART_DIR, ART_MAP[yaku["id"]])
+        # 通常役（コア/脇役）はネオン枠を切り落としてフチなし化＝積んでも二重線が出ない。
+        # プレミアム/ボーナスは枠を残して特別感（枠の有無も強弱の区別になる）。
+        zoom = 1.0 if yaku["category"] in ("premium", "bonus") else 1.3
         for r, sym in enumerate(yaku["symbols"]):
             key = (r, sym)
             if key in seen:
                 continue  # 先勝ち：すでに上位役が主張済みのセルは飛ばす
             seen.add(key)
             out = os.path.join(OUT_DIR, f"{yaku['id']}_{r}.webp")
-            compose(art, sym, FONT, FONT_INDEX, out)
+            compose(art, sym, FONT, FONT_INDEX, out, zoom)
             count += 1
     print(f"\n{count} tiles -> {OUT_DIR}")
 
