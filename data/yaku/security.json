@@ -2,17 +2,18 @@
   "mode": "security",
   "coreYaku": [
     { "id": "hack", "name": "ハック", "symbols": ["ハ", "ッ", "ク"], "category": "core" },
-    { "id": "trojan", "name": "トロイ", "symbols": ["ト", "ロ", "イ"], "category": "core" },
+    { "id": "memori", "name": "メモリ", "symbols": ["メ", "モ", "リ"], "category": "core" },
     { "id": "spam", "name": "スパム", "symbols": ["ス", "パ", "ム"], "category": "core" },
-    { "id": "baito", "name": "バイト", "symbols": ["バ", "イ", "ト"], "category": "core" },
-    { "id": "kodo", "name": "コード", "symbols": ["コ", "ー", "ド"], "category": "core" },
-    { "id": "furagu", "name": "フラグ", "symbols": ["フ", "ラ", "グ"], "category": "core" },
-    { "id": "memori", "name": "メモリ", "symbols": ["メ", "モ", "リ"], "category": "core" }
+    { "id": "flag", "name": "フラグ", "symbols": ["フ", "ラ", "グ"], "category": "core" }
+  ],
+  "cherryYaku": [
+    { "id": "bug", "name": "バグ", "symbols": ["バ", "グ"], "category": "cherry" }
   ],
   "premiumYaku": [
+    { "id": "code", "name": "コード", "symbols": ["コ", "ー", "ド"], "category": "premium" },
     { "id": "shell", "name": "シェル", "symbols": ["シ", "ェ", "ル"], "category": "premium" }
   ],
   "bonusYaku": [
-    { "id": "reg", "name": "シェア", "symbols": ["シ", "ェ", "ア"], "category": "bonus" }
+    { "id": "reg", "name": "コール", "symbols": ["コ", "ー", "ル"], "category": "bonus" }
   ]
 }

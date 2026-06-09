@@ -261,6 +261,7 @@ async function bootstrap() {
     'katakana_animal',
     'yasai',
     'hiragana_verb',
+    'security',
   ]);
   const ART_VER = '4';
   const symbolTileUrls = new Map<string, string>(); // 右パネル用（文字あり版の素URL）
