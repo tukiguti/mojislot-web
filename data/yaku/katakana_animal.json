@@ -3,7 +3,8 @@
   "coreYaku": [
     { "id": "usagi", "name": "ウサギ", "symbols": ["ウ", "サ", "ギ"], "category": "core" },
     { "id": "kirin", "name": "キリン", "symbols": ["キ", "リ", "ン"], "category": "core" },
-    { "id": "tanuki", "name": "タヌキ", "symbols": ["タ", "ヌ", "キ"], "category": "core" }
+    { "id": "tanuki", "name": "タヌキ", "symbols": ["タ", "ヌ", "キ"], "category": "core" },
+    { "id": "tokage", "name": "トカゲ", "symbols": ["ト", "カ", "ゲ"], "category": "core" }
   ],
   "cherryYaku": [
     { "id": "sai", "name": "サイ", "symbols": ["サ", "イ"], "category": "cherry" }
