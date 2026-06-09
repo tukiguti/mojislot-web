@@ -1,4 +1,4 @@
-import { Application, Graphics } from 'pixi.js';
+import { Application, Assets, Graphics, Texture } from 'pixi.js';
 import { ReelEngine } from './core/ReelEngine';
 import { ReelView, CELL_WIDTH, CELL_HEIGHT, VISIBLE_CELLS } from './render/ReelView';
 import { SymbolColorResolver } from './render/SymbolStyle';
@@ -252,6 +252,37 @@ async function bootstrap() {
   // 役単位のカラー解決：同じ役の3文字（左/中/右）が同じ色になる
   const colorResolver = new SymbolColorResolver(yakuList);
 
+  // 章ごとの図柄画像（あれば）。(reelIdx, symbol) -> Texture を「色と同じ先勝ち順」で構築。
+  // 画像が無い章は空のままで、ReelView は従来の色タイル＋文字にフォールバックする。
+  const CHAPTERS_WITH_SYMBOL_ART = new Set<string>(['hiragana_food']);
+  const symbolTextures = new Map<string, Texture>();
+  if (CHAPTERS_WITH_SYMBOL_ART.has(chapterId)) {
+    const orderedForArt = [
+      ...yakuList.premiumYaku,
+      ...yakuList.coreYaku,
+      ...yakuList.bonusYaku,
+    ];
+    const urlByKey = new Map<string, string>();
+    for (const y of orderedForArt) {
+      for (let r = 0; r < 3; r++) {
+        const key = `${r}:${y.symbols[r]}`;
+        if (!urlByKey.has(key)) {
+          urlByKey.set(key, `${ART_BASE}symbols/${chapterId}/${y.id}_${r}.webp`);
+        }
+      }
+    }
+    try {
+      const uniqueUrls = [...new Set(urlByKey.values())];
+      await Promise.all(uniqueUrls.map((u) => Assets.load(u)));
+      for (const [key, url] of urlByKey) {
+        symbolTextures.set(key, Assets.get(url) as Texture);
+      }
+    } catch (err) {
+      console.warn('図柄画像の読み込みに失敗。色タイルにフォールバックします', err);
+      symbolTextures.clear();
+    }
+  }
+
   for (let i = 0; i < REEL_COUNT; i++) {
     const engine = new ReelEngine(reelConfig.reels[i]);
     const reelIdx = i;
@@ -259,6 +290,7 @@ async function bootstrap() {
       engine,
       (symbol) => colorResolver.colorFor(reelIdx, symbol),
       (symbol) => colorResolver.tierFor(reelIdx, symbol),
+      (symbol) => symbolTextures.get(`${reelIdx}:${symbol}`) ?? null,
     );
     view.container.x = startX + i * (CELL_WIDTH + REEL_GAP);
     view.container.y = reelY;

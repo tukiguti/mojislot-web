@@ -1,4 +1,4 @@
-import { Container, Graphics, Text } from 'pixi.js';
+import { Container, Graphics, Sprite, Text, Texture } from 'pixi.js';
 import type { ReelEngine } from '../core/ReelEngine';
 import type { SymbolTier } from './SymbolStyle';
 
@@ -6,6 +6,11 @@ import type { SymbolTier } from './SymbolStyle';
 export type SymbolColorFn = (symbol: string) => number;
 /** ReelView 用の強さ階層解決関数（reel ごとに事前 bind） */
 export type SymbolTierFn = (symbol: string) => SymbolTier;
+/**
+ * ReelView 用の図柄テクスチャ解決関数（reel ごとに事前 bind）。
+ * その章に図柄画像があれば Texture、無ければ null（→ 従来の色タイル＋文字にフォールバック）。
+ */
+export type SymbolTextureFn = (symbol: string) => Texture | null;
 
 export const CELL_WIDTH = 130;
 export const CELL_HEIGHT = 100;
@@ -43,6 +48,17 @@ const TILE_STYLES: Record<SymbolTier, TileStyle> = {
   filler: { padX: 35, padY: 28, radius: 12, strokeWidth: 1.5, strokeAlpha: 0.45, innerFrame: null, fontSize: 36 },
 };
 
+/**
+ * 図柄スプライト（画像タイル）の階層別スケール。1.0 = セル(130x100)ぴったり。
+ * 画像自体に枠が描かれているので控えめに差をつける（強い柄ほど大きく＝デカい）。
+ */
+const SPRITE_SCALE: Record<SymbolTier, number> = {
+  premium: 1.0,
+  bonus: 0.94,
+  core: 0.86,
+  filler: 0.74,
+};
+
 const VIEW_HEIGHT = CELL_HEIGHT * VISIBLE_CELLS;
 const PAYLINE_Y = CELL_HEIGHT * 1.5;
 /**
@@ -56,8 +72,14 @@ export class ReelView {
   readonly container: Container;
   /** 各セルのコンテナ（タイル背景＋文字を内包、上下方向にスクロール移動する） */
   private readonly cellContainers: Container[] = [];
-  /** 各セルの背景タイル Graphics（動的色変更用） */
-  private readonly cellTiles: Graphics[] = [];
+  /** 各セルの背景タイル Graphics（色タイル時のみ・スプライト時は null） */
+  private readonly cellTiles: (Graphics | null)[] = [];
+  /** 各セルの図柄スプライト（画像タイル時のみ・色タイル時は null） */
+  private readonly cellSprites: (Sprite | null)[] = [];
+  /** 各スプライトの基準スケール（ハイライトのスケール演出から戻す用） */
+  private readonly cellSpriteBaseScale: number[] = [];
+  /** ハイライト中にスプライトセルへ重ねる色枠グロー（解除時に除去） */
+  private readonly cellGlows: (Graphics | null)[] = [];
   /** 各セルの本来の色（ハイライト解除時に戻す用） */
   private readonly cellOriginalColors: number[] = [];
   /** 各セルのタイル見た目（強さ階層ごと・再描画で形を保つ用） */
@@ -83,6 +105,7 @@ export class ReelView {
     private readonly engine: ReelEngine,
     private readonly colorForSymbol: SymbolColorFn,
     private readonly tierForSymbol: SymbolTierFn = () => 'core',
+    private readonly textureForSymbol: SymbolTextureFn = () => null,
   ) {
     this.container = new Container();
 
@@ -110,40 +133,64 @@ export class ReelView {
       // セル単位のコンテナ：背景タイル + 文字
       const cell = new Container();
 
-      // 背景タイル（角丸・symbol色・薄縁取り）。強さ階層でサイズ・縁飾りが変わる
+      const tier = this.tierForSymbol(symbol);
+      const style = TILE_STYLES[tier];
       const originalColor = this.colorForSymbol(symbol);
-      const style = TILE_STYLES[this.tierForSymbol(symbol)];
-      const tile = new Graphics();
-      this.drawTile(tile, originalColor, style);
-      cell.addChild(tile);
-      this.cellTiles.push(tile);
+      const texture = this.textureForSymbol(symbol);
+
+      if (texture) {
+        // 図柄画像モード：文字込みの合成タイルをスプライトで表示
+        const sprite = new Sprite(texture);
+        sprite.anchor.set(0.5);
+        // セル(CELL_WIDTH×CELL_HEIGHT)に収め、強さ階層で控えめに大小をつける
+        const fit = Math.min(
+          CELL_WIDTH / texture.width,
+          CELL_HEIGHT / texture.height,
+        );
+        const scale = fit * SPRITE_SCALE[tier];
+        sprite.scale.set(scale);
+        sprite.x = CELL_WIDTH / 2;
+        sprite.y = 0;
+        cell.addChild(sprite);
+        this.cellSprites.push(sprite);
+        this.cellSpriteBaseScale.push(scale);
+        this.cellTiles.push(null);
+      } else {
+        // 従来モード：色タイル＋文字（強さ階層でサイズ・縁飾り・文字サイズ可変）
+        const tile = new Graphics();
+        this.drawTile(tile, originalColor, style);
+        cell.addChild(tile);
+        this.cellTiles.push(tile);
+        this.cellSprites.push(null);
+        this.cellSpriteBaseScale.push(0);
+
+        const text = new Text({
+          text: symbol,
+          style: {
+            fill: 0xffffff,
+            fontSize: style.fontSize,
+            fontFamily:
+              '"Hiragino Mincho ProN", "Yu Mincho", "MS PMincho", serif',
+            fontWeight: '900',
+            stroke: { color: 0x000000, width: 5, alpha: 0.85 },
+            dropShadow: {
+              color: 0x000000,
+              alpha: 0.5,
+              angle: Math.PI / 4,
+              distance: 1,
+              blur: 2,
+            },
+          },
+        });
+        text.anchor.set(0.5);
+        text.x = CELL_WIDTH / 2;
+        text.y = 0;
+        cell.addChild(text);
+      }
+
       this.cellOriginalColors.push(originalColor);
       this.cellStyles.push(style);
-
-      // 文字（白固定・明朝体・黒ストロークでタイル上のコントラスト確保）
-      // フォントサイズも強さ階層で変える（強い柄ほどデカ文字）
-      const text = new Text({
-        text: symbol,
-        style: {
-          fill: 0xffffff,
-          fontSize: style.fontSize,
-          fontFamily:
-            '"Hiragino Mincho ProN", "Yu Mincho", "MS PMincho", serif',
-          fontWeight: '900',
-          stroke: { color: 0x000000, width: 5, alpha: 0.85 },
-          dropShadow: {
-            color: 0x000000,
-            alpha: 0.5,
-            angle: Math.PI / 4,
-            distance: 1,
-            blur: 2,
-          },
-        },
-      });
-      text.anchor.set(0.5);
-      text.x = CELL_WIDTH / 2;
-      text.y = 0;
-      cell.addChild(text);
+      this.cellGlows.push(null);
 
       cellsContainer.addChild(cell);
       this.cellContainers.push(cell);
@@ -292,8 +339,20 @@ export class ReelView {
     this.clearHighlight();
     this.highlightedIndexes = [...cellIndexes];
     for (const i of cellIndexes) {
-      if (i < 0 || i >= this.cellTiles.length) continue;
-      this.drawTile(this.cellTiles[i], color, this.cellStyles[i]);
+      if (i < 0 || i >= this.cellContainers.length) continue;
+      const sprite = this.cellSprites[i];
+      if (sprite) {
+        // 図柄スプライト：役色の枠グローを重ね、軽く拡大して「揃った」を強調
+        const glow = new Graphics();
+        glow
+          .roundRect(6, -CELL_HEIGHT / 2 + 6, CELL_WIDTH - 12, CELL_HEIGHT - 12, 12)
+          .stroke({ width: 5, color, alpha: 0.95 });
+        this.cellContainers[i].addChild(glow);
+        this.cellGlows[i] = glow;
+        sprite.scale.set(this.cellSpriteBaseScale[i] * 1.07);
+      } else if (this.cellTiles[i]) {
+        this.drawTile(this.cellTiles[i]!, color, this.cellStyles[i]);
+      }
     }
     this.highlightTimer = window.setTimeout(() => {
       this.clearHighlight();
@@ -307,8 +366,18 @@ export class ReelView {
       this.highlightTimer = null;
     }
     for (const i of this.highlightedIndexes) {
-      if (i < 0 || i >= this.cellTiles.length) continue;
-      this.drawTile(this.cellTiles[i], this.cellOriginalColors[i], this.cellStyles[i]);
+      if (i < 0 || i >= this.cellContainers.length) continue;
+      const glow = this.cellGlows[i];
+      if (glow) {
+        glow.destroy();
+        this.cellGlows[i] = null;
+      }
+      const sprite = this.cellSprites[i];
+      if (sprite) {
+        sprite.scale.set(this.cellSpriteBaseScale[i]);
+      } else if (this.cellTiles[i]) {
+        this.drawTile(this.cellTiles[i]!, this.cellOriginalColors[i], this.cellStyles[i]);
+      }
     }
     this.highlightedIndexes = [];
   }
