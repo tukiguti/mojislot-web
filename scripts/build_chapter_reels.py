@@ -25,7 +25,13 @@ MIN_SPECIAL_GAP = 7
 
 def claimed_per_reel(data):
     """各リール r について [(symbol, is_special)] を先勝ち順で返す。"""
-    ordered = data["premiumYaku"] + data["coreYaku"] + data["bonusYaku"]
+    # 先勝ち順: premium → core → cherry → bonus（色/タイルと同じ）
+    ordered = (
+        data["premiumYaku"]
+        + data["coreYaku"]
+        + data.get("cherryYaku", [])
+        + data["bonusYaku"]
+    )
     reels = [dict() for _ in range(3)]  # r -> {symbol: is_special}
     for y in ordered:
         special = y["category"] in ("premium", "bonus")

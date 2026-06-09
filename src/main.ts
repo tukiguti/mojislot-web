@@ -139,6 +139,7 @@ async function bootstrap() {
     ...yakuList.coreYaku,
     ...yakuList.premiumYaku,
     ...yakuList.bonusYaku,
+    ...yakuList.cherryYaku,
   ];
 
   const judge = new YakuJudge(yakuList);
@@ -266,10 +267,12 @@ async function bootstrap() {
     const orderedForArt = [
       ...yakuList.premiumYaku,
       ...yakuList.coreYaku,
+      ...yakuList.cherryYaku,
       ...yakuList.bonusYaku,
     ];
     for (const y of orderedForArt) {
-      for (let r = 0; r < 3; r++) {
+      // チェリーは2文字（symbols.length=2）。存在する文字だけ対象にする
+      for (let r = 0; r < y.symbols.length; r++) {
         const key = `${r}:${y.symbols[r]}`;
         if (!symbolTileUrls.has(key)) {
           symbolTileUrls.set(
