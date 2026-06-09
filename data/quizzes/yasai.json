@@ -36,6 +36,18 @@
       "question": "じゃがいもを揚げた料理。ポテチの「ポ・テ」＋トマトの「ト」の役は？（RB）",
       "answerYakuId": "reg",
       "decoyYakuIds": ["potechi", "tomato", "serori"]
+    },
+    {
+      "id": "q_retasu",
+      "question": "サラダによく使う、葉が丸く重なった緑の野菜は？",
+      "answerYakuId": "retasu",
+      "decoyYakuIds": ["okura", "moyashi", "serori"]
+    },
+    {
+      "id": "q_nasubi",
+      "question": "紫色で細長い夏野菜。左＋中で揃うチェリー役は？",
+      "answerYakuId": "nasubi",
+      "decoyYakuIds": ["okura", "potechi", "tomato"]
     }
   ]
 }

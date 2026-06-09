@@ -42,6 +42,12 @@
       "question": "電話や関数の呼び出し。コードの「コ・ー」＋シェルの「ル」の役は？（RB）",
       "answerYakuId": "reg",
       "decoyYakuIds": ["code", "shell", "hack"]
+    },
+    {
+      "id": "q_bug",
+      "question": "プログラムの不具合・欠陥。「虫」とも呼ぶチェリー役は？",
+      "answerYakuId": "bug",
+      "decoyYakuIds": ["hack", "code", "memori"]
     }
   ]
 }
