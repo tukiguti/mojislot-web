@@ -3,51 +3,45 @@
   "quizzes": [
     {
       "id": "q_hack",
-      "question": "コンピュータに不正侵入する攻撃行為のことを？",
+      "question": "システムに不正に侵入・改ざんする行為を指す言葉は？",
       "answerYakuId": "hack",
-      "decoyYakuIds": ["trojan", "spam", "baito"]
-    },
-    {
-      "id": "q_trojan",
-      "question": "無害を装って侵入する古代の馬の名を持つマルウェアは？",
-      "answerYakuId": "trojan",
-      "decoyYakuIds": ["spam", "baito", "kodo"]
-    },
-    {
-      "id": "q_spam",
-      "question": "不特定多数に送り付けられる迷惑メールは？",
-      "answerYakuId": "spam",
-      "decoyYakuIds": ["baito", "kodo", "furagu"]
-    },
-    {
-      "id": "q_baito",
-      "question": "8ビットをまとめた、データ量の基本単位は？",
-      "answerYakuId": "baito",
-      "decoyYakuIds": ["kodo", "furagu", "memori"]
-    },
-    {
-      "id": "q_kodo",
-      "question": "プログラムの命令を書き並べたものを？",
-      "answerYakuId": "kodo",
-      "decoyYakuIds": ["furagu", "memori", "hack"]
-    },
-    {
-      "id": "q_furagu",
-      "question": "状態を表す、真偽の目印になる変数を？",
-      "answerYakuId": "furagu",
-      "decoyYakuIds": ["memori", "hack", "trojan"]
+      "decoyYakuIds": ["memori", "spam", "code"]
     },
     {
       "id": "q_memori",
-      "question": "データを一時的に記憶する装置は？",
+      "question": "データを一時的に記憶する、PCの作業領域（RAM）を指す言葉は？",
       "answerYakuId": "memori",
-      "decoyYakuIds": ["hack", "trojan", "spam"]
+      "decoyYakuIds": ["spam", "flag", "shell"]
+    },
+    {
+      "id": "q_spam",
+      "question": "大量に送りつけられる、迷惑メールの俗称は？",
+      "answerYakuId": "spam",
+      "decoyYakuIds": ["hack", "memori", "reg"]
+    },
+    {
+      "id": "q_flag",
+      "question": "条件のON/OFFを表す真偽値の目印。CTFでも探す「◯◯」は？",
+      "answerYakuId": "flag",
+      "decoyYakuIds": ["hack", "spam", "code"]
+    },
+    {
+      "id": "q_code",
+      "question": "プログラムのソース。`</>` で表される、開発の中身は？（7揃い・BIG）",
+      "answerYakuId": "code",
+      "decoyYakuIds": ["shell", "reg", "flag"]
     },
     {
       "id": "q_shell",
-      "question": "【プレミアム】OS にコマンドを直接打てる対話的環境は？",
+      "question": "コマンドを打ち込んでOSを操作する、ターミナルの対話環境は？（バー揃い・BIG）",
       "answerYakuId": "shell",
-      "decoyYakuIds": ["hack", "trojan", "spam"]
+      "decoyYakuIds": ["code", "reg", "memori"]
+    },
+    {
+      "id": "q_reg",
+      "question": "電話や関数の呼び出し。コードの「コ・ー」＋シェルの「ル」の役は？（RB）",
+      "answerYakuId": "reg",
+      "decoyYakuIds": ["code", "shell", "hack"]
     }
   ]
 }
