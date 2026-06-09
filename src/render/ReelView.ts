@@ -53,10 +53,10 @@ const TILE_STYLES: Record<SymbolTier, TileStyle> = {
  * 画像自体に枠が描かれているので控えめに差をつける（強い柄ほど大きく＝デカい）。
  */
 const SPRITE_SCALE: Record<SymbolTier, number> = {
-  premium: 1.0,
-  bonus: 0.94,
-  core: 0.86,
-  filler: 0.74,
+  premium: 1.0, // 枠つき・セルいっぱい
+  bonus: 0.9, // 枠つき・やや大
+  core: 0.78, // フチなし・一回り小（強弱を size でしっかり区別）
+  filler: 0.66,
 };
 
 const VIEW_HEIGHT = CELL_HEIGHT * VISIBLE_CELLS;
