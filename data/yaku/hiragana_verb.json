@@ -3,7 +3,8 @@
   "coreYaku": [
     { "id": "utau", "name": "うたう", "symbols": ["う", "た", "う"], "category": "core" },
     { "id": "asobu", "name": "あそぶ", "symbols": ["あ", "そ", "ぶ"], "category": "core" },
-    { "id": "oyogu", "name": "およぐ", "symbols": ["お", "よ", "ぐ"], "category": "core" }
+    { "id": "oyogu", "name": "およぐ", "symbols": ["お", "よ", "ぐ"], "category": "core" },
+    { "id": "hanasu", "name": "はなす", "symbols": ["は", "な", "す"], "category": "core" }
   ],
   "cherryYaku": [
     { "id": "neru", "name": "ねる", "symbols": ["ね", "る"], "category": "cherry" }

@@ -22,7 +22,8 @@ ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 REEL_LEN = 21
 SPECIAL_COUNT = 2   # 7図柄・バー図柄の枚数
 CHERRY_COUNT = 2    # チェリーの枚数
-SMALL_COUNT = 4     # ぶどう以外の小役の枚数
+# coreYaku の並び順ごとの枚数（[0]=ぶどう相当=残り総取り, 以降=2番手4 / ベル3 / ピエロ2…）
+SMALL_COUNTS = [None, 4, 3, 2, 2]
 MIN_SPECIAL_GAP = 6  # 同じボーナス図柄をリング上で離す最小間隔
 
 
@@ -42,8 +43,9 @@ def claimed_per_reel(data):
     return reels
 
 
-def counts_for_reel(claim, grape_id):
-    """symbol -> 枚数（合計 REEL_LEN）。grape(最頻小役)が残りを総取り。"""
+def counts_for_reel(claim, core_count_by_id):
+    """symbol -> 枚数（合計 REEL_LEN）。grape(最頻小役)が残りを総取り。
+    core_count_by_id: 役id -> 固定枚数（grape は None で残り総取り）。"""
     counts = {}
     grape_syms = []
     fixed = 0
@@ -54,14 +56,16 @@ def counts_for_reel(claim, grape_id):
         elif cat == "cherry":
             counts[s] = CHERRY_COUNT
             fixed += CHERRY_COUNT
-        elif cat == "core" and yid == grape_id:
-            grape_syms.append(s)  # 後で残りを割当
         elif cat == "core":
-            counts[s] = SMALL_COUNT
-            fixed += SMALL_COUNT
+            c = core_count_by_id.get(yid, 2)
+            if c is None:
+                grape_syms.append(s)  # 後で残りを割当
+            else:
+                counts[s] = c
+                fixed += c
         else:  # bonus 等（通常は全借用で出てこない）
-            counts[s] = SMALL_COUNT
-            fixed += SMALL_COUNT
+            counts[s] = 2
+            fixed += 2
     remain = REEL_LEN - fixed
     if grape_syms:
         # grape が残りを総取り（複数あれば均等）
@@ -156,12 +160,17 @@ def main():
         sys.exit("usage: build_chapter_reels.py <章id>")
     chapter = sys.argv[1]
     data = json.load(open(os.path.join(ROOT, "data/yaku", f"{chapter}.json")))
-    grape_id = data["coreYaku"][0]["id"] if data["coreYaku"] else None
+    # coreYaku の並び順で枚数を割当（[0]=ぶどう=None=残り総取り、以降 SMALL_COUNTS）
+    core_count_by_id = {}
+    for i, yk in enumerate(data["coreYaku"]):
+        core_count_by_id[yk["id"]] = (
+            SMALL_COUNTS[i] if i < len(SMALL_COUNTS) else 2
+        )
     claims = claimed_per_reel(data)
 
     reels = []
     for ridx, (rid, claim) in enumerate(zip(("left", "middle", "right"), claims)):
-        counts = counts_for_reel(claim, grape_id)
+        counts = counts_for_reel(claim, core_count_by_id)
         specials = [s for s, (c, _) in claim.items() if c == "premium"]
         cherry = next((s for s, (c, _) in claim.items() if c == "cherry"), None)
         seq, seed = build(counts, specials, cherry, ridx)

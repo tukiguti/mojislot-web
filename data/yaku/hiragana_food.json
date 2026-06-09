@@ -2,8 +2,9 @@
   "mode": "hiragana_food",
   "coreYaku": [
     { "id": "budou", "name": "ぶどう", "symbols": ["ぶ", "ど", "う"], "category": "core" },
+    { "id": "ocha", "name": "おちゃ", "symbols": ["お", "ち", "ゃ"], "category": "core" },
     { "id": "dango", "name": "だんご", "symbols": ["だ", "ん", "ご"], "category": "core" },
-    { "id": "ocha", "name": "おちゃ", "symbols": ["お", "ち", "ゃ"], "category": "core" }
+    { "id": "mikan", "name": "みかん", "symbols": ["み", "か", "ん"], "category": "core" }
   ],
   "cherryYaku": [
     { "id": "nasu", "name": "ナス", "symbols": ["な", "す"], "category": "cherry" }
