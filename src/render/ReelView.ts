@@ -78,6 +78,11 @@ export class ReelView {
   private readonly cellSprites: (Sprite | null)[] = [];
   /** 各スプライトの基準スケール（ハイライトのスケール演出から戻す用） */
   private readonly cellSpriteBaseScale: number[] = [];
+  /** 各スプライトの文字なし/文字ありテクスチャ（設定トグルで差し替え） */
+  private readonly cellSpritePlainTex: (Texture | null)[] = [];
+  private readonly cellSpriteGlyphTex: (Texture | null)[] = [];
+  /** リールに文字を表示するか（既定 false＝図柄のみ） */
+  private showGlyphs = false;
   /** ハイライト中にスプライトセルへ重ねる色枠グロー（解除時に除去） */
   private readonly cellGlows: (Graphics | null)[] = [];
   /** 各セルの本来の色（ハイライト解除時に戻す用） */
@@ -105,7 +110,10 @@ export class ReelView {
     private readonly engine: ReelEngine,
     private readonly colorForSymbol: SymbolColorFn,
     private readonly tierForSymbol: SymbolTierFn = () => 'core',
+    // 既定表示（文字なし＝図柄のみ）
     private readonly textureForSymbol: SymbolTextureFn = () => null,
+    // 設定ON時の表示（文字あり）
+    private readonly textureGlyphForSymbol: SymbolTextureFn = () => null,
   ) {
     this.container = new Container();
 
@@ -136,11 +144,12 @@ export class ReelView {
       const tier = this.tierForSymbol(symbol);
       const style = TILE_STYLES[tier];
       const originalColor = this.colorForSymbol(symbol);
-      const texture = this.textureForSymbol(symbol);
+      const texture = this.textureForSymbol(symbol); // 既定＝文字なし
+      const glyphTexture = this.textureGlyphForSymbol(symbol); // 設定ON＝文字あり
 
       if (texture) {
-        // 図柄画像モード：文字込みの合成タイルをスプライトで表示
-        const sprite = new Sprite(texture);
+        // 図柄画像モード：既定は文字なし版を表示（設定でテクスチャを差し替え）
+        const sprite = new Sprite(this.showGlyphs && glyphTexture ? glyphTexture : texture);
         sprite.anchor.set(0.5);
         // セル(CELL_WIDTH×CELL_HEIGHT)に収め、強さ階層で控えめに大小をつける
         const fit = Math.min(
@@ -154,6 +163,8 @@ export class ReelView {
         cell.addChild(sprite);
         this.cellSprites.push(sprite);
         this.cellSpriteBaseScale.push(scale);
+        this.cellSpritePlainTex.push(texture);
+        this.cellSpriteGlyphTex.push(glyphTexture);
         this.cellTiles.push(null);
       } else {
         // 従来モード：色タイル＋文字（強さ階層でサイズ・縁飾り・文字サイズ可変）
@@ -163,6 +174,8 @@ export class ReelView {
         this.cellTiles.push(tile);
         this.cellSprites.push(null);
         this.cellSpriteBaseScale.push(0);
+        this.cellSpritePlainTex.push(null);
+        this.cellSpriteGlyphTex.push(null);
 
         const text = new Text({
           text: symbol,
@@ -275,6 +288,22 @@ export class ReelView {
     this.centerGlowDuration = durMs;
     this.centerGlowAlpha = 0.55;
     this.centerGlow.alpha = this.centerGlowAlpha;
+  }
+
+  /**
+   * リールに文字を表示するか切り替える。
+   * true=文字あり版テクスチャ / false=図柄のみ（既定）。スプライトのテクスチャを差し替える。
+   */
+  setShowGlyphs(show: boolean): void {
+    this.showGlyphs = show;
+    for (let i = 0; i < this.cellSprites.length; i++) {
+      const sp = this.cellSprites[i];
+      if (!sp) continue;
+      const glyph = this.cellSpriteGlyphTex[i];
+      const plain = this.cellSpritePlainTex[i];
+      const next = show && glyph ? glyph : plain;
+      if (next) sp.texture = next;
+    }
   }
 
   /** STOP 押下後の停止バウンス（軽い縦振動） */

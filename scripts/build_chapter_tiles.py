@@ -54,8 +54,11 @@ def main():
             # ループに入ってこない（=アート不要）。実際に合成する時だけ存在を要求。
             if not os.path.exists(art):
                 sys.exit(f"missing art: {art} (役 {yaku['id']} の {sym} 用)")
-            out = os.path.join(out_dir, f"{yaku['id']}_{r}.webp")
-            compose(art, sym, FONT, FONT_INDEX, out)
+            base = os.path.join(out_dir, f"{yaku['id']}_{r}")
+            # 文字あり版（設定ONの表示・右パネル用）
+            compose(art, sym, FONT, FONT_INDEX, base + ".webp")
+            # 文字なし版＝図柄のみ（リールのデフォルト表示）
+            compose(art, "", FONT, FONT_INDEX, base + "_plain.webp")
             count += 1
     print(f"{count} tiles -> {out_dir}")
 

@@ -58,6 +58,12 @@ def compose(art_path, glyph, font_path, font_index, out_path, zoom=1.0):
         art = art.crop((x, y, x + cw, y + ch))
     art = art.resize((CELL_W, CELL_H), Image.LANCZOS)
 
+    # glyph が空なら「文字なし版」＝図柄のみ（ビネットも入れない）
+    if not glyph:
+        art.convert("RGB").save(out_path, "WEBP", quality=92, method=6)
+        print("saved (no glyph)", out_path)
+        return
+
     # 中央を少し暗く落として文字を浮かせる
     art = Image.alpha_composite(art, center_vignette((CELL_W, CELL_H)))
 

@@ -262,9 +262,10 @@ async function bootstrap() {
     'yasai',
     'hiragana_verb',
   ]);
-  const ART_VER = '3';
-  const symbolTileUrls = new Map<string, string>(); // 右パネル用（クエリ無しの素URL）
-  const symbolTextures = new Map<string, Texture>();
+  const ART_VER = '4';
+  const symbolTileUrls = new Map<string, string>(); // 右パネル用（文字あり版の素URL）
+  const symbolTextures = new Map<string, Texture>(); // 文字あり版（設定ON）
+  const symbolTexturesPlain = new Map<string, Texture>(); // 文字なし版＝図柄のみ（既定）
   if (CHAPTERS_WITH_SYMBOL_ART.has(chapterId)) {
     const orderedForArt = [
       ...yakuList.premiumYaku,
@@ -285,14 +286,20 @@ async function bootstrap() {
       }
     }
     try {
-      const uniqueUrls = [...new Set(symbolTileUrls.values())];
-      await Promise.all(uniqueUrls.map((u) => Assets.load(`${u}?v=${ART_VER}`)));
+      const glyphUrls = [...new Set(symbolTileUrls.values())];
+      const plainUrls = glyphUrls.map((u) => u.replace(/\.webp$/, '_plain.webp'));
+      await Promise.all(
+        [...glyphUrls, ...plainUrls].map((u) => Assets.load(`${u}?v=${ART_VER}`)),
+      );
       for (const [key, url] of symbolTileUrls) {
         symbolTextures.set(key, Assets.get(`${url}?v=${ART_VER}`) as Texture);
+        const plain = url.replace(/\.webp$/, '_plain.webp');
+        symbolTexturesPlain.set(key, Assets.get(`${plain}?v=${ART_VER}`) as Texture);
       }
     } catch (err) {
       console.warn('図柄画像の読み込みに失敗。色タイルにフォールバックします', err);
       symbolTextures.clear();
+      symbolTexturesPlain.clear();
     }
   }
   const tileUrlWithVer = (reelIdx: number, symbol: string): string | null => {
@@ -307,6 +314,8 @@ async function bootstrap() {
       engine,
       (symbol) => colorResolver.colorFor(reelIdx, symbol),
       (symbol) => colorResolver.tierFor(reelIdx, symbol),
+      // 既定は文字なし版（図柄のみ）。設定ONで文字あり版に差し替え
+      (symbol) => symbolTexturesPlain.get(`${reelIdx}:${symbol}`) ?? null,
       (symbol) => symbolTextures.get(`${reelIdx}:${symbol}`) ?? null,
     );
     view.container.x = startX + i * (CELL_WIDTH + REEL_GAP);
@@ -315,6 +324,16 @@ async function bootstrap() {
     engines.push(engine);
     views.push(view);
   }
+
+  // リール文字表示トグル（既定OFF＝図柄のみ／設定でON）。localStorage に永続化。
+  const REEL_GLYPHS_KEY = 'reelShowGlyphs';
+  const applyReelGlyphs = (show: boolean) => {
+    localStorage.setItem(REEL_GLYPHS_KEY, show ? '1' : '0');
+    for (const v of views) v.setShowGlyphs(show);
+  };
+  const initialReelGlyphs = localStorage.getItem(REEL_GLYPHS_KEY) === '1';
+  applyReelGlyphs(initialReelGlyphs);
+  settingsOverlay.setReelGlyphsControl(initialReelGlyphs, applyReelGlyphs);
 
   // ペイラインインジケーター（リール両脇外側に配置・ジャグラー風）
   const reelHeight = CELL_HEIGHT * VISIBLE_CELLS;
