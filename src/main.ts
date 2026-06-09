@@ -259,6 +259,7 @@ async function bootstrap() {
   const CHAPTERS_WITH_SYMBOL_ART = new Set<string>([
     'hiragana_food',
     'katakana_animal',
+    'yasai',
   ]);
   const ART_VER = '3';
   const symbolTileUrls = new Map<string, string>(); // 右パネル用（クエリ無しの素URL）
