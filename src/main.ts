@@ -389,12 +389,6 @@ async function bootstrap() {
   );
   const resultEl = requireEl('result-display');
   const zukanBtn = requireEl<HTMLButtonElement>('zukan-btn');
-  const bitaBadges = [
-    requireEl('bita-0'),
-    requireEl('bita-1'),
-    requireEl('bita-2'),
-  ];
-  const bitaTimers: (number | null)[] = [null, null, null];
   const bonusStatusEl = requireEl('bonus-status');
   const cabinetEl = requireEl('cabinet');
   const muteBtn = requireEl<HTMLButtonElement>('mute-btn');
@@ -803,7 +797,6 @@ async function bootstrap() {
     for (const v of views) v.stopTenpaiFlash();
     hideAimNotice();
     quizState.reset();
-    clearAllBitaBadges();
     applyEffect('none');
     // AUTO の狙い状態もクリア
     autoTargetYaku = null;
@@ -821,43 +814,10 @@ async function bootstrap() {
 
   // ビタ押し判定の閾値（ms）— 1コマ50ms（速度20）の1/4で12msに厳格化
   const BITA_MS = 12;
-  const NEAR_MS = 22;
 
   // 各リールの直近押下の精度＆滑り量（役成立時にビタ集計するため）
   const lastPressErrorMs: number[] = Array(REEL_COUNT).fill(Infinity);
   const lastSlipCells: number[] = Array(REEL_COUNT).fill(0);
-
-  const showBitaBadge = (idx: number, errorMs: number) => {
-    const badge = bitaBadges[idx];
-    badge.className = 'bita-badge show';
-    if (errorMs <= BITA_MS) {
-      badge.classList.add('bita');
-      badge.textContent = `ビタ！ ${Math.round(errorMs)}ms`;
-    } else if (errorMs <= NEAR_MS) {
-      badge.classList.add('near');
-      badge.textContent = `±${Math.round(errorMs)}ms`;
-    } else {
-      badge.classList.add('far');
-      badge.textContent = `±${Math.round(errorMs)}ms`;
-    }
-    if (bitaTimers[idx] !== null) window.clearTimeout(bitaTimers[idx]!);
-    bitaTimers[idx] = window.setTimeout(() => {
-      badge.className = 'bita-badge';
-      badge.textContent = '';
-      bitaTimers[idx] = null;
-    }, 1500);
-  };
-
-  const clearAllBitaBadges = () => {
-    bitaBadges.forEach((b, i) => {
-      b.className = 'bita-badge';
-      b.textContent = '';
-      if (bitaTimers[i] !== null) {
-        window.clearTimeout(bitaTimers[i]!);
-        bitaTimers[i] = null;
-      }
-    });
-  };
 
   const placeBet = () => {
     if (betBtn.disabled) return;
@@ -943,7 +903,6 @@ async function bootstrap() {
         : 0;
 
     const result = engine.stop(timestamp, slipCells);
-    showBitaBadge(idx, result.errorMs);
     // 押下の精度情報を保存（役成立時の bita 集計で参照）
     lastPressErrorMs[idx] = result.errorMs;
     lastSlipCells[idx] = slipCells;

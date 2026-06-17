@@ -1196,47 +1196,6 @@ body.shake {
   gap: 4px;
 }
 
-.bita-badge {
-  min-width: 52px;
-  height: 16px;
-  padding: 1px 5px;
-  font-size: 9px;
-  font-weight: bold;
-  letter-spacing: 1px;
-  border-radius: 4px;
-  text-align: center;
-  line-height: 13px;
-  opacity: 0;
-  transform: translateY(4px);
-  transition:
-    opacity 0.15s ease,
-    transform 0.15s ease;
-}
-
-.bita-badge.show {
-  opacity: 1;
-  transform: translateY(0);
-}
-
-.bita-badge.bita {
-  color: #fff;
-  background: linear-gradient(180deg, #2ecc71 0%, #1ea25b 100%);
-  border: 1px solid #aaffaa;
-  box-shadow: 0 0 10px rgba(46, 204, 113, 0.7);
-}
-
-.bita-badge.near {
-  color: #1a1a00;
-  background: linear-gradient(180deg, #ffd54a 0%, #d9a900 100%);
-  border: 1px solid #ffe680;
-}
-
-.bita-badge.far {
-  color: #fff;
-  background: linear-gradient(180deg, #7a4a4a 0%, #4a2424 100%);
-  border: 1px solid #aa6666;
-}
-
 .stop-btn {
   width: 61px;
   height: 40px;
@@ -2556,12 +2515,6 @@ body.shake {
   .ctrl-row {
     gap: 10px;
   }
-  .bita-badge {
-    min-width: 48px;
-    height: 16px;
-    font-size: 9px;
-    line-height: 13px;
-  }
   #key-hint {
     display: none; /* スマホ・タブレットではキーボード操作しないので */
   }
@@ -2683,12 +2636,6 @@ body.shake {
   }
   .ctrl-row.stop-row {
     gap: 10px;
-  }
-  .bita-badge {
-    min-width: 60px;
-    height: 18px;
-    font-size: 9px;
-    line-height: 14px;
   }
   #bet-btn::after,
   #lever-btn::after,
