@@ -53,8 +53,8 @@ tests/               # Vitest によるユニットテスト
 
 ## 企画ドキュメント
 
-詳細な設計は `zikken/playground/japanese-slot-plan/` で管理：
-https://github.com/tukiguti/zikken/tree/main/playground/japanese-slot-plan
+詳細な設計は `zikken/playground/mojislot-plan/` で管理：
+https://github.com/tukiguti/zikken/tree/main/playground/mojislot-plan
 
 ## ライセンス
 
