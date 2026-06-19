@@ -88,6 +88,23 @@
       <div class="strip-hint">停止時に中央セルをハイライトします</div>
     </aside>
 
+    <aside id="unit-panel">
+      <div class="unit-head">UNIT</div>
+      <div class="unit-readout">
+        <span class="unit-readout-label">持メダル</span>
+        <span class="unit-readout-num" id="unit-medal">0</span>
+      </div>
+      <div class="unit-slot" aria-hidden="true"></div>
+      <div class="unit-lend-label">メダル貸出</div>
+      <div class="unit-lend-buttons">
+        <button class="coin-add" data-amount="100" type="button">＋100</button>
+        <button class="coin-add" data-amount="500" type="button">＋500</button>
+        <button class="coin-add" data-amount="1000" type="button">＋1000</button>
+        <button class="coin-add" data-amount="5000" type="button">＋5000</button>
+      </div>
+      <div class="unit-hint">貸出＝コイン補充</div>
+    </aside>
+
     <script type="module" src="/src/main.ts"></script>
   </body>
 </html>

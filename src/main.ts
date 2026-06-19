@@ -536,6 +536,24 @@ async function bootstrap() {
   updateCoinWarning(displayedCoin);
   wallet.coins.subscribe(animateCoinTo);
 
+  // サンド（ユニット）：持メダル表示＋メダル貸出（コイン補充）。設定から移設。
+  const unitMedalEl = document.getElementById('unit-medal');
+  if (unitMedalEl) {
+    const setMedal = (n: number) => {
+      unitMedalEl.textContent = String(n);
+    };
+    setMedal(wallet.coins.get());
+    wallet.coins.subscribe(setMedal);
+  }
+  for (const btn of document.querySelectorAll<HTMLButtonElement>(
+    '#unit-panel .coin-add',
+  )) {
+    btn.addEventListener('click', () => {
+      const n = Number(btn.dataset.amount ?? '0');
+      if (n > 0) wallet.win(n);
+    });
+  }
+
   // === 隠し章解除：Coin 表示を 20 回クリックで unlock ===
   let secretClickCount = 0;
   let secretClickTimer: number | null = null;
