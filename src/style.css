@@ -28,6 +28,8 @@
   --reel-panel-w: 240px;
   --reel-gap: 16px;
   --header-h: 44px;
+  /* マストヘッド（ロゴ＋電飾）の薄い帯 */
+  --masthead-h: 28px;
   /* ボタンエリア（帯）の高さ。ボタン自体は 0.8 倍で、帯はそれを 0.8 比率で収める高さ。 */
   --control-h: 176px;
   /* 横幅から差し引く reel-strip-panel 占有。狭画面では 0 にして縦並びへ */
@@ -37,13 +39,13 @@
     min(
       440px,
       calc(
-        (100vh - var(--layout-pad) * 2 - var(--header-h) - var(--control-h)) / 1.22
+        (100vh - var(--layout-pad) * 2 - var(--masthead-h) - var(--header-h) - var(--control-h)) / 1.22
       ),
       calc(100vw - var(--layout-pad) * 2 - var(--reel-panel-occupy))
     )
   );
   --game-h: calc(var(--game-w) * 1.22);
-  --cabinet-h: calc(var(--game-h) + var(--header-h) + var(--control-h));
+  --cabinet-h: calc(var(--game-h) + var(--masthead-h) + var(--header-h) + var(--control-h));
 }
 
 * {
@@ -191,7 +193,7 @@ body.has-chapter-bg {
 
 #cabinet {
   display: grid;
-  grid-template-rows: var(--header-h) var(--game-h) var(--control-h);
+  grid-template-rows: var(--masthead-h) var(--header-h) var(--game-h) var(--control-h);
   width: var(--game-w);
   height: var(--cabinet-h);
   background: linear-gradient(180deg, var(--bg-panel-hi) 0%, var(--bg-panel-lo) 100%);
@@ -206,6 +208,48 @@ body.has-chapter-bg {
     0 0 22px rgba(92, 46, 142, 0.4);
   overflow: hidden;
   position: relative;
+}
+
+/* === マストヘッド（ロゴ＋控えめマーキー電飾＝署名）=== */
+#masthead {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+  background: linear-gradient(180deg, #20122f 0%, var(--bg-void) 100%);
+  border-bottom: 1px solid var(--chrome-dk);
+  overflow: hidden;
+}
+/* 上縁の豆電球列：暗めの金＋マゼンタ環の点を等間隔に。淡いグローで控えめに灯す */
+#masthead::before {
+  content: '';
+  position: absolute;
+  top: 4px;
+  left: 12px;
+  right: 12px;
+  height: 4px;
+  background-image: radial-gradient(
+    circle at center,
+    var(--gold-hi) 0 1.1px,
+    rgba(224, 53, 155, 0.4) 1.1px 2.2px,
+    transparent 2.4px
+  );
+  background-size: 15px 4px;
+  background-repeat: repeat-x;
+  background-position: center;
+  opacity: 0.5;
+  filter: drop-shadow(0 0 2px rgba(224, 53, 155, 0.5));
+}
+#masthead .mark {
+  font-family: 'Bungee', system-ui, sans-serif;
+  font-size: 15px;
+  letter-spacing: 2px;
+  color: var(--gold);
+  text-shadow:
+    0 0 1px var(--gold-hi),
+    0 0 6px rgba(224, 53, 155, 0.45);
+  margin-top: 3px; /* 電飾列のぶん下げる */
+  user-select: none;
 }
 
 /* === ヘッダー === */
