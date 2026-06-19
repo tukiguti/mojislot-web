@@ -68,16 +68,6 @@ export class SettingsOverlay {
           <div class="zukan-chapters-list">${chapterButtons}</div>
         </div>
         <div class="settings-section">
-          <div class="settings-section-label">コインを追加</div>
-          <div class="settings-section-hint">プレイ用のコインをここから補充できます</div>
-          <div class="coin-add-buttons">
-            <button class="coin-add" data-amount="100" type="button">+100</button>
-            <button class="coin-add" data-amount="500" type="button">+500</button>
-            <button class="coin-add" data-amount="1000" type="button">+1000</button>
-            <button class="coin-add" data-amount="5000" type="button">+5000</button>
-          </div>
-        </div>
-        <div class="settings-section">
           <div class="settings-section-label">ミッション</div>
           <label class="toggle-row">
             <span class="toggle-text">
@@ -124,15 +114,7 @@ export class SettingsOverlay {
       </div>
     `;
 
-    // コイン追加ボタンの配線
-    const coinAddBtns =
-      this.root.querySelectorAll<HTMLButtonElement>('.coin-add');
-    coinAddBtns.forEach((btn) => {
-      btn.addEventListener('click', () => {
-        const n = Number(btn.dataset.amount ?? '0');
-        if (n > 0) this.wallet.win(n);
-      });
-    });
+    // コイン追加（メダル貸出）は右のサンド（#unit-panel）へ移設。main.ts で配線。
 
     const closeBtn = this.root.querySelector<HTMLButtonElement>('.settings-close')!;
     closeBtn.addEventListener('click', () => this.close());
