@@ -513,7 +513,7 @@ async function bootstrap() {
     const start = displayedCoin;
     const diff = target - start;
     if (diff === 0) {
-      coinEl.textContent = `Coin: ${target}`;
+      coinEl.textContent = `MEDAL ${target}`;
       return;
     }
     const durMs = Math.min(900, 200 + Math.abs(diff) * 8);
@@ -522,7 +522,7 @@ async function bootstrap() {
       const t = Math.min(1, (now - startTime) / durMs);
       const eased = 1 - Math.pow(1 - t, 3);
       displayedCoin = Math.round(start + diff * eased);
-      coinEl.textContent = `Coin: ${displayedCoin}`;
+      coinEl.textContent = `MEDAL ${displayedCoin}`;
       if (t < 1) {
         coinAnimRaf = requestAnimationFrame(step);
       } else {
@@ -532,7 +532,7 @@ async function bootstrap() {
     };
     coinAnimRaf = requestAnimationFrame(step);
   };
-  coinEl.textContent = `Coin: ${displayedCoin}`;
+  coinEl.textContent = `MEDAL ${displayedCoin}`;
   updateCoinWarning(displayedCoin);
   wallet.coins.subscribe(animateCoinTo);
 

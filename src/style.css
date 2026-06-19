@@ -78,6 +78,7 @@ body {
   display: flex;
   justify-content: center;
   align-items: flex-start;
+  flex-wrap: wrap; /* 狭画面でサンド等が筐体の下へ回り込めるように */
   min-height: 100vh;
   padding: var(--layout-pad);
   gap: var(--reel-gap);
@@ -368,9 +369,18 @@ body.has-chapter-bg {
   white-space: nowrap;
 }
 
+/* ヘッダー左：持メダル数のデジタルメーター（スマスロ表示部） */
 #coin-display {
-  color: var(--gold);
+  color: var(--gold-hi);
   text-align: left;
+  font-family: ui-monospace, 'SFMono-Regular', monospace;
+  font-weight: 700;
+  letter-spacing: 1px;
+  padding: 3px 9px;
+  background: #07040c;
+  border: 1px solid #2a2336;
+  border-radius: 5px;
+  text-shadow: 0 0 5px rgba(242, 179, 60, 0.45);
 }
 
 #bet-display {
@@ -2661,6 +2671,44 @@ body.shake {
   /* 配列パネルを開くボタンを表示 */
   #reel-strip-btn {
     display: inline-block;
+  }
+
+  /* サンド（ユニット）は狭画面では筐体の下に横帯で回す（貸出を押せるように） */
+  #unit-panel {
+    width: var(--game-w);
+    max-height: none;
+    flex-direction: row;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    padding: 8px 10px;
+  }
+  #unit-panel .unit-head,
+  #unit-panel .unit-slot,
+  #unit-panel .unit-hint {
+    display: none;
+  }
+  #unit-panel .unit-readout {
+    flex-direction: row;
+    align-items: center;
+    gap: 6px;
+    padding: 4px 8px;
+  }
+  #unit-panel .unit-readout-num {
+    font-size: 16px;
+  }
+  #unit-panel .unit-lend-label {
+    width: 100%;
+  }
+  #unit-panel .unit-lend-buttons {
+    flex-direction: row;
+    flex: 1 1 auto;
+    min-width: 0;
+  }
+  #unit-panel .unit-lend-buttons .coin-add {
+    flex: 1;
+    padding: 8px 4px;
   }
 
   /* ヘッダー詰め */
