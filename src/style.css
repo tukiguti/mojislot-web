@@ -1330,6 +1330,34 @@ body.shake {
   padding: 7px 12px 5px;
   background: linear-gradient(180deg, var(--bg-panel-hi) 0%, var(--bg-void) 100%);
   border-top: none;
+  position: relative; /* 左右のスピーカーグリル(疑似要素)の基準 */
+}
+
+/* ⑤ スピーカーグリル＝「音の台(ビタ押し＝リズム)」を明示。
+   ロゴはマストヘッド既出なので下段に第二ロゴは置かず、操作部の左右にグリルのみ。 */
+#control-panel::before,
+#control-panel::after {
+  content: '';
+  position: absolute;
+  top: 12px;
+  bottom: 10px;
+  width: 58px;
+  border-radius: 8px;
+  background-color: #0a0610;
+  background-image: radial-gradient(circle, #332a42 0 1.8px, transparent 2.1px);
+  background-size: 8px 8px;
+  border: 1px solid var(--chrome-dk);
+  box-shadow:
+    inset 0 0 10px rgba(0, 0, 0, 0.85),
+    inset 0 1px 0 rgba(255, 255, 255, 0.05);
+  pointer-events: none;
+  opacity: 0.92;
+}
+#control-panel::before {
+  left: 12px;
+}
+#control-panel::after {
+  right: 12px;
 }
 
 .ctrl-row {
@@ -2736,6 +2764,11 @@ body.shake {
   #control-panel {
     gap: 5px;
     padding: 6px 10px 5px;
+  }
+  /* 狭画面はボタンと重なるのでスピーカーグリルを隠す */
+  #control-panel::before,
+  #control-panel::after {
+    display: none;
   }
   #bet-btn,
   #lever-btn {
