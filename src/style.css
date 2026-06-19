@@ -1,7 +1,21 @@
 :root {
   font-family: system-ui, 'Hiragino Sans', 'Yu Gothic', sans-serif;
-  color: #fff;
-  background: #050505;
+
+  /* === デザイントークン（18_cabinet-design.md・クローム×紫×金）=== */
+  --bg-void: #140a22;       /* 深いオーベルジュ黒（筐体まわり） */
+  --bg-panel-hi: #241433;   /* 成形パネル上端 */
+  --bg-panel-lo: #160b26;   /* 成形パネル下端 */
+  --royal: #5c2e8e;         /* ロイヤルパープル（面・フレーム） */
+  --magenta: #e0359b;       /* ホットマゼンタ（電飾グロー・署名用） */
+  --gold: #f2b33c;          /* ウォームゴールド（縁・文字） */
+  --gold-hi: #ffe39a;       /* 金ハイライト */
+  --vermilion: #d94a2f;     /* 朱（STOP/警告の一点のみ） */
+  --chrome: #c7c9d1;        /* メタル明 */
+  --chrome-dk: #6b6e7a;     /* メタル暗 */
+  --ivory: #f3e9d6;         /* 暗地の文字 */
+
+  color: var(--ivory);
+  background: var(--bg-void);
 
   /* === レイアウト寸法（ビューポートに収める） ===
    * メイン液晶は縦長（約 1:1.22、Pixi 内部 600x732）。演出液晶1.3 : リール0.9 を canvas 内で配分。
@@ -80,7 +94,7 @@ body.has-chapter-bg {
   max-height: var(--cabinet-h);
   padding: 14px 14px 12px;
   background: linear-gradient(180deg, #1a1a1a 0%, #0d0d0d 100%);
-  border: 2px solid #ffd700;
+  border: 2px solid var(--gold);
   border-radius: 10px;
   box-shadow:
     0 0 20px rgba(255, 215, 0, 0.25),
@@ -94,10 +108,10 @@ body.has-chapter-bg {
 
 #reel-strip-panel h3 {
   font-size: 14px;
-  color: #ffd700;
+  color: var(--gold);
   letter-spacing: 3px;
   text-align: center;
-  border-bottom: 1px solid #ffd700;
+  border-bottom: 1px solid var(--gold);
   padding-bottom: 6px;
 }
 
@@ -160,8 +174,8 @@ body.has-chapter-bg {
 
 #reel-strip-panel .strip-cell.current {
   /* タイル背景色は活かしつつ、外側に金色のリングで強調 */
-  border-color: #ffd700;
-  outline: 2px solid #ffd700;
+  border-color: var(--gold);
+  outline: 2px solid var(--gold);
   outline-offset: -1px;
   box-shadow:
     0 0 8px rgba(255, 215, 0, 0.75),
@@ -180,12 +194,16 @@ body.has-chapter-bg {
   grid-template-rows: var(--header-h) var(--game-h) var(--control-h);
   width: var(--game-w);
   height: var(--cabinet-h);
-  background: linear-gradient(180deg, #1a1a1a 0%, #0d0d0d 100%);
-  border: 3px solid #ffd700;
+  background: linear-gradient(180deg, var(--bg-panel-hi) 0%, var(--bg-panel-lo) 100%);
   border-radius: 16px;
+  /* クローム＋紫＋金の彫刻ベゼル（控えめ＝強い金グローは廃止し、立体感で見せる） */
+  border: 2px solid var(--chrome-dk);
   box-shadow:
-    0 0 40px rgba(255, 215, 0, 0.35),
-    inset 0 0 0 2px #2a2a2a;
+    inset 0 0 0 2px var(--royal),
+    inset 0 0 0 3px rgba(242, 179, 60, 0.35),
+    inset 0 2px 6px rgba(255, 255, 255, 0.08),
+    0 10px 30px rgba(0, 0, 0, 0.6),
+    0 0 22px rgba(92, 46, 142, 0.4);
   overflow: hidden;
   position: relative;
 }
@@ -197,8 +215,9 @@ body.has-chapter-bg {
   align-items: center;
   gap: 8px;
   padding: 0 12px;
-  background: rgba(0, 0, 0, 0.6);
-  border-bottom: 2px solid #ffd700;
+  background: linear-gradient(180deg, rgba(36, 20, 51, 0.9), rgba(20, 10, 34, 0.9));
+  border-bottom: 1px solid var(--chrome-dk);
+  box-shadow: inset 0 -1px 0 rgba(242, 179, 60, 0.3);
   font-size: 14px;
   font-weight: bold;
   letter-spacing: 1px;
@@ -206,12 +225,12 @@ body.has-chapter-bg {
 }
 
 #coin-display {
-  color: #ffd700;
+  color: var(--gold);
   text-align: left;
 }
 
 #bet-display {
-  color: #ffd700;
+  color: var(--gold);
   text-align: right;
   display: flex;
   align-items: center;
@@ -226,9 +245,9 @@ body.has-chapter-bg {
 #reel-strip-btn {
   padding: 3px 10px;
   font-size: 11px;
-  color: #ffd700;
+  color: var(--gold);
   background: rgba(255, 215, 0, 0.08);
-  border: 1px solid #ffd700;
+  border: 1px solid var(--gold);
   border-radius: 4px;
   cursor: pointer;
   font-family: inherit;
@@ -249,7 +268,7 @@ body.has-chapter-bg {
 
 #reel-strip-btn.on {
   color: #1a1100;
-  background: linear-gradient(180deg, #ffe566 0%, #ffd700 100%);
+  background: linear-gradient(180deg, #ffe566 0%, var(--gold) 100%);
 }
 
 /* リール配列パネル内の閉じるボタン（オーバーレイ表示時のみ） */
@@ -261,9 +280,9 @@ body.has-chapter-bg {
   width: 28px;
   height: 28px;
   font-size: 16px;
-  color: #ffd700;
+  color: var(--gold);
   background: rgba(0, 0, 0, 0.6);
-  border: 1px solid #ffd700;
+  border: 1px solid var(--gold);
   border-radius: 4px;
   cursor: pointer;
   font-family: inherit;
@@ -272,7 +291,7 @@ body.has-chapter-bg {
 
 #auto-btn.on {
   color: #1a1100;
-  background: linear-gradient(180deg, #ffe566 0%, #ffd700 100%);
+  background: linear-gradient(180deg, #ffe566 0%, var(--gold) 100%);
   box-shadow: 0 0 10px rgba(255, 215, 0, 0.8);
 }
 
@@ -316,7 +335,7 @@ body.has-chapter-bg {
   font-weight: bold;
   letter-spacing: 1.5px;
   color: #1a1100;
-  background: linear-gradient(180deg, #ffe566 0%, #ffd700 100%);
+  background: linear-gradient(180deg, #ffe566 0%, var(--gold) 100%);
   border: 1px solid #fff7aa;
   border-radius: 3px;
   box-shadow: 0 0 8px rgba(255, 215, 0, 0.7);
@@ -388,7 +407,7 @@ body.has-chapter-bg {
   min-width: 240px;
   padding: 12px 18px;
   background: linear-gradient(180deg, #2a1f10 0%, #1a1208 100%);
-  border: 2px solid #ffd700;
+  border: 2px solid var(--gold);
   border-radius: 8px;
   box-shadow:
     0 4px 18px rgba(0, 0, 0, 0.55),
@@ -413,7 +432,7 @@ body.has-chapter-bg {
 .mission-toast-label {
   font-size: 11px;
   letter-spacing: 2px;
-  color: #ffd700;
+  color: var(--gold);
   margin-bottom: 4px;
   font-weight: bold;
 }
@@ -456,7 +475,7 @@ body.has-chapter-bg {
 }
 
 .zukan-missions-header:hover {
-  color: #ffd700;
+  color: var(--gold);
 }
 
 .zukan-missions-label {
@@ -469,12 +488,12 @@ body.has-chapter-bg {
 }
 
 .zukan-missions-header:hover .zukan-missions-label {
-  color: #ffd700;
+  color: var(--gold);
 }
 
 .zukan-missions-progress {
   font-size: 11px;
-  color: #ffd700;
+  color: var(--gold);
   letter-spacing: 1px;
 }
 
@@ -506,7 +525,7 @@ body.has-chapter-bg {
 
 .mission-row.done {
   background: rgba(255, 215, 0, 0.12);
-  color: #ffd700;
+  color: var(--gold);
 }
 
 .mission-row .mission-title {
@@ -521,7 +540,7 @@ body.has-chapter-bg {
 
 .mission-row .mission-reward {
   font-size: 11px;
-  color: #ffd700;
+  color: var(--gold);
   text-align: right;
   white-space: nowrap;
   margin-left: 8px;
@@ -763,9 +782,9 @@ body.has-chapter-bg {
   transform: translate(-50%, -50%) scale(0.5);
   opacity: 0;
   background: linear-gradient(135deg, #2a0a4a 0%, #4a0a2a 100%);
-  color: #ffd700;
+  color: var(--gold);
   padding: 24px 40px;
-  border: 3px solid #ffd700;
+  border: 3px solid var(--gold);
   border-radius: 12px;
   font-size: 16px;
   font-weight: bold;
@@ -797,9 +816,9 @@ body.has-chapter-bg {
   padding: 10px 4px;
   font-size: 13px;
   font-weight: bold;
-  color: #ffd700;
+  color: var(--gold);
   background: linear-gradient(180deg, rgba(80, 60, 0, 0.8) 0%, rgba(40, 30, 0, 0.9) 100%);
-  border: 1px solid #ffd700;
+  border: 1px solid var(--gold);
   border-radius: 5px;
   cursor: pointer;
   font-family: inherit;
@@ -851,7 +870,7 @@ body.has-chapter-bg {
   font-size: 72px;
   font-weight: 900;
   letter-spacing: 8px;
-  background: linear-gradient(180deg, #fff7aa 0%, #ffd700 50%, #ff8800 100%);
+  background: linear-gradient(180deg, #fff7aa 0%, var(--gold) 50%, #ff8800 100%);
   -webkit-background-clip: text;
   background-clip: text;
   color: transparent;
@@ -898,7 +917,7 @@ body.has-chapter-bg {
   position: fixed;
   font-size: 20px;
   font-weight: bold;
-  color: #ffd700;
+  color: var(--gold);
   text-shadow:
     0 0 8px rgba(255, 215, 0, 0.95),
     0 0 16px rgba(255, 215, 0, 0.55);
@@ -1066,8 +1085,10 @@ body.shake {
 #game-area {
   position: relative;
   background: #000;
-  border-bottom: 2px solid #ffd700;
-  box-shadow: inset 0 -8px 16px rgba(0, 0, 0, 0.6);
+  border-bottom: 1px solid var(--chrome-dk);
+  box-shadow:
+    inset 0 -8px 16px rgba(0, 0, 0, 0.6),
+    inset 0 -1px 0 rgba(242, 179, 60, 0.25);
 }
 
 /* 演出液晶ホスト。全 DOM 演出（フラッシュ/紙吹雪/カットイン/キラキラ/HIT）を
@@ -1116,11 +1137,11 @@ body.shake {
   transform: translateX(-50%);
   padding: 10px 28px;
   background: rgba(0, 0, 0, 0.92);
-  border: 2px solid #ffd700;
+  border: 2px solid var(--gold);
   border-radius: 8px;
   font-size: 22px;
   font-weight: bold;
-  color: #ffd700;
+  color: var(--gold);
   white-space: nowrap;
   opacity: 0;
   transition: opacity 0.3s ease;
@@ -1139,9 +1160,9 @@ body.shake {
 
 #result-display.premium {
   background: rgba(220, 20, 60, 0.96);
-  border-color: #ffd700;
+  border-color: var(--gold);
   font-size: 28px;
-  color: #ffd700;
+  color: var(--gold);
 }
 
 /* === コントロールパネル === */
@@ -1153,8 +1174,8 @@ body.shake {
   gap: 6px;
   /* ボタン帯は縮小。液晶を主役に。ボタンは 0.8 倍まで詰める */
   padding: 7px 12px 5px;
-  background: linear-gradient(180deg, #1a1a1a 0%, #050505 100%);
-  border-top: 2px solid #ffd700;
+  background: linear-gradient(180deg, var(--bg-panel-hi) 0%, var(--bg-void) 100%);
+  border-top: none;
 }
 
 .ctrl-row {
@@ -1169,9 +1190,9 @@ body.shake {
   height: 37px;
   font-size: 13px;
   font-weight: bold;
-  color: #ffd700;
+  color: var(--gold);
   background: linear-gradient(180deg, #444 0%, #222 100%);
-  border: 2px solid #ffd700;
+  border: 2px solid var(--gold);
   border-radius: 6px;
   cursor: pointer;
   font-family: inherit;
@@ -1203,7 +1224,7 @@ body.shake {
   font-weight: bold;
   color: #fff;
   background: linear-gradient(180deg, #d00 0%, #800 100%);
-  border: 2px solid #ffd700;
+  border: 2px solid var(--gold);
   border-radius: 6px;
   cursor: pointer;
   font-family: inherit;
@@ -1384,7 +1405,7 @@ body.shake {
   max-height: 88vh;
   padding: 18px 22px;
   background: linear-gradient(180deg, #1a1612 0%, #0d0a08 100%);
-  border: 3px solid #ffd700;
+  border: 3px solid var(--gold);
   border-radius: 12px;
   box-shadow:
     0 0 32px rgba(255, 215, 0, 0.55),
@@ -1399,7 +1420,7 @@ body.shake {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  border-bottom: 2px solid #ffd700;
+  border-bottom: 2px solid var(--gold);
   padding-bottom: 8px;
   margin-bottom: 10px;
   /* モーダル本体がスクロールしてもヘッダー（×ボタン）を常に表示 */
@@ -1410,7 +1431,7 @@ body.shake {
 }
 
 .zukan-header h2 {
-  color: #ffd700;
+  color: var(--gold);
   font-size: 20px;
   letter-spacing: 3px;
 }
@@ -1419,9 +1440,9 @@ body.shake {
   width: 32px;
   height: 32px;
   font-size: 20px;
-  color: #ffd700;
+  color: var(--gold);
   background: transparent;
-  border: 1px solid #ffd700;
+  border: 1px solid var(--gold);
   border-radius: 4px;
   cursor: pointer;
   font-family: inherit;
@@ -1441,7 +1462,7 @@ body.shake {
 }
 
 .zukan-rate strong {
-  color: #ffd700;
+  color: var(--gold);
   font-size: 18px;
 }
 
@@ -1543,7 +1564,7 @@ body.shake {
 
 .zukan-count {
   text-align: right;
-  color: #ffd700;
+  color: var(--gold);
   font-weight: bold;
 }
 
@@ -1699,7 +1720,7 @@ body.shake {
     transform 0.22s cubic-bezier(0.34, 1.56, 0.64, 1);
   box-shadow:
     0 3px 10px rgba(0, 0, 0, 0.45),
-    0 0 0 2px #ffd700;
+    0 0 0 2px var(--gold);
 }
 
 .jin-speech.show {
@@ -1716,7 +1737,7 @@ body.shake {
   height: 0;
   border-left: 8px solid transparent;
   border-right: 8px solid transparent;
-  border-top: 10px solid #ffd700;
+  border-top: 10px solid var(--gold);
 }
 
 .jin-speech::before {
@@ -1871,7 +1892,7 @@ body.shake {
   font-size: clamp(20px, 10cqw, 56px);
   font-weight: 900;
   letter-spacing: 6px;
-  background: linear-gradient(180deg, #fff7c4 0%, #ffd700 45%, #ff8a00 100%);
+  background: linear-gradient(180deg, #fff7c4 0%, var(--gold) 45%, #ff8a00 100%);
   -webkit-background-clip: text;
   background-clip: text;
   color: transparent;
@@ -1937,7 +1958,7 @@ body.shake {
     0 0 10px rgba(255, 215, 0, 0.9),
     0 4px 8px rgba(0, 0, 0, 0.7);
   padding: 6px 28px;
-  border: 2px solid #ffd700;
+  border: 2px solid var(--gold);
   border-radius: 999px;
   background: rgba(0, 0, 0, 0.5);
 }
@@ -2042,7 +2063,7 @@ body.shake {
   letter-spacing: 6px;
   color: #fff;
   background: linear-gradient(180deg, #ff6688 0%, #cc1144 100%);
-  border: 3px solid #ffd700;
+  border: 3px solid var(--gold);
   border-radius: 10px;
   padding: 4px 22px;
   display: inline-block;
@@ -2086,7 +2107,7 @@ body.shake {
   font-weight: 900;
   color: #fff;
   background: #1a1a1a;
-  border: 2px solid #ffd700;
+  border: 2px solid var(--gold);
   border-radius: 8px;
   text-shadow:
     0 0 4px rgba(0, 0, 0, 1),
@@ -2100,7 +2121,7 @@ body.shake {
 .aim-notice.premium .aim-notice-symbols span {
   background: linear-gradient(180deg, #3a2400 0%, #1a1000 100%);
   border-color: #fff7aa;
-  color: #ffd700;
+  color: var(--gold);
   text-shadow:
     0 0 6px rgba(0, 0, 0, 1),
     0 0 12px #fff7aa;
@@ -2137,7 +2158,7 @@ body.shake {
 }
 
 .aim-arrow.premium {
-  border-top-color: #ffd700;
+  border-top-color: var(--gold);
   filter: drop-shadow(0 0 14px #fff7aa) drop-shadow(0 0 24px rgba(255, 170, 0, 0.7));
 }
 
@@ -2175,7 +2196,7 @@ body.shake {
 .btn-ripple {
   position: fixed;
   border-radius: 50%;
-  border: 3px solid #ffd700;
+  border: 3px solid var(--gold);
   pointer-events: none;
   opacity: 0.9;
   transform: scale(0.3);
