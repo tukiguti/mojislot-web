@@ -16,7 +16,7 @@ import {
 import { BonusZone } from './productions/BonusZone';
 import { SfxEngine } from './audio/SfxEngine';
 import { BgmEngine } from './audio/BgmEngine';
-import { TenpaiDetector } from './productions/TenpaiDetector';
+import { TenpaiDetector, type TenpaiLine } from './productions/TenpaiDetector';
 import { PlayStats } from './productions/PlayStats';
 import { NearMissDetector } from './productions/NearMissDetector';
 import {
@@ -58,6 +58,8 @@ import {
   YakuListSchema,
   PayoutSchema,
   QuizListSchema,
+  type Yaku,
+  type ReelStrip,
 } from './data/schemas';
 import payoutDataRaw from '../data/payouts/default.json';
 import {
@@ -172,8 +174,9 @@ async function bootstrap() {
     zukanState,
     challengeTracker,
   );
-  // 滑りは常に1モード（noise:50%確率で最大2コマ蹴り）。
-  // 示唆/クイズ時の特別補助は廃止（演出のみ残す）。
+  // 滑り/引き込み（17_assist-and-slip.md）：演出時は最終リールで狙い役を最大4コマ引き込む
+  // （resolveAssist）。引き込まない時は、予告役以外の premium/bonus 偶然揃いを蹴る
+  // （resolveKick・全演出で作用、予告した BIG/RB は通す）。
   // 現在のスピンの effect 種別（AUTO がターゲット決定に使う）
   let currentEffect: EffectType = 'none';
 
@@ -848,8 +851,8 @@ async function bootstrap() {
   const pullLever = () => {
     if (leverBtn.disabled) return;
     if (!betPlaced) return;
-    // 未回答クイズはタイムアウト扱い。
-    // 滑り補助は廃止したので、クイズ正解しても挙動は変わらない（演出のみ）。
+    // 未回答クイズはタイムアウト扱い（targetYakuId が null になり引き込み対象なし）。
+    // クイズ正解時は targetYakuId の役が最終リール引き込み対象になる（17_assist-and-slip.md）。
     // 正解/不正解SE は quizState.phase.subscribe で一括して鳴らす
     quizState.finalizeIfUnanswered();
     // レバー押下でクイズUIは確実に閉じる（リールが見えるように）
@@ -874,6 +877,79 @@ async function bootstrap() {
     }
   });
 
+  /**
+   * 役が現在の演出の引き込み対象カテゴリに合致するか（17_assist-and-slip.md）。
+   *  - aim   → aimNoticeYaku（予告した役そのもの）
+   *  - quiz  → 正解した役（targetYakuId、不正解/未回答なら対象なし）
+   *  - shisa → core / cherry
+   *  - none  → 対象なし（引き込みしない）
+   */
+  const effectAllowsYaku = (yaku: Yaku): boolean => {
+    if (currentEffect === 'aim') {
+      return aimNoticeYaku !== null && yaku.id === aimNoticeYaku.id;
+    }
+    if (currentEffect === 'quiz') {
+      return yaku.id === quizState.targetYakuId();
+    }
+    if (currentEffect === 'shisa') {
+      return yaku.category === 'core' || yaku.category === 'cherry';
+    }
+    return false;
+  };
+
+  /**
+   * 蹴りで除外する「予告した役」ID。aim/quiz が premium/bonus を予告した時、その役は
+   * 蹴らずに通す（予告役を優先）。それ以外の演出/役では null＝全 premium/bonus を蹴る対象。
+   */
+  const currentTargetYakuId = (): string | null => {
+    if (currentEffect === 'aim') return aimNoticeYaku?.id ?? null;
+    if (currentEffect === 'quiz') return quizState.targetYakuId();
+    return null;
+  };
+
+  /** 引き込み優先のカテゴリ序列（premium > bonus > core > cherry） */
+  const CAT_RANK: Record<Yaku['category'], number> = {
+    premium: 3,
+    bonus: 2,
+    core: 1,
+    cherry: 0,
+  };
+
+  /**
+   * テンパイ成立ライン群（5ライン）から、演出の対象役に合う最良の引き込みコマ数を返す。
+   * 優先順位: カテゴリ（premium>bonus>core>cherry）→ 引き込みが近い → 中段ライン。
+   * 対象なし・窓外なら 0（引き込みしない）。
+   */
+  const pickAssistSlip = (
+    lines: readonly TenpaiLine[],
+    finalIdx: number,
+    strip: ReelStrip,
+    basePos: number,
+  ): number => {
+    let bestSlip = 0;
+    let bestScore = -1; // 大きいほど優先
+    for (const l of lines) {
+      if (!effectAllowsYaku(l.yaku)) continue;
+      const slip = slipResolver.resolveAssist(
+        strip,
+        basePos,
+        l.yaku.symbols[finalIdx],
+        l.vertical,
+      );
+      if (slip === null) continue;
+      // slip は 0..4（ASSIST_MAX_CELLS）。近いほど高スコア。
+      const score =
+        CAT_RANK[l.yaku.category] * 100 +
+        (4 - slip) * 4 +
+        (l.vertical === 'middle' ? 1 : 0);
+      if (score > bestScore) {
+        bestScore = score;
+        bestSlip = slip;
+      }
+    }
+    return bestSlip;
+  };
+
   const stopReel = (idx: number, timestamp: number) => {
     if (idx < 0 || idx >= REEL_COUNT) return;
     const engine = engines[idx];
@@ -890,17 +966,25 @@ async function bootstrap() {
         bottom: getVisibleCell(e, 'bottom'),
       };
     });
-    // 滑り（noise 蹴り）は通常時のみ発生。示唆/クイズ時はプレイヤー（or AUTO）
-    // が狙った位置に素直に止まるようスキップする
-    const slipCells =
-      currentEffect === 'none'
-        ? slipResolver.resolve({
-            reelIndex: idx,
-            basePosition: basePos,
-            strip: engine.strip,
-            stoppedVisibles,
-          })
-        : 0;
+    // 引き込み/蹴りの決定（設計: 17_assist-and-slip.md）。
+    //  1) 最終リール（他2リール停止済み）で演出の狙い役が5ラインのどこかにテンパイ
+    //     → そのラインへ引き込み（最大4コマ・カテゴリ優先）
+    //  2) 引き込みが効かない時 → 予告役以外の premium/bonus 偶然揃いを蹴る
+    //     （core/cherry は蹴らない／予告した BIG・RB は通す）
+    let slipCells = 0;
+    const assistTenpai = tenpaiDetector.detect(stoppedVisibles);
+    if (assistTenpai && assistTenpai.missingReelIndex === idx) {
+      slipCells = pickAssistSlip(assistTenpai.lines, idx, engine.strip, basePos);
+    }
+    if (slipCells === 0) {
+      slipCells = slipResolver.resolveKick({
+        reelIndex: idx,
+        basePosition: basePos,
+        strip: engine.strip,
+        stoppedVisibles,
+        exceptYakuId: currentTargetYakuId() ?? undefined,
+      });
+    }
 
     const result = engine.stop(timestamp, slipCells);
     // 押下の精度情報を保存（役成立時の bita 集計で参照）
@@ -919,15 +1003,17 @@ async function bootstrap() {
       result.errorMs <= BITA_MS ? '#ffd700' : '#ff5566',
     );
 
-    // 第2停止後：テンパイ検出 → 残ったリールを減速＆枠フラッシュ＆SE
-    const stoppedNow = engines.map((e) => {
+    // 第2停止後：テンパイ検出（5ライン）→ 残ったリールの枠フラッシュ＆SE
+    const visAfter: (VisibleColumn | null)[] = engines.map((e) => {
       if (e.state.get() !== 'stopped') return null;
-      const t = e.strip.cells.length;
-      const ci = ((Math.round(e.position) % t) + t) % t;
-      return e.strip.cells[ci];
+      return {
+        top: getVisibleCell(e, 'top'),
+        middle: getVisibleCell(e, 'middle'),
+        bottom: getVisibleCell(e, 'bottom'),
+      };
     });
-    if (stoppedNow.filter((s) => s !== null).length === 2) {
-      const tenpai = tenpaiDetector.detect(stoppedNow);
+    if (visAfter.filter((v) => v !== null).length === 2) {
+      const tenpai = tenpaiDetector.detect(visAfter);
       if (tenpai) {
         // 実機準拠：テンパイ時もリール速度は変えない。枠フラッシュ＆SEのみ。
         views[tenpai.missingReelIndex].startTenpaiFlash(tenpai.hasPremium);
@@ -966,8 +1052,8 @@ async function bootstrap() {
 
       // ビタ押し集計：役成立時のみ、貢献したリールごとに
       //   1) 押下精度 ≤ BITA_MS
-      //   2) 滑り（noise 蹴り）に蹴られていない（slipCells == 0）
-      // の両方を満たす時に +1。最大 +3。
+      //   2) 滑り（蹴り）も引き込みも無く自力停止（slipCells == 0）
+      // の両方を満たす時に +1。最大 +3。引き込みで揃えた分はビタ非カウント。
       if (willHit) {
         const contributingReels = new Set<number>();
         for (const h of hits) {

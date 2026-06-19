@@ -8,15 +8,15 @@ import {
 } from '../core/Paylines';
 
 /**
- * 滑り（引き込み）解決ロジック（簡素化版）。
+ * 滑り（蹴り）と引き込みの解決。
  *
- * モードは1つだけ：**noise**（通常時の蹴り滑り）。
- *  - 50% の確率で起動
- *  - 押下位置で 5ペイライン（横3+斜め2）のいずれかが成立しそうなら、
- *    順方向に最大2コマで「どのラインも成立しない位置」を探して滑らせる
- *  - 無限稼ぎを防ぎつつ、たまに揃う爽快感を残す調整
+ * - **resolveKick**: 通常時（演出なし）のアンチ無限稼ぎ。**premium/bonus（7・バー・RB）**
+ *   が偶然揃いそうな時だけ、順方向に最大 KICK_MAX_CELLS コマで「揃わない位置」へ蹴る。
+ *   core/cherry は蹴らない（素直に止まる＝日常役は止まりやすく）。
+ * - **resolveAssist**: 演出時の最終リール引き込み。狙い役の図柄が中段に来るよう順方向に
+ *   最大 ASSIST_MAX_CELLS コマ引き込む（テンパイまでは自力、最後の出目だけ補助）。
  *
- * 示唆/クイズ時の特別補助は廃止。演出（マスコット表情・SE）のみ残す。
+ * 設計詳細: zikken/playground/mojislot-plan/17_assist-and-slip.md
  */
 
 export interface VisibleColumn {
@@ -33,56 +33,80 @@ export interface SlipContext {
   strip: ReelStrip;
   /** 各リールの現在の停止 3 セル（未停止は null） */
   stoppedVisibles: readonly (VisibleColumn | null)[];
+  /** この役IDは蹴らない（演出で予告した役。premium/bonus を予告した時に指定） */
+  exceptYakuId?: string;
 }
 
-const SLIP_PROBABILITY = 0.5;
-const SLIP_MAX_CELLS = 2;
+const KICK_PROBABILITY = 0.5;
+const KICK_MAX_CELLS = 2;
+/** 最終リール引き込みの最大コマ数（実機準拠＝4コマ。「テンパイ＝ほぼ成立」） */
+const ASSIST_MAX_CELLS = 4;
 
 const VERTICALS: readonly Vertical[] = ['top', 'middle', 'bottom'];
 
 export class SlipResolver {
-  private readonly allYakus: Yaku[];
+  /** 蹴り対象＝premium/bonus のみ（core/cherry は蹴らない） */
+  private readonly kickYakus: Yaku[];
 
   constructor(yakuList: YakuList) {
-    this.allYakus = [
-      ...yakuList.coreYaku,
-      ...yakuList.premiumYaku,
-      ...yakuList.bonusYaku,
-    ];
+    this.kickYakus = [...yakuList.premiumYaku, ...yakuList.bonusYaku];
   }
 
   /**
-   * 引き込みコマ数（0..SLIP_MAX_CELLS）を返す。
-   * 0 ならスベらず押下位置で停止。
+   * 蹴り（アンチ無限稼ぎ）。**予告役（exceptYakuId）以外の premium/bonus** が成立しそうなら
+   * 順方向最大 KICK_MAX_CELLS コマで「外れる位置」へ蹴る。0 ならスベらず押下位置で停止。
+   * 演出種別に依らず作用するが、予告した役（aim/quiz が指定した役）は蹴らない。
    */
-  resolve(ctx: SlipContext): number {
-    if (Math.random() >= SLIP_PROBABILITY) return 0;
+  resolveKick(ctx: SlipContext): number {
+    const yakus = ctx.exceptYakuId
+      ? this.kickYakus.filter((y) => y.id !== ctx.exceptYakuId)
+      : this.kickYakus;
+    if (yakus.length === 0) return 0;
+    if (Math.random() >= KICK_PROBABILITY) return 0;
+    if (!this.wouldComplete(ctx.basePosition, ctx, yakus)) return 0;
 
-    if (!this.wouldCompleteAnyLine(ctx.basePosition, ctx)) {
-      return 0;
-    }
-
-    // 順方向に「どのラインも成立しない位置」を探す
     const total = ctx.strip.cells.length;
-    for (let offset = 1; offset <= SLIP_MAX_CELLS; offset++) {
+    for (let offset = 1; offset <= KICK_MAX_CELLS; offset++) {
       const idx = (((ctx.basePosition + offset) % total) + total) % total;
-      if (!this.wouldCompleteAnyLine(idx, ctx)) {
-        return offset;
-      }
+      if (!this.wouldComplete(idx, ctx, yakus)) return offset;
     }
     return 0;
   }
 
   /**
+   * 演出時の最終リール引き込み（5ライン対応）。指定の可視位置 vertical（上/中/下）の
+   * セルが targetSymbol になる最小の順方向コマ数（0..ASSIST_MAX_CELLS）を返す。
+   * 窓内に無ければ null（プレイヤーのミス＝補助なし）。
+   * 斜めラインは最終リールで必要な行が中段以外になるため vertical で指定する。
+   */
+  resolveAssist(
+    strip: ReelStrip,
+    basePosition: number,
+    targetSymbol: string,
+    vertical: Vertical,
+  ): number | null {
+    for (let offset = 0; offset <= ASSIST_MAX_CELLS; offset++) {
+      if (visibleAt(strip.cells, basePosition + offset, vertical) === targetSymbol) {
+        return offset;
+      }
+    }
+    return null;
+  }
+
+  /**
    * このリールが position に停止したとして、5ペイラインのいずれかで
-   * 役成立する見込みがあるかを判定。
+   * yakus のいずれかが成立する見込みがあるかを判定。
    * 他リール（未停止）はワイルドカード扱い。
    */
-  private wouldCompleteAnyLine(position: number, ctx: SlipContext): boolean {
+  private wouldComplete(
+    position: number,
+    ctx: SlipContext,
+    yakus: readonly Yaku[],
+  ): boolean {
     const grid = this.buildPartialGrid(position, ctx);
     return PAYLINES.some((line) => {
       const [a, b, c] = extractPartialLineSymbols(grid, line);
-      return this.allYakus.some(
+      return yakus.some(
         (y) =>
           (a === null || y.symbols[0] === a) &&
           (b === null || y.symbols[1] === b) &&
