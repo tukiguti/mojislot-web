@@ -38,10 +38,13 @@
   --reel-panel-occupy: calc(
     var(--reel-panel-w) + var(--unit-panel-w) + var(--reel-gap) * 2
   );
+  /* 上限440だと縦に余裕のある画面で筐体が頭打ちになり、下に大きなページ余白が残る
+     （ブラウザ110%拡大でちょうど埋まる＝約1割大きいと収まりが良い）。上限を480へ。
+     高さ・幅の制約は引き続き効くので、狭い/低い画面では自動で縮む。 */
   --game-w: max(
     240px,
     min(
-      440px,
+      480px,
       calc(
         (100vh - var(--layout-pad) * 2 - var(--masthead-h) - var(--header-h) - var(--control-h)) / 1.22
       ),
