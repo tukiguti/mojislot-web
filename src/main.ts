@@ -1,4 +1,4 @@
-import { Application, Assets, Graphics, Texture } from 'pixi.js';
+import { Application, Assets, FillGradient, Graphics, Texture } from 'pixi.js';
 import { ReelEngine } from './core/ReelEngine';
 import { ReelView, CELL_WIDTH, CELL_HEIGHT, VISIBLE_CELLS } from './render/ReelView';
 import { SymbolColorResolver } from './render/SymbolStyle';
@@ -180,10 +180,25 @@ async function bootstrap() {
   // 現在のスピンの effect 種別（AUTO がターゲット決定に使う）
   let currentEffect: EffectType = 'none';
 
-  // 液晶エリアの土台（演出はあとで重ねる）
+  // 液晶エリアの土台。単色の黒板だと「空っぽの余白」に見えるので、
+  // 紫星雲の極薄環境光（radialグラデ）で“画面が点いている”奥行きを出す（18_cabinet-design GLOW ZONE 1）。
+  // 中央上やや＝ロイヤル寄りに灯し、周縁はvoidへ落として枠に馴染ませる。やり過ぎ＝AI感なので3段の控えめな階調のみ。
+  const liquidGrad = new FillGradient({
+    type: 'radial',
+    center: { x: 0.5, y: 0.4 },
+    innerRadius: 0,
+    outerCenter: { x: 0.5, y: 0.4 },
+    outerRadius: 0.78,
+    colorStops: [
+      { offset: 0, color: 0x2a1646 }, // ロイヤル寄りの灯り（中央）
+      { offset: 0.55, color: 0x180d28 }, // オーベルジュの中間
+      { offset: 1, color: 0x0a0612 }, // void へ沈む周縁
+    ],
+    textureSpace: 'local',
+  });
   const liquidBg = new Graphics();
   liquidBg.rect(0, 0, CANVAS_W, LIQUID_AREA_H);
-  liquidBg.fill({ color: 0x101820 });
+  liquidBg.fill(liquidGrad);
   app.stage.addChild(liquidBg);
 
   // 演出ビジュアル（液晶＋リール背景の色味、フラッシュ）
@@ -353,7 +368,7 @@ async function bootstrap() {
   applyReelGlyphs(initialReelGlyphs);
   settingsOverlay.setReelGlyphsControl(initialReelGlyphs, applyReelGlyphs);
 
-  // ペイラインインジケーター（リール両脇外側に配置・ジャグラー風）
+  // ペイラインインジケーター（リール左脇外側に1セットのみ。左右ミラーは冗長なので片側へ）
   const reelHeight = CELL_HEIGHT * VISIBLE_CELLS;
   const indicatorOffsetY = reelY + (reelHeight - PaylineIndicators.TOTAL_HEIGHT) / 2;
   const indicatorPadX = 12;
@@ -363,11 +378,6 @@ async function bootstrap() {
   leftIndicators.container.y = indicatorOffsetY;
   app.stage.addChild(leftIndicators.container);
 
-  const rightIndicators = new PaylineIndicators();
-  rightIndicators.container.x = startX + totalWidth + indicatorPadX;
-  rightIndicators.container.y = indicatorOffsetY;
-  app.stage.addChild(rightIndicators.container);
-
   // フラッシュなどの前景エフェクトはリールの上に重ねる
   app.stage.addChild(effectVisual.fxLayer);
 
@@ -376,7 +386,6 @@ async function bootstrap() {
     for (const engine of engines) engine.tick(now);
     for (const view of views) view.update(now);
     leftIndicators.update(now);
-    rightIndicators.update(now);
     jinView.update(now);
     effectVisual.update();
   });
@@ -553,6 +562,14 @@ async function bootstrap() {
       if (n > 0) wallet.win(n);
     });
   }
+
+  // 計数＝持メダルを流す(0に)／精算＝初期値へ戻す（スマスロ操作部・18 ⑥）
+  document.getElementById('count-btn')?.addEventListener('click', () => {
+    wallet.reset(0);
+  });
+  document.getElementById('settle-btn')?.addEventListener('click', () => {
+    wallet.reset(payout.initialCoins);
+  });
 
   // === 隠し章解除：Coin 表示を 20 回クリックで unlock ===
   let secretClickCount = 0;
@@ -1107,7 +1124,6 @@ async function bootstrap() {
         // 成立ラインインジケーターを点灯
         for (const h of hits) {
           leftIndicators.highlight(h.paylineId);
-          rightIndicators.highlight(h.paylineId);
         }
         const cls = isPremium || isRegular ? 'premium' : 'win';
         const bonusTag = bonusZone.isActive() ? ' ×BONUS' : '';

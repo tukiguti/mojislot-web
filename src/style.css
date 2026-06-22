@@ -294,6 +294,10 @@ body.has-chapter-bg {
 
 #cabinet {
   display: grid;
+  /* 列は明示しないと auto＝中身の最小幅で膨らみ、nowrap なヘッダーの min-content(≈352px)で
+     列が筐体幅を突き破る → ヘッダー右や canvas(リール)が右にはみ出し overflow:hidden で切れる。
+     minmax(0,1fr) で列を筐体内幅に固定し、中身は縮める。 */
+  grid-template-columns: minmax(0, 1fr);
   grid-template-rows: var(--masthead-h) var(--header-h) var(--game-h) var(--control-h);
   width: var(--game-w);
   height: var(--cabinet-h);
@@ -309,6 +313,16 @@ body.has-chapter-bg {
     0 0 22px rgba(92, 46, 142, 0.4);
   overflow: hidden;
   position: relative;
+}
+
+/* ヘッダー専用のコンテナ枠。#cabinet ごと container 化すると中の
+   position:fixed オーバーレイ（設定/図鑑等）が筐体基準に閉じ込められて壊れるため、
+   ヘッダーだけを薄いラッパーで包み、その幅基準でヘッダーを圧縮する。
+   グリッド行(--header-h)を満たすだけの透明な箱。 */
+.header-shell {
+  container-type: inline-size;
+  container-name: cabinet;
+  min-width: 0;
 }
 
 /* === マストヘッド（ロゴ＋控えめマーキー電飾＝署名）=== */
@@ -358,6 +372,7 @@ body.has-chapter-bg {
   display: grid;
   grid-template-columns: auto 1fr auto;
   align-items: center;
+  height: 100%;
   gap: 8px;
   padding: 0 12px;
   background: linear-gradient(180deg, rgba(36, 20, 51, 0.9), rgba(20, 10, 34, 0.9));
@@ -1339,19 +1354,19 @@ body.shake {
 #control-panel::after {
   content: '';
   position: absolute;
-  top: 12px;
-  bottom: 10px;
-  width: 58px;
-  border-radius: 8px;
+  top: 18px;
+  bottom: 18px;
+  width: 42px;
+  border-radius: 7px;
   background-color: #0a0610;
-  background-image: radial-gradient(circle, #332a42 0 1.8px, transparent 2.1px);
-  background-size: 8px 8px;
+  background-image: radial-gradient(circle, #2a2238 0 1.5px, transparent 1.9px);
+  background-size: 9px 9px;
   border: 1px solid var(--chrome-dk);
   box-shadow:
     inset 0 0 10px rgba(0, 0, 0, 0.85),
     inset 0 1px 0 rgba(255, 255, 255, 0.05);
   pointer-events: none;
-  opacity: 0.92;
+  opacity: 0.6;
 }
 #control-panel::before {
   left: 12px;
@@ -1364,6 +1379,37 @@ body.shake {
   display: flex;
   gap: 11px;
   justify-content: center;
+}
+
+/* ⑥ 精算/計数＝サンド（ユニット）側のメダル入出力ボタン。
+   操作部中央に浮かせず、貸出・持メダルと同じ場所＝サンドにまとめる（スマスロの計数はユニット側）。 */
+.unit-flow {
+  display: flex;
+  gap: 7px;
+}
+.unit-flow .aux-btn {
+  flex: 1;
+}
+.aux-btn {
+  padding: 7px 6px;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 2px;
+  font-family: inherit;
+  color: var(--chrome);
+  background: linear-gradient(180deg, #241a2f 0%, #150d20 100%);
+  border: 1px solid var(--chrome-dk);
+  border-radius: 5px;
+  cursor: pointer;
+  box-shadow: inset 0 -2px 0 rgba(0, 0, 0, 0.4);
+}
+.aux-btn:hover {
+  color: var(--gold-hi);
+  border-color: rgba(242, 179, 60, 0.5);
+}
+.aux-btn:active {
+  transform: translateY(1px);
+  box-shadow: none;
 }
 
 /* デッキボタン（BET/LEVER）＝紫×クローム＋金。STOPの丸とは別格の角丸プレート */
@@ -1481,9 +1527,15 @@ body.shake {
 }
 
 #key-hint {
-  font-size: 10px;
+  width: 100%;
+  /* 左右のスピーカーグリル(疑似要素 width42+inset12)を避けつつ、1行で収める */
+  padding: 0 48px;
+  text-align: center;
+  font-size: 9px;
+  line-height: 1.4;
+  white-space: nowrap;
   color: #666;
-  letter-spacing: 1px;
+  letter-spacing: 0;
   pointer-events: none;
   margin-top: 4px;
 }
@@ -2631,6 +2683,100 @@ body.shake {
   }
 }
 
+/* ===== 筐体幅ベースのヘッダー圧縮（@container）=====
+ * --game-w は高さからも決まるため、ブラウザ拡大や低い画面では
+ * ビューポートが広くても筐体だけが細くなり、ヘッダー右（♪/図鑑/⚙）や
+ * リールが筐体幅を超えて overflow:hidden で切れる。
+ * ビューポート幅の @media では拾えないので、筐体幅基準で段階圧縮する。 */
+/* 1段目：軽く詰める（ボタン余白/フォント/gap） */
+@container cabinet (max-width: 418px) {
+  #info-bar {
+    padding: 0 8px;
+    gap: 6px;
+    font-size: 12px;
+  }
+  #coin-display {
+    padding: 3px 7px;
+  }
+  #bet-display {
+    gap: 4px;
+  }
+  #zukan-btn,
+  #mute-btn,
+  #auto-btn,
+  #reel-strip-btn,
+  #settings-btn {
+    padding: 2px 7px;
+    font-size: 10px;
+    letter-spacing: 0.5px;
+  }
+  #effect-status {
+    padding: 3px 9px;
+    font-size: 11px;
+    letter-spacing: 1px;
+  }
+}
+
+/* 2段目：Bet表示を落とし、ボタンを一段小さく */
+@container cabinet (max-width: 372px) {
+  #info-bar {
+    padding: 0 5px;
+    gap: 4px;
+    font-size: 11px;
+  }
+  #bet-text {
+    display: none; /* Bet:3 はステータスから読めるので最優先で落とす */
+  }
+  #coin-display {
+    padding: 2px 6px;
+  }
+  #bet-display {
+    gap: 3px;
+  }
+  #zukan-btn,
+  #mute-btn,
+  #auto-btn,
+  #reel-strip-btn,
+  #settings-btn {
+    padding: 2px 5px;
+    font-size: 9px;
+    letter-spacing: 0;
+  }
+  #effect-status {
+    padding: 2px 7px;
+    font-size: 10px;
+    letter-spacing: 0.5px;
+  }
+}
+
+/* 3段目：高ブラウザ拡大の極狭（〜270px）。アイコン級まで詰めて全ボタンを残す */
+@container cabinet (max-width: 330px) {
+  #info-bar {
+    padding: 0 3px;
+    gap: 3px;
+  }
+  #coin-display {
+    padding: 2px 4px;
+    font-size: 11px;
+  }
+  #bet-display {
+    gap: 2px;
+  }
+  #zukan-btn,
+  #mute-btn,
+  #auto-btn,
+  #reel-strip-btn,
+  #settings-btn {
+    padding: 2px 3px;
+    font-size: 8px;
+  }
+  #effect-status {
+    padding: 2px 4px;
+    font-size: 9px;
+    letter-spacing: 0;
+  }
+}
+
 /* ===== 狭画面（タブレット縦・スマホ）対応 =====
  * リール配列パネルを「配列」ボタンで開閉するオーバーレイ化し、
  * 通常時は cabinet を画面いっぱいに使えるようにする。
@@ -2737,6 +2883,10 @@ body.shake {
   #unit-panel .unit-lend-buttons .coin-add {
     flex: 1;
     padding: 8px 4px;
+  }
+  #unit-panel .unit-flow {
+    flex: 1 1 auto;
+    min-width: 0;
   }
 
   /* ヘッダー詰め */
