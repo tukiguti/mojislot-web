@@ -554,21 +554,35 @@ async function bootstrap() {
     setMedal(wallet.coins.get());
     wallet.coins.subscribe(setMedal);
   }
+  // メダル貸出＝投資（lend）。役の払い出し(win)とは別物＝差枚会計の「投資」側。
   for (const btn of document.querySelectorAll<HTMLButtonElement>(
     '#unit-panel .coin-add',
   )) {
     btn.addEventListener('click', () => {
       const n = Number(btn.dataset.amount ?? '0');
-      if (n > 0) wallet.win(n);
+      if (n > 0) wallet.lend(n);
     });
   }
 
-  // 計数＝持メダルを流す(0に)／精算＝初期値へ戻す（スマスロ操作部・18 ⑥）
+  // サンドの差枚/投資ライブ表示：差枚 = 現在の持メダル − この戦の投資累計。
+  const unitInvestEl = document.getElementById('unit-invest');
+  const unitSahmaiEl = document.getElementById('unit-sahmai');
+  const renderSahmai = () => {
+    if (unitInvestEl) unitInvestEl.textContent = String(wallet.investmentTotal.get());
+    if (unitSahmaiEl) {
+      const s = wallet.sahmai();
+      unitSahmaiEl.textContent = `${s > 0 ? '+' : ''}${s}`;
+      unitSahmaiEl.classList.toggle('plus', s > 0);
+      unitSahmaiEl.classList.toggle('minus', s < 0);
+    }
+  };
+  renderSahmai();
+  wallet.coins.subscribe(renderSahmai);
+  wallet.investmentTotal.subscribe(renderSahmai);
+
+  // 計数＝この戦を締めて持メダルを流す(0に)＋投資をリセット。※P5で1戦記録(RunHistory)を追加。
   document.getElementById('count-btn')?.addEventListener('click', () => {
     wallet.reset(0);
-  });
-  document.getElementById('settle-btn')?.addEventListener('click', () => {
-    wallet.reset(payout.initialCoins);
   });
 
   // === 隠し章解除：Coin 表示を 20 回クリックで unlock ===

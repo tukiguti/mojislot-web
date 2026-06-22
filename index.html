@@ -96,6 +96,16 @@
         <span class="unit-readout-label">持メダル</span>
         <span class="unit-readout-num" id="unit-medal">0</span>
       </div>
+      <div class="unit-stat">
+        <div class="unit-stat-row">
+          <span class="unit-stat-label">差枚</span>
+          <span class="unit-stat-num" id="unit-sahmai">0</span>
+        </div>
+        <div class="unit-stat-row">
+          <span class="unit-stat-label">投資</span>
+          <span class="unit-stat-num" id="unit-invest">0</span>
+        </div>
+      </div>
       <div class="unit-slot" aria-hidden="true"></div>
       <div class="unit-lend-label">メダル貸出</div>
       <div class="unit-lend-buttons">
@@ -105,10 +115,9 @@
         <button class="coin-add" data-amount="5000" type="button">＋5000</button>
       </div>
       <div class="unit-flow">
-        <button id="settle-btn" class="aux-btn" type="button" title="精算（クレジットを持メダルへ）">精算</button>
-        <button id="count-btn" class="aux-btn" type="button" title="計数（持メダルを流す）">計数</button>
+        <button id="count-btn" class="aux-btn" type="button" title="計数（この戦を締めて持メダルを流す）">計数</button>
       </div>
-      <div class="unit-hint">貸出＝補充／計数＝流す</div>
+      <div class="unit-hint">貸出＝投資／計数＝締める</div>
     </aside>
 
     <script type="module" src="/src/main.ts"></script>
