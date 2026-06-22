@@ -13,8 +13,14 @@
     />
   </head>
   <body>
+    <div id="view-top" class="view" hidden></div>
+    <div id="view-play" class="view" hidden></div>
+    <div id="view-game" class="view game-view" hidden>
     <div id="cabinet">
-      <div id="masthead"><span class="mark">mojislot</span></div>
+      <div id="masthead">
+        <button id="home-btn" type="button" title="TOPへ戻る" aria-label="TOPへ戻る">≡</button>
+        <span class="mark">mojislot</span>
+      </div>
       <div class="header-shell">
         <header id="info-bar">
           <div id="coin-display">MEDAL 0</div>
@@ -119,7 +125,11 @@
       </div>
       <div class="unit-hint">貸出＝投資／計数＝締める</div>
     </aside>
+    </div>
 
-    <script type="module" src="/src/main.ts"></script>
+    <div id="view-ranking" class="view" hidden></div>
+    <div id="view-card" class="view" hidden></div>
+
+    <script type="module" src="/src/main-entry.ts"></script>
   </body>
 </html>
