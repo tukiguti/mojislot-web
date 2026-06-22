@@ -106,7 +106,7 @@ function requireEl<T extends HTMLElement>(id: string): T {
   return el as T;
 }
 
-async function bootstrap() {
+export async function bootstrap() {
   const canvas = requireEl<HTMLCanvasElement>('game');
 
   const app = new Application();
@@ -1598,7 +1598,3 @@ async function bootstrap() {
 
   updateButtons();
 }
-
-bootstrap().catch((err) => {
-  console.error('bootstrap failed:', err);
-});

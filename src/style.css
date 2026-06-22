@@ -78,13 +78,235 @@ button,
 }
 
 body {
+  min-height: 100vh;
+}
+
+/* === ビュー（TOP / 遊ぶ / ゲーム / ランキング / 会員カード）===
+   各ビューはフルスクリーン。ルータが #view-{route} を hidden トグルで出し分ける。 */
+.view {
+  min-height: 100vh;
+  padding: var(--layout-pad);
+}
+/* クラス指定にして .view[hidden](0,2,0) が .game-view(0,1,0) に確実に勝つ＝hiddenで隠れる */
+.view[hidden] {
+  display: none;
+}
+/* ゲームビュー＝従来の3カラム（配列/筐体/サンド）。旧 body のフレックスをここへ移設。 */
+.game-view {
   display: flex;
   justify-content: center;
   align-items: flex-start;
   flex-wrap: wrap; /* 狭画面でサンド等が筐体の下へ回り込めるように */
-  min-height: 100vh;
-  padding: var(--layout-pad);
   gap: var(--reel-gap);
+}
+
+/* === TOP ランディング === */
+.landing {
+  max-width: 520px;
+  margin: 0 auto;
+  min-height: calc(100vh - var(--layout-pad) * 2);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  text-align: center;
+}
+.landing-title {
+  font-family: 'Bungee', sans-serif;
+  font-size: clamp(40px, 9vw, 72px);
+  letter-spacing: 2px;
+  color: var(--gold);
+  text-shadow:
+    0 0 18px rgba(224, 53, 155, 0.5),
+    0 2px 0 rgba(0, 0, 0, 0.4);
+  outline: none;
+}
+.landing-sub {
+  color: #9a86b8;
+  font-size: 13px;
+  letter-spacing: 2px;
+  margin-bottom: 18px;
+}
+.landing-menu {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  width: min(360px, 86vw);
+}
+.landing-btn {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  padding: 16px 20px;
+  cursor: pointer;
+  font-family: inherit;
+  color: var(--gold-hi);
+  background: linear-gradient(180deg, #2a1840 0%, #160b26 100%);
+  border: 2px solid var(--chrome-dk);
+  border-radius: 12px;
+  box-shadow:
+    inset 0 0 0 1px rgba(242, 179, 60, 0.28),
+    inset 0 1px 0 rgba(255, 255, 255, 0.08),
+    0 6px 16px rgba(0, 0, 0, 0.5);
+  transition: transform 0.08s ease, border-color 0.15s ease;
+}
+.landing-btn:hover {
+  border-color: rgba(242, 179, 60, 0.6);
+  background: linear-gradient(180deg, #371f54 0%, #1d1030 100%);
+}
+.landing-btn:active {
+  transform: translateY(2px);
+}
+.landing-btn:focus-visible {
+  outline: 2px solid var(--magenta);
+  outline-offset: 2px;
+}
+.landing-btn-jp {
+  font-size: 20px;
+  font-weight: 800;
+  letter-spacing: 3px;
+}
+.landing-btn-en {
+  font-size: 10px;
+  letter-spacing: 3px;
+  color: #9a86b8;
+}
+
+/* === 遊ぶ＝台選択 === */
+.setup {
+  max-width: 880px;
+  margin: 0 auto;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+.setup-head {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+.setup-back {
+  padding: 8px 14px;
+  cursor: pointer;
+  font-family: inherit;
+  font-size: 13px;
+  color: var(--gold);
+  background: rgba(255, 215, 0, 0.08);
+  border: 1px solid var(--gold);
+  border-radius: 6px;
+}
+.setup-back:hover {
+  background: rgba(255, 215, 0, 0.2);
+}
+.setup-title {
+  font-size: 22px;
+  letter-spacing: 3px;
+  color: var(--ivory);
+  outline: none;
+}
+.machine-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+  gap: 14px;
+}
+.machine-card {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 10px;
+  text-align: left;
+  cursor: pointer;
+  font-family: inherit;
+  color: var(--ivory);
+  background: linear-gradient(180deg, var(--bg-panel-hi) 0%, var(--bg-panel-lo) 100%);
+  border: 2px solid var(--chrome-dk);
+  border-radius: 10px;
+  transition: border-color 0.15s ease, transform 0.08s ease;
+}
+.machine-card:hover {
+  border-color: rgba(242, 179, 60, 0.55);
+}
+.machine-card.active {
+  border-color: var(--gold);
+  box-shadow:
+    inset 0 0 0 1px var(--gold),
+    0 0 16px rgba(242, 179, 60, 0.3);
+}
+.machine-card:focus-visible {
+  outline: 2px solid var(--magenta);
+  outline-offset: 2px;
+}
+.machine-thumb {
+  display: block;
+  width: 100%;
+  aspect-ratio: 16 / 11;
+  border-radius: 6px;
+  background: #0a0612 center / cover no-repeat;
+  border: 1px solid #2a2336;
+}
+.machine-name {
+  font-size: 15px;
+  font-weight: 800;
+  letter-spacing: 1px;
+  color: var(--gold-hi);
+}
+.machine-desc {
+  font-size: 11px;
+  line-height: 1.4;
+  color: #9a86b8;
+}
+.setup-foot {
+  display: flex;
+  justify-content: center;
+  padding: 8px 0 4px;
+}
+.setup-launch {
+  padding: 14px 40px;
+  cursor: pointer;
+  font-family: inherit;
+  font-size: 17px;
+  font-weight: 800;
+  letter-spacing: 3px;
+  color: #1b0f0a;
+  background: linear-gradient(180deg, var(--gold-hi) 0%, var(--gold) 100%);
+  border: 1px solid #8a6418;
+  border-radius: 10px;
+  box-shadow: inset 0 -3px 0 rgba(0, 0, 0, 0.25);
+}
+.setup-launch:hover {
+  filter: brightness(1.06);
+}
+.setup-launch:active {
+  transform: translateY(2px);
+}
+
+/* ゲーム内マストヘッド左の「TOPへ」ボタン */
+#home-btn {
+  position: absolute;
+  left: 8px;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 24px;
+  height: 20px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  cursor: pointer;
+  font-family: inherit;
+  font-size: 13px;
+  line-height: 1;
+  color: var(--chrome);
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid var(--chrome-dk);
+  border-radius: 5px;
+  z-index: 2;
+}
+#home-btn:hover {
+  color: var(--gold-hi);
+  border-color: rgba(242, 179, 60, 0.5);
 }
 
 /* 章ごとの背景パネル（main.ts が --chapter-bg を設定）。
@@ -2844,7 +3066,7 @@ body.shake {
     --game-h: calc(var(--game-w) * 1.22);
   }
 
-  body {
+  .game-view {
     flex-direction: column;
     align-items: center;
   }
