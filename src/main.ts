@@ -286,7 +286,7 @@ export async function bootstrap() {
     'security',
     'h_adult',
   ]);
-  const ART_VER = '4';
+  const ART_VER = '5';
   const symbolTileUrls = new Map<string, string>(); // 右パネル用（文字あり版の素URL）
   const symbolTextures = new Map<string, Texture>(); // 文字あり版（設定ON）
   const symbolTexturesPlain = new Map<string, Texture>(); // 文字なし版＝図柄のみ（既定）
