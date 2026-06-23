@@ -7,7 +7,7 @@
     { "id": "mikan", "name": "みかん", "symbols": ["み", "か", "ん"], "category": "core" }
   ],
   "cherryYaku": [
-    { "id": "momo", "name": "もも", "symbols": ["も", "も"], "category": "cherry", "noArt": true }
+    { "id": "momo", "name": "もも", "symbols": ["も", "も"], "category": "cherry" }
   ],
   "premiumYaku": [
     { "id": "sushiya", "name": "寿司屋", "symbols": ["す", "し", "や"], "category": "premium" },

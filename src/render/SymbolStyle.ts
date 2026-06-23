@@ -32,7 +32,13 @@ const CORE_PALETTE: number[] = [
   0xff2d92, // magenta
 ];
 
-const PREMIUM_COLOR = 0xffd700; // gold（ビッグボーナス役）
+// プレミアム(BIG)役は章に複数ある（例：寿司屋=7揃い / ナマズ=バー揃い）。
+// 単一色だと役同士が区別できないので、登場順にパレットを循環させる（1つ目=金）。
+const PREMIUM_PALETTE: number[] = [
+  0xffd700, // gold（7揃い・1つ目）
+  0x3da5ff, // electric blue（バー揃い等・2つ目）
+  0xff6ad5, // pink（3つ目以降の予備）
+];
 const BONUS_COLOR = 0xc0c0c0; // silver（レギュラーボーナス役 = すし＋別字）
 const CHERRY_COLOR = 0xff4d6d; // cherry red（2文字役チェリー）
 const FILLER_COLOR = 0x4a4a4a; // dark gray（地味な脇役感）
@@ -55,10 +61,11 @@ export class SymbolColorResolver {
     ];
 
     let coreIdx = 0;
+    let premiumIdx = 0;
     for (const yaku of ordered) {
       const color =
         yaku.category === 'premium'
-          ? PREMIUM_COLOR
+          ? PREMIUM_PALETTE[premiumIdx++ % PREMIUM_PALETTE.length]
           : yaku.category === 'bonus'
             ? BONUS_COLOR
             : yaku.category === 'cherry'
