@@ -3,6 +3,7 @@ import { CardPayloadSchema } from './cardSchema';
 import type { CardPayload } from './cardSchema';
 import { allCardKeys, RUN_HISTORY_KEY, FIXED_KEYS } from './storageKeys';
 import { getMemberId, getMemberName } from '../productions/Member';
+import type { RunRecord } from '../productions/RunHistory';
 
 /**
  * 会員カードの作成（スナップショット→暗号化→DL）と復元（読込→復号→検証→適用）。
@@ -135,6 +136,28 @@ export function applyCard(payload: CardPayload): RestoreResult {
     /* ignore */
   }
   return { replacedKeys, totalRuns };
+}
+
+/**
+ * カードの runHistory を RunRecord[] として取り出す（型ガード付き）。
+ * ランキングの「閲覧専用」集計に使う。localStorage には書き込まない。
+ */
+export function extractRunHistory(payload: CardPayload): RunRecord[] {
+  const raw = payload.storage[FIXED_KEYS.runHistory];
+  if (!raw) return [];
+  try {
+    const arr = JSON.parse(raw);
+    if (!Array.isArray(arr)) return [];
+    return arr.filter(
+      (r): r is RunRecord =>
+        typeof r === 'object' &&
+        r !== null &&
+        typeof r.runId === 'string' &&
+        typeof r.sahmai === 'number',
+    );
+  } catch {
+    return [];
+  }
 }
 
 /** プレビュー用のカード要約（会員名・作成日・戦数・通算差枚）。 */
