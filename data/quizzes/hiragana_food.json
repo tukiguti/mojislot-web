@@ -44,9 +44,9 @@
       "decoyYakuIds": ["budou", "dango", "ocha"]
     },
     {
-      "id": "q_nasu",
-      "question": "紫色で細長い夏野菜。左＋中で揃うチェリー役は？",
-      "answerYakuId": "nasu",
+      "id": "q_momo",
+      "question": "桃太郎でおなじみ、ピンク色で甘い果物は？（左＋中で揃うチェリー役）",
+      "answerYakuId": "momo",
       "decoyYakuIds": ["budou", "sushiya", "namazu"]
     }
   ]

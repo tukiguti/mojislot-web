@@ -24,6 +24,8 @@ export const YakuSchema = z.object({
   // 通常は3文字。チェリー(2文字役=左+中)のみ2文字を許容
   symbols: z.array(z.string()).min(2).max(3),
   category: YakuCategorySchema,
+  // 図柄画像(webp)を持たない役。true なら画像読込をスキップし色タイル＋文字で描く
+  noArt: z.boolean().optional(),
 });
 
 export const YakuListSchema = z.object({
