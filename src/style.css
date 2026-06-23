@@ -467,6 +467,164 @@ body {
   color: #9a86b8;
 }
 
+/* === 会員カード画面 === */
+.card-view {
+  max-width: 640px;
+  margin: 0 auto;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+.card-view.busy {
+  opacity: 0.6;
+  pointer-events: none;
+}
+.card-head {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+.card-title {
+  font-size: 22px;
+  letter-spacing: 3px;
+  color: var(--ivory);
+  outline: none;
+}
+.card-section {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 16px;
+  background: linear-gradient(180deg, var(--bg-panel-hi) 0%, var(--bg-panel-lo) 100%);
+  border: 2px solid var(--chrome-dk);
+  border-radius: 10px;
+}
+.card-section-title {
+  font-size: 14px;
+  font-weight: 800;
+  letter-spacing: 1px;
+  color: var(--gold-hi);
+}
+.card-note {
+  font-size: 12px;
+  line-height: 1.5;
+  color: #b8a6d0;
+}
+.card-name-row {
+  display: flex;
+  gap: 10px;
+}
+.card-name-input {
+  flex: 1;
+  min-width: 0;
+  padding: 10px 12px;
+  font-family: inherit;
+  font-size: 15px;
+  color: var(--ivory);
+  background: #120a1e;
+  border: 1px solid var(--chrome-dk);
+  border-radius: 8px;
+}
+.card-name-input:focus-visible {
+  outline: 2px solid var(--magenta);
+  outline-offset: 1px;
+}
+.card-dl-btn,
+.card-confirm-btn {
+  align-self: flex-start;
+  font-size: 14px;
+  letter-spacing: 1px;
+  padding: 12px 26px;
+}
+.card-msg {
+  font-size: 12px;
+  color: #4cd07d;
+}
+.card-msg.error {
+  color: #ec5a72;
+}
+
+/* file input をボタン調に */
+.card-file {
+  display: inline-flex;
+  align-self: flex-start;
+  cursor: pointer;
+}
+.card-file input[type='file'] {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  opacity: 0;
+  pointer-events: none;
+}
+.card-file-label {
+  padding: 10px 18px;
+  font-size: 13px;
+  color: var(--gold);
+  background: rgba(255, 215, 0, 0.08);
+  border: 1px solid var(--gold);
+  border-radius: 8px;
+}
+.card-file:hover .card-file-label {
+  background: rgba(255, 215, 0, 0.2);
+}
+
+.card-preview {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 14px;
+  background: #140c22;
+  border: 1px solid var(--royal);
+  border-radius: 8px;
+}
+/* display:flex が UA の [hidden](display:none) を上書きしてしまうので明示で打ち消す */
+.card-preview[hidden] {
+  display: none;
+}
+.card-preview.error {
+  border-color: #ec5a72;
+}
+.card-preview-error {
+  color: #ec5a72;
+  font-size: 13px;
+}
+.card-preview-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
+  gap: 10px;
+}
+.card-preview-grid > div {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--ivory);
+  font-variant-numeric: tabular-nums;
+}
+.card-preview-label {
+  font-size: 11px;
+  font-weight: 400;
+  color: #9a86b8;
+}
+.card-preview-warn {
+  font-size: 12px;
+  color: var(--gold-hi);
+}
+
+.card-disclaimer {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 14px 16px;
+  font-size: 11px;
+  line-height: 1.5;
+  color: #8c7ba8;
+  border: 1px dashed var(--chrome-dk);
+  border-radius: 8px;
+}
+
 /* ゲーム内マストヘッド左の「TOPへ」ボタン */
 #home-btn {
   position: absolute;

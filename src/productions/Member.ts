@@ -32,3 +32,14 @@ export function getMemberName(): string {
     return DEFAULT_NAME;
   }
 }
+
+/** 表示名を設定する。空文字なら既定名に戻す（キー削除）。 */
+export function setMemberName(name: string): void {
+  try {
+    const trimmed = name.trim();
+    if (trimmed) localStorage.setItem(NAME_KEY, trimmed);
+    else localStorage.removeItem(NAME_KEY);
+  } catch {
+    /* ignore */
+  }
+}
