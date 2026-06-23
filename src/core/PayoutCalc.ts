@@ -38,16 +38,21 @@ export class PayoutCalc {
     }
     return total;
   }
-}
 
-/**
- * 連チャン数に応じた配当倍率を返す。
- * 「成立後の streak」で評価することで、3連達成スピンから恩恵が乗る。
- */
-export function streakMultiplier(streakAfterThisSpin: number): number {
-  if (streakAfterThisSpin >= 10) return 2.0;
-  if (streakAfterThisSpin >= 5) return 1.5;
-  if (streakAfterThisSpin >= 3) return 1.2;
-  return 1;
+  /**
+   * 連チャン（コンボ）数に応じた配当倍率を返す。
+   * 「成立後の streak」で評価することで、達成スピンから恩恵が乗る。
+   * payout.streakTiers を「最大一致」で評価（しきい値の並び順に依存しない）。
+   * 該当なしは 1。
+   */
+  streakMult(streakAfterThisSpin: number): number {
+    let best = 1;
+    for (const tier of this.payout.streakTiers) {
+      if (streakAfterThisSpin >= tier.minStreak && tier.mult > best) {
+        best = tier.mult;
+      }
+    }
+    return best;
+  }
 }
 

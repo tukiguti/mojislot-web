@@ -3,7 +3,7 @@ import { ReelEngine } from './core/ReelEngine';
 import { ReelView, CELL_WIDTH, CELL_HEIGHT, VISIBLE_CELLS } from './render/ReelView';
 import { SymbolColorResolver } from './render/SymbolStyle';
 import { YakuJudge } from './core/YakuJudge';
-import { PayoutCalc, streakMultiplier } from './core/PayoutCalc';
+import { PayoutCalc } from './core/PayoutCalc';
 import { CoinWallet } from './core/CoinWallet';
 import {
   EffectScheduler,
@@ -861,7 +861,7 @@ export async function bootstrap() {
   // 連チャン表示（倍率も併記）＋ cabinet の連チャンオーラ
   const updateStreakUI = (streak: number) => {
     if (streak >= 2) {
-      const mult = streakMultiplier(streak);
+      const mult = calc.streakMult(streak);
       const multTag = mult > 1 ? ` ×${mult}` : '';
       streakStatusEl.hidden = false;
       streakStatusEl.textContent = `${streak} 連${multTag}`;
@@ -1280,7 +1280,7 @@ export async function bootstrap() {
       const isRegular = !isPremium && bonusHit !== null;
       // 成立後の連チャン数で配当倍率を評価（3連達成スピンから恩恵が乗る）
       const streakAfter = willHit ? playStats.stats.get().streak + 1 : 0;
-      const streakMult = streakMultiplier(streakAfter);
+      const streakMult = calc.streakMult(streakAfter);
       const win = calc.calcMulti(hits, bonusZone.isActive(), streakMult);
       if (win > 0) wallet.win(win);
 
