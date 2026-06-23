@@ -286,7 +286,7 @@ export async function bootstrap() {
     'security',
     'h_adult',
   ]);
-  const ART_VER = '5';
+  const ART_VER = '6';
   const symbolTileUrls = new Map<string, string>(); // 右パネル用（文字あり版の素URL）
   const symbolTextures = new Map<string, Texture>(); // 文字あり版（設定ON）
   const symbolTexturesPlain = new Map<string, Texture>(); // 文字なし版＝図柄のみ（既定）
@@ -660,6 +660,7 @@ export async function bootstrap() {
     box: document.querySelector<HTMLElement>('.unit-timer'),
     clock: document.getElementById('timer-elapsed'),
     min: document.getElementById('timer-min'),
+    total: document.getElementById('timer-total'),
     toggle: document.getElementById('timer-toggle') as HTMLButtonElement | null,
     reset: document.getElementById('timer-reset'),
     presets: document.getElementById('timer-presets'),
@@ -699,6 +700,10 @@ export async function bootstrap() {
       setRate(timerEl.min, null, '');
     }
   };
+  // 区間差枚＝開始からの差枚デルタ（累計）。分速と違い値が暴れないので即時表示。
+  const renderTotal = (): void => {
+    setRate(timerEl.total, wallet.sahmai() - timerBaseSahmai, '枚');
+  };
   const renderTimer = (): void => {
     if (!timerRunning) return;
     const elapsedMs = Date.now() - timerStartMs;
@@ -708,6 +713,7 @@ export async function bootstrap() {
         // セット時間に到達：00:00 固定＋その間の分速を確定して自動停止
         if (timerEl.clock) timerEl.clock.textContent = '00:00';
         renderMinRate(elapsedMs, timerDurationMs);
+        renderTotal();
         stopTimer();
         return;
       }
@@ -716,6 +722,7 @@ export async function bootstrap() {
       timerEl.clock.textContent = fmtClock(elapsedMs); // 経過時間
     }
     renderMinRate(elapsedMs);
+    renderTotal();
   };
   const startTimer = (): void => {
     timerRunning = true;
@@ -730,6 +737,7 @@ export async function bootstrap() {
       timerEl.clock.textContent = fmtClock(timerDurationMs); // カウントダウンはセット時間から
     }
     setRate(timerEl.min, null, '');
+    setRate(timerEl.total, 0, '枚');
     timerInterval = window.setInterval(renderTimer, 1000);
   };
   const stopTimer = (): void => {
@@ -767,6 +775,7 @@ export async function bootstrap() {
     timerStartMs = 0;
     if (timerEl.clock) timerEl.clock.textContent = fmtClock(timerDurationMs);
     setRate(timerEl.min, null, '');
+    setRate(timerEl.total, null, '');
   });
 
   // === 隠し章解除：Coin 表示を 20 回クリックで unlock ===

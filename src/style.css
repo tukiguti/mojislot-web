@@ -891,7 +891,12 @@ body.has-chapter-bg {
   background: linear-gradient(180deg, var(--gold-hi) 0%, var(--gold) 100%);
   border-color: var(--gold);
 }
-.unit-timer-rate-single {
+.unit-timer-rates {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.unit-timer-rate {
   display: flex;
   align-items: baseline;
   justify-content: space-between;
