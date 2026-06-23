@@ -3,6 +3,7 @@ import type { Route } from './router/Router';
 import { bootstrap } from './main';
 import { mountTopView } from './ui/TopView';
 import { mountPlaySetup } from './ui/PlaySetup';
+import { renderRankingView } from './ui/RankingView';
 
 /**
  * アプリ起点。hash ルータでビューを出し分ける。
@@ -25,6 +26,13 @@ function enter(route: Route): void {
   if (gameStarted) {
     location.reload();
     return;
+  }
+  // ランキングは表示のたびに最新の runHistory を読み直して再描画する
+  if (route === 'ranking') {
+    renderRankingView({
+      onBack: () => router.navigate('top'),
+      onPlay: () => router.navigate('play'),
+    });
   }
   showView(route);
 }
