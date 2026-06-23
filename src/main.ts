@@ -18,6 +18,8 @@ import { SfxEngine } from './audio/SfxEngine';
 import { BgmEngine } from './audio/BgmEngine';
 import { TenpaiDetector, type TenpaiLine } from './productions/TenpaiDetector';
 import { PlayStats } from './productions/PlayStats';
+import { appendRunRecord } from './productions/RunHistory';
+import { getMemberId, getMemberName } from './productions/Member';
 import { NearMissDetector } from './productions/NearMissDetector';
 import {
   flashScreen,
@@ -594,9 +596,45 @@ export async function bootstrap() {
   wallet.coins.subscribe(renderSahmai);
   wallet.investmentTotal.subscribe(renderSahmai);
 
-  // 計数＝この戦を締めて持メダルを流す(0に)＋投資をリセット。※P5で1戦記録(RunHistory)を追加。
+  // 戦専用カウンタ（RunRecord 用）。PlayStats は章混在の累計なので差分算出に使えず別持ちする。
+  // recordSpin と challenge 報酬の確定フックで増分し、計数（count-btn）でスナップショット→0リセット。
+  let runStartedAt = Date.now();
+  let runSpinCount = 0;
+  let runTotalBet = 0;
+  let runTotalWin = 0;
+  let runPremiumCount = 0;
+  let runBonusCount = 0;
+
+  // 計数＝この戦を締める：spinCount>0 なら1戦を RunHistory に確定記録し、持メダルを流す(0に)＋投資/戦カウンタをリセット。
   document.getElementById('count-btn')?.addEventListener('click', () => {
+    const investment = wallet.investmentTotal.get();
+    const payback = wallet.coins.get();
+    // 空打ち（1回も回さず計数）は機械割が算出不能なので記録しない＝離脱は破棄に準ずる
+    if (runSpinCount > 0) {
+      appendRunRecord({
+        runId: crypto.randomUUID(),
+        memberId: getMemberId(),
+        memberName: getMemberName(),
+        chapterId,
+        startedAt: runStartedAt,
+        settledAt: Date.now(),
+        investment,
+        payback,
+        sahmai: payback - investment,
+        spinCount: runSpinCount,
+        totalBet: runTotalBet,
+        totalWin: runTotalWin,
+        premiumCount: runPremiumCount,
+        bonusCount: runBonusCount,
+      });
+    }
     wallet.reset(0);
+    runStartedAt = Date.now();
+    runSpinCount = 0;
+    runTotalBet = 0;
+    runTotalWin = 0;
+    runPremiumCount = 0;
+    runBonusCount = 0;
   });
 
   // === 隠し章解除：Coin 表示を 20 回クリックで unlock ===
@@ -1113,6 +1151,13 @@ export async function bootstrap() {
         bonusTriggered: isPremium || isRegular,
       });
 
+      // 戦専用カウンタも同じ確定点で増分（計数で RunRecord に確定する）
+      runSpinCount += 1;
+      runTotalBet += calc.bet;
+      runTotalWin += win;
+      if (isPremium) runPremiumCount += 1;
+      if (isRegular) runBonusCount += 1;
+
       // ビタ押し集計：役成立時のみ、貢献したリールごとに
       //   1) 押下精度 ≤ BITA_MS
       //   2) 滑り（蹴り）も引き込みも無く自力停止（slipCells == 0）
@@ -1142,6 +1187,8 @@ export async function bootstrap() {
         newlyAchieved.forEach((c, i) => {
           window.setTimeout(() => {
             wallet.win(c.reward);
+            // ミッション報酬も払い出しの一種として戦の totalWin（機械割の分子）に含める
+            runTotalWin += c.reward;
             showMissionToast(c);
             sfx.bita(); // 短いキラーン音を流用
           }, i * 350);
