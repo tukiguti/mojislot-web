@@ -839,6 +839,97 @@ body.has-chapter-bg {
   color: #ff7a8a;
   text-shadow: 0 0 6px rgba(255, 122, 138, 0.4);
 }
+
+/* 時間計測（手動スタート/ストップ・時速/分速） */
+.unit-timer {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  padding: 6px 8px;
+  background: #07040c;
+  border: 1px solid #2a2336;
+  border-radius: 6px;
+}
+.unit-timer-top {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+}
+.unit-timer-clock {
+  font-family: ui-monospace, 'SFMono-Regular', monospace;
+  font-size: 16px;
+  font-weight: 700;
+  letter-spacing: 1px;
+  color: var(--ivory);
+}
+.unit-timer.running .unit-timer-clock {
+  color: var(--gold-hi);
+}
+.unit-timer-presets {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+.timer-preset {
+  flex: 1;
+  min-width: 32px;
+  padding: 3px 0;
+  cursor: pointer;
+  font-family: inherit;
+  font-size: 10px;
+  color: var(--ivory);
+  background: rgba(92, 46, 142, 0.2);
+  border: 1px solid #2a2336;
+  border-radius: 999px;
+}
+.timer-preset:hover {
+  border-color: rgba(242, 179, 60, 0.5);
+}
+.timer-preset.active {
+  color: #1b0f0a;
+  font-weight: 700;
+  background: linear-gradient(180deg, var(--gold-hi) 0%, var(--gold) 100%);
+  border-color: var(--gold);
+}
+.unit-timer-rate-single {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  padding: 2px 4px;
+  background: #110a1c;
+  border-radius: 4px;
+}
+.unit-timer-rate-label {
+  font-size: 9px;
+  letter-spacing: 2px;
+  color: #9a86b8;
+}
+.unit-timer-rate-num {
+  font-family: ui-monospace, 'SFMono-Regular', monospace;
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--ivory);
+}
+.unit-timer-rate-num.plus {
+  color: #6ee7a8;
+}
+.unit-timer-rate-num.minus {
+  color: #ff7a8a;
+}
+.unit-timer-buttons {
+  display: flex;
+  gap: 6px;
+}
+.unit-timer-buttons .aux-btn {
+  flex: 1;
+  padding: 5px 0;
+  font-size: 11px;
+}
+.unit-timer-buttons .aux-btn.on {
+  background: linear-gradient(180deg, var(--gold-hi) 0%, var(--gold) 100%);
+  color: #1b0f0a;
+  border-color: var(--gold);
+}
 .unit-slot {
   height: 8px;
   margin: 0 14px;
