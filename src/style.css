@@ -467,6 +467,80 @@ body {
   color: #9a86b8;
 }
 
+/* 会員カード読込（閲覧専用）セクション */
+.ranking-cards {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 12px 14px;
+  background: #160d24;
+  border: 1px dashed var(--royal);
+  border-radius: 10px;
+}
+.ranking-cards-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+}
+.ranking-card-clear {
+  padding: 8px 14px;
+  cursor: pointer;
+  font-family: inherit;
+  font-size: 12px;
+  color: #ec9aa8;
+  background: rgba(236, 90, 114, 0.1);
+  border: 1px solid #ec5a72;
+  border-radius: 8px;
+}
+.ranking-card-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.ranking-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 10px;
+  font-size: 12px;
+  color: var(--ivory);
+  background: rgba(92, 46, 142, 0.3);
+  border: 1px solid var(--royal);
+  border-radius: 999px;
+}
+.ranking-chip-count {
+  font-size: 11px;
+  color: var(--gold-hi);
+}
+.ranking-card-msg {
+  margin: 0;
+}
+.ranking-cards-note {
+  font-size: 11px;
+  color: #8c7ba8;
+}
+
+/* 会員列・自分の行の強調 */
+.ranking-table .rk-member {
+  max-width: 140px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.rk-me-badge {
+  display: inline-block;
+  margin-left: 6px;
+  padding: 1px 6px;
+  font-size: 10px;
+  color: #1b0f0a;
+  background: var(--gold);
+  border-radius: 999px;
+  vertical-align: middle;
+}
+.ranking-table tbody tr.rk-me-row td {
+  background: rgba(242, 179, 60, 0.07);
+}
+
 /* === 会員カード画面 === */
 .card-view {
   max-width: 640px;
