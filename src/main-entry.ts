@@ -4,6 +4,7 @@ import { bootstrap } from './main';
 import { mountTopView } from './ui/TopView';
 import { mountPlaySetup } from './ui/PlaySetup';
 import { renderRankingView } from './ui/RankingView';
+import { renderCardView } from './ui/CardView';
 
 /**
  * アプリ起点。hash ルータでビューを出し分ける。
@@ -33,6 +34,10 @@ function enter(route: Route): void {
       onBack: () => router.navigate('top'),
       onPlay: () => router.navigate('play'),
     });
+  }
+  // 会員カードも表示のたびに現在の会員名で再描画する
+  if (route === 'card') {
+    renderCardView({ onBack: () => router.navigate('top') });
   }
   showView(route);
 }
