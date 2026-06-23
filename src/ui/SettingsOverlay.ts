@@ -1,16 +1,12 @@
-import {
-  getVisibleChapters,
-  isSecretUnlocked,
-  setCurrentChapterId,
-} from '../data/chapters';
 import type { CoinWallet } from '../core/CoinWallet';
 import type { PlayStats } from '../productions/PlayStats';
 import type { ZukanState } from '../productions/ZukanState';
 import type { ChallengeTracker } from '../productions/Challenges';
 
 /**
- * 設定モーダル：章切替・リセット・デバッグ操作を集約。
- * 図鑑モーダルから分離して、図鑑側はスクロールの邪魔を減らす。
+ * 設定モーダル：ミッション/表示/リセット/（任意で）デバッグ操作を集約。
+ * 台（章）の切替は「遊ぶ」セットアップ（PlaySetup）へ移設したのでここには無い。
+ * デバッグ section は debugVisible（遊ぶ設定の `mojislot.debugVisible.v1`）が true の時だけ出す。
  */
 
 export interface DebugActions {
@@ -31,52 +27,24 @@ export class SettingsOverlay {
   private visible = false;
 
   constructor(
-    private readonly currentChapterId: string,
     private readonly wallet: CoinWallet,
     private readonly initialCoins: number,
     private readonly playStats: PlayStats,
     private readonly zukanState: ZukanState,
     private readonly challengeTracker: ChallengeTracker,
+    private readonly debugVisible: boolean,
   ) {
     const root = document.getElementById('settings-overlay');
     if (!root) throw new Error('#settings-overlay not found');
     this.root = root;
 
-    const visibleChapters = getVisibleChapters();
-    const chapterButtons = visibleChapters
-      .map(
-        (c) =>
-          `<button class="chapter-btn ${c.id === this.currentChapterId ? 'active' : ''}" data-chapter="${c.id}" type="button" title="${c.description}">${c.name}</button>`,
-      )
-      .join('');
-
-    const missionsEnabled = this.challengeTracker.enabled.get();
-    const secretHint = isSecretUnlocked()
-      ? '<div class="settings-section-hint">🔓 隠し章が解除されています</div>'
-      : '';
-
+    // ミッション報酬の有無は「遊ぶ」セットアップ（PlaySetup）で確定する。
+    // ゲーム内では切替えない（プレイ前に決めた設定が骨抜きにならないよう一本化）。
     this.root.innerHTML = `
       <div class="settings-modal">
         <div class="settings-header">
           <h2>設定</h2>
           <button class="settings-close" type="button">×</button>
-        </div>
-        <div class="settings-section">
-          <div class="settings-section-label">章を選択</div>
-          <div class="settings-section-hint">切替するとリロードされます</div>
-          ${secretHint}
-          <div class="zukan-chapters-list">${chapterButtons}</div>
-        </div>
-        <div class="settings-section">
-          <div class="settings-section-label">ミッション</div>
-          <label class="toggle-row">
-            <span class="toggle-text">
-              <span class="toggle-title">ミッション報酬を有効化</span>
-              <span class="toggle-sub">OFFにすると達成チェック・報酬コイン・トーストが止まります</span>
-            </span>
-            <input type="checkbox" class="missions-toggle" ${missionsEnabled ? 'checked' : ''}>
-            <span class="toggle-switch"></span>
-          </label>
         </div>
         <div class="settings-section">
           <div class="settings-section-label">表示</div>
@@ -96,7 +64,9 @@ export class SettingsOverlay {
             <button class="reset-all" type="button">全データをリセット</button>
           </div>
         </div>
-        <div class="settings-section">
+        ${
+          this.debugVisible
+            ? `<div class="settings-section">
           <div class="settings-section-label">デバッグ（演出を強制発動）</div>
           <div class="zukan-debug-buttons">
             <button data-debug="bonus" type="button">BIG BONUS</button>
@@ -109,7 +79,9 @@ export class SettingsOverlay {
             <button data-debug="win" type="button">役成立演出</button>
             <button data-debug="effects" type="button">全画面FX</button>
           </div>
-        </div>
+        </div>`
+            : ''
+        }
         <div class="zukan-hint">[,] で閉じる</div>
       </div>
     `;
@@ -118,28 +90,6 @@ export class SettingsOverlay {
 
     const closeBtn = this.root.querySelector<HTMLButtonElement>('.settings-close')!;
     closeBtn.addEventListener('click', () => this.close());
-
-    const chapterBtns =
-      this.root.querySelectorAll<HTMLButtonElement>('.chapter-btn');
-    chapterBtns.forEach((btn) => {
-      btn.addEventListener('click', () => {
-        const id = btn.dataset.chapter;
-        if (!id || id === this.currentChapterId) return;
-        setCurrentChapterId(id);
-        window.location.reload();
-      });
-    });
-
-    const missionsToggle = this.root.querySelector<HTMLInputElement>(
-      '.missions-toggle',
-    )!;
-    missionsToggle.addEventListener('change', () => {
-      this.challengeTracker.setEnabled(missionsToggle.checked);
-    });
-    // 外部から変更されたときもUIを同期
-    this.challengeTracker.enabled.subscribe((v) => {
-      missionsToggle.checked = v;
-    });
 
     const resetCoinBtn = this.root.querySelector<HTMLButtonElement>('.reset-coin')!;
     resetCoinBtn.addEventListener('click', () => {

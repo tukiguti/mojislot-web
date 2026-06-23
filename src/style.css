@@ -282,6 +282,30 @@ body {
   transform: translateY(2px);
 }
 
+/* プレイ設定（4トグル）。machine-card と同じ枠調で台選択の下に置く */
+.setup-options {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 12px 14px;
+  background: linear-gradient(180deg, var(--bg-panel-hi) 0%, var(--bg-panel-lo) 100%);
+  border: 2px solid var(--chrome-dk);
+  border-radius: 10px;
+}
+.setup-options-title {
+  font-size: 12px;
+  font-weight: 800;
+  letter-spacing: 2px;
+  color: var(--gold-hi);
+  padding: 0 4px 6px;
+}
+.setup-options .toggle-row {
+  padding: 8px 6px;
+}
+.setup-options .toggle-row + .toggle-row {
+  border-top: 1px solid rgba(170, 102, 204, 0.12);
+}
+
 /* ゲーム内マストヘッド左の「TOPへ」ボタン */
 #home-btn {
   position: absolute;

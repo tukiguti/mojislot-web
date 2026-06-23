@@ -166,13 +166,15 @@ export async function bootstrap() {
     playStats,
     challengeTracker,
   );
+  // デバッグ section の表示可否（遊ぶ設定で確定・既定OFF）
+  const debugVisible = localStorage.getItem('mojislot.debugVisible.v1') === '1';
   const settingsOverlay = new SettingsOverlay(
-    chapterId,
     wallet,
     payout.initialCoins,
     playStats,
     zukanState,
     challengeTracker,
+    debugVisible,
   );
   // 滑り/引き込み（17_assist-and-slip.md）：演出時は最終リールで狙い役を最大4コマ引き込む
   // （resolveAssist）。引き込まない時は、予告役以外の premium/bonus 偶然揃いを蹴る
@@ -405,6 +407,18 @@ export async function bootstrap() {
   const cabinetEl = requireEl('cabinet');
   const muteBtn = requireEl<HTMLButtonElement>('mute-btn');
   const autoBtn = requireEl<HTMLButtonElement>('auto-btn');
+  // AUTO の有無（遊ぶ設定 sessionStorage `mojislot.playSetup.v1` = {auto}・既定あり）。
+  // 無効時はボタンを隠し、[O] ショートカットも効かせない。
+  const autoAvailable = ((): boolean => {
+    try {
+      const raw = sessionStorage.getItem('mojislot.playSetup.v1');
+      if (!raw) return true;
+      return (JSON.parse(raw) as { auto?: unknown }).auto !== false;
+    } catch {
+      return true;
+    }
+  })();
+  if (!autoAvailable) autoBtn.hidden = true;
   const settingsBtn = requireEl<HTMLButtonElement>('settings-btn');
   const streakStatusEl = requireEl('streak-status');
   const rescueStatusEl = requireEl('rescue-status');
@@ -1400,6 +1414,7 @@ export async function bootstrap() {
   };
 
   autoBtn.addEventListener('click', () => {
+    if (!autoAvailable) return;
     if (autoMode) stopAuto();
     else startAuto();
   });
@@ -1580,6 +1595,7 @@ export async function bootstrap() {
     }
     if (key === 'o') {
       ev.preventDefault();
+      if (!autoAvailable) return;
       if (autoMode) stopAuto();
       else startAuto();
       return;
