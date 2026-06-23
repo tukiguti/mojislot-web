@@ -51,6 +51,20 @@ export const PayoutSchema = z.object({
   }),
   bonusZoneMultiplier: z.number(),
   initialCoins: z.number().int().nonnegative(),
+  // 連チャン（コンボ）数→配当倍率。しきい値で評価（順不同・最大一致を採用）。
+  // 省略時は旧来の 3連1.2 / 5連1.5 / 10連2.0。
+  streakTiers: z
+    .array(
+      z.object({
+        minStreak: z.number().int().positive(),
+        mult: z.number().positive(),
+      }),
+    )
+    .default([
+      { minStreak: 3, mult: 1.2 },
+      { minStreak: 5, mult: 1.5 },
+      { minStreak: 10, mult: 2.0 },
+    ]),
 });
 
 export type Payout = z.infer<typeof PayoutSchema>;

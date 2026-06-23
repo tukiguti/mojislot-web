@@ -1,11 +1,18 @@
 {
   "betPerSpin": 3,
   "baseMultiplier": {
-    "core": 8,
-    "premium": 100,
-    "bonus": 10,
+    "core": 5,
+    "premium": 25,
+    "bonus": 6,
     "cherry": 2
   },
-  "bonusZoneMultiplier": 1.5,
-  "initialCoins": 0
+  "bonusZoneMultiplier": 2.5,
+  "initialCoins": 0,
+  "streakTiers": [
+    { "minStreak": 2, "mult": 1.2 },
+    { "minStreak": 3, "mult": 1.5 },
+    { "minStreak": 5, "mult": 2.0 },
+    { "minStreak": 8, "mult": 2.5 },
+    { "minStreak": 12, "mult": 3.0 }
+  ]
 }
