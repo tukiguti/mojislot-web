@@ -306,6 +306,167 @@ body {
   border-top: 1px solid rgba(170, 102, 204, 0.12);
 }
 
+/* === ランキング画面 === */
+.ranking-view {
+  max-width: 920px;
+  margin: 0 auto;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+.ranking-head {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+.ranking-title {
+  font-size: 22px;
+  letter-spacing: 3px;
+  color: var(--ivory);
+  outline: none;
+}
+/* 差枚などの符号色（プラス=緑／マイナス=赤）。サンドの差枚表示と同系統。
+   .ranking-card-value / .ranking-table td より詳細度を上げて確実に勝たせる。 */
+.num-plus {
+  color: #4cd07d;
+}
+.num-minus {
+  color: #ec5a72;
+}
+.ranking-card-value.num-plus,
+.ranking-table td.num-plus {
+  color: #4cd07d;
+}
+.ranking-card-value.num-minus,
+.ranking-table td.num-minus {
+  color: #ec5a72;
+}
+
+.ranking-summary {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+  gap: 10px;
+}
+.ranking-card {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 12px 14px;
+  background: linear-gradient(180deg, var(--bg-panel-hi) 0%, var(--bg-panel-lo) 100%);
+  border: 2px solid var(--chrome-dk);
+  border-radius: 10px;
+}
+.ranking-card-label {
+  font-size: 11px;
+  letter-spacing: 1px;
+  color: #9a86b8;
+}
+.ranking-card-value {
+  font-size: 22px;
+  font-weight: 800;
+  color: var(--gold-hi);
+  font-variant-numeric: tabular-nums;
+}
+
+.ranking-controls {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: 10px;
+}
+.ranking-tabs,
+.ranking-sort {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+}
+.ranking-sort-label {
+  font-size: 11px;
+  color: #9a86b8;
+  margin-right: 2px;
+}
+.ranking-tab,
+.ranking-sort-btn {
+  padding: 6px 12px;
+  cursor: pointer;
+  font-family: inherit;
+  font-size: 12px;
+  color: var(--ivory);
+  background: rgba(92, 46, 142, 0.18);
+  border: 1px solid var(--chrome-dk);
+  border-radius: 999px;
+  transition: background 0.12s ease, border-color 0.12s ease;
+}
+.ranking-tab:hover,
+.ranking-sort-btn:hover {
+  border-color: rgba(242, 179, 60, 0.55);
+}
+.ranking-tab.active,
+.ranking-sort-btn.active {
+  color: #1b0f0a;
+  background: linear-gradient(180deg, var(--gold-hi) 0%, var(--gold) 100%);
+  border-color: var(--gold);
+  font-weight: 800;
+}
+
+.ranking-table-wrap {
+  overflow-x: auto;
+  border: 1px solid var(--chrome-dk);
+  border-radius: 10px;
+}
+.ranking-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+  white-space: nowrap;
+}
+.ranking-table th {
+  position: sticky;
+  top: 0;
+  padding: 10px 12px;
+  text-align: right;
+  font-size: 11px;
+  letter-spacing: 1px;
+  color: var(--gold);
+  background: #1a0f2a;
+  border-bottom: 1px solid var(--chrome-dk);
+}
+.ranking-table th:first-child,
+.ranking-table th:nth-child(2) {
+  text-align: left;
+}
+.ranking-table td {
+  padding: 9px 12px;
+  border-bottom: 1px solid rgba(170, 102, 204, 0.12);
+  color: var(--ivory);
+}
+.ranking-table tbody tr:hover td {
+  background: rgba(170, 102, 204, 0.08);
+}
+.ranking-table .rk-num {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+.ranking-table .rk-date {
+  color: #9a86b8;
+  font-size: 12px;
+}
+
+.ranking-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  padding: 48px 16px;
+  text-align: center;
+  color: var(--ivory);
+}
+.ranking-empty-sub {
+  font-size: 13px;
+  color: #9a86b8;
+}
+
 /* ゲーム内マストヘッド左の「TOPへ」ボタン */
 #home-btn {
   position: absolute;
