@@ -54,5 +54,19 @@ export class PayoutCalc {
     }
     return best;
   }
+
+  /**
+   * 「狙え！」予告役が成立した時の達成ボーナス（上乗せ分のみ）。
+   * 予告役が揃ったライン群の配当 × (aimBonusMultiplier − 1) を floor して返す。
+   * 予告役が揃っていない（空配列）なら 0。
+   */
+  aimBonus(
+    hits: readonly PaylineHit[],
+    bonusActive = false,
+    streakMult = 1,
+  ): number {
+    const base = this.calcMulti(hits, bonusActive, streakMult);
+    return Math.floor(base * (this.payout.aimBonusMultiplier - 1));
+  }
 }
 

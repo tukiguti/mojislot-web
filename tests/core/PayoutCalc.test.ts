@@ -15,6 +15,7 @@ const PAYOUT: Payout = {
     { minStreak: 2, mult: 1.2 },
     { minStreak: 5, mult: 2.0 },
   ],
+  aimBonusMultiplier: 1.5,
 };
 
 const yaku = (category: Yaku['category']): Yaku => ({
@@ -90,5 +91,22 @@ describe('PayoutCalc.streakMult', () => {
     expect(calc.streakMult(11)).toBe(2.0);
     expect(calc.streakMult(12)).toBe(3.0);
     expect(calc.streakMult(99)).toBe(3.0);
+  });
+});
+
+describe('PayoutCalc.aimBonus', () => {
+  const calc = new PayoutCalc(PAYOUT);
+
+  it('予告役が揃ったライン配当 ×(mult−1) の floor（上乗せ分のみ）', () => {
+    expect(calc.aimBonus([hit('core')])).toBe(7); // floor(15×0.5)
+    expect(calc.aimBonus([hit('core'), hit('core')])).toBe(15); // 30×0.5
+  });
+
+  it('ボーナス中・コンボ込みの配当に対して上乗せ', () => {
+    expect(calc.aimBonus([hit('core')], true, 2.0)).toBe(37); // floor(75×0.5)
+  });
+
+  it('予告役が揃っていない（空配列）なら 0', () => {
+    expect(calc.aimBonus([])).toBe(0);
   });
 });
