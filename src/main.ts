@@ -1220,17 +1220,26 @@ export async function bootstrap() {
     const assistTenpai = tenpaiDetector.detect(stoppedVisibles);
     if (assistTenpai && assistTenpai.missingReelIndex === idx) {
       slipCells = pickAssistSlip(assistTenpai.lines, idx, engine.strip, basePos);
-    } else if (currentEffect === 'aim' && aimNoticeYaku) {
-      // 「狙え！」時の第1・第2停止：狙い役の文字を中段へ軽く引き込む（最大 AIM_HINT_MAX_CELLS コマ）。
-      // 最終リールの4コマ引き込みより控えめ。窓外（2コマ超）なら引き込まず自力ミス扱い＝目押しの妙味は残す。
-      const hint = slipResolver.resolveAssist(
-        engine.strip,
-        basePos,
-        aimNoticeYaku.symbols[idx],
-        'middle',
-        AIM_HINT_MAX_CELLS,
-      );
-      if (hint !== null) slipCells = hint;
+    } else if (currentEffect === 'aim' || currentEffect === 'quiz') {
+      // 予告役（狙え＝予告役／クイズ＝正解役）の第1・第2停止：対象文字を中段へ軽く引き込む
+      //（最大 AIM_HINT_MAX_CELLS コマ）。最終リールの4コマ引き込みより控えめで、窓外（2コマ超）なら
+      // 引き込まず自力ミス扱い＝目押しの妙味は残す。クイズは正解時のみ targetYakuId が立つ
+      //（不正解/未回答は対象なし）。2文字チェリーが正解役の時は右リール(idx=2)に対象文字が無く引き込まない。
+      const noticeId = currentTargetYakuId();
+      const noticeYaku = noticeId
+        ? allYakusFlat.find((y) => y.id === noticeId)
+        : null;
+      const targetSymbol = noticeYaku?.symbols[idx];
+      if (targetSymbol !== undefined) {
+        const hint = slipResolver.resolveAssist(
+          engine.strip,
+          basePos,
+          targetSymbol,
+          'middle',
+          AIM_HINT_MAX_CELLS,
+        );
+        if (hint !== null) slipCells = hint;
+      }
     }
     if (slipCells === 0) {
       slipCells = slipResolver.resolveKick({
@@ -1296,13 +1305,14 @@ export async function bootstrap() {
       const streakAfter = willHit ? playStats.stats.get().streak + 1 : 0;
       const streakMult = calc.streakMult(streakAfter);
       let win = calc.calcMulti(hits, bonusZone.isActive(), streakMult);
-      // 「狙え！」予告役が実際に成立 → その役ライン分に達成ボーナスを上乗せ。
-      let aimBonus = 0;
-      const aimYaku = currentEffect === 'aim' ? aimNoticeYaku : null;
-      if (aimYaku) {
-        const aimHits = hits.filter((h) => h.yaku.id === aimYaku.id);
-        aimBonus = calc.aimBonus(aimHits, bonusZone.isActive(), streakMult);
-        win += aimBonus;
+      // 予告役（狙え＝予告役／クイズ＝正解役）が実際に成立 → その役ライン分に達成ボーナスを上乗せ。
+      // currentTargetYakuId() は aim→予告役 / quiz→正解役(正解時のみ) / それ以外→null。
+      let noticeBonus = 0;
+      const noticeYakuId = currentTargetYakuId();
+      if (noticeYakuId) {
+        const noticeHits = hits.filter((h) => h.yaku.id === noticeYakuId);
+        noticeBonus = calc.aimBonus(noticeHits, bonusZone.isActive(), streakMult);
+        win += noticeBonus;
       }
       if (win > 0) wallet.win(win);
 
@@ -1367,10 +1377,11 @@ export async function bootstrap() {
         const bonusTag = bonusZone.isActive() ? ' ×BONUS' : '';
         const streakTag = streakMult > 1 ? ` ×${streakMult}連` : '';
         const lineTag = hits.length > 1 ? ` (${hits.length}ライン)` : '';
-        const aimTag = aimBonus > 0 ? ` ★狙え的中+${aimBonus}` : '';
+        const noticeLabel = currentEffect === 'quiz' ? 'クイズ的中' : '狙え的中';
+        const noticeTag = noticeBonus > 0 ? ` ★${noticeLabel}+${noticeBonus}` : '';
         // 役名は重複なしで「みかん×2 ＋ すしや」のように要約
         const yakuLabel = summarizeHits(hits);
-        showResult(`${yakuLabel}！ +${win}${bonusTag}${streakTag}${lineTag}${aimTag}`, cls);
+        showResult(`${yakuLabel}！ +${win}${bonusTag}${streakTag}${lineTag}${noticeTag}`, cls);
         jinState.set('cheer');
         // 図鑑には揃ったユニーク役を全部記録
         const recorded = new Set<string>();
@@ -1421,8 +1432,8 @@ export async function bootstrap() {
         else if (isRegular) showCoinBurst(16);
         else if (win >= 50) showCoinBurst(12);
         else if (win >= 24) showCoinBurst(5);
-        // 狙え的中は配当の大小に関わらず、達成感のコインバーストを別途出す
-        if (aimBonus > 0) showCoinBurst(10);
+        // 予告役的中（狙え／クイズ正解）は配当の大小に関わらず、達成感のコインバーストを別途出す
+        if (noticeBonus > 0) showCoinBurst(10);
         // プレミアム成立でビッグボーナス突入＋全画面演出
         if (isPremium && premiumHit) {
           bonusZone.trigger('big');
