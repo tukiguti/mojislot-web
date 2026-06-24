@@ -65,6 +65,8 @@ export const PayoutSchema = z.object({
       { minStreak: 5, mult: 1.5 },
       { minStreak: 10, mult: 2.0 },
     ]),
+  // 「狙え！」予告役が実際に成立した時の達成ボーナス倍率（その役ライン分の配当に上乗せ）。
+  aimBonusMultiplier: z.number().positive().default(1.5),
 });
 
 export type Payout = z.infer<typeof PayoutSchema>;

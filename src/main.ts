@@ -1157,6 +1157,9 @@ export async function bootstrap() {
     cherry: 0,
   };
 
+  /** 「狙え！」時、第1・第2停止で狙い役を中段へ軽く引き込む最大コマ数（最終リールの4コマより控えめ）。 */
+  const AIM_HINT_MAX_CELLS = 2;
+
   /**
    * テンパイ成立ライン群（5ライン）から、演出の対象役に合う最良の引き込みコマ数を返す。
    * 優先順位: カテゴリ（premium>bonus>core>cherry）→ 引き込みが近い → 中段ライン。
@@ -1217,6 +1220,17 @@ export async function bootstrap() {
     const assistTenpai = tenpaiDetector.detect(stoppedVisibles);
     if (assistTenpai && assistTenpai.missingReelIndex === idx) {
       slipCells = pickAssistSlip(assistTenpai.lines, idx, engine.strip, basePos);
+    } else if (currentEffect === 'aim' && aimNoticeYaku) {
+      // 「狙え！」時の第1・第2停止：狙い役の文字を中段へ軽く引き込む（最大 AIM_HINT_MAX_CELLS コマ）。
+      // 最終リールの4コマ引き込みより控えめ。窓外（2コマ超）なら引き込まず自力ミス扱い＝目押しの妙味は残す。
+      const hint = slipResolver.resolveAssist(
+        engine.strip,
+        basePos,
+        aimNoticeYaku.symbols[idx],
+        'middle',
+        AIM_HINT_MAX_CELLS,
+      );
+      if (hint !== null) slipCells = hint;
     }
     if (slipCells === 0) {
       slipCells = slipResolver.resolveKick({
@@ -1281,7 +1295,15 @@ export async function bootstrap() {
       // 成立後の連チャン数で配当倍率を評価（3連達成スピンから恩恵が乗る）
       const streakAfter = willHit ? playStats.stats.get().streak + 1 : 0;
       const streakMult = calc.streakMult(streakAfter);
-      const win = calc.calcMulti(hits, bonusZone.isActive(), streakMult);
+      let win = calc.calcMulti(hits, bonusZone.isActive(), streakMult);
+      // 「狙え！」予告役が実際に成立 → その役ライン分に達成ボーナスを上乗せ。
+      let aimBonus = 0;
+      const aimYaku = currentEffect === 'aim' ? aimNoticeYaku : null;
+      if (aimYaku) {
+        const aimHits = hits.filter((h) => h.yaku.id === aimYaku.id);
+        aimBonus = calc.aimBonus(aimHits, bonusZone.isActive(), streakMult);
+        win += aimBonus;
+      }
       if (win > 0) wallet.win(win);
 
       playStats.recordSpin({
@@ -1345,9 +1367,10 @@ export async function bootstrap() {
         const bonusTag = bonusZone.isActive() ? ' ×BONUS' : '';
         const streakTag = streakMult > 1 ? ` ×${streakMult}連` : '';
         const lineTag = hits.length > 1 ? ` (${hits.length}ライン)` : '';
+        const aimTag = aimBonus > 0 ? ` ★狙え的中+${aimBonus}` : '';
         // 役名は重複なしで「みかん×2 ＋ すしや」のように要約
         const yakuLabel = summarizeHits(hits);
-        showResult(`${yakuLabel}！ +${win}${bonusTag}${streakTag}${lineTag}`, cls);
+        showResult(`${yakuLabel}！ +${win}${bonusTag}${streakTag}${lineTag}${aimTag}`, cls);
         jinState.set('cheer');
         // 図鑑には揃ったユニーク役を全部記録
         const recorded = new Set<string>();
@@ -1398,6 +1421,8 @@ export async function bootstrap() {
         else if (isRegular) showCoinBurst(16);
         else if (win >= 50) showCoinBurst(12);
         else if (win >= 24) showCoinBurst(5);
+        // 狙え的中は配当の大小に関わらず、達成感のコインバーストを別途出す
+        if (aimBonus > 0) showCoinBurst(10);
         // プレミアム成立でビッグボーナス突入＋全画面演出
         if (isPremium && premiumHit) {
           bonusZone.trigger('big');

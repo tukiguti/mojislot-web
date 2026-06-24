@@ -84,8 +84,9 @@ export class SlipResolver {
     basePosition: number,
     targetSymbol: string,
     vertical: Vertical,
+    maxCells: number = ASSIST_MAX_CELLS,
   ): number | null {
-    for (let offset = 0; offset <= ASSIST_MAX_CELLS; offset++) {
+    for (let offset = 0; offset <= maxCells; offset++) {
       if (visibleAt(strip.cells, basePosition + offset, vertical) === targetSymbol) {
         return offset;
       }
