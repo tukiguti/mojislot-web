@@ -1056,6 +1056,15 @@ export async function bootstrap() {
     jinSpeech.say('premium');
   };
 
+  // ボーナス中の再当選（おかわり）= 残り回数が full に復活。突入演出より軽い上乗せ演出で伝える。
+  const showBonusAdd = (spins: number, kind: 'big' | 'reg') => {
+    showResult(`おかわり！ 残り${spins}スピンに復活`, 'premium');
+    sfx.winMulti(3); // 既存ファンファーレを上乗せ用に流用
+    flashScreen({ color: kind === 'reg' ? '#cdd6e0' : '#ffe680', alpha: 0.7, durMs: 320 });
+    spawnConfetti(50);
+    jinSpeech.say('premium');
+  };
+
   const resetForNextSpin = () => {
     betPlaced = false;
     for (const engine of engines) engine.reset();
@@ -1458,6 +1467,7 @@ export async function bootstrap() {
         if (noticeBonus > 0) showCoinBurst(10);
         // プレミアム成立でビッグボーナス突入＋全画面演出
         if (isPremium && premiumHit) {
+          const isAddBig = bonusRunActive; // 既にボーナス中の再当選 = おかわり
           if (!bonusRunActive) {
             bonusRunActive = true;
             bonusRunPayout = 0;
@@ -1465,17 +1475,23 @@ export async function bootstrap() {
           }
           bonusRunKind = 'big';
           bonusZone.trigger('big');
-          sfx.bonusEnter();
-          showPremiumCutin(premiumHit.yaku.name, premiumHit.yaku.symbols, cutinArtFor(premiumHit.yaku.id), 'big');
-          flashScreen({ color: '#ffd700', alpha: 0.85, durMs: 400 });
-          spawnConfetti(100);
-          shakeBody(600);
-          window.setTimeout(() => {
-            showBonusBanner('big');
-            jinSpeech.say('premium');
-          }, 1300);
+          if (isAddBig) {
+            // おかわり（ボーナス中の再当選）: 突入演出は出さず軽い上乗せ演出
+            showBonusAdd(bonusZone.config.spinsPerBonus, 'big');
+          } else {
+            sfx.bonusEnter();
+            showPremiumCutin(premiumHit.yaku.name, premiumHit.yaku.symbols, cutinArtFor(premiumHit.yaku.id), 'big');
+            flashScreen({ color: '#ffd700', alpha: 0.85, durMs: 400 });
+            spawnConfetti(100);
+            shakeBody(600);
+            window.setTimeout(() => {
+              showBonusBanner('big');
+              jinSpeech.say('premium');
+            }, 1300);
+          }
         } else if (isRegular && bonusHit) {
           // レギュラーボーナス（すし＋別字）突入。シルバー基調・控えめ
+          const isAddReg = bonusRunActive; // ボーナス中の再当選 = おかわり
           if (!bonusRunActive) {
             bonusRunActive = true;
             bonusRunPayout = 0;
@@ -1483,15 +1499,19 @@ export async function bootstrap() {
           }
           bonusRunKind = 'reg';
           bonusZone.trigger('reg');
-          sfx.bonusEnter();
-          showPremiumCutin(bonusHit.yaku.name, bonusHit.yaku.symbols, cutinArtFor(bonusHit.yaku.id), 'reg');
-          flashScreen({ color: '#cdd6e0', alpha: 0.75, durMs: 360 });
-          spawnConfetti(60);
-          shakeBody(400);
-          window.setTimeout(() => {
-            showBonusBanner('reg');
-            jinSpeech.say('premium');
-          }, 1300);
+          if (isAddReg) {
+            showBonusAdd(bonusZone.config.spinsPerReg, 'reg');
+          } else {
+            sfx.bonusEnter();
+            showPremiumCutin(bonusHit.yaku.name, bonusHit.yaku.symbols, cutinArtFor(bonusHit.yaku.id), 'reg');
+            flashScreen({ color: '#cdd6e0', alpha: 0.75, durMs: 360 });
+            spawnConfetti(60);
+            shakeBody(400);
+            window.setTimeout(() => {
+              showBonusBanner('reg');
+              jinSpeech.say('premium');
+            }, 1300);
+          }
         } else if (hits.length >= 2) {
           // 多重ライン HIT: 専用ファンファーレ + バッジ + フラッシュ
           sfx.winMulti(hits.length);
