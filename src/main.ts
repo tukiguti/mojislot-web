@@ -1056,9 +1056,9 @@ export async function bootstrap() {
     jinSpeech.say('premium');
   };
 
-  // ボーナス中の再当選（おかわり）= 残り回数が full に復活。突入演出より軽い上乗せ演出で伝える。
+  // ボーナス中の再当選（おかわり）= 残り回数に加算（上乗せ）。突入演出より軽い演出で伝える。
   const showBonusAdd = (spins: number, kind: 'big' | 'reg') => {
-    showResult(`おかわり！ 残り${spins}スピンに復活`, 'premium');
+    showResult(`上乗せ！ +${spins}スピン`, 'premium');
     sfx.winMulti(3); // 既存ファンファーレを上乗せ用に流用
     flashScreen({ color: kind === 'reg' ? '#cdd6e0' : '#ffe680', alpha: 0.7, durMs: 320 });
     spawnConfetti(50);
@@ -1406,7 +1406,7 @@ export async function bootstrap() {
         }
         const cls = isPremium || isRegular ? 'premium' : 'win';
         const bonusTag = bonusZone.isActive() ? ' ×BONUS' : '';
-        const streakTag = streakMult > 1 ? ` ×${streakMult}連` : '';
+        const streakTag = streakMult > 1 ? ` ${streakAfter}連 ×${streakMult}` : '';
         const lineTag = hits.length > 1 ? ` (${hits.length}ライン)` : '';
         const noticeLabel = currentEffect === 'quiz' ? 'クイズ的中' : '狙え的中';
         const noticeTag = noticeBonus > 0 ? ` ★${noticeLabel}+${noticeBonus}` : '';
