@@ -136,6 +136,11 @@ export async function bootstrap() {
 
   const reelConfig = ReelConfigSchema.parse(chapter.reelData);
   const yakuList = YakuListSchema.parse(chapter.yakuData);
+  // 章カットイン画像は主役(7=premiumYaku[0])を描いた1枚絵。バー揃い(premiumYaku[1])や
+  // RB(別役)に渡すと「別役なのに主役の絵」になるため、主役の役のときだけ背景アートを出す。
+  const headlineYakuId = yakuList.premiumYaku[0]?.id;
+  const cutinArtFor = (yakuId: string): string | undefined =>
+    yakuId === headlineYakuId ? chapterCutinUrl : undefined;
   const payout = PayoutSchema.parse(payoutDataRaw);
   const quizList = QuizListSchema.parse(chapter.quizData);
   // 役の id → 役オブジェクトの逆引き（AUTO のターゲット解決などで使う）
@@ -913,7 +918,7 @@ export async function bootstrap() {
       // デバッグ：プレミアム役が無くても代表的な役名でカットインを試せる
       const premium = yakuList.premiumYaku[0];
       if (premium) {
-        showPremiumCutin(premium.name, premium.symbols, chapterCutinUrl, 'big');
+        showPremiumCutin(premium.name, premium.symbols, cutinArtFor(premium.id), 'big');
       }
       flashScreen({ color: '#ffd700', alpha: 0.85, durMs: 400 });
       spawnConfetti(100);
@@ -929,7 +934,7 @@ export async function bootstrap() {
       sfx.bonusEnter();
       const reg = yakuList.bonusYaku[0];
       if (reg) {
-        showPremiumCutin(reg.name, reg.symbols, chapterCutinUrl, 'reg');
+        showPremiumCutin(reg.name, reg.symbols, cutinArtFor(reg.id), 'reg');
       }
       flashScreen({ color: '#cdd6e0', alpha: 0.75, durMs: 360 });
       spawnConfetti(60);
@@ -951,7 +956,7 @@ export async function bootstrap() {
       // 現在の章のプレミアム役＋章カットイン画像でカットインを確認
       const premium = yakuList.premiumYaku[0] ?? yakuList.coreYaku[0];
       if (premium) {
-        showPremiumCutin(premium.name, premium.symbols, chapterCutinUrl);
+        showPremiumCutin(premium.name, premium.symbols, cutinArtFor(premium.id));
         flashScreen({ color: '#ffd700', alpha: 0.7, durMs: 320 });
         sfx.winCore();
       }
@@ -1461,7 +1466,7 @@ export async function bootstrap() {
           bonusRunKind = 'big';
           bonusZone.trigger('big');
           sfx.bonusEnter();
-          showPremiumCutin(premiumHit.yaku.name, premiumHit.yaku.symbols, chapterCutinUrl, 'big');
+          showPremiumCutin(premiumHit.yaku.name, premiumHit.yaku.symbols, cutinArtFor(premiumHit.yaku.id), 'big');
           flashScreen({ color: '#ffd700', alpha: 0.85, durMs: 400 });
           spawnConfetti(100);
           shakeBody(600);
@@ -1479,7 +1484,7 @@ export async function bootstrap() {
           bonusRunKind = 'reg';
           bonusZone.trigger('reg');
           sfx.bonusEnter();
-          showPremiumCutin(bonusHit.yaku.name, bonusHit.yaku.symbols, chapterCutinUrl, 'reg');
+          showPremiumCutin(bonusHit.yaku.name, bonusHit.yaku.symbols, cutinArtFor(bonusHit.yaku.id), 'reg');
           flashScreen({ color: '#cdd6e0', alpha: 0.75, durMs: 360 });
           spawnConfetti(60);
           shakeBody(400);
