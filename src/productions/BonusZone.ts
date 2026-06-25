@@ -8,7 +8,7 @@ import type { EffectRates } from './EffectScheduler';
  * 期間中は：
  *  - 演出抽選レートが bonusEffectRates に切り替わる（呼び出し側で適用）
  *  - PayoutCalc.calc(yaku, true) として bonusZoneMultiplier が掛かる
- *  - 既に active 中に再トリガーされたら残り回数をリセット（おかわり）
+ *  - 既に active 中に再トリガーされたら残り回数を加算（おかわり＝上乗せ）
  */
 
 /** ボーナス種別: big=プレミアム役(すしや等) / reg=レギュラー役(すし＋別字) */
@@ -43,14 +43,15 @@ export class BonusZone {
   constructor(readonly config: BonusConfig = DEFAULT_BONUS_CONFIG) {}
 
   /**
-   * ボーナス発動 or 残り回数リセット（おかわり）。
+   * ボーナス発動 or 残り回数の上乗せ（おかわり）。
    * kind='big' はプレミアム役、'reg' はレギュラー役で短め。
-   * 既に active 中の再トリガーは、種別が上書きされ残り回数がリセットされる
+   * 既に active 中の再トリガーは、残り回数に spins を加算（上乗せ）し種別を上書き
    * （reg 中に big を引いたら big に昇格）。
    */
   trigger(kind: BonusKind = 'big'): void {
     const spins = kind === 'reg' ? this.config.spinsPerReg : this.config.spinsPerBonus;
-    this.remaining.set(spins);
+    // おかわり（active 中の再当選）は残り回数に加算（上乗せ）。新規突入はセット。
+    this.remaining.set(this.active.get() ? this.remaining.get() + spins : spins);
     this.kind.set(kind);
     this.active.set(true);
   }
