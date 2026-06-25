@@ -1036,6 +1036,21 @@ export async function bootstrap() {
     }, 2500);
   };
 
+  // === ボーナス終了リザルト（獲得枚数＋ファンファーレ）===
+  // 突入〜消化しきりまでの獲得枚数を集計し、終了時に締め演出を出す。
+  // 突入トリガー役そのものの払い出しは通常時 earnings なので集計から除外。
+  let bonusRunActive = false;
+  let bonusRunPayout = 0;
+  let bonusRunKind: 'big' | 'reg' = 'big';
+  const showBonusResult = (payout: number, kind: 'big' | 'reg') => {
+    const label = kind === 'reg' ? 'REG BONUS' : 'BIG BONUS';
+    showResult(`${label} 終了  獲得 +${payout}枚`, 'premium');
+    sfx.winMulti(kind === 'reg' ? 2 : 4); // 既存ファンファーレを締めに流用
+    flashScreen({ color: kind === 'reg' ? '#cdd6e0' : '#ffd700', alpha: 0.6, durMs: 380 });
+    spawnConfetti(kind === 'reg' ? 40 : 80);
+    jinSpeech.say('premium');
+  };
+
   const resetForNextSpin = () => {
     betPlaced = false;
     for (const engine of engines) engine.reset();
@@ -1308,6 +1323,8 @@ export async function bootstrap() {
       // 予告役（狙え＝予告役／クイズ＝正解役）が実際に成立 → その役ライン分に達成ボーナスを上乗せ。
       // currentTargetYakuId() は aim→予告役 / quiz→正解役(正解時のみ) / それ以外→null。
       let noticeBonus = 0;
+      // この spin でボーナスに新規突入したか（突入役の払い出しを獲得集計から除く）
+      let enteredBonusThisSpin = false;
       const noticeYakuId = currentTargetYakuId();
       if (noticeYakuId) {
         const noticeHits = hits.filter((h) => h.yaku.id === noticeYakuId);
@@ -1436,6 +1453,12 @@ export async function bootstrap() {
         if (noticeBonus > 0) showCoinBurst(10);
         // プレミアム成立でビッグボーナス突入＋全画面演出
         if (isPremium && premiumHit) {
+          if (!bonusRunActive) {
+            bonusRunActive = true;
+            bonusRunPayout = 0;
+            enteredBonusThisSpin = true;
+          }
+          bonusRunKind = 'big';
           bonusZone.trigger('big');
           sfx.bonusEnter();
           showPremiumCutin(premiumHit.yaku.name, premiumHit.yaku.symbols, chapterCutinUrl, 'big');
@@ -1448,6 +1471,12 @@ export async function bootstrap() {
           }, 1300);
         } else if (isRegular && bonusHit) {
           // レギュラーボーナス（すし＋別字）突入。シルバー基調・控えめ
+          if (!bonusRunActive) {
+            bonusRunActive = true;
+            bonusRunPayout = 0;
+            enteredBonusThisSpin = true;
+          }
+          bonusRunKind = 'reg';
           bonusZone.trigger('reg');
           sfx.bonusEnter();
           showPremiumCutin(bonusHit.yaku.name, bonusHit.yaku.symbols, chapterCutinUrl, 'reg');
@@ -1490,6 +1519,17 @@ export async function bootstrap() {
         else jinSpeech.say('miss');
         jinState.set('miss');
         sfx.miss();
+      }
+
+      // ボーナス中スピンの獲得を集計し、消化しきったら終了リザルト＋ファンファーレ
+      if (bonusRunActive) {
+        if (!enteredBonusThisSpin) bonusRunPayout += Math.max(0, win);
+        if (!bonusZone.isActive()) {
+          const payout = bonusRunPayout;
+          const endedKind = bonusRunKind;
+          bonusRunActive = false;
+          window.setTimeout(() => showBonusResult(payout, endedKind), 900);
+        }
       }
 
       window.setTimeout(resetForNextSpin, 1200);
