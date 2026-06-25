@@ -1549,9 +1549,15 @@ export async function bootstrap() {
     }
   };
 
+  /** AUTO が予告役を狙うとき、target を中段の手前何コマで止めて残りを引き込みに
+   *  委ねるかのマージン（第1・第2の引き込み上限 AIM_HINT_MAX_CELLS に合わせる）。 */
+  const AUTO_AIM_MARGIN = AIM_HINT_MAX_CELLS;
+
   /**
-   * AUTO の狙い停止：target symbol が中央に来るまで待ってから stopReel を呼ぶ。
-   * 滑り（noise 50%蹴り）は通常通り走るので、最終的に揃うかは 50% 程度。
+   * AUTO の狙い停止：target symbol が中段付近に来たら stopReel を呼ぶ。
+   * aim/quiz では手前 AUTO_AIM_MARGIN コマで止め、最後の寄せは stopReel の引き込みに
+   * 任せる。setTimeout 遅延で target を「行き過ぎ」て順方向の引き込みが届かなくなる事故を
+   * 防ぎ、確実に揃える。引き込みの無い演出(shisa 等)では従来どおり正確な位置を狙う。
    */
   const scheduleAimedStop = (reelIdx: number) => {
     if (!autoTargetYaku) return;
@@ -1577,7 +1583,13 @@ export async function bootstrap() {
       return;
     }
 
-    const msToWait = (bestDist / speed) * 1000;
+    // aim/quiz は第1・第2にも中段引き込み(最大 AIM_HINT_MAX_CELLS)が効くので、
+    // 狙い役の手前 AUTO_AIM_MARGIN コマで止め、残りの寄せを引き込みに委ねる。
+    // 引き込みの無い演出(shisa 等)は手前で止めると逆に揃わないため MARGIN=0。
+    const aimMargin =
+      currentEffect === 'aim' || currentEffect === 'quiz' ? AUTO_AIM_MARGIN : 0;
+    const stopDist = Math.max(0, bestDist - aimMargin);
+    const msToWait = (stopDist / speed) * 1000;
     aimPending.add(reelIdx);
     window.setTimeout(() => {
       aimPending.delete(reelIdx);
