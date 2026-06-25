@@ -67,6 +67,9 @@ export const PayoutSchema = z.object({
     ]),
   // 「狙え！」予告役が実際に成立した時の達成ボーナス倍率（その役ライン分の配当に上乗せ）。
   aimBonusMultiplier: z.number().positive().default(1.5),
+  // ボーナス倍率×コンボ倍率の積算上限。出玉が伸びすぎないよう combined をここで頭打ちにする。
+  // 省略時は 3.0（core: bet3 × base3.4 × 3.0 ≒ 30枚 が上限）。
+  maxComboMultiplier: z.number().positive().default(3),
 });
 
 export type Payout = z.infer<typeof PayoutSchema>;

@@ -15,5 +15,6 @@
     { "minStreak": 8, "mult": 2.5 },
     { "minStreak": 12, "mult": 3.0 }
   ],
-  "aimBonusMultiplier": 1.5
+  "aimBonusMultiplier": 1.5,
+  "maxComboMultiplier": 3.0
 }
