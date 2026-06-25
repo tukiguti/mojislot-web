@@ -136,11 +136,15 @@ export async function bootstrap() {
 
   const reelConfig = ReelConfigSchema.parse(chapter.reelData);
   const yakuList = YakuListSchema.parse(chapter.yakuData);
-  // 章カットイン画像は主役(7=premiumYaku[0])を描いた1枚絵。バー揃い(premiumYaku[1])や
-  // RB(別役)に渡すと「別役なのに主役の絵」になるため、主役の役のときだけ背景アートを出す。
+  // カットイン背景は役ごとに出し分け: 主役(7=premiumYaku[0])は章一枚絵、バー揃い(premiumYaku[1])は
+  // 専用バー絵(cutin_{id}_bar.webp)。RB(別役)はアート無し＝演出のみ。「別役なのに主役の絵」を防ぐ。
   const headlineYakuId = yakuList.premiumYaku[0]?.id;
-  const cutinArtFor = (yakuId: string): string | undefined =>
-    yakuId === headlineYakuId ? chapterCutinUrl : undefined;
+  const barYakuId = yakuList.premiumYaku[1]?.id;
+  const cutinArtFor = (yakuId: string): string | undefined => {
+    if (yakuId === headlineYakuId) return chapterCutinUrl;
+    if (yakuId === barYakuId) return `${ART_BASE}cutin_${chapterId}_bar.webp`;
+    return undefined;
+  };
   const payout = PayoutSchema.parse(payoutDataRaw);
   const quizList = QuizListSchema.parse(chapter.quizData);
   // 役の id → 役オブジェクトの逆引き（AUTO のターゲット解決などで使う）
