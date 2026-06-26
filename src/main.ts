@@ -1317,6 +1317,71 @@ export async function bootstrap() {
     return bestSlip;
   };
 
+  /**
+   * 1リール停止時の引き込み/蹴りコマ数を決定する（設計: 17_assist-and-slip.md）。
+   * - 確定告知ランプ点灯中: 確定役（BIG=7主役 / REG=RB）の図柄を中段へ強く引き込む。
+   * - 通常: 最終リールのテンパイ引き込み → aim/quiz の中段ヒント → 予告外 premium/bonus の蹴り。
+   * - フリーズ中: 一切無効化（強制セット位置へそのままスナップ）。
+   */
+  const resolveStopSlip = (
+    idx: number,
+    engine: ReelEngine,
+    basePos: number,
+    stoppedVisibles: (VisibleColumn | null)[],
+  ): number => {
+    let slipCells = 0;
+    if (announcedBonus) {
+      const role =
+        announcedBonus === 'big' ? yakuList.premiumYaku[0] : yakuList.bonusYaku[0];
+      const sym = role?.symbols[idx];
+      if (sym !== undefined) {
+        const hint = slipResolver.resolveAssist(
+          engine.strip,
+          basePos,
+          sym,
+          'middle',
+          tuning.announceLamp.assistMaxCells,
+        );
+        if (hint !== null) slipCells = hint;
+      }
+    } else {
+      const assistTenpai = tenpaiDetector.detect(stoppedVisibles);
+      if (assistTenpai && assistTenpai.missingReelIndex === idx) {
+        slipCells = pickAssistSlip(assistTenpai.lines, idx, engine.strip, basePos);
+      } else if (currentEffect === 'aim' || currentEffect === 'quiz') {
+        // 予告役（狙え＝予告役／クイズ＝正解役）の第1・第2停止：対象文字を中段へ軽く引き込む
+        //（最大 AIM_HINT_MAX_CELLS コマ）。窓外なら引き込まず自力ミス扱い＝目押しの妙味は残す。
+        const noticeId = currentTargetYakuId();
+        const noticeYaku = noticeId
+          ? allYakusFlat.find((y) => y.id === noticeId)
+          : null;
+        const targetSymbol = noticeYaku?.symbols[idx];
+        if (targetSymbol !== undefined) {
+          const hint = slipResolver.resolveAssist(
+            engine.strip,
+            basePos,
+            targetSymbol,
+            'middle',
+            AIM_HINT_MAX_CELLS,
+          );
+          if (hint !== null) slipCells = hint;
+        }
+      }
+      if (slipCells === 0) {
+        slipCells = slipResolver.resolveKick({
+          reelIndex: idx,
+          basePosition: basePos,
+          strip: engine.strip,
+          stoppedVisibles,
+          exceptYakuId: currentTargetYakuId() ?? undefined,
+        });
+      }
+    }
+    // フリーズ中は引き込み/蹴りを無効化し、強制セットした位置(basePos)へそのままスナップ。
+    if (freezeActive) slipCells = 0;
+    return slipCells;
+  };
+
   const stopReel = (idx: number, timestamp: number) => {
     if (idx < 0 || idx >= REEL_COUNT) return;
     const engine = engines[idx];
@@ -1333,66 +1398,8 @@ export async function bootstrap() {
         bottom: getVisibleCell(e, 'bottom'),
       };
     });
-    // 引き込み/蹴りの決定（設計: 17_assist-and-slip.md）。
-    //  1) 最終リール（他2リール停止済み）で演出の狙い役が5ラインのどこかにテンパイ
-    //     → そのラインへ引き込み（最大4コマ・カテゴリ優先）
-    //  2) 引き込みが効かない時 → 予告役以外の premium/bonus 偶然揃いを蹴る
-    //     （core/cherry は蹴らない／予告した BIG・RB は通す）
-    let slipCells = 0;
-    if (announcedBonus) {
-      // 確定告知ランプ点灯中: 確定役（BIG=7主役 / REG=RB）の図柄を中段へ強く引き込む。
-      // reels0,1 は「す・し」共通、reel2 で や(BIG)/ず(REG) が判明＝祈りの瞬間。
-      const role =
-        announcedBonus === 'big' ? yakuList.premiumYaku[0] : yakuList.bonusYaku[0];
-      const sym = role?.symbols[idx];
-      if (sym !== undefined) {
-        const hint = slipResolver.resolveAssist(
-          engine.strip,
-          basePos,
-          sym,
-          'middle',
-          tuning.announceLamp.assistMaxCells,
-        );
-        if (hint !== null) slipCells = hint;
-      }
-    } else {
-    const assistTenpai = tenpaiDetector.detect(stoppedVisibles);
-    if (assistTenpai && assistTenpai.missingReelIndex === idx) {
-      slipCells = pickAssistSlip(assistTenpai.lines, idx, engine.strip, basePos);
-    } else if (currentEffect === 'aim' || currentEffect === 'quiz') {
-      // 予告役（狙え＝予告役／クイズ＝正解役）の第1・第2停止：対象文字を中段へ軽く引き込む
-      //（最大 AIM_HINT_MAX_CELLS コマ）。最終リールの4コマ引き込みより控えめで、窓外（2コマ超）なら
-      // 引き込まず自力ミス扱い＝目押しの妙味は残す。クイズは正解時のみ targetYakuId が立つ
-      //（不正解/未回答は対象なし）。2文字チェリーが正解役の時は右リール(idx=2)に対象文字が無く引き込まない。
-      const noticeId = currentTargetYakuId();
-      const noticeYaku = noticeId
-        ? allYakusFlat.find((y) => y.id === noticeId)
-        : null;
-      const targetSymbol = noticeYaku?.symbols[idx];
-      if (targetSymbol !== undefined) {
-        const hint = slipResolver.resolveAssist(
-          engine.strip,
-          basePos,
-          targetSymbol,
-          'middle',
-          AIM_HINT_MAX_CELLS,
-        );
-        if (hint !== null) slipCells = hint;
-      }
-    }
-    if (slipCells === 0) {
-      slipCells = slipResolver.resolveKick({
-        reelIndex: idx,
-        basePosition: basePos,
-        strip: engine.strip,
-        stoppedVisibles,
-        exceptYakuId: currentTargetYakuId() ?? undefined,
-      });
-    }
-    } // !announcedBonus
-
-    // フリーズ中は引き込み/蹴りを無効化し、強制セットした位置(basePos)へそのままスナップ。
-    if (freezeActive) slipCells = 0;
+    // 引き込み/蹴りの決定は resolveStopSlip に集約（設計: 17_assist-and-slip.md）。
+    const slipCells = resolveStopSlip(idx, engine, basePos, stoppedVisibles);
 
     const result = engine.stop(timestamp, slipCells);
     // 押下の精度情報を保存（役成立時の bita 集計で参照）
