@@ -19,6 +19,11 @@
     "rate": 0.0005,
     "spinSpeed": 60
   },
+  "announceLamp": {
+    "rate": 0.0033,
+    "bigRatio": 0.3,
+    "assistMaxCells": 8
+  },
   "bitaWindowMs": 12,
   "entryChargeMs": 650
 }

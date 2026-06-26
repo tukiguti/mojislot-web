@@ -144,6 +144,17 @@ export const TuningSchema = z.object({
       spinSpeed: z.number().positive().default(60),
     })
     .default({ rate: 0.005, spinSpeed: 60 }),
+  /** 確定告知ランプ（点灯=ボーナス確定・種別は内部確定で伏せる）。 */
+  announceLamp: z
+    .object({
+      /** レバーオン時の点灯抽選確率（通常時のみ）。 */
+      rate: z.number().min(0).max(1).default(0.0033),
+      /** 確定種別がBIGになる割合（残りはREG）。 */
+      bigRatio: z.number().min(0).max(1).default(0.3),
+      /** 点灯中、確定役の図柄へ引き込む最大コマ数（強め＝揃えに行きやすい）。 */
+      assistMaxCells: z.number().int().nonnegative().default(8),
+    })
+    .default({ rate: 0.0033, bigRatio: 0.3, assistMaxCells: 8 }),
   /** ビタ押し成功窓（±ms）。 */
   bitaWindowMs: z.number().positive().default(12),
   /** 突入直前の「溜め」演出の長さ（ms）。 */
