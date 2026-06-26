@@ -44,12 +44,25 @@ const ASSIST_MAX_CELLS = 4;
 
 const VERTICALS: readonly Vertical[] = ['top', 'middle', 'bottom'];
 
+/** 補助強度の調整値（data/tuning から渡す。省略時は上記既定）。 */
+export interface SlipResolverOptions {
+  kickProbability?: number;
+  kickMaxCells?: number;
+  assistMaxCells?: number;
+}
+
 export class SlipResolver {
   /** 蹴り対象＝premium/bonus のみ（core/cherry は蹴らない） */
   private readonly kickYakus: Yaku[];
+  private readonly kickProbability: number;
+  private readonly kickMaxCells: number;
+  private readonly assistMaxCells: number;
 
-  constructor(yakuList: YakuList) {
+  constructor(yakuList: YakuList, opts: SlipResolverOptions = {}) {
     this.kickYakus = [...yakuList.premiumYaku, ...yakuList.bonusYaku];
+    this.kickProbability = opts.kickProbability ?? KICK_PROBABILITY;
+    this.kickMaxCells = opts.kickMaxCells ?? KICK_MAX_CELLS;
+    this.assistMaxCells = opts.assistMaxCells ?? ASSIST_MAX_CELLS;
   }
 
   /**
@@ -62,11 +75,11 @@ export class SlipResolver {
       ? this.kickYakus.filter((y) => y.id !== ctx.exceptYakuId)
       : this.kickYakus;
     if (yakus.length === 0) return 0;
-    if (Math.random() >= KICK_PROBABILITY) return 0;
+    if (Math.random() >= this.kickProbability) return 0;
     if (!this.wouldComplete(ctx.basePosition, ctx, yakus)) return 0;
 
     const total = ctx.strip.cells.length;
-    for (let offset = 1; offset <= KICK_MAX_CELLS; offset++) {
+    for (let offset = 1; offset <= this.kickMaxCells; offset++) {
       const idx = (((ctx.basePosition + offset) % total) + total) % total;
       if (!this.wouldComplete(idx, ctx, yakus)) return offset;
     }
@@ -84,9 +97,10 @@ export class SlipResolver {
     basePosition: number,
     targetSymbol: string,
     vertical: Vertical,
-    maxCells: number = ASSIST_MAX_CELLS,
+    maxCells?: number,
   ): number | null {
-    for (let offset = 0; offset <= maxCells; offset++) {
+    const max = maxCells ?? this.assistMaxCells;
+    for (let offset = 0; offset <= max; offset++) {
       if (visibleAt(strip.cells, basePosition + offset, vertical) === targetSymbol) {
         return offset;
       }

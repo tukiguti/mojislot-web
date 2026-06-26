@@ -1,0 +1,24 @@
+{
+  "effectRates": {
+    "default": { "none": 0.6, "shisa": 0.2, "quiz": 0.1, "aim": 0.1 },
+    "rescue": { "none": 0.3, "shisa": 0.35, "quiz": 0.2, "aim": 0.15 },
+    "bonus": { "none": 0.0, "shisa": 0.5, "quiz": 0.2, "aim": 0.3 }
+  },
+  "rescueMissThreshold": 30,
+  "bonus": {
+    "spinsPerBig": 10,
+    "spinsPerReg": 5
+  },
+  "assist": {
+    "assistMaxCells": 4,
+    "aimHintMaxCells": 2,
+    "kickMaxCells": 2,
+    "kickProbability": 0.5
+  },
+  "freeze": {
+    "rate": 0.005,
+    "spinSpeed": 60
+  },
+  "bitaWindowMs": 12,
+  "entryChargeMs": 650
+}
