@@ -8,6 +8,8 @@ const PAYOUT: Payout = {
   betPerSpin: 3,
   baseMultiplier: { core: 5, premium: 25, bonus: 6, cherry: 2 },
   bonusZoneMultiplier: 2.5,
+  // ボーナス倍率×コンボ倍率の積算上限（出玉の伸びすぎ防止）。
+  maxComboMultiplier: 3.0,
   initialCoins: 0,
   // しきい値の並び順に依存しないことを確かめるため、あえて昇順でない順で渡す。
   streakTiers: [
@@ -58,8 +60,9 @@ describe('PayoutCalc.calc', () => {
     expect(calc.calc(yaku('core'), false, 2.0)).toBe(30); // 3×5×2.0
   });
 
-  it('ボーナス中×コンボの相乗（floor）', () => {
-    expect(calc.calc(yaku('core'), true, 2.5)).toBe(93); // floor(3×5×2.5×2.5)=93
+  it('ボーナス中×コンボの相乗は maxComboMultiplier で頭打ち（floor）', () => {
+    // 2.5×2.5=6.25 だが上限 3.0 で頭打ち → floor(3×5×3.0)=45
+    expect(calc.calc(yaku('core'), true, 2.5)).toBe(45);
   });
 });
 
@@ -102,8 +105,9 @@ describe('PayoutCalc.aimBonus', () => {
     expect(calc.aimBonus([hit('core'), hit('core')])).toBe(15); // 30×0.5
   });
 
-  it('ボーナス中・コンボ込みの配当に対して上乗せ', () => {
-    expect(calc.aimBonus([hit('core')], true, 2.0)).toBe(37); // floor(75×0.5)
+  it('ボーナス中・コンボ込みの配当に対して上乗せ（上限適用後の配当が基準）', () => {
+    // base = floor(3×5×min(3.0, 2.5×2.0)) = floor(3×5×3.0) = 45 → floor(45×0.5)=22
+    expect(calc.aimBonus([hit('core')], true, 2.0)).toBe(22);
   });
 
   it('予告役が揃っていない（空配列）なら 0', () => {
