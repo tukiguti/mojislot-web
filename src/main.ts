@@ -995,9 +995,11 @@ export async function bootstrap() {
     const active = bonusZone.active.get();
     const remaining = bonusZone.remaining.get();
     if (active) {
-      const label = bonusZone.kind.get() === 'reg' ? 'REG' : 'BIG';
+      // 区間中は BIG/REG を区別せず「ボーナス中」に統一（おかわりは同じ残り回数に合算され、
+      // 種別を出すと BIG 中の RB おかわりで表示が揺れて紛らわしいため）。
+      // BIG/REG の差は突入カットイン（金/銀）と終了リザルトで出す。
       bonusStatusEl.hidden = false;
-      bonusStatusEl.textContent = `${label} 残り${remaining}`;
+      bonusStatusEl.textContent = `ボーナス中 残り${remaining}`;
       cabinetEl.classList.add('bonus');
       startBonusSparkle();
       // BGM 起動済みならボーナス曲へ。未起動なら placeBet 時に再生される。
