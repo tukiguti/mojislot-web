@@ -7,7 +7,7 @@ import { PayoutCalc } from './core/PayoutCalc';
 import { CoinWallet } from './core/CoinWallet';
 import {
   EffectScheduler,
-  REEL_SPEED_BY_EFFECT,
+  REEL_BASE_SPEED,
   type EffectType,
 } from './productions/EffectScheduler';
 import { BonusZone } from './productions/BonusZone';
@@ -525,8 +525,7 @@ export async function bootstrap() {
 
   const applyEffect = (effect: EffectType) => {
     currentEffect = effect;
-    const speed = REEL_SPEED_BY_EFFECT[effect];
-    for (const engine of engines) engine.setSpeed(speed);
+    for (const engine of engines) engine.setSpeed(REEL_BASE_SPEED);
     effectVisual.apply(effect);
 
     effectStatusEl.classList.remove('shisa', 'quiz', 'aim');
@@ -959,39 +958,39 @@ export async function bootstrap() {
     }, 1700);
   };
 
+  /**
+   * ボーナス突入の全画面演出（カットイン＋フラッシュ＋紙吹雪＋シェイク→バナー）。
+   * 実突入（溜め経由）とデバッグ突入の両方から共通で呼ぶ（重複排除）。
+   */
+  const showBonusEntryFx = (yaku: Yaku, kind: 'big' | 'reg') => {
+    sfx.bonusEnter();
+    showPremiumCutin(yaku.name, yaku.symbols, cutinArtFor(yaku.id), kind);
+    flashScreen({
+      color: kind === 'reg' ? '#cdd6e0' : '#ffd700',
+      alpha: kind === 'reg' ? 0.75 : 0.85,
+      durMs: kind === 'reg' ? 360 : 400,
+    });
+    spawnConfetti(kind === 'reg' ? 60 : 100);
+    shakeBody(kind === 'reg' ? 400 : 600);
+    window.setTimeout(() => {
+      showBonusBanner(kind);
+      jinSpeech.say('premium');
+    }, 1300);
+  };
+
   // === デバッグアクション（設定モーダルから呼ばれる） ===
   settingsOverlay.setDebugActions({
     triggerBonus: () => {
+      // デバッグ：代表的なプレミアム役名で BIG 突入演出を確認（溜めは省略・即演出）
       bonusZone.trigger('big');
-      sfx.bonusEnter();
-      // デバッグ：プレミアム役が無くても代表的な役名でカットインを試せる
       const premium = yakuList.premiumYaku[0];
-      if (premium) {
-        showPremiumCutin(premium.name, premium.symbols, cutinArtFor(premium.id), 'big');
-      }
-      flashScreen({ color: '#ffd700', alpha: 0.85, durMs: 400 });
-      spawnConfetti(100);
-      shakeBody(600);
-      window.setTimeout(() => {
-        showBonusBanner('big');
-        jinSpeech.say('premium');
-      }, 1300);
+      if (premium) showBonusEntryFx(premium, 'big');
     },
     triggerRegular: () => {
-      // レギュラーボーナス（すし＋別字）を強制発動。シルバー基調・短め
+      // デバッグ：レギュラーボーナス（すし＋別字）を強制発動（シルバー基調）
       bonusZone.trigger('reg');
-      sfx.bonusEnter();
       const reg = yakuList.bonusYaku[0];
-      if (reg) {
-        showPremiumCutin(reg.name, reg.symbols, cutinArtFor(reg.id), 'reg');
-      }
-      flashScreen({ color: '#cdd6e0', alpha: 0.75, durMs: 360 });
-      spawnConfetti(60);
-      shakeBody(400);
-      window.setTimeout(() => {
-        showBonusBanner('reg');
-        jinSpeech.say('premium');
-      }, 1300);
+      if (reg) showBonusEntryFx(reg, 'reg');
     },
     triggerShisa: () => {
       // 強制的に shisa 演出を発動（リール速度＆ジン表情＆フラッシュ）
@@ -1596,18 +1595,8 @@ export async function bootstrap() {
             // おかわり（ボーナス中の再当選）: 突入演出は出さず軽い上乗せ演出
             showBonusAdd(bonusZone.config.spinsPerBonus, 'big');
           } else {
-            // 新規突入: 「溜め」→ カットイン → フラッシュ/紙吹雪/バナー
-            enterWithCharge('big', () => {
-              sfx.bonusEnter();
-              showPremiumCutin(premiumHit.yaku.name, premiumHit.yaku.symbols, cutinArtFor(premiumHit.yaku.id), 'big');
-              flashScreen({ color: '#ffd700', alpha: 0.85, durMs: 400 });
-              spawnConfetti(100);
-              shakeBody(600);
-              window.setTimeout(() => {
-                showBonusBanner('big');
-                jinSpeech.say('premium');
-              }, 1300);
-            });
+            // 新規突入: 「溜め」→ 突入演出（カットイン/フラッシュ/紙吹雪/バナー）
+            enterWithCharge('big', () => showBonusEntryFx(premiumHit.yaku, 'big'));
           }
         } else if (isRegular && bonusHit) {
           // レギュラーボーナス（すし＋別字）突入。シルバー基調・控えめ
@@ -1623,18 +1612,8 @@ export async function bootstrap() {
           if (isAddReg) {
             showBonusAdd(bonusZone.config.spinsPerReg, 'reg');
           } else {
-            // 新規突入: 「溜め」（シルバー）→ カットイン → フラッシュ/紙吹雪/バナー
-            enterWithCharge('reg', () => {
-            sfx.bonusEnter();
-            showPremiumCutin(bonusHit.yaku.name, bonusHit.yaku.symbols, cutinArtFor(bonusHit.yaku.id), 'reg');
-            flashScreen({ color: '#cdd6e0', alpha: 0.75, durMs: 360 });
-            spawnConfetti(60);
-            shakeBody(400);
-            window.setTimeout(() => {
-              showBonusBanner('reg');
-              jinSpeech.say('premium');
-            }, 1300);
-            });
+            // 新規突入: 「溜め」（シルバー）→ 突入演出
+            enterWithCharge('reg', () => showBonusEntryFx(bonusHit.yaku, 'reg'));
           }
         } else if (hits.length >= 2) {
           // 多重ライン HIT: 専用ファンファーレ + バッジ + フラッシュ
