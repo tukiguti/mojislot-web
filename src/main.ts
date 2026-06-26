@@ -1657,9 +1657,13 @@ export async function bootstrap() {
    */
   const runFreeze = () => {
     freezeActive = true;
-    currentEffect = 'none'; // 引き込み対象を無効化（強制位置を尊重）
-    hideAimNotice();
+    // 競合演出を一括クリア（クイズ出題/狙え予告/示唆ティント等が FREEZE 表示と重ならないように）。
+    // applyEffect('none') で引き込み無効化＋effectVisualティント/ステータス/ジンをリセット、
+    // quizState.reset() で液晶のクイズ出題(QuizQuestionView)を消す。
+    applyEffect('none');
+    quizState.reset();
     quizOverlay.dismiss();
+    hideAimNotice();
     updateButtons();
     sfx.freeze();
     showFreezeBanner();
