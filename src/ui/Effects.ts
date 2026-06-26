@@ -139,6 +139,22 @@ export function showEntryCharge(variant: 'big' | 'reg' = 'big', durMs = 650): vo
   window.setTimeout(() => el.remove(), durMs + 280);
 }
 
+/**
+ * 連チャン昇格バッジ。「{streak}連 RANK UP!」を段の色で一瞬出す。
+ * 連チャンの段が上がった瞬間の高揚を演出する（pointer-events: none）。
+ */
+export function showRankUpBadge(streak: number, color: string): void {
+  document.querySelectorAll('.rankup-badge').forEach((el) => el.remove());
+  const el = document.createElement('div');
+  el.className = 'rankup-badge';
+  el.style.setProperty('--rankup-color', color);
+  el.innerHTML = `<div class="rankup-sub">RANK UP!</div><div class="rankup-main">${streak}連</div>`;
+  effectHost.appendChild(el);
+  requestAnimationFrame(() => el.classList.add('show'));
+  window.setTimeout(() => el.classList.add('out'), 900);
+  window.setTimeout(() => el.remove(), 1300);
+}
+
 /** フリーズ演出中の「FREEZE!?」バナー。clearFreezeBanner() まで残る。 */
 let freezeBannerEl: HTMLElement | null = null;
 export function showFreezeBanner(): void {

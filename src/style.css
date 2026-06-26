@@ -3567,6 +3567,97 @@ body.shake {
   }
 }
 
+/* tier4(12連〜): 虹色の最上位オーラ */
+#cabinet.streak-aura-max {
+  animation: streak-aura-pulse-max 0.7s ease-in-out infinite;
+  border-color: #c060ff;
+}
+
+@keyframes streak-aura-pulse-max {
+  0%,
+  100% {
+    box-shadow:
+      0 0 40px rgba(255, 215, 0, 0.4),
+      inset 0 0 0 2px #2a2a2a,
+      0 0 60px rgba(192, 96, 255, 0.7),
+      0 0 120px rgba(102, 204, 255, 0.5),
+      0 0 200px rgba(255, 51, 102, 0.4);
+  }
+  50% {
+    box-shadow:
+      0 0 40px rgba(255, 215, 0, 0.4),
+      inset 0 0 0 2px #2a2a2a,
+      0 0 110px rgba(192, 96, 255, 1),
+      0 0 190px rgba(102, 204, 255, 0.8),
+      0 0 280px rgba(255, 51, 102, 0.6);
+  }
+}
+
+/* 連チャン段に応じて演出液晶(LCD)の縁を段階的にトーン付けする＝「背景の昇格」。
+   reel は隠さない控えめなインセット・ヴィネット。 */
+#cabinet.streak-aura #game-area {
+  box-shadow:
+    inset 0 -8px 16px rgba(0, 0, 0, 0.6),
+    inset 0 -1px 0 rgba(242, 179, 60, 0.25),
+    inset 0 0 48px rgba(255, 215, 0, 0.16);
+}
+#cabinet.streak-aura-hot #game-area {
+  box-shadow:
+    inset 0 -8px 16px rgba(0, 0, 0, 0.6),
+    inset 0 -1px 0 rgba(242, 179, 60, 0.25),
+    inset 0 0 64px rgba(255, 138, 0, 0.22);
+}
+#cabinet.streak-aura-fever #game-area {
+  box-shadow:
+    inset 0 -8px 16px rgba(0, 0, 0, 0.6),
+    inset 0 -1px 0 rgba(242, 179, 60, 0.25),
+    inset 0 0 80px rgba(255, 51, 102, 0.26);
+}
+#cabinet.streak-aura-max #game-area {
+  box-shadow:
+    inset 0 -8px 16px rgba(0, 0, 0, 0.6),
+    inset 0 -1px 0 rgba(242, 179, 60, 0.25),
+    inset 0 0 96px rgba(192, 96, 255, 0.3);
+}
+
+/* 連チャン昇格バッジ「{N}連 RANK UP!」 */
+.rankup-badge {
+  position: absolute;
+  top: 30%;
+  left: 50%;
+  transform: translate(-50%, -50%) scale(0.6);
+  z-index: 70;
+  pointer-events: none;
+  text-align: center;
+  opacity: 0;
+  transition: transform 260ms cubic-bezier(0.2, 1.5, 0.4, 1), opacity 200ms ease-out;
+}
+.rankup-badge.show {
+  opacity: 1;
+  transform: translate(-50%, -50%) scale(1);
+}
+.rankup-badge.out {
+  opacity: 0;
+  transform: translate(-50%, -50%) scale(1.25);
+  transition: transform 380ms ease-in, opacity 380ms ease-in;
+}
+.rankup-badge .rankup-sub {
+  font-size: 18px;
+  font-weight: 800;
+  letter-spacing: 3px;
+  color: var(--rankup-color, #ffd700);
+  text-shadow: 0 0 8px rgba(0, 0, 0, 0.9);
+}
+.rankup-badge .rankup-main {
+  font-size: 44px;
+  font-weight: 900;
+  color: #fff;
+  text-shadow:
+    0 0 12px var(--rankup-color, #ffd700),
+    0 0 24px var(--rankup-color, #ffd700),
+    0 3px 0 #000;
+}
+
 /* streak-status バッジも段階で色変化 */
 #cabinet.streak-aura-hot #streak-status {
   color: #ff8a00;
@@ -3579,6 +3670,14 @@ body.shake {
     0 0 8px rgba(255, 51, 102, 1),
     0 0 16px rgba(255, 215, 0, 0.6);
   animation: streak-badge-shake 0.4s ease-in-out infinite;
+}
+
+#cabinet.streak-aura-max #streak-status {
+  color: #d79bff;
+  text-shadow:
+    0 0 8px rgba(192, 96, 255, 1),
+    0 0 16px rgba(102, 204, 255, 0.7);
+  animation: streak-badge-shake 0.32s ease-in-out infinite;
 }
 
 @keyframes streak-badge-shake {

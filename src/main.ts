@@ -33,6 +33,7 @@ import {
   showEntryCharge,
   showFreezeBanner,
   clearFreezeBanner,
+  showRankUpBadge,
 } from './ui/Effects';
 import { JinSpeech } from './ui/JinSpeech';
 import { ChallengeTracker } from './productions/Challenges';
@@ -889,6 +890,13 @@ export async function bootstrap() {
   effectStatusEl.title = `${chapter.name}：${chapter.description}`;
 
   // 連チャン表示（倍率も併記）＋ cabinet の連チャンオーラ
+  // 連チャン昇格演出: streakTiers([21])に準拠した 2/5/8/12連 の4段。
+  // 段が上がった瞬間にランクアップ演出(フラッシュ＋紙吹雪＋SE)を出す。
+  const STREAK_TIER_THRESHOLDS = [2, 5, 8, 12];
+  const STREAK_TIER_CLASS = ['streak-aura', 'streak-aura-hot', 'streak-aura-fever', 'streak-aura-max'];
+  const STREAK_TIER_COLOR = ['#ffd700', '#ff8a00', '#ff3366', '#c060ff'];
+  const streakTierOf = (s: number) => STREAK_TIER_THRESHOLDS.filter((th) => s >= th).length; // 0..4
+  let prevStreakTier = 0;
   const updateStreakUI = (streak: number) => {
     if (streak >= 2) {
       const mult = calc.streakMult(streak);
@@ -899,14 +907,18 @@ export async function bootstrap() {
       streakStatusEl.hidden = true;
       streakStatusEl.textContent = '';
     }
-    cabinetEl.classList.remove(
-      'streak-aura',
-      'streak-aura-hot',
-      'streak-aura-fever',
-    );
-    if (streak >= 10) cabinetEl.classList.add('streak-aura', 'streak-aura-fever');
-    else if (streak >= 5) cabinetEl.classList.add('streak-aura', 'streak-aura-hot');
-    else if (streak >= 3) cabinetEl.classList.add('streak-aura');
+    const tier = streakTierOf(streak);
+    cabinetEl.classList.remove(...STREAK_TIER_CLASS);
+    if (tier >= 1) cabinetEl.classList.add(STREAK_TIER_CLASS[tier - 1]);
+    // 昇格した瞬間（段が上がった時）にランクアップ演出
+    if (tier > prevStreakTier && tier >= 1) {
+      const color = STREAK_TIER_COLOR[tier - 1];
+      flashScreen({ color, alpha: 0.45, durMs: 340 });
+      spawnConfetti(18 + tier * 16);
+      sfx.winMulti(Math.min(5, tier + 1));
+      showRankUpBadge(streak, color);
+    }
+    prevStreakTier = tier;
   };
   playStats.stats.subscribe((s) => updateStreakUI(s.streak));
   updateStreakUI(playStats.stats.get().streak);
