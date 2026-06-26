@@ -8,26 +8,17 @@ export interface EffectRates {
   aim: number;
 }
 
+/**
+ * EffectScheduler の既定レート（コンストラクタ未指定時のフォールバック）。
+ * 実運用のレート（通常/救済/ボーナス中）と救済しきい値は data/tuning/default.json が正で、
+ * main.ts が状況に応じて setRates で切り替える。
+ */
 export const DEFAULT_RATES: EffectRates = {
   none: 0.6,
   shisa: 0.2,
   quiz: 0.1,
   aim: 0.1,
 };
-
-/**
- * ハマり救済時のレート（連続ハズレが規定値を超えた時に使う）。
- * 通常 40% だった「演出発生」を 70% に押し上げる。
- */
-export const RESCUE_RATES: EffectRates = {
-  none: 0.3,
-  shisa: 0.35,
-  quiz: 0.2,
-  aim: 0.15,
-};
-
-/** 救済発動の連続ハズレしきい値 */
-export const RESCUE_MISS_THRESHOLD = 30;
 
 export class EffectScheduler {
   constructor(private rates: EffectRates = DEFAULT_RATES) {}
@@ -47,14 +38,9 @@ export class EffectScheduler {
 }
 
 /**
- * リール速度（コマ/秒）。全演出共通＝20コマ/秒に固定。
+ * リール速度（コマ/秒）。全演出共通＝20コマ/秒に固定（演出による速度変動は使わない）。
  * 1コマ = 1000/20 = 50ms（60fps では 3フレーム/コマ）。1周 = 21/20 = 1.05 秒。
  * 実機は1分80回転未満＝最速0.75秒/周（1コマ≈36ms）。本ゲームは目押ししやすさ優先でやや遅め。
- * ビタ成功窓は別途 BITA_MS=12（中心¼コマ＝±12ms）。演出による速度変動は使わない。
+ * ビタ成功窓は別途 tuning.bitaWindowMs（既定±12ms＝中心¼コマ）。
  */
-export const REEL_SPEED_BY_EFFECT: Record<EffectType, number> = {
-  none: 20,
-  shisa: 20,
-  quiz: 20,
-  aim: 20,
-};
+export const REEL_BASE_SPEED = 20;
