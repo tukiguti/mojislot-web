@@ -1,6 +1,7 @@
-import { Application, Assets, FillGradient, Graphics, Texture } from 'pixi.js';
+import { Application, FillGradient, Graphics } from 'pixi.js';
 import { ReelEngine } from './core/ReelEngine';
 import { ReelView, CELL_WIDTH, CELL_HEIGHT, VISIBLE_CELLS } from './render/ReelView';
+import { loadSymbolArt } from './render/ReelArt';
 import { SymbolColorResolver } from './render/SymbolStyle';
 import { YakuJudge } from './core/YakuJudge';
 import { PayoutCalc } from './core/PayoutCalc';
@@ -318,80 +319,14 @@ export async function bootstrap() {
   // 役単位のカラー解決：同じ役の3文字（左/中/右）が同じ色になる
   const colorResolver = new SymbolColorResolver(yakuList);
 
-  // 章ごとの図柄画像（あれば）。(reelIdx, symbol) -> URL / Texture を「色と同じ先勝ち順」で構築。
-  // 画像が無い章は空のままで、ReelView は従来の色タイル＋文字にフォールバックする。
-  // ART_VER: 図柄を作り直すたびに上げる（同名 webp のブラウザキャッシュ対策）。
-  const CHAPTERS_WITH_SYMBOL_ART = new Set<string>([
-    'hiragana_food',
-    'katakana_animal',
-    'yasai',
-    'hiragana_verb',
-    'security',
-    'h_adult',
-  ]);
-  const ART_VER = '6';
-  const symbolTileUrls = new Map<string, string>(); // 右パネル用（文字あり版の素URL）
-  const symbolTextures = new Map<string, Texture>(); // 文字あり版（設定ON）
-  const symbolTexturesPlain = new Map<string, Texture>(); // 文字なし版＝図柄のみ（既定）
-  // リール絵柄スタイル（遊ぶ設定）：image=図柄画像 / plain=色タイル＋文字（旧スタイル）。
-  // plain のときは画像を一切読み込まず、ReelView も右の配列表も色＋文字に落とす。
-  const useArtImages = localStorage.getItem('mojislot.reelArt.v1') !== 'plain';
-  if (useArtImages && CHAPTERS_WITH_SYMBOL_ART.has(chapterId)) {
-    const orderedForArt = [
-      ...yakuList.premiumYaku,
-      ...yakuList.coreYaku,
-      ...yakuList.cherryYaku,
-      ...yakuList.bonusYaku,
-    ];
-    for (const y of orderedForArt) {
-      if (y.noArt) continue; // 画像を持たない役（例：もも）は色＋文字で描く
-      // チェリーは2文字（symbols.length=2）。存在する文字だけ対象にする
-      for (let r = 0; r < y.symbols.length; r++) {
-        const key = `${r}:${y.symbols[r]}`;
-        if (!symbolTileUrls.has(key)) {
-          symbolTileUrls.set(
-            key,
-            `${ART_BASE}symbols/${chapterId}/${y.id}_${r}.webp`,
-          );
-        }
-      }
-    }
-    try {
-      const glyphUrls = [...new Set(symbolTileUrls.values())];
-      const plainUrls = glyphUrls.map((u) => u.replace(/\.webp$/, '_plain.webp'));
-      // 一部記号のアートが欠けても全体を壊さない（allSettled）。
-      // 欠けた記号はテクスチャ未設定＋URL削除で、その記号だけ色＋文字に落とす。
-      await Promise.allSettled(
-        [...glyphUrls, ...plainUrls].map((u) => Assets.load(`${u}?v=${ART_VER}`)),
-      );
-      for (const [key, url] of [...symbolTileUrls]) {
-        const glyphTex = Assets.get(`${url}?v=${ART_VER}`) as Texture | undefined;
-        const plainTex = Assets.get(
-          `${url.replace(/\.webp$/, '_plain.webp')}?v=${ART_VER}`,
-        ) as Texture | undefined;
-        if (glyphTex && plainTex) {
-          symbolTextures.set(key, glyphTex);
-          symbolTexturesPlain.set(key, plainTex);
-        } else {
-          symbolTileUrls.delete(key); // アート欠落 → 右の配列表も色＋文字へ
-        }
-      }
-    } catch (err) {
-      console.warn('図柄画像の読み込みに失敗。色タイルにフォールバックします', err);
-      symbolTextures.clear();
-      symbolTexturesPlain.clear();
-      symbolTileUrls.clear();
-    }
-  }
-  // 文字あり版 / 文字なし版(_plain) の URL（右パネル用）
-  const tileUrlWithVer = (reelIdx: number, symbol: string): string | null => {
-    const u = symbolTileUrls.get(`${reelIdx}:${symbol}`);
-    return u ? `${u}?v=${ART_VER}` : null;
-  };
-  const tilePlainUrlWithVer = (reelIdx: number, symbol: string): string | null => {
-    const u = symbolTileUrls.get(`${reelIdx}:${symbol}`);
-    return u ? `${u.replace(/\.webp$/, '_plain.webp')}?v=${ART_VER}` : null;
-  };
+  // 章ごとの図柄画像（あれば）を読み込む。画像が無い章・plain設定・読込失敗時は空マップが返り、
+  // ReelView も右の配列表も従来の色タイル＋文字にフォールバックする（詳細は render/ReelArt.ts）。
+  const {
+    textures: symbolTextures,
+    texturesPlain: symbolTexturesPlain,
+    tileUrlWithVer,
+    tilePlainUrlWithVer,
+  } = await loadSymbolArt(chapterId, yakuList, ART_BASE);
   // 右パネルの図柄セル（文字ON/OFFで背景画像を差し替えるため保持）
   const stripGlyphCells: { el: HTMLElement; glyph: string; plain: string }[] = [];
   let reelGlyphsOn = localStorage.getItem('reelShowGlyphs') === '1';
