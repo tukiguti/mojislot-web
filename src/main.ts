@@ -33,6 +33,9 @@ import {
   showAimNotice,
   hideAimNotice,
   setEffectHost,
+  showEntryCharge,
+  showFreezeBanner,
+  clearFreezeBanner,
 } from './ui/Effects';
 import { JinSpeech } from './ui/JinSpeech';
 import { ChallengeTracker } from './productions/Challenges';
@@ -192,6 +195,17 @@ export async function bootstrap() {
   // （resolveKick・全演出で作用、予告した BIG/RB は通す）。
   // 現在のスピンの effect 種別（AUTO がターゲット決定に使う）
   let currentEffect: EffectType = 'none';
+
+  // === フリーズ演出の状態 ===
+  // freezeActive: シーケンス中は全ユーザー入力をブロックし、stopReel の引き込み/蹴りも無効化する。
+  // pendingFreeze: デバッグボタンで「次のレバーでフリーズ」を予約するフラグ。
+  let freezeActive = false;
+  let pendingFreeze = false;
+  // レバーオン時のフリーズ抽選確率（通常時のみ）。レアな祝福として控えめに。
+  // ※必要ならデータ化(default.json)も可。まずは定数で運用し体感を見て調整。
+  const FREEZE_RATE = 1 / 200;
+  // フリーズ中の倍速回転スピード（通常のリール速度=20 の約3倍）
+  const FREEZE_SPIN_SPEED = 60;
 
   // 液晶エリアの土台。単色の黒板だと「空っぽの余白」に見えるので、
   // 紫星雲の極薄環境光（radialグラデ）で“画面が点いている”奥行きを出す（18_cabinet-design GLOW ZONE 1）。
@@ -969,6 +983,15 @@ export async function bootstrap() {
       // 狙え！予告を強制発動（applyEffect('aim') が showAimNotice を呼ぶ）
       applyEffect('aim');
     },
+    triggerFreeze: () => {
+      // 次のレバーでフリーズ発動を予約。待機中なら自動でBET→レバーまで進めて即確認できる。
+      pendingFreeze = true;
+      const allIdle = engines.every((e) => e.state.get() === 'idle');
+      if (allIdle && !betPlaced && wallet.canBet(calc.bet)) {
+        placeBet();
+        pullLever();
+      }
+    },
     triggerWinTest: () => {
       // 役成立SE＋中央ハイライト＋コインフロート＋紙吹雪少々
       sfx.winCore();
@@ -1100,6 +1123,7 @@ export async function bootstrap() {
   const lastSlipCells: number[] = Array(REEL_COUNT).fill(0);
 
   const placeBet = () => {
+    if (freezeActive) return;
     if (betBtn.disabled) return;
     sfx.init(); // user gesture でオーディオ起動
     // BGM も最初の BET で起動（自動再生制限の回避）。再生中ならスキップ。
@@ -1126,6 +1150,7 @@ export async function bootstrap() {
   };
 
   const pullLever = () => {
+    if (freezeActive) return;
     if (leverBtn.disabled) return;
     if (!betPlaced) return;
     // 未回答クイズはタイムアウト扱い（targetYakuId が null になり引き込み対象なし）。
@@ -1134,11 +1159,27 @@ export async function bootstrap() {
     quizState.finalizeIfUnanswered();
     // レバー押下でクイズUIは確実に閉じる（リールが見えるように）
     quizOverlay.dismiss();
+    // フリーズ抽選: 通常時のみ。デバッグ予約 or 確率成立で発動（結果は7揃いBIG確定）。
+    const doFreeze =
+      !bonusZone.isActive() && (pendingFreeze || Math.random() < FREEZE_RATE);
+    pendingFreeze = false;
     for (const engine of engines) engine.spin();
     flashButton(leverBtn);
     spawnButtonRipple(leverBtn, '#ffd700');
     sfx.lever();
     updateButtons();
+    if (doFreeze) runFreeze();
+  };
+
+  /**
+   * 突入直前の「溜め」演出を挟んでから本演出（カットイン等）を実行する。
+   * showEntryCharge で中央に光を収束させ、CHARGE_MS 後に弾けてカットインへ橋渡しする。
+   */
+  const CHARGE_MS = 650;
+  const enterWithCharge = (variant: 'big' | 'reg', doEntry: () => void) => {
+    showEntryCharge(variant, CHARGE_MS);
+    sfx.charge();
+    window.setTimeout(doEntry, CHARGE_MS);
   };
 
   // クイズの回答結果（クリック/キー）で SE＋統計＋セリフ
@@ -1285,6 +1326,9 @@ export async function bootstrap() {
         exceptYakuId: currentTargetYakuId() ?? undefined,
       });
     }
+
+    // フリーズ中は引き込み/蹴りを無効化し、強制セットした位置(basePos)へそのままスナップ。
+    if (freezeActive) slipCells = 0;
 
     const result = engine.stop(timestamp, slipCells);
     // 押下の精度情報を保存（役成立時の bita 集計で参照）
@@ -1485,15 +1529,18 @@ export async function bootstrap() {
             // おかわり（ボーナス中の再当選）: 突入演出は出さず軽い上乗せ演出
             showBonusAdd(bonusZone.config.spinsPerBonus, 'big');
           } else {
-            sfx.bonusEnter();
-            showPremiumCutin(premiumHit.yaku.name, premiumHit.yaku.symbols, cutinArtFor(premiumHit.yaku.id), 'big');
-            flashScreen({ color: '#ffd700', alpha: 0.85, durMs: 400 });
-            spawnConfetti(100);
-            shakeBody(600);
-            window.setTimeout(() => {
-              showBonusBanner('big');
-              jinSpeech.say('premium');
-            }, 1300);
+            // 新規突入: 「溜め」→ カットイン → フラッシュ/紙吹雪/バナー
+            enterWithCharge('big', () => {
+              sfx.bonusEnter();
+              showPremiumCutin(premiumHit.yaku.name, premiumHit.yaku.symbols, cutinArtFor(premiumHit.yaku.id), 'big');
+              flashScreen({ color: '#ffd700', alpha: 0.85, durMs: 400 });
+              spawnConfetti(100);
+              shakeBody(600);
+              window.setTimeout(() => {
+                showBonusBanner('big');
+                jinSpeech.say('premium');
+              }, 1300);
+            });
           }
         } else if (isRegular && bonusHit) {
           // レギュラーボーナス（すし＋別字）突入。シルバー基調・控えめ
@@ -1509,6 +1556,8 @@ export async function bootstrap() {
           if (isAddReg) {
             showBonusAdd(bonusZone.config.spinsPerReg, 'reg');
           } else {
+            // 新規突入: 「溜め」（シルバー）→ カットイン → フラッシュ/紙吹雪/バナー
+            enterWithCharge('reg', () => {
             sfx.bonusEnter();
             showPremiumCutin(bonusHit.yaku.name, bonusHit.yaku.symbols, cutinArtFor(bonusHit.yaku.id), 'reg');
             flashScreen({ color: '#cdd6e0', alpha: 0.75, durMs: 360 });
@@ -1518,6 +1567,7 @@ export async function bootstrap() {
               showBonusBanner('reg');
               jinSpeech.say('premium');
             }, 1300);
+            });
           }
         } else if (hits.length >= 2) {
           // 多重ライン HIT: 専用ファンファーレ + バッジ + フラッシュ
@@ -1568,11 +1618,78 @@ export async function bootstrap() {
     }
   };
 
+  // === フリーズ演出シーケンス ===
+  /**
+   * 指定リールを「現在位置から順方向で最も近い7（主役図柄）」へ強制停止する。
+   * freezeActive 中は stopReel の引き込み/蹴りが無効化されるため basePos にそのままスナップ。
+   */
+  const forceStopOn7 = (idx: number) => {
+    const headline = yakuList.premiumYaku[0];
+    if (!headline) return;
+    const sym = headline.symbols[idx];
+    const engine = engines[idx];
+    if (engine.state.get() !== 'spinning') return;
+    const cells = engine.strip.cells;
+    const total = cells.length;
+    const pos = engine.position;
+    // 順方向で最も近い該当図柄の位置を探す（回転して止まる自然さ）
+    let bestK = -1;
+    let bestDist = Infinity;
+    for (let i = 0; i < total; i++) {
+      if (cells[i] !== sym) continue;
+      const dist = (((i - pos) % total) + total) % total;
+      if (dist < bestDist) {
+        bestDist = dist;
+        bestK = i;
+      }
+    }
+    if (bestK < 0) bestK = 0;
+    engine.position = bestK;
+    views[idx].startTenpaiFlash(true);
+    sfx.tenpaiPremium();
+    stopReel(idx, performance.now());
+  };
+
+  /**
+   * フリーズ演出: フリーズ発生 → 倍速回転 → 1リール目から順に7を強制停止 →
+   * 最終リール停止で全停止判定が走り、7揃いBIGとして突入（溜め＋カットイン）。
+   * シーケンス中は freezeActive=true で全入力をブロックする。
+   */
+  const runFreeze = () => {
+    freezeActive = true;
+    currentEffect = 'none'; // 引き込み対象を無効化（強制位置を尊重）
+    hideAimNotice();
+    quizOverlay.dismiss();
+    updateButtons();
+    sfx.freeze();
+    showFreezeBanner();
+    flashScreen({ color: '#cfe4ff', alpha: 0.9, durMs: 220 });
+    // 1) フリーズ発生: 一瞬リールを停止（速度0）
+    for (const e of engines) e.setSpeed(0);
+    window.setTimeout(() => {
+      // 2) 倍速回転
+      for (const e of engines) e.setSpeed(FREEZE_SPIN_SPEED);
+      sfx.lever();
+      // 3) 1リール目から順に7を強制停止
+      window.setTimeout(() => forceStopOn7(0), 700);
+      window.setTimeout(() => forceStopOn7(1), 1300);
+      window.setTimeout(() => {
+        forceStopOn7(2); // 最終 → 全停止判定 → 7揃いBIG突入
+        freezeActive = false;
+        clearFreezeBanner();
+        updateButtons();
+      }, 1900);
+    }, 650);
+  };
+
   betBtn.addEventListener('click', placeBet);
   leverBtn.addEventListener('click', pullLever);
   stopBtns.forEach((btn) => {
     const idx = Number(btn.dataset.reel ?? -1);
-    btn.addEventListener('pointerdown', (ev) => stopReel(idx, ev.timeStamp));
+    btn.addEventListener('pointerdown', (ev) => {
+      if (freezeActive) return;
+      stopReel(idx, ev.timeStamp);
+    });
   });
 
   // === オートスピン ===
@@ -1666,6 +1783,7 @@ export async function bootstrap() {
     window.setTimeout(() => {
       aimPending.delete(reelIdx);
       if (!autoMode) return;
+      if (freezeActive) return;
       if (engine.state.get() === 'spinning') {
         stopReel(reelIdx, performance.now());
       }
@@ -1674,6 +1792,11 @@ export async function bootstrap() {
 
   const stepAuto = () => {
     if (!autoMode) return;
+    // フリーズ演出中はAUTOの操作を止め、ループだけ維持して終了後に再開する
+    if (freezeActive) {
+      autoTimer = window.setTimeout(stepAuto, 350);
+      return;
+    }
     if (!wallet.canBet(calc.bet) && !betPlaced) {
       stopAuto();
       return;
@@ -1868,6 +1991,12 @@ export async function bootstrap() {
 
     // クイズ表示中は 1〜4 で回答（他キーは食わない）
     if (quizOverlay.handleKey(key)) {
+      ev.preventDefault();
+      return;
+    }
+
+    // フリーズ演出中はゲーム操作キーを全てブロック
+    if (freezeActive) {
       ev.preventDefault();
       return;
     }
