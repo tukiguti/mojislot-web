@@ -8,9 +8,6 @@ import { CoinWallet } from './core/CoinWallet';
 import {
   EffectScheduler,
   REEL_SPEED_BY_EFFECT,
-  DEFAULT_RATES,
-  RESCUE_RATES,
-  RESCUE_MISS_THRESHOLD,
   type EffectType,
 } from './productions/EffectScheduler';
 import { BonusZone } from './productions/BonusZone';
@@ -63,10 +60,12 @@ import {
   YakuListSchema,
   PayoutSchema,
   QuizListSchema,
+  TuningSchema,
   type Yaku,
   type ReelStrip,
 } from './data/schemas';
 import payoutDataRaw from '../data/payouts/default.json';
+import tuningDataRaw from '../data/tuning/default.json';
 import {
   getCurrentChapter,
   getCurrentChapterId,
@@ -150,6 +149,8 @@ export async function bootstrap() {
   };
   const payout = PayoutSchema.parse(payoutDataRaw);
   const quizList = QuizListSchema.parse(chapter.quizData);
+  // 演出レート・補助・フリーズ等の調整値（散在していた定数を集約）。data/tuning/default.json。
+  const tuning = TuningSchema.parse(tuningDataRaw);
   // 役の id → 役オブジェクトの逆引き（AUTO のターゲット解決などで使う）
   const allYakusFlat = [
     ...yakuList.coreYaku,
@@ -161,12 +162,20 @@ export async function bootstrap() {
   const judge = new YakuJudge(yakuList);
   const calc = new PayoutCalc(payout);
   const wallet = new CoinWallet(payout.initialCoins);
-  const scheduler = new EffectScheduler();
+  const scheduler = new EffectScheduler(tuning.effectRates.default);
   const jinState = new JinState();
   const quizState = new QuizState();
   const quizOverlay = new QuizOverlay(quizState);
-  const slipResolver = new SlipResolver(yakuList);
-  const bonusZone = new BonusZone();
+  const slipResolver = new SlipResolver(yakuList, {
+    kickProbability: tuning.assist.kickProbability,
+    kickMaxCells: tuning.assist.kickMaxCells,
+    assistMaxCells: tuning.assist.assistMaxCells,
+  });
+  const bonusZone = new BonusZone({
+    spinsPerBonus: tuning.bonus.spinsPerBig,
+    spinsPerReg: tuning.bonus.spinsPerReg,
+    bonusEffectRates: tuning.effectRates.bonus,
+  });
   const sfx = new SfxEngine();
   const bgm = new BgmEngine();
   const tenpaiDetector = new TenpaiDetector(yakuList);
@@ -201,11 +210,9 @@ export async function bootstrap() {
   // pendingFreeze: デバッグボタンで「次のレバーでフリーズ」を予約するフラグ。
   let freezeActive = false;
   let pendingFreeze = false;
-  // レバーオン時のフリーズ抽選確率（通常時のみ）。レアな祝福として控えめに。
-  // ※必要ならデータ化(default.json)も可。まずは定数で運用し体感を見て調整。
-  const FREEZE_RATE = 1 / 200;
-  // フリーズ中の倍速回転スピード（通常のリール速度=20 の約3倍）
-  const FREEZE_SPIN_SPEED = 60;
+  // レバーオン時のフリーズ抽選確率（通常時のみ）／倍速回転スピード。data/tuning で調整。
+  const FREEZE_RATE = tuning.freeze.rate;
+  const FREEZE_SPIN_SPEED = tuning.freeze.spinSpeed;
 
   // 液晶エリアの土台。単色の黒板だと「空っぽの余白」に見えるので、
   // 紫星雲の極薄環境光（radialグラデ）で“画面が点いている”奥行きを出す（18_cabinet-design GLOW ZONE 1）。
@@ -906,9 +913,9 @@ export async function bootstrap() {
 
   // ハマり救済バッジ
   const updateRescueUI = (missStreak: number) => {
-    if (missStreak >= RESCUE_MISS_THRESHOLD) {
+    if (missStreak >= tuning.rescueMissThreshold) {
       rescueStatusEl.hidden = false;
-      rescueStatusEl.textContent = `救済 +${missStreak - RESCUE_MISS_THRESHOLD}`;
+      rescueStatusEl.textContent = `救済 +${missStreak - tuning.rescueMissThreshold}`;
     } else {
       rescueStatusEl.hidden = true;
       rescueStatusEl.textContent = '';
@@ -1115,8 +1122,8 @@ export async function bootstrap() {
     window.setTimeout(() => btn.classList.remove('flash'), 100);
   };
 
-  // ビタ押し判定の閾値（ms）— 1コマ50ms（速度20）の1/4で12msに厳格化
-  const BITA_MS = 12;
+  // ビタ押し判定の閾値（ms）。data/tuning の bitaWindowMs で調整（既定12＝1コマ50msの約¼）。
+  const BITA_MS = tuning.bitaWindowMs;
 
   // 各リールの直近押下の精度＆滑り量（役成立時にビタ集計するため）
   const lastPressErrorMs: number[] = Array(REEL_COUNT).fill(Infinity);
@@ -1136,14 +1143,14 @@ export async function bootstrap() {
     sfx.bet();
     // BET 時のセリフは時々（25%）
     if (Math.random() < 0.25) jinSpeech.say('bet');
-    // ボーナス > 救済 > 通常 の優先順位で演出レートを決定
+    // ボーナス > 救済 > 通常 の優先順位で演出レートを決定（data/tuning.effectRates）
     if (bonusZone.isActive()) {
       scheduler.setRates(bonusZone.config.bonusEffectRates);
       bonusZone.consumeSpin();
-    } else if (playStats.stats.get().missStreak >= RESCUE_MISS_THRESHOLD) {
-      scheduler.setRates(RESCUE_RATES);
+    } else if (playStats.stats.get().missStreak >= tuning.rescueMissThreshold) {
+      scheduler.setRates(tuning.effectRates.rescue);
     } else {
-      scheduler.setRates(DEFAULT_RATES);
+      scheduler.setRates(tuning.effectRates.default);
     }
     applyEffect(scheduler.roll());
     updateButtons();
@@ -1175,7 +1182,7 @@ export async function bootstrap() {
    * 突入直前の「溜め」演出を挟んでから本演出（カットイン等）を実行する。
    * showEntryCharge で中央に光を収束させ、CHARGE_MS 後に弾けてカットインへ橋渡しする。
    */
-  const CHARGE_MS = 650;
+  const CHARGE_MS = tuning.entryChargeMs;
   const enterWithCharge = (variant: 'big' | 'reg', doEntry: () => void) => {
     showEntryCharge(variant, CHARGE_MS);
     sfx.charge();
@@ -1234,7 +1241,7 @@ export async function bootstrap() {
   };
 
   /** 「狙え！」時、第1・第2停止で狙い役を中段へ軽く引き込む最大コマ数（最終リールの4コマより控えめ）。 */
-  const AIM_HINT_MAX_CELLS = 2;
+  const AIM_HINT_MAX_CELLS = tuning.assist.aimHintMaxCells;
 
   /**
    * テンパイ成立ライン群（5ライン）から、演出の対象役に合う最良の引き込みコマ数を返す。

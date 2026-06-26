@@ -93,3 +93,61 @@ export const QuizListSchema = z.object({
 
 export type Quiz = z.infer<typeof QuizSchema>;
 export type QuizList = z.infer<typeof QuizListSchema>;
+
+/**
+ * チューニング（演出レート・補助・フリーズ・しきい値などの調整値）。
+ * 従来コードに散在していた定数を1ファイルに集約し、出現確率や演出頻度を弄りやすくする。
+ * 各値は省略時に既定へフォールバックする（部分指定OK）。
+ */
+const EffectRatesSchema = z.object({
+  none: z.number().min(0),
+  shisa: z.number().min(0),
+  quiz: z.number().min(0),
+  aim: z.number().min(0),
+});
+
+export const TuningSchema = z.object({
+  /** ベット毎の演出抽選レート（通常／ハマり救済／ボーナス中）。各合計≈1.0 を想定。 */
+  effectRates: z.object({
+    default: EffectRatesSchema,
+    rescue: EffectRatesSchema,
+    bonus: EffectRatesSchema,
+  }),
+  /** 連続ハズレがこの回数以上で救済レートへ切替。 */
+  rescueMissThreshold: z.number().int().positive().default(30),
+  /** ボーナス区間の継続スピン数。 */
+  bonus: z
+    .object({
+      spinsPerBig: z.number().int().positive().default(10),
+      spinsPerReg: z.number().int().positive().default(5),
+    })
+    .default({ spinsPerBig: 10, spinsPerReg: 5 }),
+  /** 引き込み/蹴り（目押し補助）の強さ。コマ数が大きいほど揃いやすい。 */
+  assist: z
+    .object({
+      /** 最終リールの引き込み最大コマ数（実機準拠＝4）。 */
+      assistMaxCells: z.number().int().nonnegative().default(4),
+      /** 第1・第2停止の中段引き込み最大コマ数（控えめ＝2）。 */
+      aimHintMaxCells: z.number().int().nonnegative().default(2),
+      /** 偶然のboner/premium揃いを蹴る最大コマ数。 */
+      kickMaxCells: z.number().int().nonnegative().default(2),
+      /** 蹴りの発動確率（0..1）。 */
+      kickProbability: z.number().min(0).max(1).default(0.5),
+    })
+    .default({ assistMaxCells: 4, aimHintMaxCells: 2, kickMaxCells: 2, kickProbability: 0.5 }),
+  /** フリーズ演出。 */
+  freeze: z
+    .object({
+      /** レバーオン時のフリーズ抽選確率（通常時のみ）。 */
+      rate: z.number().min(0).max(1).default(0.005),
+      /** フリーズ中の倍速回転スピード（コマ/秒）。 */
+      spinSpeed: z.number().positive().default(60),
+    })
+    .default({ rate: 0.005, spinSpeed: 60 }),
+  /** ビタ押し成功窓（±ms）。 */
+  bitaWindowMs: z.number().positive().default(12),
+  /** 突入直前の「溜め」演出の長さ（ms）。 */
+  entryChargeMs: z.number().nonnegative().default(650),
+});
+
+export type Tuning = z.infer<typeof TuningSchema>;
