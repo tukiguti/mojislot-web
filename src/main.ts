@@ -1501,7 +1501,8 @@ export async function bootstrap() {
             bonusRunPayout = 0;
             enteredBonusThisSpin = true;
           }
-          bonusRunKind = 'reg';
+          // 既に BIG 区間中なら種別を降格させない（おかわりの reg では big を維持）
+          if (!isAddReg) bonusRunKind = 'reg';
           bonusZone.trigger('reg');
           if (isAddReg) {
             showBonusAdd(bonusZone.config.spinsPerReg, 'reg');
