@@ -124,6 +124,41 @@ export function showPremiumCutin(
 }
 
 /**
+ * 突入直前の「溜め」演出。中央へ光が収束 → 弾けてカットインへ橋渡しする。
+ * pointer-events: none で進行はブロックしない。durMs 経過で自動的に弾け、少し後に消える。
+ */
+export function showEntryCharge(variant: 'big' | 'reg' = 'big', durMs = 650): void {
+  document.querySelectorAll('.entry-charge').forEach((el) => el.remove());
+  const el = document.createElement('div');
+  el.className = variant === 'reg' ? 'entry-charge reg' : 'entry-charge';
+  el.innerHTML = `<div class="entry-charge-core"></div><div class="entry-charge-ring"></div>`;
+  effectHost.appendChild(el);
+  requestAnimationFrame(() => el.classList.add('show'));
+  // 終盤で弾け（burst）→ 直後に除去。カットインはこの burst に合わせて呼ばれる想定。
+  window.setTimeout(() => el.classList.add('burst'), Math.max(0, durMs - 140));
+  window.setTimeout(() => el.remove(), durMs + 280);
+}
+
+/** フリーズ演出中の「FREEZE!?」バナー。clearFreezeBanner() まで残る。 */
+let freezeBannerEl: HTMLElement | null = null;
+export function showFreezeBanner(): void {
+  clearFreezeBanner();
+  const el = document.createElement('div');
+  el.className = 'freeze-overlay';
+  el.innerHTML = `<div class="freeze-text">FREEZE!?</div>`;
+  effectHost.appendChild(el);
+  requestAnimationFrame(() => el.classList.add('show'));
+  freezeBannerEl = el;
+}
+export function clearFreezeBanner(): void {
+  if (!freezeBannerEl) return;
+  const el = freezeBannerEl;
+  freezeBannerEl = null;
+  el.classList.add('out');
+  window.setTimeout(() => el.remove(), 400);
+}
+
+/**
  * 多重ライン HIT バッジ。役名トーストと別軸で「2 LINES!!」と派手に出す。
  * ライン本数で色を変える（2=金、3=橙、4+=赤）。
  */

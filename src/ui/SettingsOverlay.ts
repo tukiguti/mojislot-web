@@ -18,6 +18,7 @@ export interface DebugActions {
   triggerTenpaiSe(): void;
   triggerCutin(): void;
   triggerAim(): void;
+  triggerFreeze(): void;
   fillEffects(): void;
 }
 
@@ -71,6 +72,7 @@ export class SettingsOverlay {
           <div class="zukan-debug-buttons">
             <button data-debug="bonus" type="button">BIG BONUS</button>
             <button data-debug="regular" type="button">REG BONUS</button>
+            <button data-debug="freeze" type="button">フリーズ</button>
             <button data-debug="cutin" type="button">カットイン</button>
             <button data-debug="aim" type="button">狙え！予告</button>
             <button data-debug="shisa" type="button">示唆発動</button>
@@ -130,6 +132,9 @@ export class SettingsOverlay {
             break;
           case 'aim':
             this.debugActions.triggerAim();
+            break;
+          case 'freeze':
+            this.debugActions.triggerFreeze();
             break;
           case 'tenpai':
             this.debugActions.triggerTenpaiSe();

@@ -2803,6 +2803,133 @@ body.shake {
 }
 
 /* ===== プレミアム成立カットイン ===== */
+/* === 突入直前の「溜め」演出 === */
+.entry-charge {
+  position: absolute;
+  inset: 0;
+  z-index: 9998;
+  pointer-events: none;
+  overflow: hidden;
+  opacity: 0;
+  transition: opacity 180ms ease-out;
+}
+.entry-charge.show {
+  opacity: 1;
+}
+.entry-charge.burst {
+  opacity: 0;
+  transition: opacity 220ms ease-in;
+}
+/* 中央に収束する光。show で小さく明るくなり、burst で一気に弾ける */
+.entry-charge-core {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 40%;
+  height: 40%;
+  transform: translate(-50%, -50%) scale(0.2);
+  border-radius: 50%;
+  background: radial-gradient(
+    circle at center,
+    rgba(255, 255, 255, 0.95) 0%,
+    rgba(255, 215, 0, 0.85) 30%,
+    rgba(255, 140, 0, 0.35) 60%,
+    rgba(255, 120, 0, 0) 75%
+  );
+  filter: blur(2px);
+  transition: transform 600ms cubic-bezier(0.5, 0, 0.9, 0.4),
+    opacity 600ms ease-in;
+  opacity: 0.85;
+}
+.entry-charge.show .entry-charge-core {
+  transform: translate(-50%, -50%) scale(0.85);
+}
+.entry-charge.burst .entry-charge-core {
+  transform: translate(-50%, -50%) scale(2.6);
+  opacity: 0;
+  transition: transform 240ms ease-out, opacity 240ms ease-out;
+}
+/* 収束を強調する回転リング */
+.entry-charge-ring {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 12%;
+  height: 12%;
+  transform: translate(-50%, -50%) scale(6) rotate(0deg);
+  border: 3px solid rgba(255, 230, 150, 0.0);
+  border-radius: 50%;
+  transition: transform 600ms cubic-bezier(0.5, 0, 0.9, 0.4),
+    border-color 600ms ease-in;
+}
+.entry-charge.show .entry-charge-ring {
+  transform: translate(-50%, -50%) scale(1) rotate(220deg);
+  border-color: rgba(255, 230, 150, 0.9);
+}
+.entry-charge.burst .entry-charge-ring {
+  transform: translate(-50%, -50%) scale(3) rotate(300deg);
+  border-color: rgba(255, 230, 150, 0);
+  transition: transform 240ms ease-out, border-color 240ms ease-out;
+}
+/* REG はシルバー基調 */
+.entry-charge.reg .entry-charge-core {
+  background: radial-gradient(
+    circle at center,
+    rgba(255, 255, 255, 0.95) 0%,
+    rgba(205, 214, 224, 0.85) 30%,
+    rgba(150, 170, 190, 0.35) 60%,
+    rgba(150, 170, 190, 0) 75%
+  );
+}
+.entry-charge.reg .entry-charge-ring {
+  border-color: rgba(220, 230, 240, 0);
+}
+.entry-charge.reg.show .entry-charge-ring {
+  border-color: rgba(220, 230, 240, 0.9);
+}
+
+/* === フリーズ演出バナー === */
+.freeze-overlay {
+  position: absolute;
+  inset: 0;
+  z-index: 9997;
+  pointer-events: none;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  background: radial-gradient(
+    circle at center,
+    rgba(20, 40, 90, 0.35) 0%,
+    rgba(0, 0, 20, 0.7) 80%
+  );
+  opacity: 0;
+  transition: opacity 200ms ease-out;
+}
+.freeze-overlay.show {
+  opacity: 1;
+}
+.freeze-overlay.out {
+  opacity: 0;
+  transition: opacity 400ms ease-in;
+}
+.freeze-text {
+  font-size: clamp(28px, 9vw, 64px);
+  font-weight: 900;
+  letter-spacing: 0.08em;
+  color: #eaf2ff;
+  text-shadow: 0 0 12px #4aa3ff, 0 0 28px #2a6cff, 0 2px 0 #0a1c44;
+  transform: scale(0.7);
+  transition: transform 260ms cubic-bezier(0.2, 1.4, 0.4, 1);
+  animation: freeze-flicker 520ms ease-in-out infinite;
+}
+.freeze-overlay.show .freeze-text {
+  transform: scale(1);
+}
+@keyframes freeze-flicker {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.6; }
+}
+
 .premium-cutin {
   position: absolute;
   inset: 0;

@@ -222,6 +222,22 @@ export class SfxEngine {
       20,
     );
   }
+  /** 突入直前の「溜め」: 低→高へ駆け上がるチャージ音 */
+  charge(): void {
+    this.sweep({ startFreq: 180, endFreq: 1900, durMs: 620, type: 'sawtooth', vol: 0.34 });
+  }
+  /** フリーズ発生音: 重い停止音 → きらめく上昇 */
+  freeze(): void {
+    this.beep({ freq: 70, durMs: 280, type: 'square', vol: 0.5 });
+    this.sequence(
+      [
+        { freq: 1568, durMs: 90, type: 'sine', vol: 0.4 },
+        { freq: 2093, durMs: 90, type: 'sine', vol: 0.4 },
+        { freq: 2637, durMs: 220, type: 'sine', vol: 0.45 },
+      ],
+      45,
+    );
+  }
   bonusEnter(): void {
     this.sequence(
       [
