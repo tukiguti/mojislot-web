@@ -215,6 +215,11 @@ export async function bootstrap() {
   const FREEZE_RATE = tuning.freeze.rate;
   const FREEZE_SPIN_SPEED = tuning.freeze.spinSpeed;
 
+  // === 確定告知ランプの状態 ===
+  // 点灯中（announcedBonus !== null）はボーナス確定。種別は内部確定だが UI 上は伏せる。
+  // 点灯中は他演出を 'none' 固定、各リールは確定役の図柄へ強く引き込む（目押しで揃えに行く）。
+  let announcedBonus: 'big' | 'reg' | null = null;
+
   // 液晶エリアの土台。単色の黒板だと「空っぽの余白」に見えるので、
   // 紫星雲の極薄環境光（radialグラデ）で“画面が点いている”奥行きを出す（18_cabinet-design GLOW ZONE 1）。
   // 中央上やや＝ロイヤル寄りに灯し、周縁はvoidへ落として枠に馴染ませる。やり過ぎ＝AI感なので3段の控えめな階調のみ。
@@ -270,6 +275,13 @@ export async function bootstrap() {
   lcdFx.id = 'lcd-fx';
   requireEl('game-area').appendChild(lcdFx);
   setEffectHost(lcdFx);
+
+  // 確定告知ランプ（GOGOランプ風）。点灯=ボーナス確定・種別は伏せて「?」表示。
+  const announceLampEl = document.createElement('div');
+  announceLampEl.id = 'announce-lamp';
+  announceLampEl.hidden = true;
+  announceLampEl.innerHTML = `<div class="lamp-dome"></div><div class="lamp-text">確定</div><div class="lamp-kind">?</div>`;
+  requireEl('game-area').appendChild(announceLampEl);
 
   // ジンのセリフ吹き出し（DOM, 演出エリア内）。ジン本体の可視制御と同じ信号で抑制する。
   const jinSpeech = new JinSpeech(requireEl('game-area'));
@@ -1011,6 +1023,10 @@ export async function bootstrap() {
         pullLever();
       }
     },
+    triggerAnnounceLamp: () => {
+      // 確定告知ランプを即点灯（種別は内部抽選＝伏せ）。以降、目押しで揃えに行くと回収。
+      if (!announcedBonus && !bonusZone.isActive() && !freezeActive) announceBonus();
+    },
     triggerWinTest: () => {
       // 役成立SE＋中央ハイライト＋コインフロート＋紙吹雪少々
       sfx.winCore();
@@ -1155,8 +1171,11 @@ export async function bootstrap() {
     sfx.bet();
     // BET 時のセリフは時々（25%）
     if (Math.random() < 0.25) jinSpeech.say('bet');
-    // ボーナス > 救済 > 通常 の優先順位で演出レートを決定（data/tuning.effectRates）
-    if (bonusZone.isActive()) {
+    // 確定告知ランプ点灯中は他演出を出さない（'none'固定）。フリーズのみ別途許可。
+    // 以降は ボーナス > 救済 > 通常 の優先順位で演出レートを決定（data/tuning.effectRates）。
+    if (announcedBonus) {
+      scheduler.setRates({ none: 1, shisa: 0, quiz: 0, aim: 0 });
+    } else if (bonusZone.isActive()) {
       scheduler.setRates(bonusZone.config.bonusEffectRates);
       bonusZone.consumeSpin();
     } else if (playStats.stats.get().missStreak >= tuning.rescueMissThreshold) {
@@ -1187,7 +1206,16 @@ export async function bootstrap() {
     spawnButtonRipple(leverBtn, '#ffd700');
     sfx.lever();
     updateButtons();
-    if (doFreeze) runFreeze();
+    if (doFreeze) {
+      runFreeze();
+    } else if (
+      !bonusZone.isActive() &&
+      !announcedBonus &&
+      Math.random() < tuning.announceLamp.rate
+    ) {
+      // 確定告知ランプ抽選（通常時・未点灯時のみ）。点灯＝ボーナス確定。
+      announceBonus();
+    }
   };
 
   /**
@@ -1312,6 +1340,23 @@ export async function bootstrap() {
     //  2) 引き込みが効かない時 → 予告役以外の premium/bonus 偶然揃いを蹴る
     //     （core/cherry は蹴らない／予告した BIG・RB は通す）
     let slipCells = 0;
+    if (announcedBonus) {
+      // 確定告知ランプ点灯中: 確定役（BIG=7主役 / REG=RB）の図柄を中段へ強く引き込む。
+      // reels0,1 は「す・し」共通、reel2 で や(BIG)/ず(REG) が判明＝祈りの瞬間。
+      const role =
+        announcedBonus === 'big' ? yakuList.premiumYaku[0] : yakuList.bonusYaku[0];
+      const sym = role?.symbols[idx];
+      if (sym !== undefined) {
+        const hint = slipResolver.resolveAssist(
+          engine.strip,
+          basePos,
+          sym,
+          'middle',
+          tuning.announceLamp.assistMaxCells,
+        );
+        if (hint !== null) slipCells = hint;
+      }
+    } else {
     const assistTenpai = tenpaiDetector.detect(stoppedVisibles);
     if (assistTenpai && assistTenpai.missingReelIndex === idx) {
       slipCells = pickAssistSlip(assistTenpai.lines, idx, engine.strip, basePos);
@@ -1345,6 +1390,7 @@ export async function bootstrap() {
         exceptYakuId: currentTargetYakuId() ?? undefined,
       });
     }
+    } // !announcedBonus
 
     // フリーズ中は引き込み/蹴りを無効化し、強制セットした位置(basePos)へそのままスナップ。
     if (freezeActive) slipCells = 0;
@@ -1399,6 +1445,8 @@ export async function bootstrap() {
       // レギュラー役（すし＋別字）。プレミアムが無いときだけ REG 扱い
       const bonusHit = hits.find((h) => h.yaku.category === 'bonus') ?? null;
       const isRegular = !isPremium && bonusHit !== null;
+      // 確定告知ランプ点灯中にボーナス（BIG/REG）が揃ったら回収完了＝消灯。
+      if (announcedBonus && (isPremium || isRegular)) clearAnnounceLamp();
       // 成立後の連チャン数で配当倍率を評価（3連達成スピンから恩恵が乗る）
       const streakAfter = willHit ? playStats.stats.get().streak + 1 : 0;
       const streakMult = calc.streakMult(streakAfter);
@@ -1703,6 +1751,23 @@ export async function bootstrap() {
         updateButtons();
       }, 1900);
     }, 650);
+  };
+
+  // === 確定告知ランプ ===
+  /** ランプ点灯（ボーナス確定）。種別を内部確定（伏せる）し、UI を点灯。 */
+  const announceBonus = () => {
+    announcedBonus = Math.random() < tuning.announceLamp.bigRatio ? 'big' : 'reg';
+    announceLampEl.hidden = false;
+    requestAnimationFrame(() => announceLampEl.classList.add('lit'));
+    sfx.lamp();
+    flashScreen({ color: '#fff3a0', alpha: 0.8, durMs: 280 });
+    jinSpeech.say('premium');
+  };
+  /** ランプ消灯（ボーナス回収後）。 */
+  const clearAnnounceLamp = () => {
+    announcedBonus = null;
+    announceLampEl.classList.remove('lit');
+    announceLampEl.hidden = true;
   };
 
   betBtn.addEventListener('click', placeBet);

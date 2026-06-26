@@ -19,6 +19,7 @@ export interface DebugActions {
   triggerCutin(): void;
   triggerAim(): void;
   triggerFreeze(): void;
+  triggerAnnounceLamp(): void;
   fillEffects(): void;
 }
 
@@ -73,6 +74,7 @@ export class SettingsOverlay {
             <button data-debug="bonus" type="button">BIG BONUS</button>
             <button data-debug="regular" type="button">REG BONUS</button>
             <button data-debug="freeze" type="button">フリーズ</button>
+            <button data-debug="lamp" type="button">確定ランプ</button>
             <button data-debug="cutin" type="button">カットイン</button>
             <button data-debug="aim" type="button">狙え！予告</button>
             <button data-debug="shisa" type="button">示唆発動</button>
@@ -135,6 +137,9 @@ export class SettingsOverlay {
             break;
           case 'freeze':
             this.debugActions.triggerFreeze();
+            break;
+          case 'lamp':
+            this.debugActions.triggerAnnounceLamp();
             break;
           case 'tenpai':
             this.debugActions.triggerTenpaiSe();

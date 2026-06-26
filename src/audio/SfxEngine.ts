@@ -226,6 +226,17 @@ export class SfxEngine {
   charge(): void {
     this.sweep({ startFreq: 180, endFreq: 1900, durMs: 620, type: 'sawtooth', vol: 0.34 });
   }
+  /** 確定告知ランプ点灯音: 明るいきらめきチャイム */
+  lamp(): void {
+    this.sequence(
+      [
+        { freq: 1318, durMs: 90, type: 'sine', vol: 0.4 },
+        { freq: 1760, durMs: 90, type: 'sine', vol: 0.4 },
+        { freq: 2349, durMs: 280, type: 'sine', vol: 0.45 },
+      ],
+      30,
+    );
+  }
   /** フリーズ発生音: 重い停止音 → きらめく上昇 */
   freeze(): void {
     this.beep({ freq: 70, durMs: 280, type: 'square', vol: 0.5 });
