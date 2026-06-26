@@ -2,6 +2,7 @@ import { Application, FillGradient, Graphics } from 'pixi.js';
 import { ReelEngine } from './core/ReelEngine';
 import { ReelView, CELL_WIDTH, CELL_HEIGHT, VISIBLE_CELLS } from './render/ReelView';
 import { loadSymbolArt } from './render/ReelArt';
+import { RunTimer } from './ui/RunTimer';
 import { SymbolColorResolver } from './render/SymbolStyle';
 import { YakuJudge } from './core/YakuJudge';
 import { PayoutCalc } from './core/PayoutCalc';
@@ -599,8 +600,8 @@ export async function bootstrap() {
   // 計数＝この戦を締める：spinCount>0 なら1戦を RunHistory に確定記録し、持メダルを流す(0に)＋投資/戦カウンタをリセット。
   document.getElementById('count-btn')?.addEventListener('click', () => {
     // 計数=この戦の区切り。計測中なら自動停止（sahmai が0に戻り時速が誤って跳ねるのを防ぐ）。
-    // ※ stopTimer は下方で定義（このハンドラはクリック時=bootstrap完了後に走るので参照は安全）
-    stopTimer();
+    // ※ runTimer は下方で生成（このハンドラはクリック時=bootstrap完了後に走るので参照は安全）
+    runTimer.stop();
     const investment = wallet.investmentTotal.get();
     const payback = wallet.coins.get();
     // 空打ち（1回も回さず計数）は機械割が算出不能なので記録しない＝離脱は破棄に準ずる
@@ -631,129 +632,9 @@ export async function bootstrap() {
     runBonusCount = 0;
   });
 
-  // === 時間計測：フリー(カウントアップ・手動停止)＋プリセット分数のカウントダウン(到達で自動停止)。
-  //     開始時の差枚を基準に「分速(差枚/分)」を出す（時速は出さない） ===
-  const timerEl = {
-    box: document.querySelector<HTMLElement>('.unit-timer'),
-    clock: document.getElementById('timer-elapsed'),
-    min: document.getElementById('timer-min'),
-    total: document.getElementById('timer-total'),
-    toggle: document.getElementById('timer-toggle') as HTMLButtonElement | null,
-    reset: document.getElementById('timer-reset'),
-    presets: document.getElementById('timer-presets'),
-  };
-  let timerRunning = false;
-  let timerStartMs = 0;
-  let timerBaseSahmai = 0;
-  let timerDurationMs = 0; // 0=フリー(カウントアップ)、>0=その時間でカウントダウン→自動停止
-  let timerInterval: number | null = null;
-  // 計測開始直後は差枚デルタが小さく分速が暴れるので、一定時間まで「—」
-  const RATE_MIN_MS = 10_000;
-
-  const fmtClock = (ms: number): string => {
-    const total = Math.max(0, Math.floor(ms / 1000));
-    const m = Math.floor(total / 60);
-    const s = total % 60;
-    return `${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
-  };
-  const setRate = (el: HTMLElement | null, value: number | null, unit: string): void => {
-    if (!el) return;
-    if (value === null) {
-      el.textContent = '—';
-      el.classList.remove('plus', 'minus');
-      return;
-    }
-    const rounded = Math.round(value);
-    el.textContent = `${rounded > 0 ? '+' : ''}${rounded}${unit}`;
-    el.classList.toggle('plus', rounded > 0);
-    el.classList.toggle('minus', rounded < 0);
-  };
-  // 分速＝開始時からの差枚デルタ÷経過分。baseMs を渡すとその時間で割る（カウントダウン確定用）。
-  const renderMinRate = (elapsedMs: number, baseMs?: number): void => {
-    const delta = wallet.sahmai() - timerBaseSahmai;
-    if (baseMs || elapsedMs >= RATE_MIN_MS) {
-      setRate(timerEl.min, delta / ((baseMs ?? elapsedMs) / 60_000), '/分');
-    } else {
-      setRate(timerEl.min, null, '');
-    }
-  };
-  // 区間差枚＝開始からの差枚デルタ（累計）。分速と違い値が暴れないので即時表示。
-  const renderTotal = (): void => {
-    setRate(timerEl.total, wallet.sahmai() - timerBaseSahmai, '枚');
-  };
-  const renderTimer = (): void => {
-    if (!timerRunning) return;
-    const elapsedMs = Date.now() - timerStartMs;
-    if (timerDurationMs > 0) {
-      const remaining = timerDurationMs - elapsedMs;
-      if (remaining <= 0) {
-        // セット時間に到達：00:00 固定＋その間の分速を確定して自動停止
-        if (timerEl.clock) timerEl.clock.textContent = '00:00';
-        renderMinRate(elapsedMs, timerDurationMs);
-        renderTotal();
-        stopTimer();
-        return;
-      }
-      if (timerEl.clock) timerEl.clock.textContent = fmtClock(remaining); // 残り時間
-    } else if (timerEl.clock) {
-      timerEl.clock.textContent = fmtClock(elapsedMs); // 経過時間
-    }
-    renderMinRate(elapsedMs);
-    renderTotal();
-  };
-  const startTimer = (): void => {
-    timerRunning = true;
-    timerStartMs = Date.now();
-    timerBaseSahmai = wallet.sahmai();
-    timerEl.box?.classList.add('running');
-    if (timerEl.toggle) {
-      timerEl.toggle.textContent = '計測停止';
-      timerEl.toggle.classList.add('on');
-    }
-    if (timerEl.clock) {
-      timerEl.clock.textContent = fmtClock(timerDurationMs); // カウントダウンはセット時間から
-    }
-    setRate(timerEl.min, null, '');
-    setRate(timerEl.total, 0, '枚');
-    timerInterval = window.setInterval(renderTimer, 1000);
-  };
-  const stopTimer = (): void => {
-    // 停止＝その時点の表示（残り/経過・分速）を固定
-    timerRunning = false;
-    if (timerInterval !== null) {
-      window.clearInterval(timerInterval);
-      timerInterval = null;
-    }
-    timerEl.box?.classList.remove('running');
-    if (timerEl.toggle) {
-      timerEl.toggle.textContent = '計測開始';
-      timerEl.toggle.classList.remove('on');
-    }
-  };
-  // プリセット分数の選択（計測中は変更不可）。data-min="0"=フリー。
-  timerEl.presets
-    ?.querySelectorAll<HTMLButtonElement>('.timer-preset')
-    .forEach((btn) => {
-      btn.addEventListener('click', () => {
-        if (timerRunning) return;
-        timerDurationMs = Number(btn.dataset.min ?? '0') * 60_000;
-        timerEl.presets
-          ?.querySelectorAll('.timer-preset')
-          .forEach((b) => b.classList.toggle('active', b === btn));
-        if (timerEl.clock) timerEl.clock.textContent = fmtClock(timerDurationMs);
-      });
-    });
-  timerEl.toggle?.addEventListener('click', () => {
-    if (timerRunning) stopTimer();
-    else startTimer();
-  });
-  timerEl.reset?.addEventListener('click', () => {
-    stopTimer();
-    timerStartMs = 0;
-    if (timerEl.clock) timerEl.clock.textContent = fmtClock(timerDurationMs);
-    setRate(timerEl.min, null, '');
-    setRate(timerEl.total, null, '');
-  });
+  // 戦の計測タイマー（サンド下部）。フリー=カウントアップ／プリセット分数=カウントダウン。
+  // 詳細は ui/RunTimer.ts。計数(count-btn)で締める時に runTimer.stop() を呼ぶ。
+  const runTimer = new RunTimer(wallet);
 
   // === 隠し章解除：Coin 表示を 20 回クリックで unlock ===
   let secretClickCount = 0;
