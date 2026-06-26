@@ -16,7 +16,7 @@
     "kickProbability": 0.5
   },
   "freeze": {
-    "rate": 0.005,
+    "rate": 0.0005,
     "spinSpeed": 60
   },
   "bitaWindowMs": 12,
