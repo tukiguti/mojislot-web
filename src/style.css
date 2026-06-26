@@ -1796,7 +1796,12 @@ body.has-chapter-bg {
 /* === BONUS! 突入バナー === */
 #bonus-banner {
   position: absolute;
-  inset: 0;
+  /* カットイン(#lcd-fx)と同じ演出液晶(LCD)領域に合わせる。game-area 全体(inset:0)だと
+     リール領域まで含めた中央＝LCDの下寄り(端)に出てしまうため、LCD中央へ揃える。 */
+  top: 0;
+  left: 0;
+  right: 0;
+  height: calc(432 / 732 * 100%);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -1812,6 +1817,9 @@ body.has-chapter-bg {
   font-size: 72px;
   font-weight: 900;
   letter-spacing: 8px;
+  text-align: center;
+  /* letter-spacing は最後の字の後ろにも入り中央が右へずれるため、その分だけ左へ寄せて相殺 */
+  margin-right: -8px;
   background: linear-gradient(180deg, #fff7aa 0%, var(--gold) 50%, #ff8800 100%);
   -webkit-background-clip: text;
   background-clip: text;
