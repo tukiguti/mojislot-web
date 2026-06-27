@@ -45,7 +45,6 @@ import { JinState } from './productions/JinState';
 import { JinView } from './render/JinView';
 import { EffectVisual } from './render/EffectVisual';
 import { QuizState } from './productions/QuizState';
-import { QuizOverlay } from './ui/QuizOverlay';
 import { QuizQuestionView } from './render/QuizQuestionView';
 import { ZukanState } from './productions/ZukanState';
 import { ZukanOverlay } from './ui/ZukanOverlay';
@@ -168,7 +167,6 @@ export async function bootstrap() {
   const scheduler = new EffectScheduler(tuning.effectRates.default);
   const jinState = new JinState();
   const quizState = new QuizState();
-  const quizOverlay = new QuizOverlay(quizState);
   const slipResolver = new SlipResolver(yakuList, {
     kickProbability: tuning.assist.kickProbability,
     kickMaxCells: tuning.assist.kickMaxCells,
@@ -475,7 +473,8 @@ export async function bootstrap() {
       effectStatusEl.textContent = 'クイズ';
       effectStatusEl.classList.add('quiz');
       jinState.set('quiz');
-      quizState.start(pickRandomQuiz(), yakuList);
+      // 「見せるだけ」方式：出題＋答えを自動提示し、答えの役を引き込み対象にする（操作なし＝aim相当）。
+      quizState.reveal(pickRandomQuiz(), yakuList);
       sfx.quiz();
     } else if (effect === 'aim') {
       effectStatusEl.textContent = '狙え！';
@@ -1006,12 +1005,8 @@ export async function bootstrap() {
     if (freezeActive) return;
     if (leverBtn.disabled) return;
     if (!betPlaced) return;
-    // 未回答クイズはタイムアウト扱い（targetYakuId が null になり引き込み対象なし）。
-    // クイズ正解時は targetYakuId の役が最終リール引き込み対象になる（17_assist-and-slip.md）。
-    // 正解/不正解SE は quizState.phase.subscribe で一括して鳴らす
-    quizState.finalizeIfUnanswered();
-    // レバー押下でクイズUIは確実に閉じる（リールが見えるように）
-    quizOverlay.dismiss();
+    // クイズは「見せるだけ」方式：提示した答えの役が最終リール引き込み対象（17_assist-and-slip.md）。
+    // 答えのテキスト提示はなく、液晶の出題文は次スピンの resetForNextSpin / quizState.reset で消える。
     // フリーズ抽選: 通常時のみ。デバッグ予約 or 確率成立で発動（結果は7揃いBIG確定）。
     const doFreeze =
       !bonusZone.isActive() && (pendingFreeze || Math.random() < FREEZE_RATE);
@@ -1044,23 +1039,19 @@ export async function bootstrap() {
     window.setTimeout(doEntry, CHARGE_MS);
   };
 
-  // クイズの回答結果（クリック/キー）で SE＋統計＋セリフ
+  // クイズ提示時（見せるだけ）に SE＋統計を記録。回答操作はなく、
+  // ジンのセリフはクイズ表示中 setSuppressed(true) で抑制されるため鳴らさない。
   quizState.phase.subscribe((phase) => {
-    if (phase === 'correct') {
-      sfx.quizCorrect();
-      playStats.recordQuiz(true);
-      jinSpeech.say('correct');
-    } else if (phase === 'wrong') {
-      sfx.quizWrong();
-      playStats.recordQuiz(false);
-      jinSpeech.say('wrong');
+    if (phase === 'shown') {
+      sfx.quizCorrect(); // 答え提示の効果音（「ピンポーン」）に流用
+      playStats.recordQuiz();
     }
   });
 
   /**
    * 役が現在の演出の引き込み対象カテゴリに合致するか（17_assist-and-slip.md）。
    *  - aim   → aimNoticeYaku（予告した役そのもの）
-   *  - quiz  → 正解した役（targetYakuId、不正解/未回答なら対象なし）
+   *  - quiz  → 提示した答えの役（targetYakuId、見せるだけ方式で常時セット）
    *  - shisa → core / cherry
    *  - none  → 対象なし（引き込みしない）
    */
@@ -1165,7 +1156,7 @@ export async function bootstrap() {
       if (assistTenpai && assistTenpai.missingReelIndex === idx) {
         slipCells = pickAssistSlip(assistTenpai.lines, idx, engine.strip, basePos);
       } else if (currentEffect === 'aim' || currentEffect === 'quiz') {
-        // 予告役（狙え＝予告役／クイズ＝正解役）の第1・第2停止：対象文字を中段へ軽く引き込む
+        // 予告役（狙え＝予告役／クイズ＝答えの役）の第1・第2停止：対象文字を中段へ軽く引き込む
         //（最大 AIM_HINT_MAX_CELLS コマ）。窓外なら引き込まず自力ミス扱い＝目押しの妙味は残す。
         const noticeId = currentTargetYakuId();
         const noticeYaku = noticeId
@@ -1273,8 +1264,8 @@ export async function bootstrap() {
       const streakAfter = willHit ? playStats.stats.get().streak + 1 : 0;
       const streakMult = calc.streakMult(streakAfter);
       let win = calc.calcMulti(hits, bonusZone.isActive(), streakMult);
-      // 予告役（狙え＝予告役／クイズ＝正解役）が実際に成立 → その役ライン分に達成ボーナスを上乗せ。
-      // currentTargetYakuId() は aim→予告役 / quiz→正解役(正解時のみ) / それ以外→null。
+      // 予告役（狙え＝予告役／クイズ＝答えの役）が実際に成立 → その役ライン分に達成ボーナスを上乗せ。
+      // currentTargetYakuId() は aim→予告役 / quiz→答えの役（見せるだけ・常時） / それ以外→null。
       let noticeBonus = 0;
       // この spin でボーナスに新規突入したか（突入役の払い出しを獲得集計から除く）
       let enteredBonusThisSpin = false;
@@ -1531,7 +1522,6 @@ export async function bootstrap() {
     // quizState.reset() で液晶のクイズ出題(QuizQuestionView)を消す。
     applyEffect('none');
     quizState.reset();
-    quizOverlay.dismiss();
     hideAimNotice();
     updateButtons();
     sfx.freeze();
@@ -1605,11 +1595,7 @@ export async function bootstrap() {
   /** BET 直後にコールして、effect 種別に応じた狙い役を確定する */
   const setupAutoTarget = () => {
     if (currentEffect === 'quiz') {
-      // クイズは必ず正解を選ぶ → targetYakuId が確定
-      const q = quizState.current.get();
-      if (q && quizState.phase.get() === 'asking') {
-        quizState.answer(q.correctIndex);
-      }
+      // クイズは「見せるだけ」で答えが自動提示済み → targetYakuId をそのまま採用
       const tid = quizState.targetYakuId();
       autoTargetYaku = tid
         ? allYakusFlat.find((y) => y.id === tid) ?? null
@@ -1879,11 +1865,7 @@ export async function bootstrap() {
     }
     const key = ev.key.toLowerCase();
 
-    // クイズ表示中は 1〜4 で回答（他キーは食わない）
-    if (quizOverlay.handleKey(key)) {
-      ev.preventDefault();
-      return;
-    }
+    // クイズは「見せるだけ」方式のためキー回答は廃止（操作なしで答えを提示）。
 
     // フリーズ演出中はゲーム操作キーを全てブロック
     if (freezeActive) {

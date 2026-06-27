@@ -94,11 +94,11 @@ export const CHALLENGES: readonly Challenge[] = [
   },
   {
     id: 'quiz_correct10',
-    title: 'クイズマスター',
-    description: 'クイズ正解 10回',
+    title: 'クイズウォッチャー',
+    description: 'クイズ演出に10回遭遇',
     reward: 150,
-    check: (ctx) => ctx.stats.quizCorrect >= 10,
-    progress: (ctx) => ({ current: Math.min(ctx.stats.quizCorrect, 10), target: 10 }),
+    check: (ctx) => ctx.stats.quizTotal >= 10,
+    progress: (ctx) => ({ current: Math.min(ctx.stats.quizTotal, 10), target: 10 }),
   },
   {
     id: 'spin100',
