@@ -62,6 +62,17 @@ const SPRITE_SCALE: Record<SymbolTier, number> = {
 const VIEW_HEIGHT = CELL_HEIGHT * VISIBLE_CELLS;
 const PAYLINE_Y = CELL_HEIGHT * 1.5;
 /**
+ * 上下に見せる「隣の図柄」のチラ見せ量（px）。マスクを上下に REEL_PEEK 広げて、次に来る図柄／
+ * 通り過ぎる図柄を覗かせる。中央3コマ＝判定対象（PAYLINE_Y・ペイライン）は不変。
+ * リール領域の確保は main.ts 側（LIQUID_AREA_H）で行う。
+ */
+export const REEL_PEEK = CELL_HEIGHT * 0.1;
+/**
+ * 図柄（チラ見せ含む）と金枠の線の間に挟む黒余白（px）。枠(bg)を図柄表示範囲より FRAME_PAD
+ * 分だけ外側に描くことで、図柄が枠線に接触して色が混じるのを防ぐ。
+ */
+export const FRAME_PAD = 6;
+/**
  * マスク（見える領域）の上に確保する「不可視の助走バッファ」のピクセル数。
  * 文字はここから現れて、マスク上端へスクロールしていくので、
  * 「マスクの上端で唐突に文字が湧く」感じがなくなる。
@@ -131,7 +142,8 @@ export class ReelView {
 
     const cellsContainer = new Container();
     const mask = new Graphics();
-    mask.rect(0, 0, CELL_WIDTH, VIEW_HEIGHT);
+    // 図柄は中央3コマ＋上下 REEL_PEEK（隣の図柄チラ見せ）まで表示。枠線とは FRAME_PAD 分離れる。
+    mask.rect(0, -REEL_PEEK, CELL_WIDTH, VIEW_HEIGHT + REEL_PEEK * 2);
     mask.fill({ color: 0xffffff });
     this.container.addChild(mask);
     cellsContainer.mask = mask;
@@ -326,7 +338,14 @@ export class ReelView {
 
   private redrawBg(strokeColor: number, strokeWidth: number): void {
     this.bg.clear();
-    this.bg.rect(0, 0, CELL_WIDTH, VIEW_HEIGHT);
+    // 枠（黒背景＋金枠）は図柄表示範囲(上下チラ見せ ±REEL_PEEK)より FRAME_PAD 分さらに外側へ描く。
+    // これで図柄（チラ見せ含む）と金枠の線の間に黒余白ができ、色が混じらない。
+    this.bg.rect(
+      0,
+      -REEL_PEEK - FRAME_PAD,
+      CELL_WIDTH,
+      VIEW_HEIGHT + REEL_PEEK * 2 + FRAME_PAD * 2,
+    );
     this.bg.fill({ color: 0x000000 });
     this.bg.stroke({ width: strokeWidth, color: strokeColor });
   }
