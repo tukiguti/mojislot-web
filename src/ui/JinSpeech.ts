@@ -7,6 +7,12 @@
 export type JinSpeechEvent =
   | 'bet'
   | 'shisa'
+  // 示唆の期待度tier別（青→金で煽り強化）
+  | 'shisaWeak' // 青
+  | 'shisaMid' // 黄
+  | 'shisaStrong' // 緑（小役濃厚）
+  | 'shisaBonus' // 赤（RB期待）
+  | 'shisaPremium' // 金（激アツ・BB）
   | 'quiz'
   | 'correct'
   | 'wrong'
@@ -19,6 +25,11 @@ export type JinSpeechEvent =
 const SPEECH_BY_EVENT: Record<JinSpeechEvent, readonly string[]> = {
   bet: ['いってみよう！', 'がんばれ〜', 'よし！'],
   shisa: ['！？', '何かありそう…', 'おっ？'],
+  shisaWeak: ['ん？', '何かあるかも？', 'おや？'],
+  shisaMid: ['おっ？', 'ちょっと期待！', 'んん？'],
+  shisaStrong: ['これは…！', '小役きそう！', 'いい予感！'],
+  shisaBonus: ['ボーナスの予感！', 'アツいじょ〜！', 'RB狙えるじょ！'],
+  shisaPremium: ['激アツだじょ！！', '大当たりの予感！！', 'ビッグ来るじょ〜！！'],
   quiz: ['クイズだじょ〜', '考えるじょ〜', '正解わかる？'],
   correct: ['やった！', 'さすが！', 'いえい！'],
   wrong: ['残念…', 'おしい〜', 'まだまだ！'],

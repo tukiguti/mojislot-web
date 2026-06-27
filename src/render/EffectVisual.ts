@@ -34,6 +34,7 @@ export class EffectVisual {
   private readonly flashOverlay: Graphics;
   private flashAlpha = 0;
   private current: EffectType = 'none';
+  private currentTint: number | null = null;
 
   constructor(opts: EffectVisualOptions) {
     this.bgLayer = new Container();
@@ -63,12 +64,17 @@ export class EffectVisual {
     this.fxLayer.addChild(this.flashOverlay);
   }
 
-  /** 演出タイプを適用。変更時のみフラッシュを焚く */
-  apply(effect: EffectType): void {
-    const changed = effect !== this.current;
+  /**
+   * 演出タイプを適用。変更時のみフラッシュを焚く。
+   * tintOverride を渡すと既定色の代わりにその色で着色する（示唆の期待度tier色＝青/黄/緑/赤/金）。
+   */
+  apply(effect: EffectType, tintOverride?: number): void {
+    const color = tintOverride ?? TINT_BY_EFFECT[effect];
+    // 演出種別が変わった時 or 色が変わった時（示唆の期待度が変化）にフラッシュ
+    const changed = effect !== this.current || color !== this.currentTint;
     this.current = effect;
+    this.currentTint = color;
 
-    const color = TINT_BY_EFFECT[effect];
     if (color === null) {
       this.liquidTint.alpha = 0;
       this.reelTint.alpha = 0;
@@ -79,7 +85,7 @@ export class EffectVisual {
       this.reelTint.alpha = TINT_ALPHA_REEL;
     }
 
-    // 「none → 演出」「示唆 → クイズ」の切替時のみ閃光（none に戻る時は煽らない）
+    // 「none → 演出」「示唆 → クイズ」「示唆の色昇格」の時のみ閃光（none に戻る時は煽らない）
     if (changed && color !== null) {
       this.flashOverlay.tint = color;
       this.flashAlpha = FLASH_INITIAL_ALPHA;

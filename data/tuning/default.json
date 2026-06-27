@@ -14,7 +14,14 @@
     "noticeAssistMaxCells": 8,
     "aimHintMaxCells": 4,
     "kickMaxCells": 2,
-    "kickProbability": 0.5
+    "kickProbability": 0.5,
+    "shisaTiers": [
+      { "color": "blue", "weight": 0.55, "coreCells": 2, "bonusCells": 0, "premiumCells": 0, "noticeHintCells": 0 },
+      { "color": "yellow", "weight": 0.25, "coreCells": 3, "bonusCells": 0, "premiumCells": 0, "noticeHintCells": 0 },
+      { "color": "green", "weight": 0.12, "coreCells": 4, "bonusCells": 0, "premiumCells": 0, "noticeHintCells": 0 },
+      { "color": "red", "weight": 0.06, "coreCells": 0, "bonusCells": 8, "premiumCells": 0, "noticeHintCells": 4 },
+      { "color": "gold", "weight": 0.02, "coreCells": 0, "bonusCells": 8, "premiumCells": 8, "noticeHintCells": 4 }
+    ]
   },
   "freeze": {
     "rate": 0.0005,
