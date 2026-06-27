@@ -2,26 +2,25 @@ import { Observable } from '../lib/Observable';
 import type { Quiz, Yaku, YakuList } from '../data/schemas';
 
 /**
- * クイズ補助の状態管理。
+ * クイズ補助の状態管理（「見せるだけ」方式・2026-06-27〜）。
  *
- * コンセプト：「クイズの答え＝役（食べ物）の名前」。
- * 正解すると、その役を狙う引き込みが SlipResolver で強化される。
+ * コンセプト：「クイズの答え＝役（食べ物）の名前」。クイズ風の出題を液晶に出し、
+ * 答えを自動提示する。プレイヤーは回答操作をしない（モバイルでの操作性優先・aim＝狙えと同じ自動挙動）。
+ * 提示した答えの役が SlipResolver の引き込み対象になる（17_assist-and-slip.md）。
  *
- *  1. start(quiz, yakuList): yakuList から名前を引いて 4択をシャッフル生成
- *  2. answer(index): phase を correct/wrong に確定
- *  3. リール始動時、未回答ならタイムアウト＝wrong
- *  4. targetYakuId(): 正解時のみ、引き込み対象の役IDを返す
+ *  1. reveal(quiz, yakuList): yakuList から答えの役を引いて出題＋答えを提示（phase='shown'）
+ *  2. targetYakuId(): 提示中は答えの役ID（引き込み対象）。inactive では null
+ *
+ * 旧4択方式（asking/correct/wrong・タップ回答）は撤去。
  */
-export type QuizPhase = 'inactive' | 'asking' | 'correct' | 'wrong';
+export type QuizPhase = 'inactive' | 'shown';
 
 export interface RenderedQuiz {
   id: string;
   question: string;
-  /** 表示順の選択肢ラベル（役の名前） */
-  choices: string[];
-  /** choices 配列内の正解インデックス */
-  correctIndex: number;
-  /** 正解の役ID（SlipResolver にそのまま渡せる） */
+  /** 答えの役の名前（表示用） */
+  answer: string;
+  /** 答えの役ID（SlipResolver にそのまま渡せる） */
   targetYakuId: string;
 }
 
@@ -29,24 +28,10 @@ export class QuizState {
   readonly phase = new Observable<QuizPhase>('inactive');
   readonly current = new Observable<RenderedQuiz | null>(null);
 
-  start(quiz: Quiz, yakuList: YakuList): void {
+  /** クイズ風演出を提示する（出題＋答えを自動オープン、回答操作なし）。 */
+  reveal(quiz: Quiz, yakuList: YakuList): void {
     this.current.set(buildRenderedQuiz(quiz, yakuList));
-    this.phase.set('asking');
-  }
-
-  answer(index: number): QuizPhase {
-    const q = this.current.get();
-    if (!q || this.phase.get() !== 'asking') return this.phase.get();
-    const next: QuizPhase = index === q.correctIndex ? 'correct' : 'wrong';
-    this.phase.set(next);
-    return next;
-  }
-
-  /** リール始動時、未回答ならタイムアウト＝wrong 扱い */
-  finalizeIfUnanswered(): void {
-    if (this.phase.get() === 'asking') {
-      this.phase.set('wrong');
-    }
+    this.phase.set('shown');
   }
 
   reset(): void {
@@ -54,13 +39,13 @@ export class QuizState {
     this.phase.set('inactive');
   }
 
-  isCorrect(): boolean {
-    return this.phase.get() === 'correct';
+  isActive(): boolean {
+    return this.phase.get() === 'shown';
   }
 
-  /** 正解時のみ、引き込みターゲットの役IDを返す。それ以外は null */
+  /** 提示中は答えの役IDを返す（引き込みターゲット）。inactive なら null */
   targetYakuId(): string | null {
-    if (!this.isCorrect()) return null;
+    if (this.phase.get() !== 'shown') return null;
     return this.current.get()?.targetYakuId ?? null;
   }
 }
@@ -74,34 +59,14 @@ function buildRenderedQuiz(quiz: Quiz, yakuList: YakuList): RenderedQuiz {
   ];
   const byId = new Map(all.map((y) => [y.id, y]));
 
-  const correct = byId.get(quiz.answerYakuId);
-  if (!correct) {
+  const answer = byId.get(quiz.answerYakuId);
+  if (!answer) {
     throw new Error(`Quiz ${quiz.id}: answerYakuId "${quiz.answerYakuId}" not in YakuList`);
   }
-  const decoys = quiz.decoyYakuIds.map((id) => {
-    const y = byId.get(id);
-    if (!y) {
-      throw new Error(`Quiz ${quiz.id}: decoyYakuId "${id}" not in YakuList`);
-    }
-    return y;
-  });
-
-  const ordered = shuffle([correct, ...decoys]);
-  const correctIndex = ordered.findIndex((y) => y.id === correct.id);
   return {
     id: quiz.id,
     question: quiz.question,
-    choices: ordered.map((y) => y.name),
-    correctIndex,
-    targetYakuId: correct.id,
+    answer: answer.name,
+    targetYakuId: answer.id,
   };
-}
-
-function shuffle<T>(arr: T[]): T[] {
-  const a = [...arr];
-  for (let i = a.length - 1; i > 0; i--) {
-    const j = Math.floor(Math.random() * (i + 1));
-    [a[i], a[j]] = [a[j], a[i]];
-  }
-  return a;
 }
