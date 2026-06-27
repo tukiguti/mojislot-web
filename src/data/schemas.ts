@@ -2,8 +2,8 @@ import { z } from 'zod';
 
 export const ReelStripSchema = z.object({
   id: z.string(),
-  // 1リール = 21コマ（実機準拠）。本実装の回転は 20コマ/秒＝1周≒1.05秒
-  // （実機は1周0.75〜0.78秒。目押し優先でやや遅め）。速度は EffectScheduler 参照。
+  // 1リール = 21コマ（実機準拠）。本実装の回転は 30コマ/秒＝1周≒0.7秒（実機並み）
+  // （実機は1周0.75〜0.78秒）。速度は EffectScheduler 参照。
   cells: z.array(z.string()).length(21),
 });
 
