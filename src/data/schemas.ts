@@ -2,8 +2,9 @@ import { z } from 'zod';
 
 export const ReelStripSchema = z.object({
   id: z.string(),
-  // 1リール = 21コマ（実機準拠）。本実装の回転は 30コマ/秒＝1周≒0.7秒（実機並み）
-  // （実機は1周0.75〜0.78秒）。速度は EffectScheduler 参照。
+  // 1リール = 21コマ（実機準拠）。本実装の回転は 20コマ/秒＝1周1.05秒（目押ししやすさ優先のやや遅め）。
+  // 実機は0.75秒/周だがWeb版はモーションブラーが無く、実機速度だと図柄が追えないため意図的に遅く補償。
+  // （将来ブラー実装で実機速度化の余地）。速度は EffectScheduler 参照。
   cells: z.array(z.string()).length(21),
 });
 
@@ -106,6 +107,40 @@ const EffectRatesSchema = z.object({
   aim: z.number().min(0),
 });
 
+/** 示唆の期待度ランク色（青<黄<緑<赤<金）。tint・ステータス・ジン台詞に使う。 */
+export const ShisaTierColorSchema = z.enum(['blue', 'yellow', 'green', 'red', 'gold']);
+export type ShisaTierColor = z.infer<typeof ShisaTierColorSchema>;
+
+/**
+ * 示唆の1段階（期待度tier）。色が上がるほど引き込みが強く・対象が広がる。
+ *  - 青→黄→緑: 小役(core/cherry)の最終リール引き込みを 2→3→4コマ に段階強化（bonus/premiumは対象外）
+ *  - 赤: 小役引き込みを切り、RB(bonus)を引き込み対象に追加（第1・第2停止も中段引き込み）
+ *  - 金: さらに BB(premium=7揃い/バー揃いの2役)も引き込み対象に追加
+ */
+const ShisaTierSchema = z.object({
+  color: ShisaTierColorSchema,
+  /** この tier の抽選ウェイト（配列内の総和で正規化。合計≈1 を想定）。 */
+  weight: z.number().min(0),
+  /** 小役(core/cherry)の最終リール引き込み窓（コマ）。0=引き込まない（赤/金）。 */
+  coreCells: z.number().int().nonnegative(),
+  /** RB(bonus)の最終リール引き込み窓（コマ）。0=対象外。 */
+  bonusCells: z.number().int().nonnegative(),
+  /** BB(premium=7揃い/バー揃い)の最終リール引き込み窓（コマ）。0=対象外。 */
+  premiumCells: z.number().int().nonnegative(),
+  /** bonus/premium の第1・第2停止の中段引き込み窓（コマ・aim相当）。0=第1/2は自力。 */
+  noticeHintCells: z.number().int().nonnegative(),
+});
+export type ShisaTier = z.infer<typeof ShisaTierSchema>;
+
+/** 示唆tierの既定（青55/黄25/緑12/赤6/金2%）。data/tuning が正、ここはフォールバック。 */
+const DEFAULT_SHISA_TIERS: ShisaTier[] = [
+  { color: 'blue', weight: 0.55, coreCells: 2, bonusCells: 0, premiumCells: 0, noticeHintCells: 0 },
+  { color: 'yellow', weight: 0.25, coreCells: 3, bonusCells: 0, premiumCells: 0, noticeHintCells: 0 },
+  { color: 'green', weight: 0.12, coreCells: 4, bonusCells: 0, premiumCells: 0, noticeHintCells: 0 },
+  { color: 'red', weight: 0.06, coreCells: 0, bonusCells: 8, premiumCells: 0, noticeHintCells: 4 },
+  { color: 'gold', weight: 0.02, coreCells: 0, bonusCells: 8, premiumCells: 8, noticeHintCells: 4 },
+];
+
 export const TuningSchema = z.object({
   /** ベット毎の演出抽選レート（通常／ハマり救済／ボーナス中）。各合計≈1.0 を想定。 */
   effectRates: z.object({
@@ -135,8 +170,17 @@ export const TuningSchema = z.object({
       kickMaxCells: z.number().int().nonnegative().default(2),
       /** 蹴りの発動確率（0..1）。 */
       kickProbability: z.number().min(0).max(1).default(0.5),
+      /** 示唆の期待度tier（青<黄<緑<赤<金）。引いた示唆はこの配列から重み抽選される。 */
+      shisaTiers: z.array(ShisaTierSchema).min(1).default(DEFAULT_SHISA_TIERS),
     })
-    .default({ assistMaxCells: 4, noticeAssistMaxCells: 8, aimHintMaxCells: 4, kickMaxCells: 2, kickProbability: 0.5 }),
+    .default({
+      assistMaxCells: 4,
+      noticeAssistMaxCells: 8,
+      aimHintMaxCells: 4,
+      kickMaxCells: 2,
+      kickProbability: 0.5,
+      shisaTiers: DEFAULT_SHISA_TIERS,
+    }),
   /** フリーズ演出。 */
   freeze: z
     .object({

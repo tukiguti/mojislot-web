@@ -35,6 +35,8 @@ export interface SlipContext {
   stoppedVisibles: readonly (VisibleColumn | null)[];
   /** この役IDは蹴らない（演出で予告した役。premium/bonus を予告した時に指定） */
   exceptYakuId?: string;
+  /** これらのカテゴリの役は蹴らない（赤/金示唆で bonus/premium を引き込み対象にする時に指定）。 */
+  exceptCategories?: readonly Yaku['category'][];
 }
 
 const KICK_PROBABILITY = 0.5;
@@ -71,9 +73,13 @@ export class SlipResolver {
    * 演出種別に依らず作用するが、予告した役（aim/quiz が指定した役）は蹴らない。
    */
   resolveKick(ctx: SlipContext): number {
-    const yakus = ctx.exceptYakuId
+    let yakus = ctx.exceptYakuId
       ? this.kickYakus.filter((y) => y.id !== ctx.exceptYakuId)
       : this.kickYakus;
+    if (ctx.exceptCategories && ctx.exceptCategories.length > 0) {
+      const exempt = new Set(ctx.exceptCategories);
+      yakus = yakus.filter((y) => !exempt.has(y.category));
+    }
     if (yakus.length === 0) return 0;
     if (Math.random() >= this.kickProbability) return 0;
     if (!this.wouldComplete(ctx.basePosition, ctx, yakus)) return 0;

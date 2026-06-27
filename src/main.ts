@@ -37,7 +37,7 @@ import {
   clearFreezeBanner,
   showRankUpBadge,
 } from './ui/Effects';
-import { JinSpeech } from './ui/JinSpeech';
+import { JinSpeech, type JinSpeechEvent } from './ui/JinSpeech';
 import { ChallengeTracker } from './productions/Challenges';
 import { showMissionToast } from './ui/MissionToast';
 import { SettingsOverlay } from './ui/SettingsOverlay';
@@ -65,6 +65,8 @@ import {
   TuningSchema,
   type Yaku,
   type ReelStrip,
+  type ShisaTier,
+  type ShisaTierColor,
 } from './data/schemas';
 import payoutDataRaw from '../data/payouts/default.json';
 import tuningDataRaw from '../data/tuning/default.json';
@@ -206,6 +208,8 @@ export async function bootstrap() {
   // （resolveKick・全演出で作用、予告した BIG/RB は通す）。
   // 現在のスピンの effect 種別（AUTO がターゲット決定に使う）
   let currentEffect: EffectType = 'none';
+  // 現在の示唆の期待度tier（青/黄/緑/赤/金）。applyEffect('shisa')で抽選、他演出ではnull。
+  let currentShisaTier: ShisaTier | null = null;
 
   // === フリーズ演出の状態 ===
   // freezeActive: シーケンス中は全ユーザー入力をブロックし、stopReel の引き込み/蹴りも無効化する。
@@ -220,6 +224,10 @@ export async function bootstrap() {
   // 点灯中（announcedBonus !== null）はボーナス確定。種別は内部確定だが UI 上は伏せる。
   // 点灯中は他演出を 'none' 固定、各リールは確定役の図柄へ強く引き込む（目押しで揃えに行く）。
   let announcedBonus: 'big' | 'reg' | null = null;
+  // 確定告知ランプで狙う具体的な役。resolveStopSlip と AUTO(setupAutoTarget) で共用し、
+  // 全リール（第1・第2・最終）を同じ役の図柄へ引き込む。確定ランプは種別を最終リールまで伏せる
+  // 演出のため共通プレフィックスの [0] 役に固定（例: BIG=すしや / REG=すしず は左中「す・し」共通）。
+  let announcedRole: Yaku | null = null;
 
   // 液晶エリアの土台。単色の黒板だと「空っぽの余白」に見えるので、
   // 紫星雲の極薄環境光（radialグラデ）で“画面が点いている”奥行きを出す（18_cabinet-design GLOW ZONE 1）。
@@ -453,6 +461,25 @@ export async function bootstrap() {
       return y ? yakuReelWeight(y) : 1;
     });
 
+  // 示唆の期待度tier色 → 画面tint(hex) / ジンの煽り台詞。
+  const SHISA_TINT: Record<ShisaTierColor, number> = {
+    blue: 0x66ccff,
+    yellow: 0xffd23f,
+    green: 0x4cd964,
+    red: 0xff3b30,
+    gold: 0xffcc33,
+  };
+  const SHISA_SPEECH: Record<ShisaTierColor, JinSpeechEvent> = {
+    blue: 'shisaWeak',
+    yellow: 'shisaMid',
+    green: 'shisaStrong',
+    red: 'shisaBonus',
+    gold: 'shisaPremium',
+  };
+  // 示唆を引いた時、期待度tierを重み抽選（青が出やすく金は稀）。
+  const pickShisaTier = (): ShisaTier =>
+    weightedPick(tuning.assist.shisaTiers, (t) => t.weight);
+
   /**
    * aim 演出で狙っている役（applyEffect('aim') で設定、resetForNextSpin で null）。
    * applyEffect の closure 内で参照されるため、applyEffect 定義より前で宣言する必要がある。
@@ -462,15 +489,30 @@ export async function bootstrap() {
   const applyEffect = (effect: EffectType) => {
     currentEffect = effect;
     for (const engine of engines) engine.setSpeed(REEL_BASE_SPEED);
-    effectVisual.apply(effect);
 
-    effectStatusEl.classList.remove('shisa', 'quiz', 'aim');
-    if (effect === 'shisa') {
+    // 示唆は期待度tierを抽選し、その色でtint/ステータス/台詞を切替（他演出ではtierをクリア）。
+    currentShisaTier = effect === 'shisa' ? pickShisaTier() : null;
+    effectVisual.apply(
+      effect,
+      currentShisaTier ? SHISA_TINT[currentShisaTier.color] : undefined,
+    );
+
+    effectStatusEl.classList.remove(
+      'shisa',
+      'quiz',
+      'aim',
+      'tier-blue',
+      'tier-yellow',
+      'tier-green',
+      'tier-red',
+      'tier-gold',
+    );
+    if (effect === 'shisa' && currentShisaTier) {
       effectStatusEl.textContent = '示唆';
-      effectStatusEl.classList.add('shisa');
+      effectStatusEl.classList.add('shisa', `tier-${currentShisaTier.color}`);
       jinState.set('shisa');
       sfx.shisa();
-      jinSpeech.say('shisa');
+      jinSpeech.say(SHISA_SPEECH[currentShisaTier.color]);
     } else if (effect === 'quiz') {
       effectStatusEl.textContent = 'クイズ';
       effectStatusEl.classList.add('quiz');
@@ -1065,9 +1107,53 @@ export async function bootstrap() {
       return yaku.id === quizState.targetYakuId();
     }
     if (currentEffect === 'shisa') {
-      return yaku.category === 'core' || yaku.category === 'cherry';
+      const t = currentShisaTier;
+      if (!t) return false;
+      // tierごとに引き込み対象を切替（青〜緑=小役、赤=+RB、金=+RB+BB）。0コマ=対象外。
+      if ((yaku.category === 'core' || yaku.category === 'cherry') && t.coreCells > 0) {
+        return true;
+      }
+      if (yaku.category === 'bonus' && t.bonusCells > 0) return true;
+      if (yaku.category === 'premium' && t.premiumCells > 0) return true;
+      return false;
     }
     return false;
+  };
+
+  /** 示唆tierでの、役カテゴリ別の引き込み窓（コマ）。対象外は0。 */
+  const shisaMaxCellsFor = (category: Yaku['category']): number => {
+    const t = currentShisaTier;
+    if (!t) return 0;
+    if (category === 'core' || category === 'cherry') return t.coreCells;
+    if (category === 'bonus') return t.bonusCells;
+    if (category === 'premium') return t.premiumCells;
+    return 0;
+  };
+
+  /** 現在の示唆が bonus/premium を引き込む（赤/金）か。第1/2停止・蹴り除外・AUTOで使う。 */
+  const shisaTargetsBonus = (): boolean =>
+    currentEffect === 'shisa' &&
+    currentShisaTier !== null &&
+    (currentShisaTier.bonusCells > 0 || currentShisaTier.premiumCells > 0);
+
+  /** 赤/金示唆で引き込み対象になる bonus/premium 役の一覧。 */
+  const shisaNoticeYakus = (): Yaku[] => {
+    const t = currentShisaTier;
+    if (currentEffect !== 'shisa' || !t) return [];
+    const out: Yaku[] = [];
+    if (t.bonusCells > 0) out.push(...yakuList.bonusYaku);
+    if (t.premiumCells > 0) out.push(...yakuList.premiumYaku);
+    return out;
+  };
+
+  /** 蹴りから除外するカテゴリ（赤=bonus、金=bonus+premium）。 */
+  const shisaExceptCategories = (): Yaku['category'][] => {
+    const t = currentShisaTier;
+    if (currentEffect !== 'shisa' || !t) return [];
+    const cats: Yaku['category'][] = [];
+    if (t.bonusCells > 0) cats.push('bonus');
+    if (t.premiumCells > 0) cats.push('premium');
+    return cats;
   };
 
   /**
@@ -1106,15 +1192,18 @@ export async function bootstrap() {
     strip: ReelStrip,
     basePos: number,
   ): number => {
-    // 予告役（狙え/クイズ）は最終リール窓を拡大（B案＝狙えば獲れる）。通常テンパイは実機準拠4。
-    const maxCells =
-      currentEffect === 'aim' || currentEffect === 'quiz'
-        ? NOTICE_ASSIST_MAX_CELLS
-        : ASSIST_MAX_CELLS;
     let bestSlip = 0;
     let bestScore = -1; // 大きいほど優先
     for (const l of lines) {
       if (!effectAllowsYaku(l.yaku)) continue;
+      // 引き込み窓：予告役(狙え/クイズ)は拡大、示唆はtier×カテゴリ、通常は実機準拠4。
+      const maxCells =
+        currentEffect === 'aim' || currentEffect === 'quiz'
+          ? NOTICE_ASSIST_MAX_CELLS
+          : currentEffect === 'shisa'
+            ? shisaMaxCellsFor(l.yaku.category)
+            : ASSIST_MAX_CELLS;
+      if (maxCells <= 0) continue;
       const slip = slipResolver.resolveAssist(
         strip,
         basePos,
@@ -1149,10 +1238,9 @@ export async function bootstrap() {
     stoppedVisibles: (VisibleColumn | null)[],
   ): number => {
     let slipCells = 0;
-    if (announcedBonus) {
-      const role =
-        announcedBonus === 'big' ? yakuList.premiumYaku[0] : yakuList.bonusYaku[0];
-      const sym = role?.symbols[idx];
+    if (announcedBonus && announcedRole) {
+      // 確定告知ランプ：点灯時に固定した役の図柄を、第1・第2・最終すべてのリールで中段へ強く引き込む。
+      const sym = announcedRole.symbols[idx];
       if (sym !== undefined) {
         const hint = slipResolver.resolveAssist(
           engine.strip,
@@ -1185,6 +1273,27 @@ export async function bootstrap() {
           );
           if (hint !== null) slipCells = hint;
         }
+      } else if (
+        shisaTargetsBonus() &&
+        currentShisaTier &&
+        currentShisaTier.noticeHintCells > 0
+      ) {
+        // 赤/金示唆の第1・第2停止：RB/BB の図柄を中段へ引き込む（複数候補から最も近いものへ）。
+        const hintMax = currentShisaTier.noticeHintCells;
+        let best: number | null = null;
+        for (const y of shisaNoticeYakus()) {
+          const sym = y.symbols[idx];
+          if (sym === undefined) continue;
+          const hint = slipResolver.resolveAssist(
+            engine.strip,
+            basePos,
+            sym,
+            'middle',
+            hintMax,
+          );
+          if (hint !== null && (best === null || hint < best)) best = hint;
+        }
+        if (best !== null) slipCells = best;
       }
       if (slipCells === 0) {
         slipCells = slipResolver.resolveKick({
@@ -1193,6 +1302,7 @@ export async function bootstrap() {
           strip: engine.strip,
           stoppedVisibles,
           exceptYakuId: currentTargetYakuId() ?? undefined,
+          exceptCategories: shisaExceptCategories(),
         });
       }
     }
@@ -1561,6 +1671,10 @@ export async function bootstrap() {
   /** ランプ点灯（ボーナス確定）。種別を内部確定（伏せる）し、UI を点灯。 */
   const announceBonus = () => {
     announcedBonus = Math.random() < tuning.announceLamp.bigRatio ? 'big' : 'reg';
+    // 狙う役を固定（[0]＝確定ランプ用の共通プレフィックス役）。全リールがこの1役へ引き込まれて確実に揃い、
+    // 最終リールで種別(BIG/REG)が判明する＝祈りの瞬間の演出を保つ。
+    announcedRole =
+      (announcedBonus === 'big' ? yakuList.premiumYaku[0] : yakuList.bonusYaku[0]) ?? null;
     announceLampEl.hidden = false;
     requestAnimationFrame(() => announceLampEl.classList.add('lit'));
     sfx.lamp();
@@ -1570,6 +1684,7 @@ export async function bootstrap() {
   /** ランプ消灯（ボーナス回収後）。 */
   const clearAnnounceLamp = () => {
     announcedBonus = null;
+    announcedRole = null;
     announceLampEl.classList.remove('lit');
     announceLampEl.hidden = true;
   };
@@ -1606,18 +1721,26 @@ export async function bootstrap() {
 
   /** BET 直後にコールして、effect 種別に応じた狙い役を確定する */
   const setupAutoTarget = () => {
-    if (currentEffect === 'quiz') {
+    if (announcedBonus && announcedRole) {
+      // 確定告知ランプ点灯中（演出は none 固定）：固定した確定役を AUTO でも全リール狙う。
+      autoTargetYaku = announcedRole;
+    } else if (currentEffect === 'quiz') {
       // クイズは「見せるだけ」で答えが自動提示済み → targetYakuId をそのまま採用
       const tid = quizState.targetYakuId();
       autoTargetYaku = tid
         ? allYakusFlat.find((y) => y.id === tid) ?? null
         : null;
     } else if (currentEffect === 'shisa') {
-      // 示唆はコア役からランダム1つを目標に
-      autoTargetYaku =
-        yakuList.coreYaku[
-          Math.floor(Math.random() * yakuList.coreYaku.length)
-        ] ?? null;
+      // 赤/金示唆は RB/BB を、それ以外（青〜緑）はコア役をランダムに狙う。
+      if (shisaTargetsBonus()) {
+        const pool = shisaNoticeYakus();
+        autoTargetYaku = pool[Math.floor(Math.random() * pool.length)] ?? null;
+      } else {
+        autoTargetYaku =
+          yakuList.coreYaku[
+            Math.floor(Math.random() * yakuList.coreYaku.length)
+          ] ?? null;
+      }
     } else if (currentEffect === 'aim') {
       // 「狙え！」演出: applyEffect 時に決定された役を AUTO の狙い役にも採用
       autoTargetYaku = aimNoticeYaku;
@@ -1663,8 +1786,14 @@ export async function bootstrap() {
     // aim/quiz は第1・第2にも中段引き込み(最大 AIM_HINT_MAX_CELLS)が効くので、
     // 狙い役の手前 AUTO_AIM_MARGIN コマで止め、残りの寄せを引き込みに委ねる。
     // 引き込みの無い演出(shisa 等)は手前で止めると逆に揃わないため MARGIN=0。
+    // aim/quiz と赤/金示唆は第1・第2にも中段引き込みが効くので手前マージンを取る。
     const aimMargin =
-      currentEffect === 'aim' || currentEffect === 'quiz' ? AUTO_AIM_MARGIN : 0;
+      currentEffect === 'aim' ||
+      currentEffect === 'quiz' ||
+      shisaTargetsBonus() ||
+      announcedBonus
+        ? AUTO_AIM_MARGIN
+        : 0;
     const stopDist = Math.max(0, bestDist - aimMargin);
     const msToWait = (stopDist / speed) * 1000;
     aimPending.add(reelIdx);

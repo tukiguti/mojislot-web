@@ -2031,6 +2031,44 @@ body.shake {
   font-weight: 900;
 }
 
+/* 示唆の期待度tier（青<黄<緑<赤<金）。色が上がるほど信頼度が高い。 */
+#effect-status.shisa.tier-blue {
+  color: #66ccff;
+  border-color: #66ccff;
+  background: rgba(20, 40, 80, 0.85);
+  box-shadow: 0 0 12px rgba(102, 204, 255, 0.5);
+}
+
+#effect-status.shisa.tier-yellow {
+  color: #ffd23f;
+  border-color: #ffd23f;
+  background: rgba(70, 60, 15, 0.85);
+  box-shadow: 0 0 13px rgba(255, 210, 63, 0.6);
+}
+
+#effect-status.shisa.tier-green {
+  color: #4cd964;
+  border-color: #4cd964;
+  background: rgba(20, 60, 30, 0.85);
+  box-shadow: 0 0 14px rgba(76, 217, 100, 0.6);
+}
+
+#effect-status.shisa.tier-red {
+  color: #ff5b52;
+  border-color: #ff3b30;
+  background: rgba(80, 20, 20, 0.88);
+  box-shadow: 0 0 18px rgba(255, 59, 48, 0.8);
+  font-weight: 900;
+}
+
+#effect-status.shisa.tier-gold {
+  color: #ffd24a;
+  border-color: #ffcc33;
+  background: rgba(70, 55, 10, 0.9);
+  box-shadow: 0 0 22px rgba(255, 204, 51, 0.95);
+  font-weight: 900;
+}
+
 /* === ゲームエリア（Pixi canvas + 結果トースト） === */
 #game-area {
   position: relative;
