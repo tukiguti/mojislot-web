@@ -11,7 +11,8 @@
   },
   "assist": {
     "assistMaxCells": 4,
-    "aimHintMaxCells": 2,
+    "noticeAssistMaxCells": 8,
+    "aimHintMaxCells": 4,
     "kickMaxCells": 2,
     "kickProbability": 0.5
   },

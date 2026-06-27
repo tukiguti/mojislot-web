@@ -125,16 +125,18 @@ export const TuningSchema = z.object({
   /** 引き込み/蹴り（目押し補助）の強さ。コマ数が大きいほど揃いやすい。 */
   assist: z
     .object({
-      /** 最終リールの引き込み最大コマ数（実機準拠＝4）。 */
+      /** 通常テンパイ（示唆など）の最終リール引き込み最大コマ数（実機準拠＝4）。 */
       assistMaxCells: z.number().int().nonnegative().default(4),
-      /** 第1・第2停止の中段引き込み最大コマ数（控えめ＝2）。 */
-      aimHintMaxCells: z.number().int().nonnegative().default(2),
-      /** 偶然のboner/premium揃いを蹴る最大コマ数。 */
+      /** 予告役(狙え/クイズ)の最終リール引き込み最大コマ数（拡大＝狙えば獲れる・既定8）。 */
+      noticeAssistMaxCells: z.number().int().nonnegative().default(8),
+      /** 予告役の第1・第2停止の中段引き込み最大コマ数（最終リール以外も引き込む・既定4）。 */
+      aimHintMaxCells: z.number().int().nonnegative().default(4),
+      /** 偶然の bonus/premium 揃いを蹴る最大コマ数。 */
       kickMaxCells: z.number().int().nonnegative().default(2),
       /** 蹴りの発動確率（0..1）。 */
       kickProbability: z.number().min(0).max(1).default(0.5),
     })
-    .default({ assistMaxCells: 4, aimHintMaxCells: 2, kickMaxCells: 2, kickProbability: 0.5 }),
+    .default({ assistMaxCells: 4, noticeAssistMaxCells: 8, aimHintMaxCells: 4, kickMaxCells: 2, kickProbability: 0.5 }),
   /** フリーズ演出。 */
   freeze: z
     .object({

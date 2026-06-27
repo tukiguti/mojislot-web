@@ -1,6 +1,6 @@
 import { Application, FillGradient, Graphics } from 'pixi.js';
 import { ReelEngine } from './core/ReelEngine';
-import { ReelView, CELL_WIDTH, CELL_HEIGHT, VISIBLE_CELLS } from './render/ReelView';
+import { ReelView, CELL_WIDTH, CELL_HEIGHT, VISIBLE_CELLS, REEL_PEEK, FRAME_PAD } from './render/ReelView';
 import { loadSymbolArt } from './render/ReelArt';
 import { RunTimer } from './ui/RunTimer';
 import { SymbolColorResolver } from './render/SymbolStyle';
@@ -81,10 +81,11 @@ const REEL_COUNT = 3;
 const CANVAS_W = 600;
 const CANVAS_H = 732;
 // 液晶エリア（演出液晶＋マスコット領域）の高さ。
-// 「演出液晶1.3 : リール0.9」の比率にするため、リール実体(CELL_HEIGHT*VISIBLE_CELLS=300=0.9相当)に対し
-// 1.3/0.9倍 = 432 を割り当てる。CANVAS_H(732) = LIQUID_AREA_H(432) + リール領域(300)。
+// リール領域 = CANVAS_H - LIQUID_AREA_H = 上下チラ見せ(REEL_PEEK*2) + 中央3コマ(300) + 枠余白(FRAME_PAD*2)。
+// 隣の図柄を上下に覗かせる。図柄と金枠の線の間には FRAME_PAD の黒余白を挟む（被り防止）。
 // 上部の空間にカットイン・演出を表示し、ジンはリール際（下部）に立たせる。
-const LIQUID_AREA_H = 432;
+const LIQUID_AREA_H =
+  CANVAS_H - (CELL_HEIGHT * VISIBLE_CELLS + REEL_PEEK * 2 + FRAME_PAD * 2);
 
 /**
  * 複数ペイラインで揃った役の一覧を文字列要約。
@@ -313,7 +314,8 @@ export async function bootstrap() {
 
   const totalWidth = CELL_WIDTH * REEL_COUNT + REEL_GAP * (REEL_COUNT - 1);
   const startX = (app.screen.width - totalWidth) / 2;
-  const reelY = LIQUID_AREA_H + (CANVAS_H - LIQUID_AREA_H - CELL_HEIGHT * VISIBLE_CELLS) / 2;
+  // 3コマはリール領域の中央。上下に REEL_PEEK（チラ見せ）＋ FRAME_PAD（枠余白）分を残す。
+  const reelY = LIQUID_AREA_H + REEL_PEEK + FRAME_PAD;
 
   // 役単位のカラー解決：同じ役の3文字（左/中/右）が同じ色になる
   const colorResolver = new SymbolColorResolver(yakuList);
@@ -501,7 +503,7 @@ export async function bootstrap() {
         reelCentersXFrac: [0, 1, 2].map(
           (i) => (startX + i * (CELL_WIDTH + REEL_GAP) + CELL_WIDTH / 2) / CANVAS_W,
         ),
-        reelTopYFrac: LIQUID_AREA_H / CANVAS_H,
+        reelTopYFrac: reelY / CANVAS_H,
       });
       sfx.shisa(); // 既存の示唆 SE を流用
       jinSpeech.say('shisa');
@@ -1086,7 +1088,11 @@ export async function bootstrap() {
     cherry: 0,
   };
 
-  /** 「狙え！」時、第1・第2停止で狙い役を中段へ軽く引き込む最大コマ数（最終リールの4コマより控えめ）。 */
+  /** 通常テンパイ（示唆など）の最終リール引き込み最大コマ数（実機準拠4）。 */
+  const ASSIST_MAX_CELLS = tuning.assist.assistMaxCells;
+  /** 予告役（狙え/クイズ）の最終リール引き込み最大コマ数（拡大＝狙えば獲れる）。 */
+  const NOTICE_ASSIST_MAX_CELLS = tuning.assist.noticeAssistMaxCells;
+  /** 「狙え！」「クイズ」時、第1・第2停止でも狙い役を中段へ引き込む最大コマ数（最終リール以外も引き込む）。 */
   const AIM_HINT_MAX_CELLS = tuning.assist.aimHintMaxCells;
 
   /**
@@ -1100,6 +1106,11 @@ export async function bootstrap() {
     strip: ReelStrip,
     basePos: number,
   ): number => {
+    // 予告役（狙え/クイズ）は最終リール窓を拡大（B案＝狙えば獲れる）。通常テンパイは実機準拠4。
+    const maxCells =
+      currentEffect === 'aim' || currentEffect === 'quiz'
+        ? NOTICE_ASSIST_MAX_CELLS
+        : ASSIST_MAX_CELLS;
     let bestSlip = 0;
     let bestScore = -1; // 大きいほど優先
     for (const l of lines) {
@@ -1109,12 +1120,13 @@ export async function bootstrap() {
         basePos,
         l.yaku.symbols[finalIdx],
         l.vertical,
+        maxCells,
       );
       if (slip === null) continue;
-      // slip は 0..4（ASSIST_MAX_CELLS）。近いほど高スコア。
+      // slip は 0..maxCells。近いほど高スコア。
       const score =
         CAT_RANK[l.yaku.category] * 100 +
-        (4 - slip) * 4 +
+        (maxCells - slip) * 4 +
         (l.vertical === 'middle' ? 1 : 0);
       if (score > bestScore) {
         bestScore = score;
