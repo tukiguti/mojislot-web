@@ -15,13 +15,15 @@ export class PayoutCalc {
    */
   calc(yaku: Yaku | null, bonusActive = false, streakMult = 1): number {
     if (!yaku) return 0;
+    // base はそのものが「コンボなしの払い出し枚数」。betPerSpin は掛け枚数=コスト（毎ゲーム消費）で
+    // あって払い出しには掛けない（＝役 base × 倍率がそのまま枚数）。
     const base = this.payout.baseMultiplier[yaku.category];
     // ボーナス倍率×コンボ倍率の積算は maxComboMultiplier で頭打ち（出玉の伸びすぎ防止）。
     const combined = Math.min(
       this.payout.maxComboMultiplier,
       (bonusActive ? this.payout.bonusZoneMultiplier : 1) * Math.max(1, streakMult),
     );
-    return Math.floor(this.payout.betPerSpin * base * combined);
+    return Math.floor(base * combined);
   }
 
   /**

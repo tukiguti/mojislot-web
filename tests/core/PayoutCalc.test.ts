@@ -41,11 +41,11 @@ describe('PayoutCalc.calc', () => {
     expect(calc.bet).toBe(3);
   });
 
-  it('通常時の払い出し = bet × baseMultiplier', () => {
-    expect(calc.calc(yaku('cherry'))).toBe(6); // 3×2
-    expect(calc.calc(yaku('core'))).toBe(15); // 3×5
-    expect(calc.calc(yaku('bonus'))).toBe(18); // 3×6
-    expect(calc.calc(yaku('premium'))).toBe(75); // 3×25
+  it('通常時の払い出し = baseMultiplier そのもの（betは掛け枚数=コストで払い出しには掛けない）', () => {
+    expect(calc.calc(yaku('cherry'))).toBe(2); // base 2
+    expect(calc.calc(yaku('core'))).toBe(5); // base 5
+    expect(calc.calc(yaku('bonus'))).toBe(6); // base 6
+    expect(calc.calc(yaku('premium'))).toBe(25); // base 25
   });
 
   it('役なしは 0', () => {
@@ -53,16 +53,16 @@ describe('PayoutCalc.calc', () => {
   });
 
   it('ボーナス中は bonusZoneMultiplier が掛かる（floor）', () => {
-    expect(calc.calc(yaku('core'), true)).toBe(37); // floor(3×5×2.5)=37
+    expect(calc.calc(yaku('core'), true)).toBe(12); // floor(5×2.5)=12
   });
 
   it('コンボ倍率が掛かる', () => {
-    expect(calc.calc(yaku('core'), false, 2.0)).toBe(30); // 3×5×2.0
+    expect(calc.calc(yaku('core'), false, 2.0)).toBe(10); // floor(5×2.0)
   });
 
   it('ボーナス中×コンボの相乗は maxComboMultiplier で頭打ち（floor）', () => {
-    // 2.5×2.5=6.25 だが上限 3.0 で頭打ち → floor(3×5×3.0)=45
-    expect(calc.calc(yaku('core'), true, 2.5)).toBe(45);
+    // 2.5×2.5=6.25 だが上限 3.0 で頭打ち → floor(5×3.0)=15
+    expect(calc.calc(yaku('core'), true, 2.5)).toBe(15);
   });
 });
 
@@ -70,8 +70,8 @@ describe('PayoutCalc.calcMulti', () => {
   const calc = new PayoutCalc(PAYOUT);
 
   it('複数ラインを線形合算する', () => {
-    expect(calc.calcMulti([hit('core'), hit('core')])).toBe(30); // 15×2
-    expect(calc.calcMulti([hit('core'), hit('cherry')])).toBe(21); // 15+6
+    expect(calc.calcMulti([hit('core'), hit('core')])).toBe(10); // 5×2
+    expect(calc.calcMulti([hit('core'), hit('cherry')])).toBe(7); // 5+2
   });
 
   it('空配列は 0', () => {
@@ -101,13 +101,13 @@ describe('PayoutCalc.aimBonus', () => {
   const calc = new PayoutCalc(PAYOUT);
 
   it('予告役が揃ったライン配当 ×(mult−1) の floor（上乗せ分のみ）', () => {
-    expect(calc.aimBonus([hit('core')])).toBe(7); // floor(15×0.5)
-    expect(calc.aimBonus([hit('core'), hit('core')])).toBe(15); // 30×0.5
+    expect(calc.aimBonus([hit('core')])).toBe(2); // floor(5×0.5)
+    expect(calc.aimBonus([hit('core'), hit('core')])).toBe(5); // floor(10×0.5)
   });
 
   it('ボーナス中・コンボ込みの配当に対して上乗せ（上限適用後の配当が基準）', () => {
-    // base = floor(3×5×min(3.0, 2.5×2.0)) = floor(3×5×3.0) = 45 → floor(45×0.5)=22
-    expect(calc.aimBonus([hit('core')], true, 2.0)).toBe(22);
+    // base = floor(5×min(3.0, 2.5×2.0)) = floor(5×3.0) = 15 → floor(15×0.5)=7
+    expect(calc.aimBonus([hit('core')], true, 2.0)).toBe(7);
   });
 
   it('予告役が揃っていない（空配列）なら 0', () => {

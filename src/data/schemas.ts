@@ -43,7 +43,10 @@ export type Yaku = z.infer<typeof YakuSchema>;
 export type YakuList = z.infer<typeof YakuListSchema>;
 
 export const PayoutSchema = z.object({
+  // 1ゲームの掛け枚数（毎ゲーム消費するコスト）。実機の3枚掛け＝有効ライン多めのリアリティ用。
+  // 払い出しには掛けない（払い出し＝役 base × コンボ倍率）。
   betPerSpin: z.number().int().positive(),
+  // 役カテゴリ別の「コンボなしの払い出し枚数」そのもの（旧称 multiplier だが bet には掛けない）。
   baseMultiplier: z.object({
     core: z.number(),
     premium: z.number(),
