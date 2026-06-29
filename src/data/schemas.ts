@@ -50,10 +50,13 @@ export const PayoutSchema = z.object({
     bonus: z.number(),
     cherry: z.number().default(2),
   }),
+  // ボーナス中の素点倍率。現行設計では 1.0＝combo無しなら通常もボーナス中も同じ払い出し。
+  // ボーナスの価値は「演出100%でコンボを伸ばせる」点にあり、素点ブーストは持たせない。
   bonusZoneMultiplier: z.number(),
   initialCoins: z.number().int().nonnegative(),
   // 連チャン（コンボ）数→配当倍率。しきい値で評価（順不同・最大一致を採用）。
-  // 省略時は旧来の 3連1.2 / 5連1.5 / 10連2.0。
+  // 出玉設計の主役＝コンボ（通常時はほぼ増えず、連を伸ばすほど枚数が伸びる）。
+  // 実運用カーブは data/payouts が正（現行 2連1.5〜20連7.0）。省略時は下記フォールバック。
   streakTiers: z
     .array(
       z.object({
@@ -68,8 +71,8 @@ export const PayoutSchema = z.object({
     ]),
   // 「狙え！」予告役が実際に成立した時の達成ボーナス倍率（その役ライン分の配当に上乗せ）。
   aimBonusMultiplier: z.number().positive().default(1.5),
-  // ボーナス倍率×コンボ倍率の積算上限。出玉が伸びすぎないよう combined をここで頭打ちにする。
-  // 省略時は 3.0（core: bet3 × base3.4 × 3.0 ≒ 30枚 が上限）。
+  // ボーナス倍率×コンボ倍率の積算上限。combined をここで頭打ちにする（コンボ天井）。
+  // コンボ主役化に伴い data/payouts では 7.0（最上位tierと一致）。省略時フォールバックは 3.0。
   maxComboMultiplier: z.number().positive().default(3),
 });
 
