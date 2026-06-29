@@ -760,8 +760,8 @@ export async function bootstrap() {
   effectStatusEl.title = `${chapter.name}：${chapter.description}`;
 
   // 連チャン表示（倍率も併記）＋ cabinet の連チャンオーラ
-  // 連チャン昇格演出: streakTiers([21])に準拠した 2/5/8/12連 の4段。
-  // 段が上がった瞬間にランクアップ演出(フラッシュ＋紙吹雪＋SE)を出す。
+  // 連チャン昇格演出: オーラ4段の見た目用しきい値（配当の streakTiers とは独立のビジュアル）。
+  // 段が上がった瞬間にランクアップ演出(フラッシュ＋紙吹雪＋SE)を出す。12連以上は最上段で表現。
   const STREAK_TIER_THRESHOLDS = [2, 5, 8, 12];
   const STREAK_TIER_CLASS = ['streak-aura', 'streak-aura-hot', 'streak-aura-fever', 'streak-aura-max'];
   const STREAK_TIER_COLOR = ['#ffd700', '#ff8a00', '#ff3366', '#c060ff'];
