@@ -10,7 +10,6 @@ import {
  *
  * プレイ設定の保存先（既存コードが読む正本に合わせる）:
  *  - ミッション報酬   localStorage `mojislot.challengesEnabled.v1`（ChallengeTracker が読む / 既定ON）
- *  - リール文字       localStorage `reelShowGlyphs`（main.ts が読む / 既定OFF）
  *  - デバッグボタン   localStorage `mojislot.debugVisible.v1`（SettingsOverlay が読む / 既定OFF）
  *  - AUTOモード       sessionStorage `mojislot.playSetup.v1` = {auto}（main.ts が読む / 既定あり・永続化しない）
  */
@@ -20,7 +19,6 @@ export interface PlaySetupCallbacks {
 }
 
 const MISSIONS_KEY = 'mojislot.challengesEnabled.v1';
-const REEL_GLYPHS_KEY = 'reelShowGlyphs';
 const REEL_ART_KEY = 'mojislot.reelArt.v1';
 const DEBUG_KEY = 'mojislot.debugVisible.v1';
 const PLAY_SETUP_KEY = 'mojislot.playSetup.v1';
@@ -48,7 +46,6 @@ export function mountPlaySetup(cb: PlaySetupCallbacks): void {
   // 既存の正本から各トグルの初期状態を読む
   const missionsOn = localStorage.getItem(MISSIONS_KEY) !== '0'; // 既定ON
   const artOn = localStorage.getItem(REEL_ART_KEY) !== 'plain'; // 既定ON=画像
-  const glyphsOn = localStorage.getItem(REEL_GLYPHS_KEY) === '1'; // 既定OFF
   const debugOn = localStorage.getItem(DEBUG_KEY) === '1'; // 既定OFF
   const autoOn = readAutoEnabled(); // 既定あり
 
@@ -89,7 +86,6 @@ export function mountPlaySetup(cb: PlaySetupCallbacks): void {
         <div class="setup-options-title">プレイ設定</div>
         ${toggle('missions', 'ミッション報酬', '達成でコイン・トースト。OFFで実機風に', missionsOn)}
         ${toggle('reelart', 'リール絵柄に画像を使う', 'OFFで色タイル＋文字（旧スタイル）。要リロード', artOn)}
-        ${toggle('glyphs', 'リールに文字を表示', 'ONでかな文字も表示（学習用）／OFFで図柄のみ', glyphsOn)}
         ${toggle('auto', 'AUTOモード', 'ONでAUTOボタンを表示（自動消化）', autoOn)}
         ${toggle('debug', 'デバッグボタン', '設定内に演出の強制発動ボタンを表示', debugOn)}
       </section>
@@ -117,7 +113,6 @@ export function mountPlaySetup(cb: PlaySetupCallbacks): void {
     try {
       localStorage.setItem(MISSIONS_KEY, isChecked('missions') ? '1' : '0');
       localStorage.setItem(REEL_ART_KEY, isChecked('reelart') ? 'image' : 'plain');
-      localStorage.setItem(REEL_GLYPHS_KEY, isChecked('glyphs') ? '1' : '0');
       localStorage.setItem(DEBUG_KEY, isChecked('debug') ? '1' : '0');
       sessionStorage.setItem(
         PLAY_SETUP_KEY,

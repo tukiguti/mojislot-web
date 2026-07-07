@@ -2,7 +2,7 @@ import { Assets, Texture } from 'pixi.js';
 import type { Yaku } from '../data/schemas';
 
 // ART_VER: 図柄を作り直すたびに上げる（同名 webp のブラウザキャッシュ対策）。
-const ART_VER = '15';
+const ART_VER = '16';
 // 図柄画像を持つ章。ここに無い章は色タイル＋文字で描く。
 const CHAPTERS_WITH_SYMBOL_ART = new Set<string>([
   'hiragana_food',

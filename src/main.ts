@@ -371,7 +371,6 @@ export async function bootstrap() {
   };
   const initialReelGlyphs = reelGlyphsOn;
   applyReelGlyphs(initialReelGlyphs);
-  settingsOverlay.setReelGlyphsControl(initialReelGlyphs, applyReelGlyphs);
 
   // ペイラインインジケーター（リール左脇外側に1セットのみ。左右ミラーは冗長なので片側へ）
   const reelHeight = CELL_HEIGHT * VISIBLE_CELLS;
