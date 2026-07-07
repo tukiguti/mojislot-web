@@ -5,18 +5,18 @@
       "id": "q_budou",
       "question": "房（ふさ）になって実る、紫色の果物は？",
       "answerYakuId": "budou",
-      "decoyYakuIds": ["dango", "ocha", "namazu"]
+      "decoyYakuIds": ["dango", "tofu", "namazu"]
     },
     {
       "id": "q_dango",
       "question": "串にさして食べる、三色の和菓子は？",
       "answerYakuId": "dango",
-      "decoyYakuIds": ["ocha", "budou", "sushiya"]
+      "decoyYakuIds": ["tofu", "budou", "sushiya"]
     },
     {
-      "id": "q_ocha",
-      "question": "湯のみで飲む、緑色の日本の飲み物は？",
-      "answerYakuId": "ocha",
+      "id": "q_tofu",
+      "question": "大豆から作る、白くて四角いヘルシーな食べ物は？",
+      "answerYakuId": "tofu",
       "decoyYakuIds": ["budou", "dango", "reg"]
     },
     {
@@ -35,13 +35,13 @@
       "id": "q_reg",
       "question": "寿司めしを作るのに、ごはんに混ぜる調味料は？（RB）",
       "answerYakuId": "reg",
-      "decoyYakuIds": ["sushiya", "namazu", "ocha"]
+      "decoyYakuIds": ["sushiya", "namazu", "tofu"]
     },
     {
       "id": "q_mikan",
       "question": "冬にこたつで食べる、皮をむくオレンジ色の果物は？",
       "answerYakuId": "mikan",
-      "decoyYakuIds": ["budou", "dango", "ocha"]
+      "decoyYakuIds": ["budou", "dango", "tofu"]
     },
     {
       "id": "q_momo",

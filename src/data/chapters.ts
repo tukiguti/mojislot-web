@@ -22,9 +22,6 @@ import yasaiQuiz from '../../data/quizzes/yasai.json';
 import securityReel from '../../data/reels/security.json';
 import securityYaku from '../../data/yaku/security.json';
 import securityQuiz from '../../data/quizzes/security.json';
-import hAdultReel from '../../data/reels/h_adult.json';
-import hAdultYaku from '../../data/yaku/h_adult.json';
-import hAdultQuiz from '../../data/quizzes/h_adult.json';
 
 export interface ChapterBundle {
   id: string;
@@ -77,15 +74,6 @@ export const CHAPTERS: readonly ChapterBundle[] = [
     reelData: securityReel,
     yakuData: securityYaku,
     quizData: securityQuiz,
-  },
-  {
-    id: 'h_adult',
-    name: '🔞 オトナの章',
-    description: 'えっち・すけべ・ぱんつ等の大人ジョーク。プレミアムは「ラブホ」',
-    reelData: hAdultReel,
-    yakuData: hAdultYaku,
-    quizData: hAdultQuiz,
-    hidden: true,
   },
 ];
 

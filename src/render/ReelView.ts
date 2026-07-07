@@ -53,8 +53,8 @@ const TILE_STYLES: Record<SymbolTier, TileStyle> = {
  * 画像自体に枠が描かれているので控えめに差をつける（強い柄ほど大きく＝デカい）。
  */
 const SPRITE_SCALE: Record<SymbolTier, number> = {
-  premium: 1.0, // 枠つき・セルいっぱい
-  bonus: 0.9, // 枠つき・やや大
+  premium: 0.9, // 枠つき・ほぼセルいっぱい（横長図柄が幅130pxで左右の縁に接して切れるのを防ぐ余白）
+  bonus: 0.88, // 枠つき・やや大（premiumのすぐ下）
   core: 0.7, // 枠なし・はっきり小さく（強弱を size で明確に区別）
   filler: 0.58,
 };
