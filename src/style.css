@@ -1038,10 +1038,10 @@ body.has-chapter-bg {
 }
 
 #reel-strip-panel .strip-cell.has-art {
-  /* 図柄画像を表示。横長図柄の全体が切れずに見えるよう contain＋高さ多めに。
-     21コマは overflow-y:auto（.strip-grid）でスクロール表示になる。 */
+  /* 図柄画像を表示。横長図柄の全体が切れないよう contain。
+     高さは 21コマがなるべく1画面に収まるサイズに（超過分は .strip-grid の overflow-y:auto でスクロール）。 */
   padding: 0;
-  height: 42px;
+  height: 32px;
   background-color: #000;
   background-size: contain;
   background-position: center;
