@@ -2,8 +2,10 @@
 import { defineConfig } from 'vite';
 
 /**
- * GitHub Pages 公開時、URL は https://tukiguti.github.io/mojislot-web/ になるため
- * base をリポジトリ名に合わせる。dev/preview 時もこの base が使われる。
+ * 公開先が2系統あるため base を環境で切り替える:
+ * - Cloudflare Pages (slot.tukiguti.com): ルート配信なので '/'（CF_PAGES はビルド環境に自動設定される）
+ * - GitHub Pages (https://tukiguti.github.io/mojislot-web/): リポジトリ名がパスに入るため '/mojislot-web/'
+ * dev/preview 時も GitHub Pages 側の base が使われる。
  *
  * build.rollupOptions.output.manualChunks で pixi.js を別チャンクに分離し、
  * アプリ本体の差分更新時にキャッシュが効くようにする。
@@ -11,7 +13,7 @@ import { defineConfig } from 'vite';
  * test: 会員カードのコーデック/マージ等の単体テスト（node 環境・Web Crypto はグローバル）。
  */
 export default defineConfig({
-  base: '/mojislot-web/',
+  base: process.env.CF_PAGES ? '/' : '/mojislot-web/',
   test: {
     environment: 'node',
     include: ['tests/**/*.test.ts'],
