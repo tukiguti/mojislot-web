@@ -50,7 +50,7 @@
     "bigRatio": 0.3,
     "assistMaxCells": 8
   },
-  "reelSpeed": 26,
+  "reelSpeed": 24,
   "motionBlurStrength": 0.34,
   "bitaWindowMs": 12,
   "entryChargeMs": 650
