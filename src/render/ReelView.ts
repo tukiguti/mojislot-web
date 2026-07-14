@@ -1,4 +1,12 @@
-import { Container, Graphics, Sprite, Text, Texture } from 'pixi.js';
+import {
+  BlurFilter,
+  Container,
+  Graphics,
+  Rectangle,
+  Sprite,
+  Text,
+  Texture,
+} from 'pixi.js';
 import type { ReelEngine } from '../core/ReelEngine';
 import type { SymbolTier } from './SymbolStyle';
 
@@ -79,6 +87,37 @@ export const FRAME_PAD = 6;
  */
 const PRE_BUFFER = CELL_HEIGHT;
 
+/**
+ * モーションブラー（回転中の縦方向の残像）。
+ *
+ * 実機のリールは物理的な回転なので目に残像が残り、速くても図柄の流れを追える。
+ * Web（Pixi）は毎フレーム図柄をくっきり描くため残像が無く、実機速度（28コマ/秒）まで上げると
+ * 図柄が飛び飛びに見えて逆にカクつく。そこで縦方向のブラーで残像を人工的に作る。
+ * これが入って初めてリール速度を実機に近づけられる（[05](05_bita-oshi.md) の未実装メモ）。
+ *
+ * 強さは「1フレームで進むピクセル数」に比例させる（速いほど強く滲む）。
+ * 60fps 想定で pxPerFrame = speed(コマ/秒) × CELL_HEIGHT ÷ 60。
+ */
+const MOTION_BLUR_K = 0.34;
+/**
+ * 実効のブラー係数。data/tuning の既定値を main.ts が流し込み、設定モーダルから変更できる
+ * （体感で決める値なので、ビルドし直さずに比べられるようにしている）。0 でブラー無し。
+ */
+let motionBlurStrength = MOTION_BLUR_K;
+export function setMotionBlurStrength(k: number): void {
+  motionBlurStrength = Math.max(0, k);
+}
+/** これ未満の速度ではブラーをかけない（停止直前のチラつき防止） */
+const MOTION_BLUR_MIN_SPEED = 2;
+/** ブラーの品質。1 で十分（縦1方向・小さな矩形なので負荷は軽い） */
+const MOTION_BLUR_QUALITY = 1;
+
+/**
+ * クイズ中、答えの文字**以外**のセルの不透明度。1 に近いほど答えがバレにくい。
+ * 「答えを教える」のではなく「言われてみれば気づく」程度の強調に留める。
+ */
+const NON_TARGET_ALPHA = 0.8;
+
 export class ReelView {
   readonly container: Container;
   /** 各セルのコンテナ（タイル背景＋文字を内包、上下方向にスクロール移動する） */
@@ -105,6 +144,8 @@ export class ReelView {
   private highlightedIndexes: number[] = [];
   /** 各セルの記号文字（cellContainers と同じ index） */
   private cellSymbols: string[] = [];
+  /** 回転中の縦モーションブラー（cellsContainer に適用・速度に比例して強くする） */
+  private readonly motionBlur: BlurFilter;
   private readonly bg: Graphics;
   private readonly centerGlow: Graphics;
   private centerGlowAlpha = 0;
@@ -141,12 +182,31 @@ export class ReelView {
     this.container.addChild(this.centerGlow);
 
     const cellsContainer = new Container();
+    // 縦だけ滲ませる（横は 0）。強さは update() で速度に応じて毎フレーム更新。
+    this.motionBlur = new BlurFilter({
+      strengthX: 0,
+      strengthY: 0,
+      quality: MOTION_BLUR_QUALITY,
+    });
+    // フィルタとマスクを同じコンテナに付けると Pixi では効かないので、マスク用のラッパーを挟む。
+    // ラッパー = 見える窓（マスク）／内側の cellsContainer = ブラー対象。
+    // ブラーは窓の外へ滲むが、ラッパーのマスクで切り取られるのでリール枠を越えない。
+    const maskWrapper = new Container();
+    cellsContainer.filters = [this.motionBlur];
+    // フィルタ適用範囲を「見える窓」に限定する（21コマ全長 2100px を毎フレーム描画しないため）。
+    cellsContainer.filterArea = new Rectangle(
+      0,
+      -REEL_PEEK,
+      CELL_WIDTH,
+      VIEW_HEIGHT + REEL_PEEK * 2,
+    );
     const mask = new Graphics();
     // 図柄は中央3コマ＋上下 REEL_PEEK（隣の図柄チラ見せ）まで表示。枠線とは FRAME_PAD 分離れる。
     mask.rect(0, -REEL_PEEK, CELL_WIDTH, VIEW_HEIGHT + REEL_PEEK * 2);
     mask.fill({ color: 0xffffff });
     this.container.addChild(mask);
-    cellsContainer.mask = mask;
+    maskWrapper.mask = mask;
+    maskWrapper.addChild(cellsContainer);
 
     this.cellSymbols = [...engine.strip.cells];
     for (const symbol of engine.strip.cells) {
@@ -220,7 +280,7 @@ export class ReelView {
       cellsContainer.addChild(cell);
       this.cellContainers.push(cell);
     }
-    this.container.addChild(cellsContainer);
+    this.container.addChild(maskWrapper);
 
     // ペイラインやセル区切り線はリール上に描画しない（外側インジケーターで示す）
 
@@ -257,6 +317,20 @@ export class ReelView {
       this.cellContainers[i].y = y - PRE_BUFFER + this.bounceOffsetY;
     }
 
+    // モーションブラー：回転中だけ、速度（1フレームの移動px）に比例して縦に滲ませる。
+    // 停止した瞬間に 0 へ戻るので、出目はくっきり読める（目押しの答え合わせを妨げない）。
+    const spinning = this.engine.state.get() === 'spinning';
+    const speed = spinning ? this.engine.currentSpeed : 0;
+    const strengthY =
+      speed >= MOTION_BLUR_MIN_SPEED
+        ? ((speed * CELL_HEIGHT) / 60) * motionBlurStrength
+        : 0;
+    if (this.motionBlur.strengthY !== strengthY) {
+      this.motionBlur.strengthY = strengthY;
+      // strength=0 のままフィルタを通すと無駄なテクスチャ確保が走るので、止まったら外す
+      this.motionBlur.enabled = strengthY > 0;
+    }
+
     // テンパイ枠の脈動
     if (this.tenpaiAnimMs > 0) {
       const t = nowMs ?? performance.now();
@@ -283,14 +357,15 @@ export class ReelView {
   }
 
   /**
-   * クイズ正解時の目標文字を設定。non-null の間、target と一致しない
-   * セル（タイル＋文字まとめて）を薄く描画してフォーカスを強調する。
+   * クイズの答えの文字を「うっすら」強調する。target 以外のセルを NON_TARGET_ALPHA まで落とすだけ。
+   * 以前は 0.25 まで暗く落としていたが、それでは答えが一目で分かってしまい、
+   * 「どれかな」と自分で考えて狙うというクイズの主旨が消える（答えの提示ではなく、気づきの補助）。
    * null を渡すと通常表示に戻る。
    */
   setTargetSymbol(symbol: string | null): void {
     for (let i = 0; i < this.cellContainers.length; i++) {
       const isTarget = symbol === null || this.cellSymbols[i] === symbol;
-      this.cellContainers[i].alpha = isTarget ? 1 : 0.25;
+      this.cellContainers[i].alpha = isTarget ? 1 : NON_TARGET_ALPHA;
     }
   }
 

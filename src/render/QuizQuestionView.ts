@@ -11,6 +11,35 @@ interface QuizQuestionViewOptions {
   height: number;
 }
 
+/** 1行の最大文字数。液晶幅（600px）と fontSize 22px から、読みやすい行長で固定する。 */
+const MAX_CHARS_PER_LINE = 18;
+
+/**
+ * 日本語の出題文を「一定の文字数」で折り返す。
+ * - 区切り（、。）が行末付近なら、そこで折り返して語尾が不自然に切れないようにする
+ * - 英数の語（`--help` `8GB` など）の途中では折り返さない（最大 max+6 まで伸ばす）
+ */
+function wrapJapanese(text: string, max: number): string {
+  const chars = [...text];
+  const isAsciiWord = (c: string | undefined): boolean =>
+    c !== undefined && /[0-9A-Za-z\-_/.]/.test(c);
+  const lines: string[] = [];
+  let line = '';
+  for (let i = 0; i < chars.length; i++) {
+    const ch = chars[i];
+    line += ch;
+    const atPunctuation = /[、。，,]/.test(ch);
+    const insideAsciiWord = isAsciiWord(ch) && isAsciiWord(chars[i + 1]);
+    const reachedLimit = line.length >= max && !insideAsciiWord;
+    if (reachedLimit || line.length >= max + 6 || (atPunctuation && line.length >= max - 5)) {
+      lines.push(line);
+      line = '';
+    }
+  }
+  if (line) lines.push(line);
+  return lines.join('\n');
+}
+
 export class QuizQuestionView {
   readonly container: Container;
   private readonly text: Text;
@@ -44,7 +73,10 @@ export class QuizQuestionView {
         fontSize: 22,
         fontFamily: 'system-ui, "Hiragino Sans", "Yu Gothic", sans-serif',
         fontWeight: 'bold',
+        // 日本語は単語区切り（スペース）が無く、wordWrap だけでは折り返されずに横へ伸びて
+        // 画面外へ消える。breakWords で任意位置の折り返しを許可し、保険をかける。
         wordWrap: true,
+        breakWords: true,
         wordWrapWidth: opts.width - padX * 2 - 24,
         align: 'center',
         lineHeight: 32,
@@ -56,9 +88,8 @@ export class QuizQuestionView {
     this.container.visible = false;
 
     state.current.subscribe((quiz) => {
-      // 先頭の【…】タグ（例:【プレミアム】）は次行に分けて見やすくする。
       const q = quiz?.question ?? '';
-      this.text.text = q.replace(/^(【[^】]*】)\s*/, '$1\n');
+      this.text.text = wrapJapanese(q, MAX_CHARS_PER_LINE);
     });
     state.phase.subscribe((phase) => {
       this.container.visible = phase !== 'inactive';

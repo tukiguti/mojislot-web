@@ -257,6 +257,18 @@ export const TuningSchema = z.object({
       assistMaxCells: z.number().int().nonnegative().default(8),
     })
     .default({ rate: 0.0033, bigRatio: 0.3, assistMaxCells: 8 }),
+  /**
+   * リール速度（コマ/秒）。実機（ジャグラー等）は約28コマ/秒＝0.75秒/周。
+   * モーションブラー（ReelView）実装前は残像が無く、実機速度だと図柄が追えずカクついて見えたため
+   * 20（1.05秒/周）に落としていた。ブラー実装後は実機速度が使える。
+   * 速度を上げると 1コマ = 1000/speed ms が短くなり、目押しは相対的にシビアになる（出玉も下がる）。
+   */
+  reelSpeed: z.number().positive().default(20),
+  /**
+   * モーションブラーの強さ係数。0=ブラー無し。
+   * ブラー強度 = （1フレームの移動px）× この係数。速度に比例して自動で強くなる。
+   */
+  motionBlurStrength: z.number().min(0).default(0.34),
   /** ビタ押し成功窓（±ms）。 */
   bitaWindowMs: z.number().positive().default(12),
   /** 突入直前の「溜め」演出の長さ（ms）。 */

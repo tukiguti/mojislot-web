@@ -202,7 +202,15 @@ export async function bootstrap() {
     zukanState,
     challengeTracker,
     debugVisible,
+    tuning.reelSpeed,
+    tuning.motionBlurStrength,
   );
+  // 設定で速度を変えたら、回転中のリールにも即反映する（体感を比べやすくする）
+  settingsOverlay.setReelSpeedListener((speed) => {
+    for (const e of engines) {
+      if (e.state.get() === 'spinning' && !freezeActive) e.setSpeed(speed);
+    }
+  });
   // 滑り/引き込み（17_assist-and-slip.md）：演出時は最終リールで狙い役を最大4コマ引き込む
   // （resolveAssist）。引き込まない時は、予告役以外の premium/bonus 偶然揃いを蹴る
   // （resolveKick・全演出で作用、予告した BIG/RB は通す）。
@@ -219,6 +227,17 @@ export async function bootstrap() {
   // レバーオン時のフリーズ抽選確率（通常時のみ）／倍速回転スピード。data/tuning で調整。
   const FREEZE_RATE = tuning.freeze.rate;
   const FREEZE_SPIN_SPEED = tuning.freeze.spinSpeed;
+
+  /**
+   * リール速度（コマ/秒）。data/tuning が既定で、設定モーダルから上書きできる（体感比較用）。
+   * ReelView のモーションブラーはこの速度に比例して強くなる。
+   * 速いほど 1コマの通過時間（1000/speed ms）が短く、目押しはシビアになる。
+   */
+  const REEL_SPEED_KEY = 'mojislot.reelSpeed.v1';
+  const reelSpeed = (): number => {
+    const saved = Number(localStorage.getItem(REEL_SPEED_KEY));
+    return Number.isFinite(saved) && saved > 0 ? saved : (tuning.reelSpeed ?? REEL_BASE_SPEED);
+  };
 
   // === 確定告知ランプの状態 ===
   // 点灯中（announcedBonus !== null）はボーナス確定。種別は内部確定だが UI 上は伏せる。
@@ -510,7 +529,7 @@ export async function bootstrap() {
 
   const applyEffect = (effect: EffectType) => {
     currentEffect = effect;
-    for (const engine of engines) engine.setSpeed(REEL_BASE_SPEED);
+    for (const engine of engines) engine.setSpeed(reelSpeed());
 
     // 示唆は期待度tierを抽選し、その色でtint/ステータス/台詞を切替（他演出ではtierをクリア）。
     currentShisaTier = effect === 'shisa' ? pickShisaTier() : null;
@@ -1987,34 +2006,24 @@ export async function bootstrap() {
     });
   };
 
-  // クイズ正解時、リール配列にターゲット文字を緑強調表示する
-  const updateStripTargetHighlight = () => {
+  /**
+   * クイズ中、答えの役の文字をリール上でうっすら強調する（他セルを少しだけ落とす）。
+   * 右のリール配列パネルでの緑ハイライトは「答えと出現位置」まで教えてしまうので行わない。
+   */
+  const updateQuizTargetEmphasis = () => {
     const targetYakuId = quizState.targetYakuId();
     const yaku = targetYakuId
       ? allYakusFlat.find((y) => y.id === targetYakuId)
       : null;
-    stripColumns.forEach((col, idx) => {
-      const targetSymbol = yaku?.symbols[idx] ?? null;
-      // 右パネル：該当文字にクラス付与
-      const cells = col.querySelectorAll<HTMLElement>('.strip-cell');
-      cells.forEach((cell) => {
-        if (targetSymbol && cell.textContent === targetSymbol) {
-          cell.classList.add('target');
-        } else {
-          cell.classList.remove('target');
-        }
-      });
-      // リール本体：該当文字以外を薄くフェード
-      views[idx].setTargetSymbol(targetSymbol);
-    });
+    views.forEach((view, idx) => view.setTargetSymbol(yaku?.symbols[idx] ?? null));
   };
 
   for (const engine of engines) {
     engine.state.subscribe(updateStripHighlight);
   }
-  quizState.phase.subscribe(updateStripTargetHighlight);
+  quizState.phase.subscribe(updateQuizTargetEmphasis);
   updateStripHighlight();
-  updateStripTargetHighlight();
+  updateQuizTargetEmphasis();
 
   for (const engine of engines) {
     engine.state.subscribe(() => updateButtons());
