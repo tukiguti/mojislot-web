@@ -113,14 +113,19 @@ body {
   text-align: center;
 }
 .landing-title {
-  font-family: 'Bungee', sans-serif;
-  font-size: clamp(40px, 9vw, 72px);
-  letter-spacing: 2px;
-  color: var(--gold);
-  text-shadow:
-    0 0 18px rgba(224, 53, 155, 0.5),
-    0 2px 0 rgba(0, 0, 0, 0.4);
+  /* ロゴ画像を入れる器。文字は使わないが、見出しとしての意味とフォーカス制御は残す */
+  margin: 0;
+  line-height: 0;
   outline: none;
+}
+.landing-logo {
+  width: clamp(180px, 42vw, 300px);
+  height: auto;
+  display: block;
+  margin: 0 auto;
+  /* 金の縁がページ背景から浮くように、控えめなグロー */
+  filter: drop-shadow(0 0 22px rgba(224, 53, 155, 0.35))
+    drop-shadow(0 6px 18px rgba(0, 0, 0, 0.55));
 }
 .landing-sub {
   color: #9a86b8;

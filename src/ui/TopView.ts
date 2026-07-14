@@ -12,9 +12,12 @@ export function mountTopView(cb: TopViewCallbacks): void {
   const root = document.getElementById('view-top');
   if (!root) return;
 
+  const base = import.meta.env.BASE_URL;
   root.innerHTML = `
     <div class="landing">
-      <h1 class="landing-title" data-view-title>mojislot</h1>
+      <h1 class="landing-title" data-view-title>
+        <img class="landing-logo" src="${base}art/logo.webp" alt="文字スロ ―MOJISLOT―" />
+      </h1>
       <p class="landing-sub">日本語3文字スロット ／ ビタ押し技術介入</p>
       <nav class="landing-menu">
         <button class="landing-btn" data-act="play" type="button">
