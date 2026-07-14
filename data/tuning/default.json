@@ -1,13 +1,26 @@
 {
   "effectRates": {
-    "default": { "none": 0.6, "shisa": 0.2, "quiz": 0.1, "aim": 0.1 },
-    "rescue": { "none": 0.3, "shisa": 0.35, "quiz": 0.2, "aim": 0.15 },
-    "bonus": { "none": 0.0, "shisa": 0.5, "quiz": 0.2, "aim": 0.3 }
+    "default": { "none": 0.5, "shisa": 0.15, "quiz": 0.25, "aim": 0.1 },
+    "rescue": { "none": 0.3, "shisa": 0.25, "quiz": 0.3, "aim": 0.15 },
+    "bonus": { "none": 0.0, "shisa": 0.4, "quiz": 0.35, "aim": 0.25 }
   },
   "rescueMissThreshold": 30,
   "bonus": {
     "spinsPerBig": 10,
-    "spinsPerReg": 5
+    "spinsPerReg": 5,
+    "shisaTiers": [
+      { "color": "blue", "weight": 0.5, "coreCells": 2, "bonusCells": 0, "premiumCells": 0, "noticeHintCells": 0 },
+      { "color": "yellow", "weight": 0.28, "coreCells": 3, "bonusCells": 0, "premiumCells": 0, "noticeHintCells": 0 },
+      { "color": "green", "weight": 0.17, "coreCells": 4, "bonusCells": 0, "premiumCells": 0, "noticeHintCells": 0 },
+      { "color": "red", "weight": 0.04, "coreCells": 0, "bonusCells": 8, "premiumCells": 0, "noticeHintCells": 4 },
+      { "color": "gold", "weight": 0.01, "coreCells": 0, "bonusCells": 8, "premiumCells": 8, "noticeHintCells": 4 }
+    ]
+  },
+  "notice": {
+    "aimBonusWeight": 0.1,
+    "quizBonusWeight": 0.2,
+    "bonusAimBonusWeight": 0,
+    "bonusQuizBonusWeight": 0.15
   },
   "assist": {
     "assistMaxCells": 4,
@@ -15,6 +28,11 @@
     "aimHintMaxCells": 4,
     "kickMaxCells": 2,
     "kickProbability": 0.5,
+    "kickCore": {
+      "enabled": true,
+      "probability": 0.8,
+      "maxCells": 4
+    },
     "shisaTiers": [
       { "color": "blue", "weight": 0.55, "coreCells": 2, "bonusCells": 0, "premiumCells": 0, "noticeHintCells": 0 },
       { "color": "yellow", "weight": 0.25, "coreCells": 3, "bonusCells": 0, "premiumCells": 0, "noticeHintCells": 0 },

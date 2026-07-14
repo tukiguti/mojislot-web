@@ -2,52 +2,130 @@
   "mode": "security",
   "quizzes": [
     {
-      "id": "q_hack",
-      "question": "システムに不正に侵入・改ざんする行為を指す言葉は？",
+      "id": "q_hack_1",
+      "question": "システムの弱点を突いて不正に侵入し、データを盗んだり書き換えたりする行為は？",
       "answerYakuId": "hack",
-      "decoyYakuIds": ["memori", "spam", "code"]
+      "decoyYakuIds": ["memori", "spam", "flag"]
     },
     {
-      "id": "q_memori",
-      "question": "データを一時的に記憶する、PCの作業領域（RAM）を指す言葉は？",
+      "id": "q_hack_2",
+      "question": "本来は高度な技術で機器やプログラムを巧みにいじることを指した技術者の隠語は？",
+      "answerYakuId": "hack",
+      "decoyYakuIds": ["spam", "code", "bug"]
+    },
+    {
+      "id": "q_hack_3",
+      "question": "生活や仕事を効率化する裏技を「ライフ◯◯」というが、この◯◯に入る語は？",
+      "answerYakuId": "hack",
+      "decoyYakuIds": ["flag", "shell", "memori"]
+    },
+    {
+      "id": "q_hack_4",
+      "question": "善意で行うものをホワイトハット、悪意で行うものをブラックハットと呼び分ける行為は？",
+      "answerYakuId": "hack",
+      "decoyYakuIds": ["spam", "bug", "reg"]
+    },
+    {
+      "id": "q_memori_1",
+      "question": "処理中のデータやプログラムを一時的に置く、電源を切ると内容が消える記憶装置は？",
       "answerYakuId": "memori",
-      "decoyYakuIds": ["spam", "flag", "shell"]
+      "decoyYakuIds": ["spam", "flag", "code"]
     },
     {
-      "id": "q_spam",
-      "question": "大量に送りつけられる、迷惑メールの俗称は？",
+      "id": "q_memori_2",
+      "question": "8GBや16GBという容量で表され、多いほどアプリを同時に動かしやすくなるPC部品は？",
+      "answerYakuId": "memori",
+      "decoyYakuIds": ["hack", "bug", "shell"]
+    },
+    {
+      "id": "q_memori_3",
+      "question": "確保した領域を解放し忘れて使用量が増え続ける不具合を「◯◯リーク」という。◯◯は？",
+      "answerYakuId": "memori",
+      "decoyYakuIds": ["flag", "spam", "reg"]
+    },
+    {
+      "id": "q_memori_4",
+      "question": "英語で「記憶」を意味する語がそのまま定着した、コンピュータの記憶素子を指す言葉は？",
+      "answerYakuId": "memori",
+      "decoyYakuIds": ["hack", "code", "spam"]
+    },
+    {
+      "id": "q_spam_1",
+      "question": "受信者の同意なく宣伝目的で大量に送りつけられる、迷惑メールの俗称は？",
       "answerYakuId": "spam",
-      "decoyYakuIds": ["hack", "memori", "reg"]
+      "decoyYakuIds": ["hack", "memori", "flag"]
     },
     {
-      "id": "q_flag",
-      "question": "条件のON/OFFを表す真偽値の目印。CTFでも探す「◯◯」は？",
+      "id": "q_spam_2",
+      "question": "同じ単語を延々と連呼するコメディ番組と缶詰肉が語源とされる、ネットの迷惑行為は？",
+      "answerYakuId": "spam",
+      "decoyYakuIds": ["memori", "bug", "code"]
+    },
+    {
+      "id": "q_spam_3",
+      "question": "掲示板やチャットで同じ内容を何度も連投して場を荒らす行為も、こう呼ばれる。何？",
+      "answerYakuId": "spam",
+      "decoyYakuIds": ["hack", "flag", "shell"]
+    },
+    {
+      "id": "q_spam_4",
+      "question": "検索順位を不正に上げようと語句を詰め込む行為を「検索エンジン◯◯」という。◯◯は？",
+      "answerYakuId": "spam",
+      "decoyYakuIds": ["memori", "reg", "bug"]
+    },
+    {
+      "id": "q_flag_1",
+      "question": "条件が成立したかどうかを覚えておくため、真か偽かを保持する目印の変数を何という？",
       "answerYakuId": "flag",
-      "decoyYakuIds": ["hack", "spam", "code"]
+      "decoyYakuIds": ["hack", "spam", "memori"]
     },
     {
-      "id": "q_code",
-      "question": "プログラムのソース。`</>` で表される、開発の中身は？（7揃い・BIG）",
+      "id": "q_flag_2",
+      "question": "セキュリティ競技CTFで、問題を解くと手に入る隠された答えの文字列を何という？",
+      "answerYakuId": "flag",
+      "decoyYakuIds": ["bug", "code", "shell"]
+    },
+    {
+      "id": "q_flag_3",
+      "question": "物語で「この後よくないことが起きる」と予感させる前触れも、俗にこう呼ばれる。何？",
+      "answerYakuId": "flag",
+      "decoyYakuIds": ["memori", "spam", "reg"]
+    },
+    {
+      "id": "q_flag_4",
+      "question": "コマンドに付ける -v や --help のような、動作を切り替える指定を何と呼ぶ？",
+      "answerYakuId": "flag",
+      "decoyYakuIds": ["hack", "code", "bug"]
+    },
+    {
+      "id": "q_bug_1",
+      "question": "プログラムに潜む誤りや欠陥で、意図しない動作を引き起こすものを何という？",
+      "answerYakuId": "bug",
+      "decoyYakuIds": ["hack", "code", "flag"]
+    },
+    {
+      "id": "q_bug_2",
+      "question": "初期の計算機に挟まった蛾が語源とされる、機械や処理の不具合を指すカタカナ語は？",
+      "answerYakuId": "bug",
+      "decoyYakuIds": ["memori", "spam", "shell"]
+    },
+    {
+      "id": "q_code_1",
+      "question": "プログラミング言語で書かれた、人間が読める命令の記述そのものを指す語は？",
       "answerYakuId": "code",
       "decoyYakuIds": ["shell", "reg", "flag"]
     },
     {
-      "id": "q_shell",
-      "question": "コマンドを打ち込んでOSを操作する、ターミナルの対話環境は？（バー揃い・BIG）",
+      "id": "q_shell_1",
+      "question": "OSの中核を包む外殻という意味で、命令を解釈して実行する対話プログラムは？",
       "answerYakuId": "shell",
       "decoyYakuIds": ["code", "reg", "memori"]
     },
     {
-      "id": "q_reg",
-      "question": "電話や関数の呼び出し。コードの「コ・ー」＋シェルの「ル」の役は？（RB）",
+      "id": "q_reg_1",
+      "question": "関数や手続きを呼び出す操作、あるいは電話をかけることを指すカタカナ語は？",
       "answerYakuId": "reg",
       "decoyYakuIds": ["code", "shell", "hack"]
-    },
-    {
-      "id": "q_bug",
-      "question": "プログラムの不具合・欠陥。「虫」とも呼ぶチェリー役は？",
-      "answerYakuId": "bug",
-      "decoyYakuIds": ["hack", "code", "memori"]
     }
   ]
 }

@@ -5,9 +5,13 @@ import type { ReelStrip, YakuList } from '../../src/data/schemas';
 // 中段=pos, 上段=pos+1, 下段=pos-1（Paylines.VERTICAL_OFFSET）。
 const strip = (cells: string[]): ReelStrip => ({ id: 'r', cells });
 
-const yakuList = (premium: string[][], bonus: string[][] = []): YakuList => ({
+const yakuList = (
+  premium: string[][],
+  bonus: string[][] = [],
+  core: string[][] = [],
+): YakuList => ({
   mode: 'test',
-  coreYaku: [],
+  coreYaku: core.map((s, i) => ({ id: `c${i}`, name: `c${i}`, symbols: s, category: 'core' })),
   premiumYaku: premium.map((s, i) => ({ id: `p${i}`, name: `p${i}`, symbols: s, category: 'premium' })),
   bonusYaku: bonus.map((s, i) => ({ id: `b${i}`, name: `b${i}`, symbols: s, category: 'bonus' })),
   cherryYaku: [],
@@ -75,6 +79,57 @@ describe('SlipResolver.resolveKick', () => {
 
   it('exceptYakuId（予告役）は蹴らない', () => {
     const kick = r.resolveKick({ ...ctxBase, basePosition: 0, exceptYakuId: 'p0' });
+    expect(kick).toBe(0);
+  });
+});
+
+describe('SlipResolver.resolveKick（演出なしの小役蹴り）', () => {
+  // core(C,D,E) が中段で揃いそうな状況。premium は関与しない。
+  const r = new SlipResolver(yakuList([['X', 'Y', 'Z']], [], [['C', 'D', 'E']]));
+  const ctxBase = {
+    reelIndex: 0,
+    basePosition: 0,
+    strip: strip(['C', 'A', 'B', 'F']), // basePos0=C(揃う)、offset1=A(揃わない)
+    stoppedVisibles: [
+      null,
+      { top: 'm', middle: 'D', bottom: 'm' },
+      { top: 'm', middle: 'E', bottom: 'm' },
+    ] as const,
+  };
+
+  it('kickCore なしなら小役は蹴らない（従来どおり素直に止まる）', () => {
+    expect(r.resolveKick({ ...ctxBase, kickProbability: 1 })).toBe(0);
+  });
+
+  it('kickCore=true なら小役も蹴る（演出なしスピン＝獲れない）', () => {
+    const kick = r.resolveKick({
+      ...ctxBase,
+      kickCore: true,
+      kickProbability: 1,
+      kickMaxCells: 4,
+    });
+    expect(kick).toBe(1);
+  });
+
+  it('kickProbability を下回れば蹴らない＝たまに揃う', () => {
+    vi.spyOn(Math, 'random').mockReturnValue(0.9); // 0.9 >= 0.8 → 発動しない
+    const kick = r.resolveKick({
+      ...ctxBase,
+      kickCore: true,
+      kickProbability: 0.8,
+      kickMaxCells: 4,
+    });
+    expect(kick).toBe(0);
+  });
+
+  it('窓内に「揃わない位置」が無ければ蹴らない（偶発成立）', () => {
+    const kick = r.resolveKick({
+      ...ctxBase,
+      strip: strip(['C', 'C', 'C', 'C']), // どこに止めても C＝揃ってしまう
+      kickCore: true,
+      kickProbability: 1,
+      kickMaxCells: 4,
+    });
     expect(kick).toBe(0);
   });
 });

@@ -2,52 +2,130 @@
   "mode": "katakana_animal",
   "quizzes": [
     {
-      "id": "q_usagi",
-      "question": "長い耳とぴょんと跳ねる脚が特徴の動物は？",
+      "id": "q_usagi_1",
+      "question": "長い耳をぴんと立て、後ろ足で高く跳ねて移動する小さな動物は？",
       "answerYakuId": "usagi",
-      "decoyYakuIds": ["kirin", "tanuki", "inko"]
+      "decoyYakuIds": ["kirin", "tanuki", "tokage"]
     },
     {
-      "id": "q_kirin",
-      "question": "首がとても長く、高い木の葉を食べる動物は？",
+      "id": "q_usagi_2",
+      "question": "童話でカメと競走し、油断して昼寝をしたために負けてしまった動物は？",
+      "answerYakuId": "usagi",
+      "decoyYakuIds": ["tanuki", "sai", "inko"]
+    },
+    {
+      "id": "q_usagi_3",
+      "question": "月にすんでもちをついていると昔から言い伝えられている動物は？",
+      "answerYakuId": "usagi",
+      "decoyYakuIds": ["kirin", "dragon", "tanuki"]
+    },
+    {
+      "id": "q_usagi_4",
+      "question": "地面に穴を掘って巣を作り、危険を感じると後ろ足で地面を叩いて仲間に知らせる小動物は？",
+      "answerYakuId": "usagi",
+      "decoyYakuIds": ["tokage", "sai", "kirin"]
+    },
+    {
+      "id": "q_kirin_1",
+      "question": "首がとても長く、高い木の枝の葉を食べるアフリカの草食動物は？",
       "answerYakuId": "kirin",
-      "decoyYakuIds": ["tanuki", "usagi", "dragon"]
+      "decoyYakuIds": ["usagi", "tanuki", "sai"]
     },
     {
-      "id": "q_tanuki",
-      "question": "ぽんぽこお腹で、人を化かすと言われる動物は？",
+      "id": "q_kirin_2",
+      "question": "陸上にすむ動物の中で最も背が高く、体高が五メートルにもなる動物は？",
+      "answerYakuId": "kirin",
+      "decoyYakuIds": ["sai", "usagi", "tokage"]
+    },
+    {
+      "id": "q_kirin_3",
+      "question": "黄色い体に茶色の網目のような模様がある、サバンナにすむ動物は？",
+      "answerYakuId": "kirin",
+      "decoyYakuIds": ["tanuki", "tokage", "inko"]
+    },
+    {
+      "id": "q_kirin_4",
+      "question": "あんなに首が長いのに、首の骨の数は人間と同じ七個しかない動物は？",
+      "answerYakuId": "kirin",
+      "decoyYakuIds": ["dragon", "sai", "usagi"]
+    },
+    {
+      "id": "q_tanuki_1",
+      "question": "「かちかち山」や「分福茶釜」に登場する、化けるのが得意な動物は？",
       "answerYakuId": "tanuki",
-      "decoyYakuIds": ["usagi", "kirin", "reg"]
+      "decoyYakuIds": ["usagi", "kirin", "dragon"]
     },
     {
-      "id": "q_dragon",
-      "question": "東洋で神聖視される、空を飛ぶ伝説の生き物は？（7揃い・BIG）",
-      "answerYakuId": "dragon",
-      "decoyYakuIds": ["inko", "reg", "kirin"]
+      "id": "q_tanuki_2",
+      "question": "目のまわりが黒く、ずんぐりした体つきで日本の里山にすむ動物は？",
+      "answerYakuId": "tanuki",
+      "decoyYakuIds": ["tokage", "usagi", "sai"]
     },
     {
-      "id": "q_inko",
-      "question": "色鮮やかで、言葉を真似することもある飼い鳥は？（バー揃い・BIG）",
-      "answerYakuId": "inko",
-      "decoyYakuIds": ["dragon", "reg", "usagi"]
+      "id": "q_tanuki_3",
+      "question": "眠ったふりをしてごまかすことを「〜寝入り」という、この動物は？",
+      "answerYakuId": "tanuki",
+      "decoyYakuIds": ["kirin", "inko", "usagi"]
     },
     {
-      "id": "q_reg",
-      "question": "空飛ぶトカゲの仲間「ド・ラ・コ」。ドラゴンとインコが半分ずつの役は？（RB）",
-      "answerYakuId": "reg",
-      "decoyYakuIds": ["dragon", "inko", "tanuki"]
+      "id": "q_tanuki_4",
+      "question": "「捕らぬ〜の皮算用」ということわざに登場する、日本の森にすむ動物は？",
+      "answerYakuId": "tanuki",
+      "decoyYakuIds": ["sai", "tokage", "kirin"]
     },
     {
-      "id": "q_tokage",
-      "question": "細長い体に長いしっぽ、壁を素早く走る爬虫類は？",
+      "id": "q_tokage_1",
+      "question": "敵に襲われると自分の尻尾を切り離して逃げることで知られる爬虫類は？",
       "answerYakuId": "tokage",
-      "decoyYakuIds": ["usagi", "kirin", "tanuki"]
+      "decoyYakuIds": ["usagi", "tanuki", "inko"]
     },
     {
-      "id": "q_sai",
-      "question": "鼻の上に大きな角を持つ、灰色の大型動物。チェリー役は？",
+      "id": "q_tokage_2",
+      "question": "日なたの石の上で体を温め、草むらをすばやく走り回る小さな爬虫類は？",
+      "answerYakuId": "tokage",
+      "decoyYakuIds": ["kirin", "sai", "tanuki"]
+    },
+    {
+      "id": "q_tokage_3",
+      "question": "英語で「リザード」と呼ばれる、四本足で長い尾を持つ爬虫類は？",
+      "answerYakuId": "tokage",
+      "decoyYakuIds": ["dragon", "usagi", "kirin"]
+    },
+    {
+      "id": "q_tokage_4",
+      "question": "インドネシアの島に「コモドオオ〜」という巨大な仲間がすむ爬虫類は？",
+      "answerYakuId": "tokage",
+      "decoyYakuIds": ["sai", "dragon", "tanuki"]
+    },
+    {
+      "id": "q_sai_1",
+      "question": "鼻の上に大きな角があり、厚くて硬い皮膚におおわれた大型の草食動物は？",
       "answerYakuId": "sai",
-      "decoyYakuIds": ["usagi", "dragon", "inko"]
+      "decoyYakuIds": ["kirin", "tanuki", "usagi"]
+    },
+    {
+      "id": "q_sai_2",
+      "question": "英語で「ライノ」と呼ばれ、密猟によって数が減っている大型の動物は？",
+      "answerYakuId": "sai",
+      "decoyYakuIds": ["tokage", "kirin", "inko"]
+    },
+    {
+      "id": "q_dragon_1",
+      "question": "西洋の物語に出てくる、翼を持ち口から火を吐く伝説の生き物は？",
+      "answerYakuId": "dragon",
+      "decoyYakuIds": ["tokage", "inko", "kirin"]
+    },
+    {
+      "id": "q_inko_1",
+      "question": "「セキセイ」や「オカメ」の種類が知られる、人の言葉をまねる飼い鳥は？",
+      "answerYakuId": "inko",
+      "decoyYakuIds": ["usagi", "dragon", "tokage"]
+    },
+    {
+      "id": "q_reg_1",
+      "question": "北の空にあり、北極星を取り巻くように長く伸びる「りゅう座」のラテン語名は？",
+      "answerYakuId": "reg",
+      "decoyYakuIds": ["dragon", "inko", "sai"]
     }
   ]
 }

@@ -147,6 +147,45 @@ const DEFAULT_SHISA_TIERS: ShisaTier[] = [
   { color: 'gold', weight: 0.02, coreCells: 0, bonusCells: 8, premiumCells: 8, noticeHintCells: 4 },
 ];
 
+/**
+ * 予告（狙え/クイズ）が BB(premium)/RB(bonus) を対象にする重み。1=フィルタなし、0=小役限定。
+ * ここがボーナス突入率とおかわり率を直接決める（演出の頻度ではなく「予告の中身」で出玉を制御する）。
+ * ボーナス中の値を小さくするほど、おかわりが「赤/金示唆」に寄ったレアな契機になる。
+ */
+const NoticeWeightSchema = z
+  .object({
+    /** 通常時：狙えの予告役抽選で bonus/premium にかける重み倍率。 */
+    aimBonusWeight: z.number().min(0).default(0.1),
+    /** 通常時：クイズ出題で「答えが bonus/premium」の問題にかける重み倍率。 */
+    quizBonusWeight: z.number().min(0).default(0.2),
+    /** ボーナス中：狙えの予告役（0=小役のみ予告＝おかわりは示唆の赤/金だけ）。 */
+    bonusAimBonusWeight: z.number().min(0).default(0),
+    /** ボーナス中：クイズの BB/RB 問題。 */
+    bonusQuizBonusWeight: z.number().min(0).default(0.15),
+  })
+  .default({
+    aimBonusWeight: 0.1,
+    quizBonusWeight: 0.2,
+    bonusAimBonusWeight: 0,
+    bonusQuizBonusWeight: 0.15,
+  });
+
+/**
+ * 演出なし時の小役蹴り。
+ * 「演出中に目押しできれば獲れる」技術介入機にするため、**演出が無いスピンは小役も揃わない**
+ * （＝実機の小役非当選に相当）。これが無いと目押しの上手いプレイヤーが通常時に無限に増やせる。
+ * ボーナス中と確定告知ランプ点灯中は適用しない。
+ */
+const KickCoreSchema = z
+  .object({
+    enabled: z.boolean().default(true),
+    /** 蹴りの発動確率（0..1）。 */
+    probability: z.number().min(0).max(1).default(0.8),
+    /** 「揃わない位置」を探す最大コマ数。窓内に無ければ蹴らない＝たまに揃う。 */
+    maxCells: z.number().int().nonnegative().default(4),
+  })
+  .default({ enabled: true, probability: 0.8, maxCells: 4 });
+
 export const TuningSchema = z.object({
   /** ベット毎の演出抽選レート（通常／ハマり救済／ボーナス中）。各合計≈1.0 を想定。 */
   effectRates: z.object({
@@ -156,13 +195,21 @@ export const TuningSchema = z.object({
   }),
   /** 連続ハズレがこの回数以上で救済レートへ切替。 */
   rescueMissThreshold: z.number().int().positive().default(30),
-  /** ボーナス区間の継続スピン数。 */
+  /** ボーナス区間の継続スピン数と、ボーナス中だけ差し替える示唆tier。 */
   bonus: z
     .object({
       spinsPerBig: z.number().int().positive().default(10),
       spinsPerReg: z.number().int().positive().default(5),
+      /**
+       * ボーナス中の示唆tier（省略時は assist.shisaTiers を流用）。
+       * ボーナス中は演出100%なので、通常と同じ赤6%/金2%だと「おかわり」が毎セット当たって
+       * 区間が終わらなくなる。ここで赤/金を絞ることでおかわりをレアな契機にする。
+       */
+      shisaTiers: z.array(ShisaTierSchema).min(1).optional(),
     })
     .default({ spinsPerBig: 10, spinsPerReg: 5 }),
+  /** 予告（狙え/クイズ）が BB/RB を対象にする重み。突入率・おかわり率の主ダイヤル。 */
+  notice: NoticeWeightSchema,
   /** 引き込み/蹴り（目押し補助）の強さ。コマ数が大きいほど揃いやすい。 */
   assist: z
     .object({
@@ -178,6 +225,8 @@ export const TuningSchema = z.object({
       kickProbability: z.number().min(0).max(1).default(0.5),
       /** 示唆の期待度tier（青<黄<緑<赤<金）。引いた示唆はこの配列から重み抽選される。 */
       shisaTiers: z.array(ShisaTierSchema).min(1).default(DEFAULT_SHISA_TIERS),
+      /** 演出なしスピンで小役(core/cherry)も蹴るか（技術介入機の前提＝演出中だけ獲れる）。 */
+      kickCore: KickCoreSchema,
     })
     .default({
       assistMaxCells: 4,
@@ -186,6 +235,7 @@ export const TuningSchema = z.object({
       kickMaxCells: 2,
       kickProbability: 0.5,
       shisaTiers: DEFAULT_SHISA_TIERS,
+      kickCore: { enabled: true, probability: 0.8, maxCells: 4 },
     }),
   /** フリーズ演出。 */
   freeze: z

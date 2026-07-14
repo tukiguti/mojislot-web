@@ -19,7 +19,9 @@ export class QuizQuestionView {
   constructor(state: QuizState, opts: QuizQuestionViewOptions) {
     this.container = new Container();
 
-    // 文字を読みやすくするための半透明パネル
+    // 文字を読みやすくするための半透明パネル。
+    // 暗く落とすと「クイズ＝アツい」と telegraph しすぎるので、薄く明るめに乗せるだけにする
+    //（プレイヤーが「どれかな」と考えて打つのが本作のコンセプト）。
     const padX = 24;
     const padY = 18;
     this.backdrop = new Graphics();
@@ -31,8 +33,8 @@ export class QuizQuestionView {
         opts.height - padY * 2,
         12,
       )
-      .fill({ color: 0x1a0d20, alpha: 0.55 })
-      .stroke({ width: 2, color: 0xff66cc, alpha: 0.7 });
+      .fill({ color: 0x5a3a68, alpha: 0.28 })
+      .stroke({ width: 2, color: 0xff8ad8, alpha: 0.5 });
     this.container.addChild(this.backdrop);
 
     this.text = new Text({

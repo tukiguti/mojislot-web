@@ -2,52 +2,130 @@
   "mode": "yasai",
   "quizzes": [
     {
-      "id": "q_okura",
-      "question": "切ると星形で、ねばねばした緑の野菜は？",
+      "id": "q_okura_1",
+      "question": "輪切りにすると断面が星の形になる、ねばり気の強い夏野菜は？",
       "answerYakuId": "okura",
-      "decoyYakuIds": ["moyashi", "serori", "tomato"]
+      "decoyYakuIds": ["moyashi", "serori", "retasu"]
     },
     {
-      "id": "q_moyashi",
-      "question": "豆を発芽させた、白くて細長い野菜は？",
+      "id": "q_okura_2",
+      "question": "表面にうぶ毛が生え、細長いさやの中に小さな白い種が並ぶ野菜は？",
+      "answerYakuId": "okura",
+      "decoyYakuIds": ["serori", "retasu", "tomato"]
+    },
+    {
+      "id": "q_okura_3",
+      "question": "刻むと糸を引く粘りが出て、納豆や山芋と混ぜて食べられる野菜は？",
+      "answerYakuId": "okura",
+      "decoyYakuIds": ["moyashi", "retasu", "nasubi"]
+    },
+    {
+      "id": "q_okura_4",
+      "question": "アフリカ生まれで、黄色い花が咲いた後に食べるさやが上を向いて実る野菜は？",
+      "answerYakuId": "okura",
+      "decoyYakuIds": ["serori", "moyashi", "reg"]
+    },
+    {
+      "id": "q_moyashi_1",
+      "question": "豆を暗い場所で発芽させて育てる、白く細長い安価な食材は？",
       "answerYakuId": "moyashi",
-      "decoyYakuIds": ["serori", "okura", "potechi"]
+      "decoyYakuIds": ["okura", "serori", "retasu"]
     },
     {
-      "id": "q_serori",
-      "question": "シャキッとした食感で、独特の香りがある緑の茎野菜は？",
+      "id": "q_moyashi_2",
+      "question": "ラーメンの上に山盛りにされ、シャキシャキした歯ざわりが楽しめる食材は？",
+      "answerYakuId": "moyashi",
+      "decoyYakuIds": ["serori", "retasu", "nasubi"]
+    },
+    {
+      "id": "q_moyashi_3",
+      "question": "日光を当てずに水だけで育てるため色が白いままの、豆から伸びた芽を何という？",
+      "answerYakuId": "moyashi",
+      "decoyYakuIds": ["okura", "tomato", "retasu"]
+    },
+    {
+      "id": "q_moyashi_4",
+      "question": "ひょろ長くて力のない若者を「〜っ子」とたとえる、そのもとになった食材は？",
+      "answerYakuId": "moyashi",
+      "decoyYakuIds": ["okura", "serori", "reg"]
+    },
+    {
+      "id": "q_serori_1",
+      "question": "強い香りと筋のある太い茎が特徴で、好き嫌いが分かれる西洋生まれの野菜は？",
       "answerYakuId": "serori",
-      "decoyYakuIds": ["okura", "moyashi", "reg"]
+      "decoyYakuIds": ["okura", "moyashi", "retasu"]
     },
     {
-      "id": "q_potechi",
-      "question": "じゃがいもを薄く切って揚げた、袋入りのスナック菓子は？（7揃い・BIG）",
-      "answerYakuId": "potechi",
-      "decoyYakuIds": ["tomato", "reg", "okura"]
+      "id": "q_serori_2",
+      "question": "スティック状に切り、味噌やマヨネーズをつけて生のままかじる香りの強い茎野菜は？",
+      "answerYakuId": "serori",
+      "decoyYakuIds": ["moyashi", "nasubi", "retasu"]
     },
     {
-      "id": "q_tomato",
-      "question": "真っ赤で、サラダやケチャップにする実野菜は？（バー揃い・BIG）",
-      "answerYakuId": "tomato",
-      "decoyYakuIds": ["potechi", "reg", "moyashi"]
+      "id": "q_serori_3",
+      "question": "カレーやスープの煮込みで、肉の臭みを消すために一緒に煮られる筋の多い野菜は？",
+      "answerYakuId": "serori",
+      "decoyYakuIds": ["okura", "tomato", "moyashi"]
     },
     {
-      "id": "q_reg",
-      "question": "じゃがいもを揚げた料理。ポテチの「ポ・テ」＋トマトの「ト」の役は？（RB）",
-      "answerYakuId": "reg",
-      "decoyYakuIds": ["potechi", "tomato", "serori"]
+      "id": "q_serori_4",
+      "question": "古代ローマでは薬草として使われ、今は茎をサラダで食べる香り高い野菜は？",
+      "answerYakuId": "serori",
+      "decoyYakuIds": ["retasu", "okura", "reg"]
     },
     {
-      "id": "q_retasu",
-      "question": "サラダによく使う、葉が丸く重なった緑の野菜は？",
+      "id": "q_retasu_1",
+      "question": "玉のように葉が重なり、ハンバーガーに生のまま挟まれる葉物野菜は？",
       "answerYakuId": "retasu",
-      "decoyYakuIds": ["okura", "moyashi", "serori"]
+      "decoyYakuIds": ["okura", "serori", "moyashi"]
     },
     {
-      "id": "q_nasubi",
-      "question": "紫色で細長い夏野菜。左＋中で揃うチェリー役は？",
+      "id": "q_retasu_2",
+      "question": "手でちぎってドレッシングをかけると、パリパリした食感が楽しめる丸い葉野菜は？",
+      "answerYakuId": "retasu",
+      "decoyYakuIds": ["serori", "nasubi", "moyashi"]
+    },
+    {
+      "id": "q_retasu_3",
+      "question": "長野県の涼しい高原で夏にたくさん作られ、和名を「ちしゃ」という野菜は？",
+      "answerYakuId": "retasu",
+      "decoyYakuIds": ["okura", "tomato", "serori"]
+    },
+    {
+      "id": "q_retasu_4",
+      "question": "切り口から白い液が出ることから、乳を意味する言葉が名前の語源になった野菜は？",
+      "answerYakuId": "retasu",
+      "decoyYakuIds": ["moyashi", "okura", "reg"]
+    },
+    {
+      "id": "q_nasubi_1",
+      "question": "つやのある濃い紫色の実で、焼いても揚げても漬物にしてもおいしい夏野菜は？",
       "answerYakuId": "nasubi",
-      "decoyYakuIds": ["okura", "potechi", "tomato"]
+      "decoyYakuIds": ["okura", "serori", "retasu"]
+    },
+    {
+      "id": "q_nasubi_2",
+      "question": "初夢に見ると縁起がよいとされ、富士山と鷹に続いて三番目に挙げられる野菜は？",
+      "answerYakuId": "nasubi",
+      "decoyYakuIds": ["tomato", "moyashi", "retasu"]
+    },
+    {
+      "id": "q_potechi_1",
+      "question": "芋を薄く切って油で揚げ、塩で味つけして袋に詰めて売られている菓子は？",
+      "answerYakuId": "potechi",
+      "decoyYakuIds": ["reg", "tomato", "okura"]
+    },
+    {
+      "id": "q_tomato_1",
+      "question": "赤く熟した実をそのままかじったり、ケチャップの原料にしたりする野菜は？",
+      "answerYakuId": "tomato",
+      "decoyYakuIds": ["nasubi", "serori", "retasu"]
+    },
+    {
+      "id": "q_reg_1",
+      "question": "ファストフード店でハンバーガーに添えられる、芋を細長く切って揚げた料理は？",
+      "answerYakuId": "reg",
+      "decoyYakuIds": ["potechi", "moyashi", "okura"]
     }
   ]
 }

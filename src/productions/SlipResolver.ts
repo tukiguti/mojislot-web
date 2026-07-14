@@ -37,6 +37,14 @@ export interface SlipContext {
   exceptYakuId?: string;
   /** これらのカテゴリの役は蹴らない（赤/金示唆で bonus/premium を引き込み対象にする時に指定）。 */
   exceptCategories?: readonly Yaku['category'][];
+  /**
+   * 小役(core/cherry)も蹴る（演出なしスピン専用）。
+   * 技術介入機として「演出中に目押しできれば獲れる／演出が無ければ獲れない」を成立させる。
+   * probability / maxCells を渡すと、この蹴りだけ強度を上書きできる（既定の premium/bonus 用とは別）。
+   */
+  kickCore?: boolean;
+  kickProbability?: number;
+  kickMaxCells?: number;
 }
 
 const KICK_PROBABILITY = 0.5;
@@ -54,14 +62,17 @@ export interface SlipResolverOptions {
 }
 
 export class SlipResolver {
-  /** 蹴り対象＝premium/bonus のみ（core/cherry は蹴らない） */
+  /** 既定の蹴り対象＝premium/bonus（偶然の7揃い防止） */
   private readonly kickYakus: Yaku[];
+  /** 演出なしスピンで追加する蹴り対象＝core/cherry（ctx.kickCore で有効化） */
+  private readonly coreYakus: Yaku[];
   private readonly kickProbability: number;
   private readonly kickMaxCells: number;
   private readonly assistMaxCells: number;
 
   constructor(yakuList: YakuList, opts: SlipResolverOptions = {}) {
     this.kickYakus = [...yakuList.premiumYaku, ...yakuList.bonusYaku];
+    this.coreYakus = [...yakuList.coreYaku, ...yakuList.cherryYaku];
     this.kickProbability = opts.kickProbability ?? KICK_PROBABILITY;
     this.kickMaxCells = opts.kickMaxCells ?? KICK_MAX_CELLS;
     this.assistMaxCells = opts.assistMaxCells ?? ASSIST_MAX_CELLS;
@@ -80,15 +91,20 @@ export class SlipResolver {
       const exempt = new Set(ctx.exceptCategories);
       yakus = yakus.filter((y) => !exempt.has(y.category));
     }
+    // 演出なしスピンは小役も蹴る（＝演出中しか獲れない）。強度もこの時だけ上書きできる。
+    if (ctx.kickCore) yakus = [...yakus, ...this.coreYakus];
+    const probability = ctx.kickProbability ?? this.kickProbability;
+    const maxCells = ctx.kickMaxCells ?? this.kickMaxCells;
     if (yakus.length === 0) return 0;
-    if (Math.random() >= this.kickProbability) return 0;
+    if (Math.random() >= probability) return 0;
     if (!this.wouldComplete(ctx.basePosition, ctx, yakus)) return 0;
 
     const total = ctx.strip.cells.length;
-    for (let offset = 1; offset <= this.kickMaxCells; offset++) {
+    for (let offset = 1; offset <= maxCells; offset++) {
       const idx = (((ctx.basePosition + offset) % total) + total) % total;
       if (!this.wouldComplete(idx, ctx, yakus)) return offset;
     }
+    // 窓内に「揃わない位置」が無ければ蹴らない＝たまたま揃う（偶発成立）
     return 0;
   }
 

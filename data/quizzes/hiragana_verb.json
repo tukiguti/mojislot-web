@@ -2,52 +2,214 @@
   "mode": "hiragana_verb",
   "quizzes": [
     {
-      "id": "q_utau",
-      "question": "マイクを持って、声で音楽を奏でる動作は？",
+      "id": "q_utau_1",
+      "question": "カラオケでマイクを握り、曲に合わせて声を出すことを何という？",
       "answerYakuId": "utau",
-      "decoyYakuIds": ["asobu", "oyogu", "yasumu"]
+      "decoyYakuIds": [
+        "asobu",
+        "oyogu",
+        "hanasu"
+      ]
     },
     {
-      "id": "q_asobu",
-      "question": "ボールやおもちゃで楽しく時間を過ごす動作は？",
+      "id": "q_utau_2",
+      "question": "お風呂場で気持ちよくメロディーを口ずさむ行為を何という？",
+      "answerYakuId": "utau",
+      "decoyYakuIds": [
+        "hanasu",
+        "neru",
+        "yasumu"
+      ]
+    },
+    {
+      "id": "q_utau_3",
+      "question": "合唱コンクールで大勢が声をそろえ、旋律を響かせる動作は？",
+      "answerYakuId": "utau",
+      "decoyYakuIds": [
+        "hanasu",
+        "asobu",
+        "ikiru"
+      ]
+    },
+    {
+      "id": "q_utau_4",
+      "question": "ラララと声を弾ませ、伴奏に合わせて旋律を奏でることを何という？",
+      "answerYakuId": "utau",
+      "decoyYakuIds": [
+        "oyogu",
+        "hanasu",
+        "reg"
+      ]
+    },
+    {
+      "id": "q_asobu_1",
+      "question": "公園のブランコやすべり台で、子どもが楽しく時間を過ごすことを何という？",
       "answerYakuId": "asobu",
-      "decoyYakuIds": ["oyogu", "utau", "ikiru"]
+      "decoyYakuIds": [
+        "oyogu",
+        "utau",
+        "yasumu"
+      ]
     },
     {
-      "id": "q_oyogu",
-      "question": "水の中を手足を使って進む動作は？",
+      "id": "q_asobu_2",
+      "question": "おもちゃやゲームに夢中になり、時間を忘れて楽しむことを何という？",
+      "answerYakuId": "asobu",
+      "decoyYakuIds": [
+        "utau",
+        "hanasu",
+        "neru"
+      ]
+    },
+    {
+      "id": "q_asobu_3",
+      "question": "友だちの家に集まって、トランプやかくれんぼに興じることを何という？",
+      "answerYakuId": "asobu",
+      "decoyYakuIds": [
+        "oyogu",
+        "hanasu",
+        "ikiru"
+      ]
+    },
+    {
+      "id": "q_asobu_4",
+      "question": "子ネコが毛糸玉にじゃれつくように、無邪気に楽しむ様子を表す言葉は？",
+      "answerYakuId": "asobu",
+      "decoyYakuIds": [
+        "neru",
+        "oyogu",
+        "reg"
+      ]
+    },
+    {
+      "id": "q_oyogu_1",
+      "question": "プールで手足を動かし、水の中を前へ進むことを何という？",
       "answerYakuId": "oyogu",
-      "decoyYakuIds": ["utau", "asobu", "reg"]
+      "decoyYakuIds": [
+        "asobu",
+        "utau",
+        "yasumu"
+      ]
     },
     {
-      "id": "q_ikiru",
-      "question": "命があって、この世に存在し続けることを表す動詞は？（7揃い・BIG）",
-      "answerYakuId": "ikiru",
-      "decoyYakuIds": ["yasumu", "reg", "asobu"]
+      "id": "q_oyogu_2",
+      "question": "クロールやバタフライなどの型で速さを競う、水中を進む動作は？",
+      "answerYakuId": "oyogu",
+      "decoyYakuIds": [
+        "asobu",
+        "hanasu",
+        "reg"
+      ]
     },
     {
-      "id": "q_yasumu",
-      "question": "布団に入って体を休め、眠ることを表す動詞は？（バー揃い・BIG）",
-      "answerYakuId": "yasumu",
-      "decoyYakuIds": ["ikiru", "reg", "utau"]
+      "id": "q_oyogu_3",
+      "question": "人ごみの中を巧みに進むときのたとえにも使う、水の中を移動する行為は？",
+      "answerYakuId": "oyogu",
+      "decoyYakuIds": [
+        "hanasu",
+        "ikiru",
+        "asobu"
+      ]
     },
     {
-      "id": "q_reg",
-      "question": "力を入れてふんばる動詞。いきるの「い・き」＋やすむの「む」の役は？（RB）",
-      "answerYakuId": "reg",
-      "decoyYakuIds": ["ikiru", "yasumu", "oyogu"]
+      "id": "q_oyogu_4",
+      "question": "川の魚がすいすいと水をかいて移動する、その動きを表す言葉は？",
+      "answerYakuId": "oyogu",
+      "decoyYakuIds": [
+        "neru",
+        "utau",
+        "asobu"
+      ]
     },
     {
-      "id": "q_hanasu",
-      "question": "口を使って言葉を相手に伝える動作は？",
+      "id": "q_hanasu_1",
+      "question": "相手に向かって口を開き、言葉で自分の考えを伝えることを何という？",
       "answerYakuId": "hanasu",
-      "decoyYakuIds": ["utau", "asobu", "oyogu"]
+      "decoyYakuIds": [
+        "utau",
+        "asobu",
+        "oyogu"
+      ]
     },
     {
-      "id": "q_neru",
-      "question": "布団に入って目を閉じ、眠る動作。左＋中で揃うチェリー役は？",
+      "id": "q_hanasu_2",
+      "question": "受話器を耳に当て、遠くの相手と言葉を交わす行為を何という？",
+      "answerYakuId": "hanasu",
+      "decoyYakuIds": [
+        "utau",
+        "neru",
+        "yasumu"
+      ]
+    },
+    {
+      "id": "q_hanasu_3",
+      "question": "隠していた事情を打ち明けるときにも使う、声で言葉を伝える動作は？",
+      "answerYakuId": "hanasu",
+      "decoyYakuIds": [
+        "utau",
+        "ikiru",
+        "asobu"
+      ]
+    },
+    {
+      "id": "q_hanasu_4",
+      "question": "大勢の聴衆の前に立ち、原稿を見ながら自分の意見を述べることは？",
+      "answerYakuId": "hanasu",
+      "decoyYakuIds": [
+        "utau",
+        "oyogu",
+        "reg"
+      ]
+    },
+    {
+      "id": "q_neru_1",
+      "question": "布団を敷いて体を横たえ、夜の眠りにつくことを何という？",
       "answerYakuId": "neru",
-      "decoyYakuIds": ["utau", "ikiru", "yasumu"]
+      "decoyYakuIds": [
+        "yasumu",
+        "asobu",
+        "utau"
+      ]
+    },
+    {
+      "id": "q_neru_2",
+      "question": "猫が日なたで丸くなり、目を閉じて体を横たえる動作を何という？",
+      "answerYakuId": "neru",
+      "decoyYakuIds": [
+        "yasumu",
+        "oyogu",
+        "hanasu"
+      ]
+    },
+    {
+      "id": "q_ikiru_1",
+      "question": "毎日を送りながら命を保ち、この世に存在し続けることを表す言葉は？",
+      "answerYakuId": "ikiru",
+      "decoyYakuIds": [
+        "yasumu",
+        "neru",
+        "reg"
+      ]
+    },
+    {
+      "id": "q_yasumu_1",
+      "question": "風邪をひいて学校に行かず、一日を静かに過ごして体力を戻すことを何という？",
+      "answerYakuId": "yasumu",
+      "decoyYakuIds": [
+        "neru",
+        "asobu",
+        "ikiru"
+      ]
+    },
+    {
+      "id": "q_reg_1",
+      "question": "重い物を持ち上げるときのように、腹にぐっと力を込めてふんばることを何という？",
+      "answerYakuId": "reg",
+      "decoyYakuIds": [
+        "ikiru",
+        "yasumu",
+        "oyogu"
+      ]
     }
   ]
 }

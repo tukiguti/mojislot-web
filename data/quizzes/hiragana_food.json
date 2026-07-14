@@ -2,52 +2,130 @@
   "mode": "hiragana_food",
   "quizzes": [
     {
-      "id": "q_budou",
-      "question": "房（ふさ）になって実る、紫色の果物は？",
+      "id": "q_budou_1",
+      "question": "小さな粒がたくさん房のようにつながって実る、紫色の果物は？",
       "answerYakuId": "budou",
-      "decoyYakuIds": ["dango", "tofu", "namazu"]
+      "decoyYakuIds": ["mikan", "dango", "tofu"]
     },
     {
-      "id": "q_dango",
-      "question": "串にさして食べる、三色の和菓子は？",
-      "answerYakuId": "dango",
-      "decoyYakuIds": ["tofu", "budou", "sushiya"]
+      "id": "q_budou_2",
+      "question": "ワインやレーズンの原料になる、つるにぶら下がって実る果物は？",
+      "answerYakuId": "budou",
+      "decoyYakuIds": ["momo", "mikan", "sushiya"]
     },
     {
-      "id": "q_tofu",
-      "question": "大豆から作る、白くて四角いヘルシーな食べ物は？",
+      "id": "q_budou_3",
+      "question": "イソップ物語で、キツネが届かない実をすっぱいと負け惜しみした果物は？",
+      "answerYakuId": "budou",
+      "decoyYakuIds": ["momo", "tofu", "namazu"]
+    },
+    {
+      "id": "q_budou_4",
+      "question": "巨峰やマスカットという品種で知られる、秋が旬の果物は？",
+      "answerYakuId": "budou",
+      "decoyYakuIds": ["mikan", "momo", "dango"]
+    },
+    {
+      "id": "q_tofu_1",
+      "question": "大豆をしぼった汁に、にがりを加えて固めた白い食べ物は？",
       "answerYakuId": "tofu",
-      "decoyYakuIds": ["budou", "dango", "reg"]
+      "decoyYakuIds": ["dango", "budou", "reg"]
     },
     {
-      "id": "q_sushiya",
-      "question": "暖簾をくぐって入る、寿司を握る店は？（7揃い・BIG）",
+      "id": "q_tofu_2",
+      "question": "木綿と絹ごしの二種類があり、みそ汁の具にもよく使われる食品は？",
+      "answerYakuId": "tofu",
+      "decoyYakuIds": ["dango", "namazu", "mikan"]
+    },
+    {
+      "id": "q_tofu_3",
+      "question": "かすがいを打っても効き目がない、と手ごたえのなさをたとえる白い食品は？",
+      "answerYakuId": "tofu",
+      "decoyYakuIds": ["dango", "budou", "sushiya"]
+    },
+    {
+      "id": "q_tofu_4",
+      "question": "夏は冷ややっこ、冬は鍋で温めて食べる、四角く切った白い食品は？",
+      "answerYakuId": "tofu",
+      "decoyYakuIds": ["namazu", "dango", "momo"]
+    },
+    {
+      "id": "q_dango_1",
+      "question": "串にさして三つ四つ並べ、みたらしのタレをかけて食べる和菓子は？",
+      "answerYakuId": "dango",
+      "decoyYakuIds": ["tofu", "budou", "momo"]
+    },
+    {
+      "id": "q_dango_2",
+      "question": "見た目より中身が大事という意味のことわざで、花と比べられる食べ物は？",
+      "answerYakuId": "dango",
+      "decoyYakuIds": ["momo", "mikan", "tofu"]
+    },
+    {
+      "id": "q_dango_3",
+      "question": "十五夜の夜に、ススキとともに積み上げて月に供える丸い和菓子は？",
+      "answerYakuId": "dango",
+      "decoyYakuIds": ["mikan", "tofu", "budou"]
+    },
+    {
+      "id": "q_dango_4",
+      "question": "米の粉をこねて小さく丸め、蒸してつくるもちに似た和菓子は？",
+      "answerYakuId": "dango",
+      "decoyYakuIds": ["tofu", "sushiya", "budou"]
+    },
+    {
+      "id": "q_mikan_1",
+      "question": "冬にこたつの上のかごに盛られ、皮を手でむいて食べる果物は？",
+      "answerYakuId": "mikan",
+      "decoyYakuIds": ["budou", "momo", "dango"]
+    },
+    {
+      "id": "q_mikan_2",
+      "question": "愛媛や和歌山が名産地で、実に白いすじがついている柑橘は？",
+      "answerYakuId": "mikan",
+      "decoyYakuIds": ["budou", "momo", "tofu"]
+    },
+    {
+      "id": "q_mikan_3",
+      "question": "食べすぎると手のひらが黄色くなると言われる、冬の定番の果物は？",
+      "answerYakuId": "mikan",
+      "decoyYakuIds": ["momo", "budou", "namazu"]
+    },
+    {
+      "id": "q_mikan_4",
+      "question": "うすい袋に分かれた実がぎっしり並ぶ、オレンジ色の皮をもつ果物は？",
+      "answerYakuId": "mikan",
+      "decoyYakuIds": ["budou", "dango", "momo"]
+    },
+    {
+      "id": "q_momo_1",
+      "question": "川から流れてきた大きな実から男の子が生まれる昔話、その実は何の果物？",
+      "answerYakuId": "momo",
+      "decoyYakuIds": ["budou", "mikan", "dango"]
+    },
+    {
+      "id": "q_momo_2",
+      "question": "うすい産毛におおわれ、やわらかくて汁気の多い夏の果物は？",
+      "answerYakuId": "momo",
+      "decoyYakuIds": ["mikan", "budou", "tofu"]
+    },
+    {
+      "id": "q_sushiya_1",
+      "question": "職人がカウンターごしに魚介をにぎって出す、暖簾のかかった飲食店は？",
       "answerYakuId": "sushiya",
-      "decoyYakuIds": ["namazu", "reg", "budou"]
+      "decoyYakuIds": ["namazu", "reg", "dango"]
     },
     {
-      "id": "q_namazu",
-      "question": "長いヒゲを持ち、地震を予知すると言われる魚は？（バー揃い・BIG）",
+      "id": "q_namazu_1",
+      "question": "長いひげを持ち、地震を予知すると言い伝えられてきた淡水魚は？",
       "answerYakuId": "namazu",
-      "decoyYakuIds": ["sushiya", "reg", "dango"]
+      "decoyYakuIds": ["sushiya", "reg", "mikan"]
     },
     {
-      "id": "q_reg",
-      "question": "寿司めしを作るのに、ごはんに混ぜる調味料は？（RB）",
+      "id": "q_reg_1",
+      "question": "魚をのせる日本料理のごはんに、砂糖と塩を加えて酸味をつける調味料は？",
       "answerYakuId": "reg",
       "decoyYakuIds": ["sushiya", "namazu", "tofu"]
-    },
-    {
-      "id": "q_mikan",
-      "question": "冬にこたつで食べる、皮をむくオレンジ色の果物は？",
-      "answerYakuId": "mikan",
-      "decoyYakuIds": ["budou", "dango", "tofu"]
-    },
-    {
-      "id": "q_momo",
-      "question": "桃太郎でおなじみ、ピンク色で甘い果物は？（左＋中で揃うチェリー役）",
-      "answerYakuId": "momo",
-      "decoyYakuIds": ["budou", "sushiya", "namazu"]
     }
   ]
 }

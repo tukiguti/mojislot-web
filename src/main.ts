@@ -453,11 +453,27 @@ export async function bootstrap() {
     return items[items.length - 1];
   };
 
-  // クイズは「答えの役のリール枚数」に比例して出題（最頻役のクイズが多く出る）
+  /**
+   * 予告（狙え/クイズ）が BB(premium)/RB(bonus) を対象にする重み。
+   * 演出は全て「目押しできれば獲れる」＝予告の中身がそのまま出玉になるため、ボーナス突入率と
+   * おかわり率はこの重みで決まる（演出の頻度ではなく中身で制御する）。ボーナス中は別値。
+   */
+  const noticeBonusWeight = (kind: 'aim' | 'quiz'): number => {
+    const n = tuning.notice;
+    if (bonusZone.isActive()) {
+      return kind === 'aim' ? n.bonusAimBonusWeight : n.bonusQuizBonusWeight;
+    }
+    return kind === 'aim' ? n.aimBonusWeight : n.quizBonusWeight;
+  };
+  const isBonusCategory = (c: Yaku['category']): boolean =>
+    c === 'premium' || c === 'bonus';
+
+  // クイズは小役の問題を一様抽選。BB/RB が答えの問題だけ重みを落とす（＝出題されればアツい）。
   const pickRandomQuiz = () =>
     weightedPick(quizList.quizzes, (q) => {
       const y = allYakusFlat.find((yy) => yy.id === q.answerYakuId);
-      return y ? yakuReelWeight(y) : 1;
+      if (!y) return 1;
+      return isBonusCategory(y.category) ? noticeBonusWeight('quiz') : 1;
     });
 
   // 示唆の期待度tier色 → 画面tint(hex) / ジンの煽り台詞。
@@ -475,9 +491,16 @@ export async function bootstrap() {
     red: 'shisaBonus',
     gold: 'shisaPremium',
   };
-  // 示唆を引いた時、期待度tierを重み抽選（青が出やすく金は稀）。
-  const pickShisaTier = (): ShisaTier =>
-    weightedPick(tuning.assist.shisaTiers, (t) => t.weight);
+  /**
+   * 示唆を引いた時、期待度tierを重み抽選（青が出やすく金は稀）。
+   * ボーナス中は演出100%なので、通常と同じ赤/金の比率だと「おかわり」が毎セット当たって区間が
+   * 終わらなくなる。ボーナス中だけ tuning.bonus.shisaTiers（赤/金を絞った表）へ差し替える。
+   */
+  const pickShisaTier = (): ShisaTier => {
+    const tiers =
+      (bonusZone.isActive() ? tuning.bonus.shisaTiers : null) ?? tuning.assist.shisaTiers;
+    return weightedPick(tiers, (t) => t.weight);
+  };
 
   /**
    * aim 演出で狙っている役（applyEffect('aim') で設定、resetForNextSpin で null）。
@@ -523,14 +546,19 @@ export async function bootstrap() {
       effectStatusEl.textContent = '狙え！';
       effectStatusEl.classList.add('aim');
       jinState.set('shisa');
-      // 狙う役をリール枚数に比例して抽選（最頻役が多く、7/バー/RBは稀）。
+      // 狙う役をリール枚数に比例して抽選（最頻役が多い）。BB/RB は notice の重みで絞る
+      //（ボーナス中は既定 0＝小役のみ予告。おかわりは示唆の赤/金だけの契機にする）。
       // 3文字役のみ対象（2文字チェリーは aim UI 上 3リール表示にならないので除外）。
       const aimPool = [
         ...yakuList.coreYaku,
         ...yakuList.premiumYaku,
         ...yakuList.bonusYaku,
       ];
-      const targetYaku = weightedPick(aimPool, yakuReelWeight);
+      const targetYaku = weightedPick(aimPool, (y) =>
+        isBonusCategory(y.category)
+          ? yakuReelWeight(y) * noticeBonusWeight('aim')
+          : yakuReelWeight(y),
+      );
       // AUTO がこの役を狙えるよう状態保持（setupAutoTarget が後で読む）
       aimNoticeYaku = targetYaku;
       showAimNotice({
@@ -1295,6 +1323,11 @@ export async function bootstrap() {
         if (best !== null) slipCells = best;
       }
       if (slipCells === 0) {
+        // 演出なしスピンは小役も蹴る＝「演出中に目押しできた時だけ獲れる」技術介入機の前提。
+        // ボーナス中は毎G演出が出るので該当しない（ボーナス中の小役は常に獲れる）。
+        const kc = tuning.assist.kickCore;
+        const kickCore =
+          kc.enabled && currentEffect === 'none' && !bonusZone.isActive();
         slipCells = slipResolver.resolveKick({
           reelIndex: idx,
           basePosition: basePos,
@@ -1302,6 +1335,9 @@ export async function bootstrap() {
           stoppedVisibles,
           exceptYakuId: currentTargetYakuId() ?? undefined,
           exceptCategories: shisaExceptCategories(),
+          kickCore,
+          kickProbability: kickCore ? kc.probability : undefined,
+          kickMaxCells: kickCore ? kc.maxCells : undefined,
         });
       }
     }
