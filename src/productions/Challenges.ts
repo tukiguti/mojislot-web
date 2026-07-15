@@ -6,7 +6,7 @@ import type { YakuList } from '../data/schemas';
 /**
  * チャレンジ（ミッション）システム。
  * 各種統計と図鑑カウントを参照して、達成条件をチェックする。
- * 一度達成したものは永続化し、報酬コインを付与する。
+ * 一度達成したものは永続化し、達成通知を行う。コイン報酬は付与しない。
  */
 
 export interface ChallengeContext {
@@ -20,7 +20,6 @@ export interface Challenge {
   id: string;
   title: string;
   description: string;
-  reward: number;
   /** 達成条件。true なら達成 */
   check: (ctx: ChallengeContext) => boolean;
   /** 現在の進捗（達成までの値）。表示用 */
@@ -32,7 +31,6 @@ export const CHALLENGES: readonly Challenge[] = [
     id: 'first_hit',
     title: 'はじめての一歩',
     description: '役を1回揃える',
-    reward: 50,
     check: (ctx) => ctx.stats.hitCount >= 1,
     progress: (ctx) => ({ current: Math.min(ctx.stats.hitCount, 1), target: 1 }),
   },
@@ -40,7 +38,6 @@ export const CHALLENGES: readonly Challenge[] = [
     id: 'streak3',
     title: 'プチ連チャン',
     description: '3連チャンを達成',
-    reward: 100,
     check: (ctx) => ctx.stats.maxStreak >= 3,
     progress: (ctx) => ({ current: Math.min(ctx.stats.maxStreak, 3), target: 3 }),
   },
@@ -48,7 +45,6 @@ export const CHALLENGES: readonly Challenge[] = [
     id: 'streak5',
     title: '気持ちいい連チャン',
     description: '5連チャンを達成',
-    reward: 200,
     check: (ctx) => ctx.stats.maxStreak >= 5,
     progress: (ctx) => ({ current: Math.min(ctx.stats.maxStreak, 5), target: 5 }),
   },
@@ -56,7 +52,6 @@ export const CHALLENGES: readonly Challenge[] = [
     id: 'streak10',
     title: '神連チャン',
     description: '10連チャンを達成',
-    reward: 500,
     check: (ctx) => ctx.stats.maxStreak >= 10,
     progress: (ctx) => ({ current: Math.min(ctx.stats.maxStreak, 10), target: 10 }),
   },
@@ -64,7 +59,6 @@ export const CHALLENGES: readonly Challenge[] = [
     id: 'bita10',
     title: 'ビタ押し職人',
     description: 'ビタ押し10回達成',
-    reward: 150,
     check: (ctx) => ctx.bitaCount >= 10,
     progress: (ctx) => ({ current: Math.min(ctx.bitaCount, 10), target: 10 }),
   },
@@ -72,7 +66,6 @@ export const CHALLENGES: readonly Challenge[] = [
     id: 'bita50',
     title: 'ビタ押しの達人',
     description: 'ビタ押し50回達成',
-    reward: 500,
     check: (ctx) => ctx.bitaCount >= 50,
     progress: (ctx) => ({ current: Math.min(ctx.bitaCount, 50), target: 50 }),
   },
@@ -80,7 +73,6 @@ export const CHALLENGES: readonly Challenge[] = [
     id: 'premium1',
     title: 'プレミアム成立',
     description: 'プレミアム役を1回揃える',
-    reward: 300,
     check: (ctx) => ctx.stats.premiumCount >= 1,
     progress: (ctx) => ({ current: Math.min(ctx.stats.premiumCount, 1), target: 1 }),
   },
@@ -88,7 +80,6 @@ export const CHALLENGES: readonly Challenge[] = [
     id: 'premium5',
     title: 'プレミアムハンター',
     description: 'プレミアム役を5回揃える',
-    reward: 1000,
     check: (ctx) => ctx.stats.premiumCount >= 5,
     progress: (ctx) => ({ current: Math.min(ctx.stats.premiumCount, 5), target: 5 }),
   },
@@ -96,7 +87,6 @@ export const CHALLENGES: readonly Challenge[] = [
     id: 'quiz_correct10',
     title: 'クイズウォッチャー',
     description: 'クイズ演出に10回遭遇',
-    reward: 150,
     check: (ctx) => ctx.stats.quizTotal >= 10,
     progress: (ctx) => ({ current: Math.min(ctx.stats.quizTotal, 10), target: 10 }),
   },
@@ -104,7 +94,6 @@ export const CHALLENGES: readonly Challenge[] = [
     id: 'spin100',
     title: '100スピン到達',
     description: 'スピン累計 100回',
-    reward: 200,
     check: (ctx) => ctx.stats.spinCount >= 100,
     progress: (ctx) => ({ current: Math.min(ctx.stats.spinCount, 100), target: 100 }),
   },
@@ -112,7 +101,6 @@ export const CHALLENGES: readonly Challenge[] = [
     id: 'spin500',
     title: '500スピン到達',
     description: 'スピン累計 500回',
-    reward: 700,
     check: (ctx) => ctx.stats.spinCount >= 500,
     progress: (ctx) => ({ current: Math.min(ctx.stats.spinCount, 500), target: 500 }),
   },
@@ -120,7 +108,6 @@ export const CHALLENGES: readonly Challenge[] = [
     id: 'positive_net',
     title: '勝ち越し',
     description: '通算収支をプラスに',
-    reward: 300,
     check: (ctx) => ctx.stats.totalWin - ctx.stats.totalBet >= 1,
     progress: (ctx) => ({
       current: Math.max(0, ctx.stats.totalWin - ctx.stats.totalBet),
@@ -136,7 +123,7 @@ export class ChallengeTracker {
   readonly achieved = new Observable<ReadonlySet<string>>(new Set());
   /**
    * ミッション全体の有効/無効。OFFのとき：
-   *  - evaluate() は何もせず []を返す（報酬付与もトーストも出ない）
+   *  - evaluate() は何もせず []を返す（達成記録もトーストも出ない）
    *  - 既に達成済みのものは表示されたまま（履歴は保持）
    */
   readonly enabled = new Observable<boolean>(true);
@@ -148,7 +135,7 @@ export class ChallengeTracker {
 
   /**
    * 達成チェックを行い、新たに達成したものを返す。
-   * 呼び出し側で報酬付与とトースト表示を行う。
+   * 呼び出し側でトースト表示を行う。
    * enabled=false のときは何もせず []を返す。
    */
   evaluate(ctx: ChallengeContext): Challenge[] {

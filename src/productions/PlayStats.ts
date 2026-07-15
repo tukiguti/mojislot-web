@@ -75,18 +75,19 @@ export class PlayStats {
     this.save(next);
   }
 
-  /** クイズ演出を提示した回数を記録（「見せるだけ」方式のため正誤はない）。 */
-  recordQuiz(): void {
+  /** クイズ演出を最後まで消化した回数と、答えの役が成立した回数を記録。 */
+  recordQuiz(correct: boolean): void {
     const prev = this.stats.get();
     const next: Stats = {
       ...prev,
       quizTotal: prev.quizTotal + 1,
+      quizCorrect: prev.quizCorrect + (correct ? 1 : 0),
     };
     this.stats.set(next);
     this.save(next);
   }
 
-  /** クイズ正解率 (%)。旧4択方式の名残（quizCorrect はセーブ互換のため保持）。 */
+  /** クイズ演出で答えの役が成立した割合 (%)。 */
   quizRate(): number {
     const s = this.stats.get();
     return s.quizTotal === 0 ? 0 : (s.quizCorrect / s.quizTotal) * 100;

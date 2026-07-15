@@ -9,7 +9,7 @@ import {
  * 「この台で遊ぶ」で章とプレイ設定を確定 → onLaunch（main-entry が #/game へ reload 起動）。
  *
  * プレイ設定の保存先（既存コードが読む正本に合わせる）:
- *  - ミッション報酬   localStorage `mojislot.challengesEnabled.v1`（ChallengeTracker が読む / 既定ON）
+ *  - ミッション       localStorage `mojislot.challengesEnabled.v1`（ChallengeTracker が読む / 既定ON）
  *  - デバッグボタン   localStorage `mojislot.debugVisible.v1`（SettingsOverlay が読む / 既定OFF）
  *  - AUTOモード       sessionStorage `mojislot.playSetup.v1` = {auto}（main.ts が読む / 既定あり・永続化しない）
  */
@@ -84,7 +84,7 @@ export function mountPlaySetup(cb: PlaySetupCallbacks): void {
       <div class="machine-grid">${cards}</div>
       <section class="setup-options" aria-label="プレイ設定">
         <div class="setup-options-title">プレイ設定</div>
-        ${toggle('missions', 'ミッション報酬', '達成でコイン・トースト。OFFで実機風に', missionsOn)}
+        ${toggle('missions', 'ミッション', '達成状況を記録してトーストで通知', missionsOn)}
         ${toggle('reelart', 'リール絵柄に画像を使う', 'OFFで色タイル＋文字（旧スタイル）。要リロード', artOn)}
         ${toggle('auto', 'AUTOモード', 'ONでAUTOボタンを表示（自動消化）', autoOn)}
         ${toggle('debug', 'デバッグボタン', '設定内に演出の強制発動ボタンを表示', debugOn)}

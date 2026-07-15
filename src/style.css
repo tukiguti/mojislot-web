@@ -1389,13 +1389,6 @@ body.has-chapter-bg {
   font-size: 16px;
   font-weight: bold;
   letter-spacing: 1px;
-  margin-bottom: 4px;
-}
-
-.mission-toast-reward {
-  font-size: 13px;
-  color: #ffdd44;
-  letter-spacing: 1px;
 }
 
 /* === ミッション一覧（図鑑モーダル内） === */
@@ -1461,9 +1454,6 @@ body.has-chapter-bg {
 }
 
 .mission-row {
-  display: grid;
-  grid-template-columns: 1fr auto;
-  align-items: center;
   padding: 5px 8px;
   margin-bottom: 3px;
   background: rgba(255, 255, 255, 0.03);
@@ -1486,15 +1476,7 @@ body.has-chapter-bg {
   margin-top: 2px;
 }
 
-.mission-row .mission-reward {
-  font-size: 11px;
-  color: var(--gold);
-  text-align: right;
-  white-space: nowrap;
-  margin-left: 8px;
-}
-
-.mission-row.done .mission-reward::before {
+.mission-row.done .mission-title::before {
   content: '✓ ';
   color: #66ff88;
 }

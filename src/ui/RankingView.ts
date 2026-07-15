@@ -58,6 +58,28 @@ const fmtDate = (ms: number): string => {
   return `${d.getFullYear()}/${p(d.getMonth() + 1)}/${p(d.getDate())} ${p(d.getHours())}:${p(d.getMinutes())}`;
 };
 
+/** 比較条件を可視化する。項目追加前の履歴は「旧記録」として残し、互換性を保つ。 */
+const runConditions = (r: RunRecord): string => {
+  if (r.rulesetVersion === undefined) return '旧記録（条件不明）';
+  const min = r.reelSpeedMin;
+  const max = r.reelSpeedMax;
+  const speed =
+    min === undefined || max === undefined
+      ? '速度不明'
+      : min === max
+        ? `${min}コマ/秒`
+        : `${min}–${max}コマ/秒`;
+  const tags = [
+    `規則v${r.rulesetVersion}`,
+    r.appVersion ? `app ${r.appVersion}` : 'app版不明',
+    speed,
+    r.autoUsed ? 'AUTO使用' : '手動',
+    r.missionsEnabled ? 'ミッションON' : 'ミッションOFF',
+  ];
+  if (r.debugEnabled) tags.push('DEBUG');
+  return tags.join(' / ');
+};
+
 /** local を優先して runId で重複排除する（同じ戦は1回だけ）。 */
 function dedupeByRunId(records: RunRecord[]): RunRecord[] {
   const seen = new Set<string>();
@@ -229,6 +251,7 @@ export function renderRankingView(cb: RankingViewCallbacks): void {
         <td class="rk-num">${r.payback}</td>
         <td class="rk-num">${r.premiumCount}</td>
         <td class="rk-num">${r.bonusCount}</td>
+        <td class="rk-conditions">${esc(runConditions(r))}</td>
       </tr>`;
     })
     .join('');
@@ -247,7 +270,7 @@ export function renderRankingView(cb: RankingViewCallbacks): void {
           <thead>
             <tr>
               <th>日付</th><th>会員</th><th>台</th><th>差枚</th><th>回転</th><th>機械割</th>
-              <th>投資</th><th>回収</th><th>BIG</th><th>REG</th>
+              <th>投資</th><th>回収</th><th>BIG</th><th>REG</th><th>条件</th>
             </tr>
           </thead>
           <tbody>${rowsHtml}</tbody>

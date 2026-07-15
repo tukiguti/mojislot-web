@@ -2,9 +2,8 @@ import { z } from 'zod';
 
 export const ReelStripSchema = z.object({
   id: z.string(),
-  // 1リール = 21コマ（実機準拠）。本実装の回転は 20コマ/秒＝1周1.05秒（目押ししやすさ優先のやや遅め）。
-  // 実機は0.75秒/周だがWeb版はモーションブラーが無く、実機速度だと図柄が追えないため意図的に遅く補償。
-  // （将来ブラー実装で実機速度化の余地）。速度は EffectScheduler 参照。
+  // 1リール = 21コマ。既定24コマ/秒＝1周0.88秒で、設定から20〜28コマ/秒に変更できる。
+  // 回転中は速度比例のモーションブラーを掛け、停止後は図柄を鮮明に戻す。
   cells: z.array(z.string()).length(21),
 });
 
@@ -53,8 +52,7 @@ export const PayoutSchema = z.object({
     bonus: z.number(),
     cherry: z.number().default(2),
   }),
-  // ボーナス中の素点倍率。現行設計では 1.0＝combo無しなら通常もボーナス中も同じ払い出し。
-  // ボーナスの価値は「演出100%でコンボを伸ばせる」点にあり、素点ブーストは持たせない。
+  // ボーナス中の素点倍率。実運用値は data/payouts/default.json が正（現行2.0）。
   bonusZoneMultiplier: z.number(),
   initialCoins: z.number().int().nonnegative(),
   // 連チャン（コンボ）数→配当倍率。しきい値で評価（順不同・最大一致を採用）。
@@ -75,7 +73,7 @@ export const PayoutSchema = z.object({
   // 「狙え！」予告役が実際に成立した時の達成ボーナス倍率（その役ライン分の配当に上乗せ）。
   aimBonusMultiplier: z.number().positive().default(1.5),
   // ボーナス倍率×コンボ倍率の積算上限。combined をここで頭打ちにする（コンボ天井）。
-  // コンボ主役化に伴い data/payouts では 7.0（最上位tierと一致）。省略時フォールバックは 3.0。
+  // 現行 data/payouts では 10.0。省略時フォールバックは 3.0。
   maxComboMultiplier: z.number().positive().default(3),
 });
 
@@ -106,12 +104,18 @@ export type QuizList = z.infer<typeof QuizListSchema>;
  * 従来コードに散在していた定数を1ファイルに集約し、出現確率や演出頻度を弄りやすくする。
  * 各値は省略時に既定へフォールバックする（部分指定OK）。
  */
-const EffectRatesSchema = z.object({
-  none: z.number().min(0),
-  shisa: z.number().min(0),
-  quiz: z.number().min(0),
-  aim: z.number().min(0),
-});
+export const EffectRatesSchema = z
+  .object({
+    none: z.number().min(0),
+    shisa: z.number().min(0),
+    quiz: z.number().min(0),
+    aim: z.number().min(0),
+  })
+  .refine(
+    (rates) =>
+      Math.abs(rates.none + rates.shisa + rates.quiz + rates.aim - 1) < 1e-9,
+    { message: '演出レート none/shisa/quiz/aim の合計は 1 にしてください' },
+  );
 
 /** 示唆の期待度ランク色（青<黄<緑<赤<金）。tint・ステータス・ジン台詞に使う。 */
 export const ShisaTierColorSchema = z.enum(['blue', 'yellow', 'green', 'red', 'gold']);
@@ -187,7 +191,7 @@ const KickCoreSchema = z
   .default({ enabled: true, probability: 0.8, maxCells: 4 });
 
 export const TuningSchema = z.object({
-  /** ベット毎の演出抽選レート（通常／ハマり救済／ボーナス中）。各合計≈1.0 を想定。 */
+  /** ベット毎の演出抽選レート（通常／ハマり救済／ボーナス中）。各合計は1.0必須。 */
   effectRates: z.object({
     default: EffectRatesSchema,
     rescue: EffectRatesSchema,

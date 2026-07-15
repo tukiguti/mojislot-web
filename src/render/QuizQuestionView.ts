@@ -3,7 +3,7 @@ import type { QuizState } from '../productions/QuizState';
 
 /**
  * 演出エリア（液晶）に表示するクイズ文章。
- * クイズ中はジン（マスコット）を隠して、ここに大きく出題文だけを出す。
+ * クイズ中はジン（マスコット）を隠し、停止前は出題文、全停止後は答えと的中結果を出す。
  */
 
 interface QuizQuestionViewOptions {
@@ -87,12 +87,21 @@ export class QuizQuestionView {
 
     this.container.visible = false;
 
-    state.current.subscribe((quiz) => {
-      const q = quiz?.question ?? '';
-      this.text.text = wrapJapanese(q, MAX_CHARS_PER_LINE);
-    });
+    const render = () => {
+      const quiz = state.current.get();
+      const question = wrapJapanese(quiz?.question ?? '', MAX_CHARS_PER_LINE);
+      if (quiz && state.phase.get() === 'resolved') {
+        const label = state.matched.get() ? '的中！' : '未成立';
+        this.text.text = `${question}\n\n${label}　答え：${quiz.answer}`;
+      } else {
+        this.text.text = question;
+      }
+    };
+    state.current.subscribe(render);
+    state.matched.subscribe(render);
     state.phase.subscribe((phase) => {
       this.container.visible = phase !== 'inactive';
+      render();
     });
   }
 }

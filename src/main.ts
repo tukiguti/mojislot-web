@@ -17,7 +17,7 @@ import { SfxEngine } from './audio/SfxEngine';
 import { BgmEngine } from './audio/BgmEngine';
 import { TenpaiDetector, type TenpaiLine } from './productions/TenpaiDetector';
 import { PlayStats } from './productions/PlayStats';
-import { appendRunRecord } from './productions/RunHistory';
+import { appendRunRecord, RUN_RULESET_VERSION } from './productions/RunHistory';
 import { getMemberId, getMemberName } from './productions/Member';
 import { NearMissDetector } from './productions/NearMissDetector';
 import {
@@ -70,6 +70,7 @@ import {
 } from './data/schemas';
 import payoutDataRaw from '../data/payouts/default.json';
 import tuningDataRaw from '../data/tuning/default.json';
+import packageMeta from '../package.json';
 import {
   getCurrentChapter,
   getCurrentChapterId,
@@ -448,6 +449,8 @@ export async function bootstrap() {
   const effectStatusEl = requireEl('effect-status');
   let betPlaced = false;
   let resultTimer: number | null = null;
+  let pendingDebugQuiz = false;
+  let autoMode = false;
 
   // 演出ターゲットを「リール枚数」に比例させるためのウェイト。
   // 役の各文字がそのリールに何枚あるかの平均 ＝ その役の出やすさ。
@@ -558,7 +561,8 @@ export async function bootstrap() {
       effectStatusEl.textContent = 'クイズ';
       effectStatusEl.classList.add('quiz');
       jinState.set('quiz');
-      // 「見せるだけ」方式：出題＋答えを自動提示し、答えの役を引き込み対象にする（操作なし＝aim相当）。
+      // 回答操作なし方式：まず問題だけを出し、答えの役を引き込み対象にする（操作はaim相当）。
+      // 答えと成立結果は全停止後に QuizState.resolve() で表示する。
       quizState.reveal(pickRandomQuiz(), yakuList);
       sfx.quiz();
     } else if (effect === 'aim') {
@@ -678,13 +682,21 @@ export async function bootstrap() {
   wallet.investmentTotal.subscribe(renderSahmai);
 
   // 戦専用カウンタ（RunRecord 用）。PlayStats は章混在の累計なので差分算出に使えず別持ちする。
-  // recordSpin と challenge 報酬の確定フックで増分し、計数（count-btn）でスナップショット→0リセット。
+  // recordSpin の確定フックで増分し、計数（count-btn）でスナップショット→0リセット。
   let runStartedAt = Date.now();
   let runSpinCount = 0;
   let runTotalBet = 0;
   let runTotalWin = 0;
   let runPremiumCount = 0;
   let runBonusCount = 0;
+  let runAutoUsed = false;
+  let runReelSpeedMin = Infinity;
+  let runReelSpeedMax = -Infinity;
+  const recordRunSpeed = (speed: number) => {
+    if (!Number.isFinite(speed) || speed <= 0) return;
+    runReelSpeedMin = Math.min(runReelSpeedMin, speed);
+    runReelSpeedMax = Math.max(runReelSpeedMax, speed);
+  };
 
   // 計数＝この戦を締める：spinCount>0 なら1戦を RunHistory に確定記録し、持メダルを流す(0に)＋投資/戦カウンタをリセット。
   document.getElementById('count-btn')?.addEventListener('click', () => {
@@ -710,6 +722,13 @@ export async function bootstrap() {
         totalWin: runTotalWin,
         premiumCount: runPremiumCount,
         bonusCount: runBonusCount,
+        appVersion: packageMeta.version,
+        rulesetVersion: RUN_RULESET_VERSION,
+        reelSpeedMin: Number.isFinite(runReelSpeedMin) ? runReelSpeedMin : reelSpeed(),
+        reelSpeedMax: Number.isFinite(runReelSpeedMax) ? runReelSpeedMax : reelSpeed(),
+        autoUsed: runAutoUsed,
+        missionsEnabled: challengeTracker.enabled.get(),
+        debugEnabled: debugVisible,
       });
     }
     wallet.reset(0);
@@ -719,6 +738,9 @@ export async function bootstrap() {
     runTotalWin = 0;
     runPremiumCount = 0;
     runBonusCount = 0;
+    runAutoUsed = false;
+    runReelSpeedMin = Infinity;
+    runReelSpeedMax = -Infinity;
   });
 
   // 戦の計測タイマー（サンド下部）。フリー=カウントアップ／プリセット分数=カウントダウン。
@@ -902,7 +924,15 @@ export async function bootstrap() {
       applyEffect('shisa');
     },
     triggerQuiz: () => {
-      // 強制クイズ：演出＋液晶に出題を出す
+      // 全停止後は結果表示を上書きしないよう、次ゲームのBET時に発動する。
+      // BET済みのレバー前、または回転中なら現在ゲームへ即時適用できる。
+      const allStopped = engines.every((e) => e.state.get() === 'stopped');
+      if (!betPlaced || allStopped) {
+        pendingDebugQuiz = true;
+        showResult('クイズを次ゲームに予約', 'win');
+        return;
+      }
+      pendingDebugQuiz = false;
       applyEffect('quiz');
     },
     triggerCutin: () => {
@@ -1015,6 +1045,8 @@ export async function bootstrap() {
   let bonusRunActive = false;
   let bonusRunPayout = 0;
   let bonusRunKind: 'big' | 'reg' = 'big';
+  // BET 成功時点の状態を保持し、その1Gの演出・配当・終了判定を一貫してボーナス扱いにする。
+  let bonusSpinActive = false;
   const showBonusResult = (payout: number, kind: 'big' | 'reg') => {
     const label = kind === 'reg' ? 'REG BONUS' : 'BIG BONUS';
     showResult(`${label} 終了  獲得 +${payout}枚`, 'premium');
@@ -1035,6 +1067,7 @@ export async function bootstrap() {
 
   const resetForNextSpin = () => {
     betPlaced = false;
+    bonusSpinActive = false;
     for (const engine of engines) engine.reset();
     for (const v of views) v.stopTenpaiFlash();
     hideAimNotice();
@@ -1069,6 +1102,9 @@ export async function bootstrap() {
     bgm.init();
     bgm.play(bonusZone.isActive() ? 'bonus' : 'normal');
     if (!wallet.bet(calc.bet)) return;
+    bonusSpinActive = bonusZone.isActive();
+    recordRunSpeed(reelSpeed());
+    if (autoMode) runAutoUsed = true;
     betPlaced = true;
     resultEl.classList.remove('visible');
     flashButton(betBtn);
@@ -1079,15 +1115,17 @@ export async function bootstrap() {
     // 以降は ボーナス > 救済 > 通常 の優先順位で演出レートを決定（data/tuning.effectRates）。
     if (announcedBonus) {
       scheduler.setRates({ none: 1, shisa: 0, quiz: 0, aim: 0 });
-    } else if (bonusZone.isActive()) {
+    } else if (bonusSpinActive) {
       scheduler.setRates(bonusZone.config.bonusEffectRates);
-      bonusZone.consumeSpin();
     } else if (playStats.stats.get().missStreak >= tuning.rescueMissThreshold) {
       scheduler.setRates(tuning.effectRates.rescue);
     } else {
       scheduler.setRates(tuning.effectRates.default);
     }
-    applyEffect(scheduler.roll());
+    // 停止後に予約されたデバッグクイズは、確定告知中を除く次ゲームで1回だけ優先する。
+    const usePendingDebugQuiz = pendingDebugQuiz && !announcedBonus;
+    if (usePendingDebugQuiz) pendingDebugQuiz = false;
+    applyEffect(usePendingDebugQuiz ? 'quiz' : scheduler.roll());
     updateButtons();
   };
 
@@ -1095,8 +1133,8 @@ export async function bootstrap() {
     if (freezeActive) return;
     if (leverBtn.disabled) return;
     if (!betPlaced) return;
-    // クイズは「見せるだけ」方式：提示した答えの役が最終リール引き込み対象（17_assist-and-slip.md）。
-    // 答えのテキスト提示はなく、液晶の出題文は次スピンの resetForNextSpin / quizState.reset で消える。
+    // クイズは回答操作なし方式：問題の答えとなる役が最終リール引き込み対象（17_assist-and-slip.md）。
+    // 答えのテキストは全停止後に表示し、次スピンの resetForNextSpin / quizState.reset で消える。
     // フリーズ抽選: 通常時のみ。デバッグ予約 or 確率成立で発動（結果は7揃いBIG確定）。
     const doFreeze =
       !bonusZone.isActive() && (pendingFreeze || Math.random() < FREEZE_RATE);
@@ -1129,19 +1167,10 @@ export async function bootstrap() {
     window.setTimeout(doEntry, CHARGE_MS);
   };
 
-  // クイズ提示時（見せるだけ）に SE＋統計を記録。回答操作はなく、
-  // ジンのセリフはクイズ表示中 setSuppressed(true) で抑制されるため鳴らさない。
-  quizState.phase.subscribe((phase) => {
-    if (phase === 'shown') {
-      sfx.quizCorrect(); // 答え提示の効果音（「ピンポーン」）に流用
-      playStats.recordQuiz();
-    }
-  });
-
   /**
    * 役が現在の演出の引き込み対象カテゴリに合致するか（17_assist-and-slip.md）。
    *  - aim   → aimNoticeYaku（予告した役そのもの）
-   *  - quiz  → 提示した答えの役（targetYakuId、見せるだけ方式で常時セット）
+   *  - quiz  → 問題の答えとなる役（targetYakuId、回答操作なし方式で出題中にセット）
    *  - shisa → core / cherry
    *  - none  → 対象なし（引き込みしない）
    */
@@ -1369,6 +1398,8 @@ export async function bootstrap() {
     if (idx < 0 || idx >= REEL_COUNT) return;
     const engine = engines[idx];
     if (engine.state.get() !== 'spinning') return;
+    // フリーズ演出の一時的な60コマ/秒ではなく、プレイヤーが選んだ通常速度を記録する。
+    recordRunSpeed(reelSpeed());
 
     // 滑り（引き込み）を解決：停止済みリールの可視3セルを SlipResolver に渡す
     const total = engine.strip.cells.length;
@@ -1429,6 +1460,8 @@ export async function bootstrap() {
       const middleSymbols = grid[1] as [string, string, string]; // 既存UI互換用
       const { hits } = judge.judgeAll(grid);
       const willHit = hits.length > 0;
+      const quizTargetYakuId =
+        currentEffect === 'quiz' ? quizState.targetYakuId() : null;
       const premiumHit = hits.find((h) => h.yaku.category === 'premium') ?? null;
       const isPremium = premiumHit !== null;
       // レギュラー役（すし＋別字）。プレミアムが無いときだけ REG 扱い
@@ -1439,17 +1472,24 @@ export async function bootstrap() {
       // 成立後の連チャン数で配当倍率を評価（3連達成スピンから恩恵が乗る）
       const streakAfter = willHit ? playStats.stats.get().streak + 1 : 0;
       const streakMult = calc.streakMult(streakAfter);
-      let win = calc.calcMulti(hits, bonusZone.isActive(), streakMult);
+      let win = calc.calcMulti(hits, bonusSpinActive, streakMult);
       // 予告役（狙え＝予告役／クイズ＝答えの役）が実際に成立 → その役ライン分に達成ボーナスを上乗せ。
-      // currentTargetYakuId() は aim→予告役 / quiz→答えの役（見せるだけ・常時） / それ以外→null。
+      // currentTargetYakuId() は aim→予告役 / quiz→問題の答え役 / それ以外→null。
       let noticeBonus = 0;
       // この spin でボーナスに新規突入したか（突入役の払い出しを獲得集計から除く）
       let enteredBonusThisSpin = false;
       const noticeYakuId = currentTargetYakuId();
       if (noticeYakuId) {
         const noticeHits = hits.filter((h) => h.yaku.id === noticeYakuId);
-        noticeBonus = calc.aimBonus(noticeHits, bonusZone.isActive(), streakMult);
+        noticeBonus = calc.aimBonus(noticeHits, bonusSpinActive, streakMult);
         win += noticeBonus;
+      }
+      if (quizTargetYakuId) {
+        const quizMatched = hits.some((h) => h.yaku.id === quizTargetYakuId);
+        quizState.resolve(quizMatched);
+        playStats.recordQuiz(quizMatched);
+        if (quizMatched) sfx.quizCorrect();
+        else sfx.quizWrong();
       }
       if (win > 0) wallet.win(win);
 
@@ -1486,24 +1526,20 @@ export async function bootstrap() {
         }
       }
 
-      // チャレンジ達成チェック（少し遅延させて結果トーストと被らないように）
-      window.setTimeout(() => {
-        const newlyAchieved = challengeTracker.evaluate({
-          stats: playStats.stats.get(),
-          bitaCount: zukanState.bitaCount.get(),
-          zukanCounts: zukanState.counts.get(),
-          yakuList,
-        });
-        newlyAchieved.forEach((c, i) => {
-          window.setTimeout(() => {
-            wallet.win(c.reward);
-            // ミッション報酬も払い出しの一種として戦の totalWin（機械割の分子）に含める
-            runTotalWin += c.reward;
-            showMissionToast(c);
-            sfx.bita(); // 短いキラーン音を流用
-          }, i * 350);
-        });
-      }, 1500);
+      // ミッションは達成状況だけを永続化し、結果表示と重ならないよう通知を遅らせる。
+      // コインや戦の totalWin には加算しない。
+      const newlyAchieved = challengeTracker.evaluate({
+        stats: playStats.stats.get(),
+        bitaCount: zukanState.bitaCount.get(),
+        zukanCounts: zukanState.counts.get(),
+        yakuList,
+      });
+      newlyAchieved.forEach((c, i) => {
+        window.setTimeout(() => {
+          showMissionToast(c);
+          sfx.bita(); // 短いキラーン音を流用
+        }, 1500 + i * 350);
+      });
 
       if (willHit) {
         // 成立ラインインジケーターを点灯
@@ -1511,7 +1547,7 @@ export async function bootstrap() {
           leftIndicators.highlight(h.paylineId);
         }
         const cls = isPremium || isRegular ? 'premium' : 'win';
-        const bonusTag = bonusZone.isActive() ? ' ×BONUS' : '';
+        const bonusTag = bonusSpinActive ? ' ×BONUS' : '';
         const streakTag = streakMult > 1 ? ` ${streakAfter}連 ×${streakMult}` : '';
         const lineTag = hits.length > 1 ? ` (${hits.length}ライン)` : '';
         const noticeLabel = currentEffect === 'quiz' ? 'クイズ的中' : '狙え的中';
@@ -1636,8 +1672,12 @@ export async function bootstrap() {
         if (nearMisses.length > 0) jinSpeech.say('near');
         else jinSpeech.say('miss');
         jinState.set('miss');
-        sfx.miss();
+        if (!quizTargetYakuId) sfx.miss();
       }
+
+      // ボーナス残数は、このゲームの演出・配当・上乗せ判定がすべて終わってから消費する。
+      // これにより残り1Gも倍率対象になり、同一Gのおかわり分は消費後も正しく残る。
+      if (bonusSpinActive) bonusZone.consumeSpin();
 
       // ボーナス中スピンの獲得を集計し、消化しきったら終了リザルト＋ファンファーレ
       if (bonusRunActive) {
@@ -1757,7 +1797,6 @@ export async function bootstrap() {
   // 状態を見て BET → LEVER → STOP×3 を進める。
   // 示唆/クイズ時はターゲット役を決めて狙い停止（揃いやすくなる）。
   // 通常時は適当タイミングで停止（揃わなくて普通）。
-  let autoMode = false;
   let autoTimer: number | null = null;
   // 示唆/クイズ時に AUTO が狙う役。BET 直後に決定 → resetForNextSpin で null
   let autoTargetYaku: (typeof allYakusFlat)[number] | null = null;
@@ -1779,7 +1818,7 @@ export async function bootstrap() {
       // 確定告知ランプ点灯中（演出は none 固定）：固定した確定役を AUTO でも全リール狙う。
       autoTargetYaku = announcedRole;
     } else if (currentEffect === 'quiz') {
-      // クイズは「見せるだけ」で答えが自動提示済み → targetYakuId をそのまま採用
+      // クイズは回答操作なし。内部で確定済みの答え役をAUTOの狙いにも採用する。
       const tid = quizState.targetYakuId();
       autoTargetYaku = tid
         ? allYakusFlat.find((y) => y.id === tid) ?? null
@@ -1902,6 +1941,8 @@ export async function bootstrap() {
 
   const startAuto = () => {
     autoMode = true;
+    // AUTOを途中から有効にした戦も、手動記録とは区別する。
+    runAutoUsed = true;
     autoBtn.textContent = 'AUTO ON';
     autoBtn.classList.add('on');
     sfx.init();
@@ -2050,7 +2091,7 @@ export async function bootstrap() {
     }
     const key = ev.key.toLowerCase();
 
-    // クイズは「見せるだけ」方式のためキー回答は廃止（操作なしで答えを提示）。
+    // クイズは回答操作なし方式のためキー回答は廃止（答えは全停止後に提示）。
 
     // フリーズ演出中はゲーム操作キーを全てブロック
     if (freezeActive) {

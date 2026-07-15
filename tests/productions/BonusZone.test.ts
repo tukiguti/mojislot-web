@@ -48,7 +48,7 @@ describe('BonusZone.trigger', () => {
 });
 
 describe('BonusZone.consumeSpin', () => {
-  it('BET ごとに残り-1、0 で非アクティブ・kind=null', () => {
+  it('ゲームの判定完了ごとに残り-1、0で非アクティブ・kind=null', () => {
     const z = new BonusZone({ ...CONFIG, spinsPerBonus: 2 });
     z.trigger('big'); // 2
     z.consumeSpin(); // 1

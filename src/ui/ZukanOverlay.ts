@@ -145,7 +145,7 @@ export class ZukanOverlay {
       <div class="zukan-stats-row"><span>収支</span><span class="${net >= 0 ? 'positive' : 'negative'}">${netSign}${net}</span></div>
       <div class="zukan-stats-row"><span>最大配当</span><span>${s.maxWin}</span></div>
       <div class="zukan-stats-row"><span>最大連チャン</span><span>${s.maxStreak}</span></div>
-      <div class="zukan-stats-row"><span>クイズ演出</span><span>${s.quizTotal}回</span></div>
+      <div class="zukan-stats-row"><span>クイズ的中</span><span>${s.quizCorrect} / ${s.quizTotal}（${this.playStats.quizRate().toFixed(1)}%）</span></div>
       <div class="zukan-stats-row"><span>プレミアム / ボーナス</span><span>${s.premiumCount} / ${s.bonusCount}</span></div>
     `;
 
@@ -210,7 +210,6 @@ export class ZukanOverlay {
             <div class="mission-desc">${escapeHtml(c.description)}</div>
             ${progText ? `<div class="mission-progress">${progText}</div>` : ''}
           </div>
-          <div class="mission-reward">+${c.reward}</div>
         </div>
       `;
     }).join('');
@@ -224,4 +223,3 @@ function escapeHtml(s: string): string {
     .replace(/>/g, '&gt;')
     .replace(/"/g, '&quot;');
 }
-

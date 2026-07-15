@@ -68,14 +68,14 @@ export class SettingsOverlay {
     private readonly zukanState: ZukanState,
     private readonly challengeTracker: ChallengeTracker,
     private readonly debugVisible: boolean,
-    private readonly defaultReelSpeed: number = 20,
+    private readonly defaultReelSpeed: number = 24,
     private readonly defaultMotionBlur: number = 0.34,
   ) {
     const root = document.getElementById('settings-overlay');
     if (!root) throw new Error('#settings-overlay not found');
     this.root = root;
 
-    // ミッション報酬の有無は「遊ぶ」セットアップ（PlaySetup）で確定する。
+    // ミッションの有効/無効は「遊ぶ」セットアップ（PlaySetup）で確定する。
     // ゲーム内では切替えない（プレイ前に決めた設定が骨抜きにならないよう一本化）。
     this.root.innerHTML = `
       <div class="settings-modal">

@@ -5,6 +5,8 @@
  */
 
 const STORAGE_KEY = 'mojislot.runHistory.v1';
+/** 出玉・停止ルールを変えた時に上げ、異なる条件の履歴を識別する。 */
+export const RUN_RULESET_VERSION = 1;
 
 export interface RunRecord {
   /** crypto.randomUUID() — インポート時の重複排除キー */
@@ -35,6 +37,19 @@ export interface RunRecord {
   premiumCount: number;
   /** 戦内のREG(ボーナス)回数 */
   bonusCount: number;
+  /** 記録時のアプリ版。旧履歴には存在しない。 */
+  appVersion?: string;
+  /** 出玉・停止ルールの版。旧履歴には存在しない。 */
+  rulesetVersion?: number;
+  /** 戦内で実際に使った最小／最大リール速度（途中変更を含む）。 */
+  reelSpeedMin?: number;
+  reelSpeedMax?: number;
+  /** この戦でAUTO消化を1ゲーム以上使ったか。 */
+  autoUsed?: boolean;
+  /** ミッションの達成記録が有効だったか。 */
+  missionsEnabled?: boolean;
+  /** デバッグ操作を表示可能な状態だったか。ランキング比較時の注意情報。 */
+  debugEnabled?: boolean;
 }
 
 /** 履歴を読み込む。壊れていれば空配列にフォールバックする。 */

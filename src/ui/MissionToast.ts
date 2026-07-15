@@ -20,7 +20,6 @@ export function showMissionToast(challenge: Challenge): void {
   el.innerHTML = `
     <div class="mission-toast-label">ミッション達成！</div>
     <div class="mission-toast-title">${escapeHtml(challenge.title)}</div>
-    <div class="mission-toast-reward">+${challenge.reward} コイン</div>
   `;
   document.body.appendChild(el);
   queue.push(el);

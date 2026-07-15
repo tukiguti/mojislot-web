@@ -19,7 +19,7 @@ export interface BonusConfig {
   spinsPerBonus: number;
   /** レギュラーボーナス1回の継続スピン数（ビッグより短い） */
   spinsPerReg: number;
-  /** ボーナス中の演出レート（none/shisa/quiz の合計が 1.0 になる必要あり） */
+  /** ボーナス中の演出レート（none/shisa/quiz/aim の合計が 1.0 になる必要あり） */
   bonusEffectRates: EffectRates;
 }
 
@@ -62,7 +62,8 @@ export class BonusZone {
 
   /**
    * spin 1回ぶんを消費。残り 0 になったら active を false に。
-   * 「BET 時に1減らす」運用を想定。
+   * そのゲームの演出・配当判定がすべて終わった後に呼ぶ。
+   * BET 時に減らすと最終ゲームだけボーナス扱いから外れるため、呼び出し順に注意する。
    */
   consumeSpin(): void {
     if (!this.active.get()) return;
