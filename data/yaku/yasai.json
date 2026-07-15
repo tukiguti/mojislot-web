@@ -1,19 +1,20 @@
 {
   "mode": "yasai",
+  "internalRoleMissRate": { "default": 0.5, "rescue": 0.3, "bonus": 0.0 },
   "coreYaku": [
-    { "id": "okura", "name": "オクラ", "symbols": ["オ", "ク", "ラ"], "category": "core", "internalRoleKind": "core" },
-    { "id": "moyashi", "name": "モヤシ", "symbols": ["モ", "ヤ", "シ"], "category": "core", "internalRoleKind": "replay" },
-    { "id": "serori", "name": "セロリ", "symbols": ["セ", "ロ", "リ"], "category": "core", "internalRoleKind": "core" },
-    { "id": "retasu", "name": "レタス", "symbols": ["レ", "タ", "ス"], "category": "core", "internalRoleKind": "core" }
+    { "id": "okura", "name": "オクラ", "symbols": ["オ", "ク", "ラ"], "category": "core", "internalRoleKind": "core", "internalRoleRate": { "default": 0.10333333333333333, "rescue": 0.14, "bonus": 0.24 } },
+    { "id": "moyashi", "name": "モヤシ", "symbols": ["モ", "ヤ", "シ"], "category": "core", "internalRoleKind": "replay", "internalRoleRate": { "default": 0.1, "rescue": 0.12, "bonus": 0.2 } },
+    { "id": "serori", "name": "セロリ", "symbols": ["セ", "ロ", "リ"], "category": "core", "internalRoleKind": "core", "internalRoleRate": { "default": 0.10333333333333333, "rescue": 0.14, "bonus": 0.24 } },
+    { "id": "retasu", "name": "レタス", "symbols": ["レ", "タ", "ス"], "category": "core", "internalRoleKind": "core", "internalRoleRate": { "default": 0.10333333333333333, "rescue": 0.14, "bonus": 0.24 } }
   ],
   "cherryYaku": [
-    { "id": "nasubi", "name": "ナス", "symbols": ["ナ", "ス"], "category": "cherry", "internalRoleKind": "cherry" }
+    { "id": "nasubi", "name": "ナス", "symbols": ["ナ", "ス"], "category": "cherry", "internalRoleKind": "cherry", "internalRoleRate": { "default": 0.05, "rescue": 0.07, "bonus": 0.07 } }
   ],
   "premiumYaku": [
-    { "id": "potechi", "name": "ポテチ", "symbols": ["ポ", "テ", "チ"], "category": "premium", "internalRoleKind": "big" },
-    { "id": "tomato", "name": "トマト", "symbols": ["ト", "マ", "ト"], "category": "premium", "internalRoleKind": "big" }
+    { "id": "potechi", "name": "ポテチ", "symbols": ["ポ", "テ", "チ"], "category": "premium", "internalRoleKind": "big", "internalRoleRate": { "default": 0.005, "rescue": 0.015, "bonus": 0.001 } },
+    { "id": "tomato", "name": "トマト", "symbols": ["ト", "マ", "ト"], "category": "premium", "internalRoleKind": "big", "internalRoleRate": { "default": 0.005, "rescue": 0.015, "bonus": 0.001 } }
   ],
   "bonusYaku": [
-    { "id": "reg", "name": "ポテト", "symbols": ["ポ", "テ", "ト"], "category": "bonus", "internalRoleKind": "reg" }
+    { "id": "reg", "name": "ポテト", "symbols": ["ポ", "テ", "ト"], "category": "bonus", "internalRoleKind": "reg", "internalRoleRate": { "default": 0.03, "rescue": 0.06, "bonus": 0.008 } }
   ]
 }

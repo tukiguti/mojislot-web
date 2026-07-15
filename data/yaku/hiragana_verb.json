@@ -1,19 +1,20 @@
 {
   "mode": "hiragana_verb",
+  "internalRoleMissRate": { "default": 0.5, "rescue": 0.3, "bonus": 0.0 },
   "coreYaku": [
-    { "id": "utau", "name": "うたう", "symbols": ["う", "た", "う"], "category": "core", "internalRoleKind": "core" },
-    { "id": "asobu", "name": "あそぶ", "symbols": ["あ", "そ", "ぶ"], "category": "core", "internalRoleKind": "replay" },
-    { "id": "oyogu", "name": "およぐ", "symbols": ["お", "よ", "ぐ"], "category": "core", "internalRoleKind": "core" },
-    { "id": "hanasu", "name": "はなす", "symbols": ["は", "な", "す"], "category": "core", "internalRoleKind": "core" }
+    { "id": "utau", "name": "うたう", "symbols": ["う", "た", "う"], "category": "core", "internalRoleKind": "core", "internalRoleRate": { "default": 0.10333333333333333, "rescue": 0.14, "bonus": 0.24 } },
+    { "id": "asobu", "name": "あそぶ", "symbols": ["あ", "そ", "ぶ"], "category": "core", "internalRoleKind": "replay", "internalRoleRate": { "default": 0.1, "rescue": 0.12, "bonus": 0.2 } },
+    { "id": "oyogu", "name": "およぐ", "symbols": ["お", "よ", "ぐ"], "category": "core", "internalRoleKind": "core", "internalRoleRate": { "default": 0.10333333333333333, "rescue": 0.14, "bonus": 0.24 } },
+    { "id": "hanasu", "name": "はなす", "symbols": ["は", "な", "す"], "category": "core", "internalRoleKind": "core", "internalRoleRate": { "default": 0.10333333333333333, "rescue": 0.14, "bonus": 0.24 } }
   ],
   "cherryYaku": [
-    { "id": "neru", "name": "ねる", "symbols": ["ね", "る"], "category": "cherry", "internalRoleKind": "cherry" }
+    { "id": "neru", "name": "ねる", "symbols": ["ね", "る"], "category": "cherry", "internalRoleKind": "cherry", "internalRoleRate": { "default": 0.05, "rescue": 0.07, "bonus": 0.07 } }
   ],
   "premiumYaku": [
-    { "id": "ikiru", "name": "いきる", "symbols": ["い", "き", "る"], "category": "premium", "internalRoleKind": "big" },
-    { "id": "yasumu", "name": "やすむ", "symbols": ["や", "す", "む"], "category": "premium", "internalRoleKind": "big" }
+    { "id": "ikiru", "name": "いきる", "symbols": ["い", "き", "る"], "category": "premium", "internalRoleKind": "big", "internalRoleRate": { "default": 0.005, "rescue": 0.015, "bonus": 0.001 } },
+    { "id": "yasumu", "name": "やすむ", "symbols": ["や", "す", "む"], "category": "premium", "internalRoleKind": "big", "internalRoleRate": { "default": 0.005, "rescue": 0.015, "bonus": 0.001 } }
   ],
   "bonusYaku": [
-    { "id": "reg", "name": "いきむ", "symbols": ["い", "き", "む"], "category": "bonus", "internalRoleKind": "reg" }
+    { "id": "reg", "name": "いきむ", "symbols": ["い", "き", "む"], "category": "bonus", "internalRoleKind": "reg", "internalRoleRate": { "default": 0.03, "rescue": 0.06, "bonus": 0.008 } }
   ]
 }

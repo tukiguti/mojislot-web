@@ -4,6 +4,7 @@ import type { ReelStrip, YakuList } from '../../src/data/schemas';
 
 // 中段=pos, 上段=pos+1, 下段=pos-1（Paylines.VERTICAL_OFFSET）。
 const strip = (cells: string[]): ReelStrip => ({ id: 'r', cells });
+const testRate = { default: 0, rescue: 0, bonus: 0 } as const;
 
 const yakuList = (
   premium: string[][],
@@ -11,9 +12,10 @@ const yakuList = (
   core: string[][] = [],
 ): YakuList => ({
   mode: 'test',
-  coreYaku: core.map((s, i) => ({ id: `c${i}`, name: `c${i}`, symbols: s, category: 'core' })),
-  premiumYaku: premium.map((s, i) => ({ id: `p${i}`, name: `p${i}`, symbols: s, category: 'premium' })),
-  bonusYaku: bonus.map((s, i) => ({ id: `b${i}`, name: `b${i}`, symbols: s, category: 'bonus' })),
+  internalRoleMissRate: testRate,
+  coreYaku: core.map((s, i) => ({ id: `c${i}`, name: `c${i}`, symbols: s, category: 'core', internalRoleKind: 'core', internalRoleRate: testRate })),
+  premiumYaku: premium.map((s, i) => ({ id: `p${i}`, name: `p${i}`, symbols: s, category: 'premium', internalRoleKind: 'big', internalRoleRate: testRate })),
+  bonusYaku: bonus.map((s, i) => ({ id: `b${i}`, name: `b${i}`, symbols: s, category: 'bonus', internalRoleKind: 'reg', internalRoleRate: testRate })),
   cherryYaku: [],
 });
 

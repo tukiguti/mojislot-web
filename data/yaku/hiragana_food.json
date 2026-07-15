@@ -1,19 +1,20 @@
 {
   "mode": "hiragana_food",
+  "internalRoleMissRate": { "default": 0.5, "rescue": 0.3, "bonus": 0.0 },
   "coreYaku": [
-    { "id": "budou", "name": "ぶどう", "symbols": ["ぶ", "ど", "う"], "category": "core", "internalRoleKind": "core" },
-    { "id": "tofu", "name": "とうふ", "symbols": ["と", "う", "ふ"], "category": "core", "internalRoleKind": "replay" },
-    { "id": "dango", "name": "だんご", "symbols": ["だ", "ん", "ご"], "category": "core", "internalRoleKind": "core" },
-    { "id": "mikan", "name": "みかん", "symbols": ["み", "か", "ん"], "category": "core", "internalRoleKind": "core" }
+    { "id": "budou", "name": "ぶどう", "symbols": ["ぶ", "ど", "う"], "category": "core", "internalRoleKind": "core", "internalRoleRate": { "default": 0.10333333333333333, "rescue": 0.14, "bonus": 0.24 } },
+    { "id": "tofu", "name": "とうふ", "symbols": ["と", "う", "ふ"], "category": "core", "internalRoleKind": "replay", "internalRoleRate": { "default": 0.1, "rescue": 0.12, "bonus": 0.2 } },
+    { "id": "dango", "name": "だんご", "symbols": ["だ", "ん", "ご"], "category": "core", "internalRoleKind": "core", "internalRoleRate": { "default": 0.10333333333333333, "rescue": 0.14, "bonus": 0.24 } },
+    { "id": "mikan", "name": "みかん", "symbols": ["み", "か", "ん"], "category": "core", "internalRoleKind": "core", "internalRoleRate": { "default": 0.10333333333333333, "rescue": 0.14, "bonus": 0.24 } }
   ],
   "cherryYaku": [
-    { "id": "momo", "name": "もも", "symbols": ["も", "も"], "category": "cherry", "internalRoleKind": "cherry" }
+    { "id": "momo", "name": "もも", "symbols": ["も", "も"], "category": "cherry", "internalRoleKind": "cherry", "internalRoleRate": { "default": 0.05, "rescue": 0.07, "bonus": 0.07 } }
   ],
   "premiumYaku": [
-    { "id": "sushiya", "name": "寿司屋", "symbols": ["す", "し", "や"], "category": "premium", "internalRoleKind": "big" },
-    { "id": "namazu", "name": "ナマズ", "symbols": ["な", "ま", "ず"], "category": "premium", "internalRoleKind": "big" }
+    { "id": "sushiya", "name": "寿司屋", "symbols": ["す", "し", "や"], "category": "premium", "internalRoleKind": "big", "internalRoleRate": { "default": 0.005, "rescue": 0.015, "bonus": 0.001 } },
+    { "id": "namazu", "name": "ナマズ", "symbols": ["な", "ま", "ず"], "category": "premium", "internalRoleKind": "big", "internalRoleRate": { "default": 0.005, "rescue": 0.015, "bonus": 0.001 } }
   ],
   "bonusYaku": [
-    { "id": "reg", "name": "寿司酢", "symbols": ["す", "し", "ず"], "category": "bonus", "internalRoleKind": "reg" }
+    { "id": "reg", "name": "寿司酢", "symbols": ["す", "し", "ず"], "category": "bonus", "internalRoleKind": "reg", "internalRoleRate": { "default": 0.03, "rescue": 0.06, "bonus": 0.008 } }
   ]
 }

@@ -4,12 +4,15 @@ import type { Quiz, YakuList } from '../../src/data/schemas';
 
 const YAKU_LIST: YakuList = {
   mode: 'test',
+  internalRoleMissRate: { default: 0, rescue: 0, bonus: 0 },
   coreYaku: [
     {
       id: 'apple',
       name: 'りんご',
       symbols: ['り', 'ん', 'ご'],
       category: 'core',
+      internalRoleKind: 'core',
+      internalRoleRate: { default: 1, rescue: 1, bonus: 1 },
     },
   ],
   premiumYaku: [],

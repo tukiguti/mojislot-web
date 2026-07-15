@@ -6,7 +6,7 @@
 
 const STORAGE_KEY = 'mojislot.runHistory.v1';
 /** 出玉・停止ルールを変えた時に上げ、異なる条件の履歴を識別する。 */
-export const RUN_RULESET_VERSION = 2;
+export const RUN_RULESET_VERSION = 3;
 
 export interface RunRecord {
   /** crypto.randomUUID() — インポート時の重複排除キー */

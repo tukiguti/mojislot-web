@@ -1,8 +1,13 @@
 import { describe, expect, it } from 'vitest';
 import {
   EffectRatesSchema,
-  InternalRoleRatesSchema,
+  YakuListSchema,
 } from '../../src/data/schemas';
+import hiraganaFood from '../../data/yaku/hiragana_food.json';
+import hiraganaVerb from '../../data/yaku/hiragana_verb.json';
+import katakanaAnimal from '../../data/yaku/katakana_animal.json';
+import security from '../../data/yaku/security.json';
+import yasai from '../../data/yaku/yasai.json';
 
 describe('EffectRatesSchema', () => {
   it('合計1の演出レートを受け入れる', () => {
@@ -23,30 +28,42 @@ describe('EffectRatesSchema', () => {
   });
 });
 
-describe('InternalRoleRatesSchema', () => {
-  it('合計1の内部役レートを受け入れる', () => {
-    expect(
-      InternalRoleRatesSchema.safeParse({
-        miss: 0.5,
-        replay: 0.1,
-        core: 0.31,
-        cherry: 0.05,
-        reg: 0.03,
-        big: 0.01,
-      }).success,
-    ).toBe(true);
+describe('YakuListSchema internalRoleRate', () => {
+  const yakuList = {
+    mode: 'test',
+    internalRoleMissRate: { default: 0.5, rescue: 0.5, bonus: 0.5 },
+    coreYaku: [
+      {
+        id: 'apple',
+        name: 'りんご',
+        symbols: ['り', 'ん', 'ご'],
+        category: 'core',
+        internalRoleKind: 'core',
+        internalRoleRate: { default: 0.5, rescue: 0.5, bonus: 0.5 },
+      },
+    ],
+    cherryYaku: [],
+    bonusYaku: [],
+    premiumYaku: [],
+  };
+
+  it('各状態でmissと全具体役の合計が1なら受け入れる', () => {
+    expect(YakuListSchema.safeParse(yakuList).success).toBe(true);
   });
 
-  it('合計が1でない内部役レートを拒否する', () => {
-    expect(
-      InternalRoleRatesSchema.safeParse({
-        miss: 0.5,
-        replay: 0.1,
-        core: 0.4,
-        cherry: 0.05,
-        reg: 0.03,
-        big: 0.01,
-      }).success,
-    ).toBe(false);
+  it('どれかの状態で役別確率の合計が1でなければ拒否する', () => {
+    const invalid = structuredClone(yakuList);
+    invalid.coreYaku[0].internalRoleRate.default = 0.6;
+    expect(YakuListSchema.safeParse(invalid).success).toBe(false);
+  });
+
+  it.each([
+    ['hiragana_food', hiraganaFood],
+    ['hiragana_verb', hiraganaVerb],
+    ['katakana_animal', katakanaAnimal],
+    ['security', security],
+    ['yasai', yasai],
+  ])('%s章の全役が明示設定され、状態別合計が1になる', (_mode, raw) => {
+    expect(YakuListSchema.safeParse(raw).success).toBe(true);
   });
 });

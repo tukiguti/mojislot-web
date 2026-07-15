@@ -34,6 +34,12 @@ export const YakuInternalRoleKindSchema = z.enum([
   'reg',
   'big',
 ]);
+export const InternalRoleStateSchema = z.enum(['default', 'rescue', 'bonus']);
+export const InternalRoleRateSchema = z.object({
+  default: z.number().min(0).max(1),
+  rescue: z.number().min(0).max(1),
+  bonus: z.number().min(0).max(1),
+});
 
 export const YakuSchema = z.object({
   id: z.string(),
@@ -41,24 +47,52 @@ export const YakuSchema = z.object({
   // 通常は3文字。チェリー(2文字役=左+中)のみ2文字を許容
   symbols: z.array(z.string()).min(2).max(3),
   category: YakuCategorySchema,
-  /** 内部役抽選で使う種別。旧データはcategoryから安全に補完する。 */
-  internalRoleKind: YakuInternalRoleKindSchema.optional(),
+  /** 配当・演出で使う内部役種別。抽選自体は下の役別確率で行う。 */
+  internalRoleKind: YakuInternalRoleKindSchema,
+  /** この具体役をレバーONで直接抽選する確率（通常／救済／ボーナス中）。 */
+  internalRoleRate: InternalRoleRateSchema,
   // 図柄画像(webp)を持たない役。true なら画像読込をスキップし色タイル＋文字で描く
   noArt: z.boolean().optional(),
 });
 
-export const YakuListSchema = z.object({
-  mode: z.string(),
-  coreYaku: z.array(YakuSchema),
-  premiumYaku: z.array(YakuSchema),
-  bonusYaku: z.array(YakuSchema).default([]),
-  // チェリー（2文字役・左+中の2リールで成立）。ジャグラー型のみ使用
-  cherryYaku: z.array(YakuSchema).default([]),
-});
+export const YakuListSchema = z
+  .object({
+    mode: z.string(),
+    /** ハズレも状態別に章データへ置き、全役との合計を同じファイルで検証する。 */
+    internalRoleMissRate: InternalRoleRateSchema,
+    coreYaku: z.array(YakuSchema),
+    premiumYaku: z.array(YakuSchema),
+    bonusYaku: z.array(YakuSchema).default([]),
+    // チェリー（2文字役・左+中の2リールで成立）。ジャグラー型のみ使用
+    cherryYaku: z.array(YakuSchema).default([]),
+  })
+  .superRefine((list, ctx) => {
+    const yakus = [
+      ...list.coreYaku,
+      ...list.cherryYaku,
+      ...list.bonusYaku,
+      ...list.premiumYaku,
+    ];
+    for (const state of InternalRoleStateSchema.options) {
+      const total = yakus.reduce(
+        (sum, yaku) => sum + yaku.internalRoleRate[state],
+        list.internalRoleMissRate[state],
+      );
+      if (Math.abs(total - 1) >= 1e-9) {
+        ctx.addIssue({
+          code: 'custom',
+          path: ['internalRoleMissRate', state],
+          message: `内部役の${state}確率はmissと全役の合計を1にしてください（現在${total}）`,
+        });
+      }
+    }
+  });
 
 export type YakuCategory = z.infer<typeof YakuCategorySchema>;
 export type InternalRoleKind = z.infer<typeof InternalRoleKindSchema>;
 export type YakuInternalRoleKind = z.infer<typeof YakuInternalRoleKindSchema>;
+export type InternalRoleState = z.infer<typeof InternalRoleStateSchema>;
+export type InternalRoleRate = z.infer<typeof InternalRoleRateSchema>;
 export type Yaku = z.infer<typeof YakuSchema>;
 export type YakuList = z.infer<typeof YakuListSchema>;
 
@@ -138,32 +172,6 @@ export const EffectRatesSchema = z
     { message: '演出レート none/shisa/quiz/aim の合計は 1 にしてください' },
   );
 
-/** 1ゲームの内部役抽選レート。各状態の合計は必ず1.0。 */
-export const InternalRoleRatesSchema = z
-  .object({
-    miss: z.number().min(0),
-    replay: z.number().min(0),
-    core: z.number().min(0),
-    cherry: z.number().min(0),
-    reg: z.number().min(0),
-    big: z.number().min(0),
-  })
-  .refine(
-    (rates) =>
-      Math.abs(
-        rates.miss +
-          rates.replay +
-          rates.core +
-          rates.cherry +
-          rates.reg +
-          rates.big -
-          1,
-      ) < 1e-9,
-    { message: '内部役レート miss/replay/core/cherry/reg/big の合計は 1 にしてください' },
-  );
-
-export type InternalRoleRates = z.infer<typeof InternalRoleRatesSchema>;
-
 /** 示唆の期待度ランク色（青<黄<緑<赤<金）。tint・ステータス・ジン台詞に使う。 */
 export const ShisaTierColorSchema = z.enum(['blue', 'yellow', 'green', 'red', 'gold']);
 export type ShisaTierColor = z.infer<typeof ShisaTierColorSchema>;
@@ -199,29 +207,6 @@ const DEFAULT_SHISA_TIERS: ShisaTier[] = [
 ];
 
 /**
- * 予告（狙え/クイズ）が BB(premium)/RB(bonus) を対象にする重み。1=フィルタなし、0=小役限定。
- * ここがボーナス突入率とおかわり率を直接決める（演出の頻度ではなく「予告の中身」で出玉を制御する）。
- * ボーナス中の値を小さくするほど、おかわりが「赤/金示唆」に寄ったレアな契機になる。
- */
-const NoticeWeightSchema = z
-  .object({
-    /** 通常時：狙えの予告役抽選で bonus/premium にかける重み倍率。 */
-    aimBonusWeight: z.number().min(0).default(0.1),
-    /** 通常時：クイズ出題で「答えが bonus/premium」の問題にかける重み倍率。 */
-    quizBonusWeight: z.number().min(0).default(0.2),
-    /** ボーナス中：狙えの予告役（0=小役のみ予告＝おかわりは示唆の赤/金だけ）。 */
-    bonusAimBonusWeight: z.number().min(0).default(0),
-    /** ボーナス中：クイズの BB/RB 問題。 */
-    bonusQuizBonusWeight: z.number().min(0).default(0.15),
-  })
-  .default({
-    aimBonusWeight: 0.1,
-    quizBonusWeight: 0.2,
-    bonusAimBonusWeight: 0,
-    bonusQuizBonusWeight: 0.15,
-  });
-
-/**
  * 演出なし時の小役蹴り。
  * 「演出中に目押しできれば獲れる」技術介入機にするため、**演出が無いスピンは小役も揃わない**
  * （＝実機の小役非当選に相当）。これが無いと目押しの上手いプレイヤーが通常時に無限に増やせる。
@@ -244,18 +229,6 @@ export const TuningSchema = z.object({
     rescue: EffectRatesSchema,
     bonus: EffectRatesSchema,
   }),
-  /** レバーON時の内部役抽選レート（通常／ハマり救済／ボーナス中）。 */
-  internalRoleRates: z
-    .object({
-      default: InternalRoleRatesSchema,
-      rescue: InternalRoleRatesSchema,
-      bonus: InternalRoleRatesSchema,
-    })
-    .default({
-      default: { miss: 0.5, replay: 0.1, core: 0.31, cherry: 0.05, reg: 0.03, big: 0.01 },
-      rescue: { miss: 0.3, replay: 0.12, core: 0.42, cherry: 0.07, reg: 0.06, big: 0.03 },
-      bonus: { miss: 0, replay: 0.2, core: 0.72, cherry: 0.07, reg: 0.008, big: 0.002 },
-    }),
   /** 連続ハズレがこの回数以上で救済レートへ切替。 */
   rescueMissThreshold: z.number().int().positive().default(30),
   /** ボーナス区間の継続スピン数と、ボーナス中だけ差し替える示唆tier。 */
@@ -271,8 +244,6 @@ export const TuningSchema = z.object({
       shisaTiers: z.array(ShisaTierSchema).min(1).optional(),
     })
     .default({ spinsPerBig: 10, spinsPerReg: 5 }),
-  /** 予告（狙え/クイズ）が BB/RB を対象にする重み。突入率・おかわり率の主ダイヤル。 */
-  notice: NoticeWeightSchema,
   /** 引き込み/蹴り（目押し補助）の強さ。コマ数が大きいほど揃いやすい。 */
   assist: z
     .object({

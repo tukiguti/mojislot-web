@@ -12,6 +12,7 @@ const hit = (id: string): PaylineHit => ({
     symbols: ['a', 'b', 'c'],
     category: 'core',
     internalRoleKind: 'core',
+    internalRoleRate: { default: 1, rescue: 1, bonus: 1 },
   },
   symbols: ['a', 'b', 'c'],
 });

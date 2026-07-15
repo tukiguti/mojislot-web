@@ -77,7 +77,7 @@ import {
   type ReelStrip,
   type ShisaTier,
   type ShisaTierColor,
-  type InternalRoleRates,
+  type InternalRoleState,
 } from './data/schemas';
 import payoutDataRaw from '../data/payouts/default.json';
 import tuningDataRaw from '../data/tuning/default.json';
@@ -467,23 +467,7 @@ export async function bootstrap() {
   let pendingDebugEffect: ForcedEffect | null = null;
   let autoMode = false;
 
-  // 演出ターゲットを「リール枚数」に比例させるためのウェイト。
-  // 役の各文字がそのリールに何枚あるかの平均 ＝ その役の出やすさ。
-  // → ぶどう等の最頻役は演出で多く狙われ、7/バー等のレア役は稀になる。
-  const reelSymbolCount = (reelIdx: number, symbol: string): number =>
-    reelConfig.reels[reelIdx].cells.filter((c) => c === symbol).length;
-  const yakuReelWeight = (yaku: { symbols: string[] }): number => {
-    let sum = 0;
-    for (let r = 0; r < yaku.symbols.length; r++) {
-      sum += reelSymbolCount(r, yaku.symbols[r]);
-    }
-    return Math.max(1, sum / yaku.symbols.length);
-  };
-  const internalRoleLottery = new InternalRoleLottery(
-    yakuList,
-    Math.random,
-    yakuReelWeight,
-  );
+  const internalRoleLottery = new InternalRoleLottery(yakuList, Math.random);
   const weightedPick = <T>(items: readonly T[], weight: (t: T) => number): T => {
     const ws = items.map(weight);
     const total = ws.reduce((a, b) => a + b, 0);
@@ -617,12 +601,12 @@ export async function bootstrap() {
     return tiers.length > 0 ? weightedPick(tiers, (tier) => tier.weight) : null;
   };
 
-  const activeInternalRoleRates = (): InternalRoleRates => {
-    if (bonusSpinActive) return tuning.internalRoleRates.bonus;
+  const activeInternalRoleState = (): InternalRoleState => {
+    if (bonusSpinActive) return 'bonus';
     if (playStats.stats.get().missStreak >= tuning.rescueMissThreshold) {
-      return tuning.internalRoleRates.rescue;
+      return 'rescue';
     }
-    return tuning.internalRoleRates.default;
+    return 'default';
   };
 
   const activateRound = (
@@ -650,7 +634,7 @@ export async function bootstrap() {
   };
 
   const drawDebugRole = (effect: ForcedEffect): InternalRoleResult =>
-    internalRoleLottery.draw(activeInternalRoleRates(), {
+    internalRoleLottery.draw(activeInternalRoleState(), {
       allowMiss: false,
       yakuFilter: (yaku) => effectCanRepresent(effect, yaku),
     });
@@ -1228,7 +1212,7 @@ export async function bootstrap() {
       pendingDebugEffect = null;
       activateRound(drawDebugRole(effect), effect, 'debug');
     } else {
-      const role = internalRoleLottery.draw(activeInternalRoleRates());
+      const role = internalRoleLottery.draw(activeInternalRoleState());
       const yaku = internalRoleLottery.yakuFor(role);
       const effect = yaku
         ? scheduler.rollAvailable(eligibleEffectsForYaku(yaku))

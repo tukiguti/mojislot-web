@@ -1,9 +1,16 @@
 import { describe, expect, it } from 'vitest';
-import type { InternalRoleRates, YakuList } from '../../src/data/schemas';
+import type { InternalRoleRate, YakuList } from '../../src/data/schemas';
 import { InternalRoleLottery } from '../../src/productions/InternalRoleLottery';
+
+const rate = (value: number): InternalRoleRate => ({
+  default: value,
+  rescue: value,
+  bonus: value,
+});
 
 const yakuList: YakuList = {
   mode: 'test',
+  internalRoleMissRate: rate(0.5),
   coreYaku: [
     {
       id: 'grape',
@@ -11,6 +18,7 @@ const yakuList: YakuList = {
       symbols: ['ぶ', 'ど', 'う'],
       category: 'core',
       internalRoleKind: 'core',
+      internalRoleRate: rate(0.1),
     },
     {
       id: 'replay',
@@ -18,6 +26,7 @@ const yakuList: YakuList = {
       symbols: ['り', 'ぷ', 'れ'],
       category: 'core',
       internalRoleKind: 'replay',
+      internalRoleRate: rate(0.1),
     },
     {
       id: 'bell',
@@ -25,6 +34,7 @@ const yakuList: YakuList = {
       symbols: ['べ', 'る', 'る'],
       category: 'core',
       internalRoleKind: 'core',
+      internalRoleRate: rate(0.1),
     },
   ],
   cherryYaku: [
@@ -34,6 +44,7 @@ const yakuList: YakuList = {
       symbols: ['ち', 'ぇ'],
       category: 'cherry',
       internalRoleKind: 'cherry',
+      internalRoleRate: rate(0.1),
     },
   ],
   bonusYaku: [
@@ -43,6 +54,7 @@ const yakuList: YakuList = {
       symbols: ['れ', 'ぐ', 'ぐ'],
       category: 'bonus',
       internalRoleKind: 'reg',
+      internalRoleRate: rate(0.05),
     },
   ],
   premiumYaku: [
@@ -52,17 +64,9 @@ const yakuList: YakuList = {
       symbols: ['び', 'っ', 'ぐ'],
       category: 'premium',
       internalRoleKind: 'big',
+      internalRoleRate: rate(0.05),
     },
   ],
-};
-
-const rates: InternalRoleRates = {
-  miss: 0.5,
-  replay: 0.1,
-  core: 0.2,
-  cherry: 0.1,
-  reg: 0.05,
-  big: 0.05,
 };
 
 const randomSequence = (...values: number[]) => {
@@ -73,7 +77,7 @@ const randomSequence = (...values: number[]) => {
 describe('InternalRoleLottery', () => {
   it('レートに従ってmissを返す', () => {
     const lottery = new InternalRoleLottery(yakuList, () => 0.1);
-    expect(lottery.draw(rates)).toEqual({
+    expect(lottery.draw('default')).toEqual({
       kind: 'miss',
       yakuId: null,
       yakuName: null,
@@ -81,38 +85,48 @@ describe('InternalRoleLottery', () => {
   });
 
   it('replayを具体的な役ID付きで返す', () => {
-    const lottery = new InternalRoleLottery(yakuList, randomSequence(0.55, 0));
-    expect(lottery.draw(rates)).toMatchObject({ kind: 'replay', yakuId: 'replay' });
+    const lottery = new InternalRoleLottery(yakuList, () => 0.65);
+    expect(lottery.draw('default')).toMatchObject({ kind: 'replay', yakuId: 'replay' });
   });
 
   it('デバッグ用抽選ではmissを候補から外す', () => {
     const lottery = new InternalRoleLottery(yakuList, randomSequence(0, 0));
-    expect(lottery.draw(rates, { allowMiss: false }).kind).not.toBe('miss');
+    expect(lottery.draw('default', { allowMiss: false }).kind).not.toBe('miss');
   });
 
   it('演出で表現できない役を候補から除外する', () => {
     const lottery = new InternalRoleLottery(yakuList, randomSequence(0.7, 0));
-    const result = lottery.draw(rates, {
+    const result = lottery.draw('default', {
       allowMiss: false,
       yakuFilter: (yaku) => yaku.symbols.length === 3,
     });
     expect(result.yakuId).not.toBe('cherry');
   });
 
-  it('同一種別の具体役は注入した重みで選ぶ', () => {
-    const coreOnly: InternalRoleRates = {
-      miss: 0,
-      replay: 0,
-      core: 1,
-      cherry: 0,
-      reg: 0,
-      big: 0,
+  it('同じcore種別でも役ごとの設定確率で直接選ぶ', () => {
+    const directRates: YakuList = {
+      ...yakuList,
+      internalRoleMissRate: rate(0),
+      coreYaku: yakuList.coreYaku.map((yaku) => ({
+        ...yaku,
+        internalRoleRate: rate(
+          yaku.id === 'grape' ? 0.9 : yaku.id === 'bell' ? 0.1 : 0,
+        ),
+      })),
+      cherryYaku: yakuList.cherryYaku.map((yaku) => ({
+        ...yaku,
+        internalRoleRate: rate(0),
+      })),
+      bonusYaku: yakuList.bonusYaku.map((yaku) => ({
+        ...yaku,
+        internalRoleRate: rate(0),
+      })),
+      premiumYaku: yakuList.premiumYaku.map((yaku) => ({
+        ...yaku,
+        internalRoleRate: rate(0),
+      })),
     };
-    const lottery = new InternalRoleLottery(
-      yakuList,
-      randomSequence(0.5, 0.95),
-      (yaku) => (yaku.id === 'grape' ? 9 : 1),
-    );
-    expect(lottery.draw(coreOnly).yakuId).toBe('bell');
+    const lottery = new InternalRoleLottery(directRates, () => 0.95);
+    expect(lottery.draw('default').yakuId).toBe('bell');
   });
 });
