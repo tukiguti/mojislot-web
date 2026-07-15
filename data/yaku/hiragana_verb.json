@@ -1,19 +1,19 @@
 {
   "mode": "hiragana_verb",
   "coreYaku": [
-    { "id": "utau", "name": "うたう", "symbols": ["う", "た", "う"], "category": "core" },
-    { "id": "asobu", "name": "あそぶ", "symbols": ["あ", "そ", "ぶ"], "category": "core" },
-    { "id": "oyogu", "name": "およぐ", "symbols": ["お", "よ", "ぐ"], "category": "core" },
-    { "id": "hanasu", "name": "はなす", "symbols": ["は", "な", "す"], "category": "core" }
+    { "id": "utau", "name": "うたう", "symbols": ["う", "た", "う"], "category": "core", "internalRoleKind": "core" },
+    { "id": "asobu", "name": "あそぶ", "symbols": ["あ", "そ", "ぶ"], "category": "core", "internalRoleKind": "replay" },
+    { "id": "oyogu", "name": "およぐ", "symbols": ["お", "よ", "ぐ"], "category": "core", "internalRoleKind": "core" },
+    { "id": "hanasu", "name": "はなす", "symbols": ["は", "な", "す"], "category": "core", "internalRoleKind": "core" }
   ],
   "cherryYaku": [
-    { "id": "neru", "name": "ねる", "symbols": ["ね", "る"], "category": "cherry" }
+    { "id": "neru", "name": "ねる", "symbols": ["ね", "る"], "category": "cherry", "internalRoleKind": "cherry" }
   ],
   "premiumYaku": [
-    { "id": "ikiru", "name": "いきる", "symbols": ["い", "き", "る"], "category": "premium" },
-    { "id": "yasumu", "name": "やすむ", "symbols": ["や", "す", "む"], "category": "premium" }
+    { "id": "ikiru", "name": "いきる", "symbols": ["い", "き", "る"], "category": "premium", "internalRoleKind": "big" },
+    { "id": "yasumu", "name": "やすむ", "symbols": ["や", "す", "む"], "category": "premium", "internalRoleKind": "big" }
   ],
   "bonusYaku": [
-    { "id": "reg", "name": "いきむ", "symbols": ["い", "き", "む"], "category": "bonus" }
+    { "id": "reg", "name": "いきむ", "symbols": ["い", "き", "む"], "category": "bonus", "internalRoleKind": "reg" }
   ]
 }

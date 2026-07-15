@@ -35,6 +35,25 @@ export class EffectScheduler {
     if (r < this.rates.none + this.rates.shisa + this.rates.quiz) return 'quiz';
     return 'aim';
   }
+
+  /**
+   * 内部役を表現できる演出候補だけから、現在レートを重みとして再抽選する。
+   * 内部役missは呼び出し側でnone固定にするため、通常はshisa/quiz/aimを渡す。
+   */
+  rollAvailable(available: readonly EffectType[]): EffectType {
+    const unique = [...new Set(available)];
+    const weighted = unique
+      .map((effect) => ({ effect, weight: this.rates[effect] }))
+      .filter((entry) => entry.weight > 0);
+    const total = weighted.reduce((sum, entry) => sum + entry.weight, 0);
+    if (total <= 0) return 'none';
+    let cursor = Math.random() * total;
+    for (const entry of weighted) {
+      cursor -= entry.weight;
+      if (cursor < 0) return entry.effect;
+    }
+    return weighted[weighted.length - 1].effect;
+  }
 }
 
 /**

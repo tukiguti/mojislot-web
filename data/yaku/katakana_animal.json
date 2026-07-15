@@ -1,19 +1,19 @@
 {
   "mode": "katakana_animal",
   "coreYaku": [
-    { "id": "usagi", "name": "ウサギ", "symbols": ["ウ", "サ", "ギ"], "category": "core" },
-    { "id": "kirin", "name": "キリン", "symbols": ["キ", "リ", "ン"], "category": "core" },
-    { "id": "tanuki", "name": "タヌキ", "symbols": ["タ", "ヌ", "キ"], "category": "core" },
-    { "id": "tokage", "name": "トカゲ", "symbols": ["ト", "カ", "ゲ"], "category": "core" }
+    { "id": "usagi", "name": "ウサギ", "symbols": ["ウ", "サ", "ギ"], "category": "core", "internalRoleKind": "core" },
+    { "id": "kirin", "name": "キリン", "symbols": ["キ", "リ", "ン"], "category": "core", "internalRoleKind": "replay" },
+    { "id": "tanuki", "name": "タヌキ", "symbols": ["タ", "ヌ", "キ"], "category": "core", "internalRoleKind": "core" },
+    { "id": "tokage", "name": "トカゲ", "symbols": ["ト", "カ", "ゲ"], "category": "core", "internalRoleKind": "core" }
   ],
   "cherryYaku": [
-    { "id": "sai", "name": "サイ", "symbols": ["サ", "イ"], "category": "cherry" }
+    { "id": "sai", "name": "サイ", "symbols": ["サ", "イ"], "category": "cherry", "internalRoleKind": "cherry" }
   ],
   "premiumYaku": [
-    { "id": "dragon", "name": "ドラゴン", "symbols": ["ド", "ラ", "ゴ"], "category": "premium" },
-    { "id": "inko", "name": "インコ", "symbols": ["イ", "ン", "コ"], "category": "premium" }
+    { "id": "dragon", "name": "ドラゴン", "symbols": ["ド", "ラ", "ゴ"], "category": "premium", "internalRoleKind": "big" },
+    { "id": "inko", "name": "インコ", "symbols": ["イ", "ン", "コ"], "category": "premium", "internalRoleKind": "big" }
   ],
   "bonusYaku": [
-    { "id": "reg", "name": "ドラコ", "symbols": ["ド", "ラ", "コ"], "category": "bonus" }
+    { "id": "reg", "name": "ドラコ", "symbols": ["ド", "ラ", "コ"], "category": "bonus", "internalRoleKind": "reg" }
   ]
 }

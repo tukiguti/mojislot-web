@@ -1,19 +1,19 @@
 {
   "mode": "yasai",
   "coreYaku": [
-    { "id": "okura", "name": "オクラ", "symbols": ["オ", "ク", "ラ"], "category": "core" },
-    { "id": "moyashi", "name": "モヤシ", "symbols": ["モ", "ヤ", "シ"], "category": "core" },
-    { "id": "serori", "name": "セロリ", "symbols": ["セ", "ロ", "リ"], "category": "core" },
-    { "id": "retasu", "name": "レタス", "symbols": ["レ", "タ", "ス"], "category": "core" }
+    { "id": "okura", "name": "オクラ", "symbols": ["オ", "ク", "ラ"], "category": "core", "internalRoleKind": "core" },
+    { "id": "moyashi", "name": "モヤシ", "symbols": ["モ", "ヤ", "シ"], "category": "core", "internalRoleKind": "replay" },
+    { "id": "serori", "name": "セロリ", "symbols": ["セ", "ロ", "リ"], "category": "core", "internalRoleKind": "core" },
+    { "id": "retasu", "name": "レタス", "symbols": ["レ", "タ", "ス"], "category": "core", "internalRoleKind": "core" }
   ],
   "cherryYaku": [
-    { "id": "nasubi", "name": "ナス", "symbols": ["ナ", "ス"], "category": "cherry" }
+    { "id": "nasubi", "name": "ナス", "symbols": ["ナ", "ス"], "category": "cherry", "internalRoleKind": "cherry" }
   ],
   "premiumYaku": [
-    { "id": "potechi", "name": "ポテチ", "symbols": ["ポ", "テ", "チ"], "category": "premium" },
-    { "id": "tomato", "name": "トマト", "symbols": ["ト", "マ", "ト"], "category": "premium" }
+    { "id": "potechi", "name": "ポテチ", "symbols": ["ポ", "テ", "チ"], "category": "premium", "internalRoleKind": "big" },
+    { "id": "tomato", "name": "トマト", "symbols": ["ト", "マ", "ト"], "category": "premium", "internalRoleKind": "big" }
   ],
   "bonusYaku": [
-    { "id": "reg", "name": "ポテト", "symbols": ["ポ", "テ", "ト"], "category": "bonus" }
+    { "id": "reg", "name": "ポテト", "symbols": ["ポ", "テ", "ト"], "category": "bonus", "internalRoleKind": "reg" }
   ]
 }

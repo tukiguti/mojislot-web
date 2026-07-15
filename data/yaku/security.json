@@ -1,19 +1,19 @@
 {
   "mode": "security",
   "coreYaku": [
-    { "id": "hack", "name": "ハック", "symbols": ["ハ", "ッ", "ク"], "category": "core" },
-    { "id": "memori", "name": "メモリ", "symbols": ["メ", "モ", "リ"], "category": "core" },
-    { "id": "spam", "name": "スパム", "symbols": ["ス", "パ", "ム"], "category": "core" },
-    { "id": "flag", "name": "フラグ", "symbols": ["フ", "ラ", "グ"], "category": "core" }
+    { "id": "hack", "name": "ハック", "symbols": ["ハ", "ッ", "ク"], "category": "core", "internalRoleKind": "core" },
+    { "id": "memori", "name": "メモリ", "symbols": ["メ", "モ", "リ"], "category": "core", "internalRoleKind": "replay" },
+    { "id": "spam", "name": "スパム", "symbols": ["ス", "パ", "ム"], "category": "core", "internalRoleKind": "core" },
+    { "id": "flag", "name": "フラグ", "symbols": ["フ", "ラ", "グ"], "category": "core", "internalRoleKind": "core" }
   ],
   "cherryYaku": [
-    { "id": "bug", "name": "バグ", "symbols": ["バ", "グ"], "category": "cherry" }
+    { "id": "bug", "name": "バグ", "symbols": ["バ", "グ"], "category": "cherry", "internalRoleKind": "cherry" }
   ],
   "premiumYaku": [
-    { "id": "code", "name": "コード", "symbols": ["コ", "ー", "ド"], "category": "premium" },
-    { "id": "shell", "name": "シェル", "symbols": ["シ", "ェ", "ル"], "category": "premium" }
+    { "id": "code", "name": "コード", "symbols": ["コ", "ー", "ド"], "category": "premium", "internalRoleKind": "big" },
+    { "id": "shell", "name": "シェル", "symbols": ["シ", "ェ", "ル"], "category": "premium", "internalRoleKind": "big" }
   ],
   "bonusYaku": [
-    { "id": "reg", "name": "コール", "symbols": ["コ", "ー", "ル"], "category": "bonus" }
+    { "id": "reg", "name": "コール", "symbols": ["コ", "ー", "ル"], "category": "bonus", "internalRoleKind": "reg" }
   ]
 }

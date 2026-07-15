@@ -18,12 +18,31 @@ export type ReelConfig = z.infer<typeof ReelConfigSchema>;
 // core=小役 / premium=BIG(7・バー揃い) / bonus=RB / cherry=チェリー(2文字役)
 export const YakuCategorySchema = z.enum(['core', 'premium', 'bonus', 'cherry']);
 
+/** レバーONで抽選する内部役。miss以外は具体的な役IDを伴う。 */
+export const InternalRoleKindSchema = z.enum([
+  'miss',
+  'replay',
+  'core',
+  'cherry',
+  'reg',
+  'big',
+]);
+export const YakuInternalRoleKindSchema = z.enum([
+  'replay',
+  'core',
+  'cherry',
+  'reg',
+  'big',
+]);
+
 export const YakuSchema = z.object({
   id: z.string(),
   name: z.string(),
   // 通常は3文字。チェリー(2文字役=左+中)のみ2文字を許容
   symbols: z.array(z.string()).min(2).max(3),
   category: YakuCategorySchema,
+  /** 内部役抽選で使う種別。旧データはcategoryから安全に補完する。 */
+  internalRoleKind: YakuInternalRoleKindSchema.optional(),
   // 図柄画像(webp)を持たない役。true なら画像読込をスキップし色タイル＋文字で描く
   noArt: z.boolean().optional(),
 });
@@ -38,6 +57,8 @@ export const YakuListSchema = z.object({
 });
 
 export type YakuCategory = z.infer<typeof YakuCategorySchema>;
+export type InternalRoleKind = z.infer<typeof InternalRoleKindSchema>;
+export type YakuInternalRoleKind = z.infer<typeof YakuInternalRoleKindSchema>;
 export type Yaku = z.infer<typeof YakuSchema>;
 export type YakuList = z.infer<typeof YakuListSchema>;
 
@@ -116,6 +137,32 @@ export const EffectRatesSchema = z
       Math.abs(rates.none + rates.shisa + rates.quiz + rates.aim - 1) < 1e-9,
     { message: '演出レート none/shisa/quiz/aim の合計は 1 にしてください' },
   );
+
+/** 1ゲームの内部役抽選レート。各状態の合計は必ず1.0。 */
+export const InternalRoleRatesSchema = z
+  .object({
+    miss: z.number().min(0),
+    replay: z.number().min(0),
+    core: z.number().min(0),
+    cherry: z.number().min(0),
+    reg: z.number().min(0),
+    big: z.number().min(0),
+  })
+  .refine(
+    (rates) =>
+      Math.abs(
+        rates.miss +
+          rates.replay +
+          rates.core +
+          rates.cherry +
+          rates.reg +
+          rates.big -
+          1,
+      ) < 1e-9,
+    { message: '内部役レート miss/replay/core/cherry/reg/big の合計は 1 にしてください' },
+  );
+
+export type InternalRoleRates = z.infer<typeof InternalRoleRatesSchema>;
 
 /** 示唆の期待度ランク色（青<黄<緑<赤<金）。tint・ステータス・ジン台詞に使う。 */
 export const ShisaTierColorSchema = z.enum(['blue', 'yellow', 'green', 'red', 'gold']);
@@ -197,6 +244,18 @@ export const TuningSchema = z.object({
     rescue: EffectRatesSchema,
     bonus: EffectRatesSchema,
   }),
+  /** レバーON時の内部役抽選レート（通常／ハマり救済／ボーナス中）。 */
+  internalRoleRates: z
+    .object({
+      default: InternalRoleRatesSchema,
+      rescue: InternalRoleRatesSchema,
+      bonus: InternalRoleRatesSchema,
+    })
+    .default({
+      default: { miss: 0.5, replay: 0.1, core: 0.31, cherry: 0.05, reg: 0.03, big: 0.01 },
+      rescue: { miss: 0.3, replay: 0.12, core: 0.42, cherry: 0.07, reg: 0.06, big: 0.03 },
+      bonus: { miss: 0, replay: 0.2, core: 0.72, cherry: 0.07, reg: 0.008, big: 0.002 },
+    }),
   /** 連続ハズレがこの回数以上で救済レートへ切替。 */
   rescueMissThreshold: z.number().int().positive().default(30),
   /** ボーナス区間の継続スピン数と、ボーナス中だけ差し替える示唆tier。 */

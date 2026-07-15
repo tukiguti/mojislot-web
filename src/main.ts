@@ -5,6 +5,12 @@ import { loadSymbolArt } from './render/ReelArt';
 import { RunTimer } from './ui/RunTimer';
 import { SymbolColorResolver } from './render/SymbolStyle';
 import { YakuJudge } from './core/YakuJudge';
+import { resolveInternalRoleHits } from './core/RoleResolver';
+import {
+  createRoundContext,
+  type RoundContext,
+  type RoundSource,
+} from './core/RoundContext';
 import { PayoutCalc } from './core/PayoutCalc';
 import { CoinWallet } from './core/CoinWallet';
 import {
@@ -20,6 +26,10 @@ import { PlayStats } from './productions/PlayStats';
 import { appendRunRecord, RUN_RULESET_VERSION } from './productions/RunHistory';
 import { getMemberId, getMemberName } from './productions/Member';
 import { NearMissDetector } from './productions/NearMissDetector';
+import {
+  InternalRoleLottery,
+  type InternalRoleResult,
+} from './productions/InternalRoleLottery';
 import {
   flashScreen,
   spawnConfetti,
@@ -67,6 +77,7 @@ import {
   type ReelStrip,
   type ShisaTier,
   type ShisaTierColor,
+  type InternalRoleRates,
 } from './data/schemas';
 import payoutDataRaw from '../data/payouts/default.json';
 import tuningDataRaw from '../data/tuning/default.json';
@@ -81,6 +92,7 @@ import './style.css';
 
 const REEL_GAP = 16;
 const REEL_COUNT = 3;
+type ForcedEffect = Exclude<EffectType, 'none'>;
 const CANVAS_W = 600;
 const CANVAS_H = 732;
 // 液晶エリア（演出液晶＋マスコット領域）の高さ。
@@ -217,6 +229,9 @@ export async function bootstrap() {
   // （resolveKick・全演出で作用、予告した BIG/RB は通す）。
   // 現在のスピンの effect 種別（AUTO がターゲット決定に使う）
   let currentEffect: EffectType = 'none';
+  // レバーONで確定し、全停止まで保持する内部役と演出の正本。
+  let currentRound: RoundContext | null = null;
+  let roundNumber = 0;
   // 現在の示唆の期待度tier（青/黄/緑/赤/金）。applyEffect('shisa')で抽選、他演出ではnull。
   let currentShisaTier: ShisaTier | null = null;
 
@@ -449,7 +464,7 @@ export async function bootstrap() {
   const effectStatusEl = requireEl('effect-status');
   let betPlaced = false;
   let resultTimer: number | null = null;
-  let pendingDebugQuiz = false;
+  let pendingDebugEffect: ForcedEffect | null = null;
   let autoMode = false;
 
   // 演出ターゲットを「リール枚数」に比例させるためのウェイト。
@@ -464,6 +479,11 @@ export async function bootstrap() {
     }
     return Math.max(1, sum / yaku.symbols.length);
   };
+  const internalRoleLottery = new InternalRoleLottery(
+    yakuList,
+    Math.random,
+    yakuReelWeight,
+  );
   const weightedPick = <T>(items: readonly T[], weight: (t: T) => number): T => {
     const ws = items.map(weight);
     const total = ws.reduce((a, b) => a + b, 0);
@@ -474,29 +494,6 @@ export async function bootstrap() {
     }
     return items[items.length - 1];
   };
-
-  /**
-   * 予告（狙え/クイズ）が BB(premium)/RB(bonus) を対象にする重み。
-   * 演出は全て「目押しできれば獲れる」＝予告の中身がそのまま出玉になるため、ボーナス突入率と
-   * おかわり率はこの重みで決まる（演出の頻度ではなく中身で制御する）。ボーナス中は別値。
-   */
-  const noticeBonusWeight = (kind: 'aim' | 'quiz'): number => {
-    const n = tuning.notice;
-    if (bonusZone.isActive()) {
-      return kind === 'aim' ? n.bonusAimBonusWeight : n.bonusQuizBonusWeight;
-    }
-    return kind === 'aim' ? n.aimBonusWeight : n.quizBonusWeight;
-  };
-  const isBonusCategory = (c: Yaku['category']): boolean =>
-    c === 'premium' || c === 'bonus';
-
-  // クイズは小役の問題を一様抽選。BB/RB が答えの問題だけ重みを落とす（＝出題されればアツい）。
-  const pickRandomQuiz = () =>
-    weightedPick(quizList.quizzes, (q) => {
-      const y = allYakusFlat.find((yy) => yy.id === q.answerYakuId);
-      if (!y) return 1;
-      return isBonusCategory(y.category) ? noticeBonusWeight('quiz') : 1;
-    });
 
   // 示唆の期待度tier色 → 画面tint(hex) / ジンの煽り台詞。
   const SHISA_TINT: Record<ShisaTierColor, number> = {
@@ -513,29 +510,17 @@ export async function bootstrap() {
     red: 'shisaBonus',
     gold: 'shisaPremium',
   };
-  /**
-   * 示唆を引いた時、期待度tierを重み抽選（青が出やすく金は稀）。
-   * ボーナス中は演出100%なので、通常と同じ赤/金の比率だと「おかわり」が毎セット当たって区間が
-   * 終わらなくなる。ボーナス中だけ tuning.bonus.shisaTiers（赤/金を絞った表）へ差し替える。
-   */
-  const pickShisaTier = (): ShisaTier => {
-    const tiers =
-      (bonusZone.isActive() ? tuning.bonus.shisaTiers : null) ?? tuning.assist.shisaTiers;
-    return weightedPick(tiers, (t) => t.weight);
-  };
+  interface EffectOptions {
+    targetYaku?: Yaku | null;
+    shisaTier?: ShisaTier | null;
+  }
 
-  /**
-   * aim 演出で狙っている役（applyEffect('aim') で設定、resetForNextSpin で null）。
-   * applyEffect の closure 内で参照されるため、applyEffect 定義より前で宣言する必要がある。
-   */
-  let aimNoticeYaku: (typeof allYakusFlat)[number] | null = null;
-
-  const applyEffect = (effect: EffectType) => {
+  const applyEffect = (effect: EffectType, options: EffectOptions = {}) => {
     currentEffect = effect;
     for (const engine of engines) engine.setSpeed(reelSpeed());
 
-    // 示唆は期待度tierを抽選し、その色でtint/ステータス/台詞を切替（他演出ではtierをクリア）。
-    currentShisaTier = effect === 'shisa' ? pickShisaTier() : null;
+    // 示唆tierも内部役に対応する候補からactivateRoundで確定済み。
+    currentShisaTier = effect === 'shisa' ? (options.shisaTier ?? null) : null;
     effectVisual.apply(
       effect,
       currentShisaTier ? SHISA_TINT[currentShisaTier.color] : undefined,
@@ -563,27 +548,18 @@ export async function bootstrap() {
       jinState.set('quiz');
       // 回答操作なし方式：まず問題だけを出し、答えの役を引き込み対象にする（操作はaim相当）。
       // 答えと成立結果は全停止後に QuizState.resolve() で表示する。
-      quizState.reveal(pickRandomQuiz(), yakuList);
+      const quiz = options.targetYaku
+        ? quizList.quizzes.find((q) => q.answerYakuId === options.targetYaku?.id)
+        : null;
+      if (quiz) quizState.reveal(quiz, yakuList);
       sfx.quiz();
     } else if (effect === 'aim') {
       effectStatusEl.textContent = '狙え！';
       effectStatusEl.classList.add('aim');
       jinState.set('shisa');
-      // 狙う役をリール枚数に比例して抽選（最頻役が多い）。BB/RB は notice の重みで絞る
-      //（ボーナス中は既定 0＝小役のみ予告。おかわりは示唆の赤/金だけの契機にする）。
-      // 3文字役のみ対象（2文字チェリーは aim UI 上 3リール表示にならないので除外）。
-      const aimPool = [
-        ...yakuList.coreYaku,
-        ...yakuList.premiumYaku,
-        ...yakuList.bonusYaku,
-      ];
-      const targetYaku = weightedPick(aimPool, (y) =>
-        isBonusCategory(y.category)
-          ? yakuReelWeight(y) * noticeBonusWeight('aim')
-          : yakuReelWeight(y),
-      );
-      // AUTO がこの役を狙えるよう状態保持（setupAutoTarget が後で読む）
-      aimNoticeYaku = targetYaku;
+      // レバーONで決めた内部役をそのまま予告する。aimは候補選定時点で3文字役に限定済み。
+      const targetYaku = options.targetYaku;
+      if (!targetYaku) return;
       showAimNotice({
         symbols: targetYaku.symbols,
         // 各文字を実リールのセル色に合わせる（左/中/右）
@@ -600,12 +576,96 @@ export async function bootstrap() {
       sfx.shisa(); // 既存の示唆 SE を流用
       jinSpeech.say('shisa');
     } else {
-      aimNoticeYaku = null;
       effectStatusEl.textContent = '通常';
       jinState.set('idle');
     }
   };
   applyEffect('none');
+
+  const shisaTiersForYaku = (yaku: Yaku): ShisaTier[] => {
+    const tiers =
+      (bonusSpinActive ? tuning.bonus.shisaTiers : null) ?? tuning.assist.shisaTiers;
+    if (yaku.category === 'premium') {
+      return tiers.filter((tier) => tier.premiumCells > 0);
+    }
+    if (yaku.category === 'bonus') {
+      const regOnly = tiers.filter(
+        (tier) => tier.bonusCells > 0 && tier.premiumCells === 0,
+      );
+      return regOnly.length > 0
+        ? regOnly
+        : tiers.filter((tier) => tier.bonusCells > 0);
+    }
+    return tiers.filter((tier) => tier.coreCells > 0);
+  };
+
+  const effectCanRepresent = (effect: ForcedEffect, yaku: Yaku): boolean => {
+    if (effect === 'shisa') return shisaTiersForYaku(yaku).length > 0;
+    if (effect === 'quiz') {
+      return quizList.quizzes.some((quiz) => quiz.answerYakuId === yaku.id);
+    }
+    return yaku.symbols.length === REEL_COUNT;
+  };
+
+  const eligibleEffectsForYaku = (yaku: Yaku): ForcedEffect[] =>
+    (['shisa', 'quiz', 'aim'] as const).filter((effect) =>
+      effectCanRepresent(effect, yaku),
+    );
+
+  const pickShisaTierForYaku = (yaku: Yaku): ShisaTier | null => {
+    const tiers = shisaTiersForYaku(yaku);
+    return tiers.length > 0 ? weightedPick(tiers, (tier) => tier.weight) : null;
+  };
+
+  const activeInternalRoleRates = (): InternalRoleRates => {
+    if (bonusSpinActive) return tuning.internalRoleRates.bonus;
+    if (playStats.stats.get().missStreak >= tuning.rescueMissThreshold) {
+      return tuning.internalRoleRates.rescue;
+    }
+    return tuning.internalRoleRates.default;
+  };
+
+  const activateRound = (
+    role: InternalRoleResult,
+    effect: EffectType,
+    source: RoundSource,
+    reuseRoundNumber = false,
+  ) => {
+    const yaku = internalRoleLottery.yakuFor(role);
+    const shisaTier =
+      effect === 'shisa' && yaku ? pickShisaTierForYaku(yaku) : null;
+    const nextRoundNumber =
+      reuseRoundNumber && currentRound ? currentRound.roundNumber : ++roundNumber;
+    currentRound = createRoundContext({
+      roundNumber: nextRoundNumber,
+      internalRole: role,
+      effect,
+      source,
+      bonusActive: bonusSpinActive,
+    });
+    if (debugVisible) {
+      cabinetEl.dataset.internalRole = `${role.kind}:${role.yakuId ?? '-'}`;
+    }
+    applyEffect(effect, { targetYaku: yaku, shisaTier });
+  };
+
+  const drawDebugRole = (effect: ForcedEffect): InternalRoleResult =>
+    internalRoleLottery.draw(activeInternalRoleRates(), {
+      allowMiss: false,
+      yakuFilter: (yaku) => effectCanRepresent(effect, yaku),
+    });
+
+  const forceDebugEffect = (effect: ForcedEffect, label: string) => {
+    const anySpinning = engines.some((engine) => engine.state.get() === 'spinning');
+    if (!anySpinning) {
+      pendingDebugEffect = effect;
+      showResult(`${label}を次のレバーに予約`, 'win');
+      return;
+    }
+    const role = drawDebugRole(effect);
+    activateRound(role, effect, 'debug', true);
+    if (autoMode) setupAutoTarget();
+  };
 
   // コイン残量に応じてヘッダー色を警告状態に
   const updateCoinWarning = (n: number) => {
@@ -920,20 +980,11 @@ export async function bootstrap() {
       if (reg) showBonusEntryFx(reg, 'reg');
     },
     triggerShisa: () => {
-      // 強制的に shisa 演出を発動（リール速度＆ジン表情＆フラッシュ）
-      applyEffect('shisa');
+      forceDebugEffect('shisa', '示唆');
     },
     triggerQuiz: () => {
-      // 全停止後は結果表示を上書きしないよう、次ゲームのBET時に発動する。
-      // BET済みのレバー前、または回転中なら現在ゲームへ即時適用できる。
-      const allStopped = engines.every((e) => e.state.get() === 'stopped');
-      if (!betPlaced || allStopped) {
-        pendingDebugQuiz = true;
-        showResult('クイズを次ゲームに予約', 'win');
-        return;
-      }
-      pendingDebugQuiz = false;
-      applyEffect('quiz');
+      // 停止中は次レバーへ予約し、回転中は内部役ごと現在ゲームへ差し替える。
+      forceDebugEffect('quiz', 'クイズ');
     },
     triggerCutin: () => {
       // 現在の章のプレミアム役＋章カットイン画像でカットインを確認
@@ -945,8 +996,7 @@ export async function bootstrap() {
       }
     },
     triggerAim: () => {
-      // 狙え！予告を強制発動（applyEffect('aim') が showAimNotice を呼ぶ）
-      applyEffect('aim');
+      forceDebugEffect('aim', '狙え演出');
     },
     triggerFreeze: () => {
       // 次のレバーでフリーズ発動を予約。待機中なら自動でBET→レバーまで進めて即確認できる。
@@ -959,7 +1009,19 @@ export async function bootstrap() {
     },
     triggerAnnounceLamp: () => {
       // 確定告知ランプを即点灯（種別は内部抽選＝伏せ）。以降、目押しで揃えに行くと回収。
-      if (!announcedBonus && !bonusZone.isActive() && !freezeActive) announceBonus();
+      if (!announcedBonus && !bonusZone.isActive() && !freezeActive) {
+        announceBonus();
+        const anySpinning = engines.some((engine) => engine.state.get() === 'spinning');
+        if (anySpinning && announcedRole) {
+          activateRound(
+            internalRoleLottery.forYaku(announcedRole),
+            'none',
+            'announce',
+            true,
+          );
+          if (autoMode) setupAutoTarget();
+        }
+      }
     },
     triggerWinTest: () => {
       // 役成立SE＋中央ハイライト＋コインフロート＋紙吹雪少々
@@ -1068,6 +1130,8 @@ export async function bootstrap() {
   const resetForNextSpin = () => {
     betPlaced = false;
     bonusSpinActive = false;
+    currentRound = null;
+    if (debugVisible) delete cabinetEl.dataset.internalRole;
     for (const engine of engines) engine.reset();
     for (const v of views) v.stopTenpaiFlash();
     hideAimNotice();
@@ -1111,8 +1175,7 @@ export async function bootstrap() {
     sfx.bet();
     // BET 時のセリフは時々（25%）
     if (Math.random() < 0.25) jinSpeech.say('bet');
-    // 確定告知ランプ点灯中は他演出を出さない（'none'固定）。フリーズのみ別途許可。
-    // 以降は ボーナス > 救済 > 通常 の優先順位で演出レートを決定（data/tuning.effectRates）。
+    // レバーON後の演出抽選に使うレートを、ボーナス > 救済 > 通常で準備する。
     if (announcedBonus) {
       scheduler.setRates({ none: 1, shisa: 0, quiz: 0, aim: 0 });
     } else if (bonusSpinActive) {
@@ -1122,10 +1185,6 @@ export async function bootstrap() {
     } else {
       scheduler.setRates(tuning.effectRates.default);
     }
-    // 停止後に予約されたデバッグクイズは、確定告知中を除く次ゲームで1回だけ優先する。
-    const usePendingDebugQuiz = pendingDebugQuiz && !announcedBonus;
-    if (usePendingDebugQuiz) pendingDebugQuiz = false;
-    applyEffect(usePendingDebugQuiz ? 'quiz' : scheduler.roll());
     updateButtons();
   };
 
@@ -1133,27 +1192,57 @@ export async function bootstrap() {
     if (freezeActive) return;
     if (leverBtn.disabled) return;
     if (!betPlaced) return;
-    // クイズは回答操作なし方式：問題の答えとなる役が最終リール引き込み対象（17_assist-and-slip.md）。
-    // 答えのテキストは全停止後に表示し、次スピンの resetForNextSpin / quizState.reset で消える。
-    // フリーズ抽選: 通常時のみ。デバッグ予約 or 確率成立で発動（結果は7揃いBIG確定）。
+    // レバーONを1ゲームの確定点とし、内部役→対応できる演出の順に決める。
+    // フリーズ／確定ランプは通常抽選より優先し、強制役もRoundContextへ保存する。
     const doFreeze =
       !bonusZone.isActive() && (pendingFreeze || Math.random() < FREEZE_RATE);
     pendingFreeze = false;
+    const shouldAnnounce =
+      !doFreeze &&
+      !bonusZone.isActive() &&
+      !announcedBonus &&
+      Math.random() < tuning.announceLamp.rate;
+
+    if (doFreeze) {
+      const headline = yakuList.premiumYaku[0];
+      if (headline) {
+        activateRound(internalRoleLottery.forYaku(headline), 'none', 'freeze');
+      }
+    } else if (announcedBonus && announcedRole) {
+      activateRound(
+        internalRoleLottery.forYaku(announcedRole),
+        'none',
+        'held-bonus',
+      );
+    } else if (shouldAnnounce) {
+      announceBonus();
+      if (announcedRole) {
+        activateRound(
+          internalRoleLottery.forYaku(announcedRole),
+          'none',
+          'announce',
+        );
+      }
+    } else if (pendingDebugEffect) {
+      const effect = pendingDebugEffect;
+      pendingDebugEffect = null;
+      activateRound(drawDebugRole(effect), effect, 'debug');
+    } else {
+      const role = internalRoleLottery.draw(activeInternalRoleRates());
+      const yaku = internalRoleLottery.yakuFor(role);
+      const effect = yaku
+        ? scheduler.rollAvailable(eligibleEffectsForYaku(yaku))
+        : 'none';
+      activateRound(role, effect, 'lottery');
+    }
+
     for (const engine of engines) engine.spin();
+    if (autoMode) setupAutoTarget();
     flashButton(leverBtn);
     spawnButtonRipple(leverBtn, '#ffd700');
     sfx.lever();
     updateButtons();
-    if (doFreeze) {
-      runFreeze();
-    } else if (
-      !bonusZone.isActive() &&
-      !announcedBonus &&
-      Math.random() < tuning.announceLamp.rate
-    ) {
-      // 確定告知ランプ抽選（通常時・未点灯時のみ）。点灯＝ボーナス確定。
-      announceBonus();
-    }
+    if (doFreeze) runFreeze();
   };
 
   /**
@@ -1167,33 +1256,12 @@ export async function bootstrap() {
     window.setTimeout(doEntry, CHARGE_MS);
   };
 
-  /**
-   * 役が現在の演出の引き込み対象カテゴリに合致するか（17_assist-and-slip.md）。
-   *  - aim   → aimNoticeYaku（予告した役そのもの）
-   *  - quiz  → 問題の答えとなる役（targetYakuId、回答操作なし方式で出題中にセット）
-   *  - shisa → core / cherry
-   *  - none  → 対象なし（引き込みしない）
-   */
-  const effectAllowsYaku = (yaku: Yaku): boolean => {
-    if (currentEffect === 'aim') {
-      return aimNoticeYaku !== null && yaku.id === aimNoticeYaku.id;
-    }
-    if (currentEffect === 'quiz') {
-      return yaku.id === quizState.targetYakuId();
-    }
-    if (currentEffect === 'shisa') {
-      const t = currentShisaTier;
-      if (!t) return false;
-      // tierごとに引き込み対象を切替（青〜緑=小役、赤=+RB、金=+RB+BB）。0コマ=対象外。
-      if ((yaku.category === 'core' || yaku.category === 'cherry') && t.coreCells > 0) {
-        return true;
-      }
-      if (yaku.category === 'bonus' && t.bonusCells > 0) return true;
-      if (yaku.category === 'premium' && t.premiumCells > 0) return true;
-      return false;
-    }
-    return false;
-  };
+  const currentInternalYaku = (): Yaku | null =>
+    currentRound ? internalRoleLottery.yakuFor(currentRound.internalRole) : null;
+
+  /** 演出による引き込みは、レバーONで確定した具体的な内部役だけを対象にする。 */
+  const effectAllowsYaku = (yaku: Yaku): boolean =>
+    currentEffect !== 'none' && yaku.id === currentRound?.internalRole.yakuId;
 
   /** 示唆tierでの、役カテゴリ別の引き込み窓（コマ）。対象外は0。 */
   const shisaMaxCellsFor = (category: Yaku['category']): number => {
@@ -1211,24 +1279,12 @@ export async function bootstrap() {
     currentShisaTier !== null &&
     (currentShisaTier.bonusCells > 0 || currentShisaTier.premiumCells > 0);
 
-  /** 赤/金示唆で引き込み対象になる bonus/premium 役の一覧。 */
+  /** 赤/金示唆で引き込み対象になる、現在の内部役。 */
   const shisaNoticeYakus = (): Yaku[] => {
     const t = currentShisaTier;
     if (currentEffect !== 'shisa' || !t) return [];
-    const out: Yaku[] = [];
-    if (t.bonusCells > 0) out.push(...yakuList.bonusYaku);
-    if (t.premiumCells > 0) out.push(...yakuList.premiumYaku);
-    return out;
-  };
-
-  /** 蹴りから除外するカテゴリ（赤=bonus、金=bonus+premium）。 */
-  const shisaExceptCategories = (): Yaku['category'][] => {
-    const t = currentShisaTier;
-    if (currentEffect !== 'shisa' || !t) return [];
-    const cats: Yaku['category'][] = [];
-    if (t.bonusCells > 0) cats.push('bonus');
-    if (t.premiumCells > 0) cats.push('premium');
-    return cats;
+    const yaku = currentInternalYaku();
+    return yaku && effectAllowsYaku(yaku) ? [yaku] : [];
   };
 
   /**
@@ -1236,8 +1292,9 @@ export async function bootstrap() {
    * 蹴らずに通す（予告役を優先）。それ以外の演出/役では null＝全 premium/bonus を蹴る対象。
    */
   const currentTargetYakuId = (): string | null => {
-    if (currentEffect === 'aim') return aimNoticeYaku?.id ?? null;
-    if (currentEffect === 'quiz') return quizState.targetYakuId();
+    if (currentEffect === 'aim' || currentEffect === 'quiz') {
+      return currentRound?.internalRole.yakuId ?? null;
+    }
     return null;
   };
 
@@ -1381,8 +1438,8 @@ export async function bootstrap() {
           basePosition: basePos,
           strip: engine.strip,
           stoppedVisibles,
-          exceptYakuId: currentTargetYakuId() ?? undefined,
-          exceptCategories: shisaExceptCategories(),
+          // 内部役だけは蹴らず、無関係な偶然の表示役は従来どおり蹴り対象にする。
+          exceptYakuId: currentRound?.internalRole.yakuId ?? undefined,
           kickCore,
           kickProbability: kickCore ? kc.probability : undefined,
           kickMaxCells: kickCore ? kc.maxCells : undefined,
@@ -1455,10 +1512,11 @@ export async function bootstrap() {
     if (engines.every((e) => e.state.get() === 'stopped')) {
       // 全停止したので「狙え！」演出は閉じる（レバーオン示唆として出た場合）
       hideAimNotice();
-      // 5ペイライン（横3+斜め2）で全件判定。同じ役が複数ライン揃いも合算。
+      // 物理表示を5ラインで検出し、内部役と一致するラインだけを成立扱いにする。
       const grid = extractGrid(engines);
       const middleSymbols = grid[1] as [string, string, string]; // 既存UI互換用
-      const { hits } = judge.judgeAll(grid);
+      const displayedHits = judge.judgeAll(grid).hits;
+      const hits = resolveInternalRoleHits(currentRound, displayedHits);
       const willHit = hits.length > 0;
       const quizTargetYakuId =
         currentEffect === 'quiz' ? quizState.targetYakuId() : null;
@@ -1795,13 +1853,11 @@ export async function bootstrap() {
 
   // === オートスピン ===
   // 状態を見て BET → LEVER → STOP×3 を進める。
-  // 示唆/クイズ時はターゲット役を決めて狙い停止（揃いやすくなる）。
+  // レバーON後、演出が示す内部役を狙って停止する。
   // 通常時は適当タイミングで停止（揃わなくて普通）。
   let autoTimer: number | null = null;
-  // 示唆/クイズ時に AUTO が狙う役。BET 直後に決定 → resetForNextSpin で null
+  // AUTO が狙う具体役。レバー直後に内部役から決定 → resetForNextSpin で null
   let autoTargetYaku: (typeof allYakusFlat)[number] | null = null;
-  // aimNoticeYaku は applyEffect より前に宣言（applyEffect の closure 内で
-  // 参照するため、TDZ 回避目的で上に移動した）。下の applyEffect 定義前を参照。
   // 停止スケジュール済みのリール（重複スケジュール防止）
   const aimPending = new Set<number>();
 
@@ -1812,31 +1868,13 @@ export async function bootstrap() {
     }
   };
 
-  /** BET 直後にコールして、effect 種別に応じた狙い役を確定する */
+  /** レバー直後にコールして、演出が表す内部役をAUTOの狙い役にする。 */
   const setupAutoTarget = () => {
     if (announcedBonus && announcedRole) {
       // 確定告知ランプ点灯中（演出は none 固定）：固定した確定役を AUTO でも全リール狙う。
       autoTargetYaku = announcedRole;
-    } else if (currentEffect === 'quiz') {
-      // クイズは回答操作なし。内部で確定済みの答え役をAUTOの狙いにも採用する。
-      const tid = quizState.targetYakuId();
-      autoTargetYaku = tid
-        ? allYakusFlat.find((y) => y.id === tid) ?? null
-        : null;
-    } else if (currentEffect === 'shisa') {
-      // 赤/金示唆は RB/BB を、それ以外（青〜緑）はコア役をランダムに狙う。
-      if (shisaTargetsBonus()) {
-        const pool = shisaNoticeYakus();
-        autoTargetYaku = pool[Math.floor(Math.random() * pool.length)] ?? null;
-      } else {
-        autoTargetYaku =
-          yakuList.coreYaku[
-            Math.floor(Math.random() * yakuList.coreYaku.length)
-          ] ?? null;
-      }
-    } else if (currentEffect === 'aim') {
-      // 「狙え！」演出: applyEffect 時に決定された役を AUTO の狙い役にも採用
-      autoTargetYaku = aimNoticeYaku;
+    } else if (currentEffect !== 'none') {
+      autoTargetYaku = currentInternalYaku();
     } else {
       autoTargetYaku = null;
     }
@@ -1918,8 +1956,6 @@ export async function bootstrap() {
 
     if (!betPlaced && allIdle) {
       placeBet();
-      // BET 後すぐに狙い役を確定（クイズなら正解も済ます）
-      setupAutoTarget();
     } else if (betPlaced && allIdle) {
       pullLever();
     } else if (anySpinning) {

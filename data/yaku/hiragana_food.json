@@ -1,19 +1,19 @@
 {
   "mode": "hiragana_food",
   "coreYaku": [
-    { "id": "budou", "name": "ぶどう", "symbols": ["ぶ", "ど", "う"], "category": "core" },
-    { "id": "tofu", "name": "とうふ", "symbols": ["と", "う", "ふ"], "category": "core" },
-    { "id": "dango", "name": "だんご", "symbols": ["だ", "ん", "ご"], "category": "core" },
-    { "id": "mikan", "name": "みかん", "symbols": ["み", "か", "ん"], "category": "core" }
+    { "id": "budou", "name": "ぶどう", "symbols": ["ぶ", "ど", "う"], "category": "core", "internalRoleKind": "core" },
+    { "id": "tofu", "name": "とうふ", "symbols": ["と", "う", "ふ"], "category": "core", "internalRoleKind": "replay" },
+    { "id": "dango", "name": "だんご", "symbols": ["だ", "ん", "ご"], "category": "core", "internalRoleKind": "core" },
+    { "id": "mikan", "name": "みかん", "symbols": ["み", "か", "ん"], "category": "core", "internalRoleKind": "core" }
   ],
   "cherryYaku": [
-    { "id": "momo", "name": "もも", "symbols": ["も", "も"], "category": "cherry" }
+    { "id": "momo", "name": "もも", "symbols": ["も", "も"], "category": "cherry", "internalRoleKind": "cherry" }
   ],
   "premiumYaku": [
-    { "id": "sushiya", "name": "寿司屋", "symbols": ["す", "し", "や"], "category": "premium" },
-    { "id": "namazu", "name": "ナマズ", "symbols": ["な", "ま", "ず"], "category": "premium" }
+    { "id": "sushiya", "name": "寿司屋", "symbols": ["す", "し", "や"], "category": "premium", "internalRoleKind": "big" },
+    { "id": "namazu", "name": "ナマズ", "symbols": ["な", "ま", "ず"], "category": "premium", "internalRoleKind": "big" }
   ],
   "bonusYaku": [
-    { "id": "reg", "name": "寿司酢", "symbols": ["す", "し", "ず"], "category": "bonus" }
+    { "id": "reg", "name": "寿司酢", "symbols": ["す", "し", "ず"], "category": "bonus", "internalRoleKind": "reg" }
   ]
 }

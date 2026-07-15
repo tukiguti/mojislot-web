@@ -52,3 +52,16 @@ describe('EffectScheduler.setRates', () => {
     expect(s.roll()).toBe('aim');
   });
 });
+
+describe('EffectScheduler.rollAvailable', () => {
+  it('内部役を表現できる候補だけでレートを正規化する', () => {
+    const s = new EffectScheduler({ none: 0.5, shisa: 0.15, quiz: 0.25, aim: 0.1 });
+    mockRandom(0.8);
+    expect(s.rollAvailable(['shisa', 'aim'])).toBe('aim');
+  });
+
+  it('候補に有効な重みがなければnoneへフォールバックする', () => {
+    const s = new EffectScheduler({ none: 1, shisa: 0, quiz: 0, aim: 0 });
+    expect(s.rollAvailable(['quiz', 'aim'])).toBe('none');
+  });
+});
