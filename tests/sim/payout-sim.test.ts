@@ -279,7 +279,16 @@ function runChapter(chapter: string, skill: Skill, spins: number, seed: number):
               : tuning.assist.assistMaxCells;
           if (maxCells <= 0) continue;
           const s = slip.resolveAssist(
-            { id: `r${idx}`, cells }, basePos, l.yaku.symbols[idx]!, l.vertical, maxCells,
+            {
+              reelIndex: idx,
+              basePosition: basePos,
+              strip: { id: `r${idx}`, cells },
+              stoppedVisibles: stopped,
+              exceptYakuId: flagId ?? undefined,
+            },
+            l.yaku.symbols[idx]!,
+            l.vertical,
+            maxCells,
           );
           if (s === null) continue;
           const score = CAT_RANK[l.yaku.category] * 100 + (maxCells - s) * 4 +
@@ -291,7 +300,16 @@ function runChapter(chapter: string, skill: Skill, spins: number, seed: number):
         const s2 = target.symbols[idx];
         if (s2 !== undefined) {
           const hint = slip.resolveAssist(
-            { id: `r${idx}`, cells }, basePos, s2, 'middle', tuning.assist.aimHintMaxCells,
+            {
+              reelIndex: idx,
+              basePosition: basePos,
+              strip: { id: `r${idx}`, cells },
+              stoppedVisibles: stopped,
+              exceptYakuId: flagId ?? undefined,
+            },
+            s2,
+            'middle',
+            tuning.assist.aimHintMaxCells,
           );
           if (hint !== null) slipCells = hint;
         }

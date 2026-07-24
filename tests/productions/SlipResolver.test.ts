@@ -26,35 +26,61 @@ afterEach(() => vi.restoreAllMocks());
 
 describe('SlipResolver.resolveAssist', () => {
   const r = new SlipResolver(yakuList([['X', 'Y', 'Z']]));
+  // 他リール未停止＝引き込みガードのロック判定は自リールのみで評価される。
+  const ctx = (cells: string[], basePosition = 0) => ({
+    reelIndex: 0,
+    basePosition,
+    strip: strip(cells),
+    stoppedVisibles: [null, null, null] as const,
+    exceptYakuId: 'p0',
+  });
 
   it('中段に target が来る最小の順方向コマ数を返す', () => {
     // cells: 0=A 1=B 2=T 3=C → basePos0 から middle で T は offset2
-    const s = strip(['A', 'B', 'T', 'C', 'D', 'E']);
-    expect(r.resolveAssist(s, 0, 'T', 'middle', 4)).toBe(2);
+    expect(r.resolveAssist(ctx(['A', 'B', 'T', 'C', 'D', 'E']), 'T', 'middle', 4)).toBe(2);
   });
 
   it('押下位置に既に target があれば 0', () => {
-    const s = strip(['T', 'B', 'C', 'D', 'E', 'F']);
-    expect(r.resolveAssist(s, 0, 'T', 'middle', 4)).toBe(0);
+    expect(r.resolveAssist(ctx(['T', 'B', 'C', 'D', 'E', 'F']), 'T', 'middle', 4)).toBe(0);
   });
 
   it('maxCells 窓の外なら null（補助なし＝自力ミス）', () => {
     // T は offset5 にあり、maxCells=4 では届かない
-    const s = strip(['A', 'B', 'C', 'D', 'E', 'T']);
-    expect(r.resolveAssist(s, 0, 'T', 'middle', 4)).toBeNull();
+    expect(r.resolveAssist(ctx(['A', 'B', 'C', 'D', 'E', 'T']), 'T', 'middle', 4)).toBeNull();
   });
 
   it('maxCells 省略時は options.assistMaxCells（既定4）を使う', () => {
-    const s = strip(['A', 'B', 'C', 'D', 'T', 'F']); // offset4
-    expect(r.resolveAssist(s, 0, 'T', 'middle')).toBe(4);
-    const s2 = strip(['A', 'B', 'C', 'D', 'E', 'T']); // offset5 > 4 → null
-    expect(r.resolveAssist(s2, 0, 'T', 'middle')).toBeNull();
+    expect(r.resolveAssist(ctx(['A', 'B', 'C', 'D', 'T', 'F']), 'T', 'middle')).toBe(4); // offset4
+    expect(r.resolveAssist(ctx(['A', 'B', 'C', 'D', 'E', 'T']), 'T', 'middle')).toBeNull(); // offset5 > 4
   });
 
   it('options.assistMaxCells を上書きできる', () => {
     const r8 = new SlipResolver(yakuList([['X', 'Y', 'Z']]), { assistMaxCells: 8 });
-    const s = strip(['A', 'B', 'C', 'D', 'E', 'T', 'G']); // offset5
-    expect(r8.resolveAssist(s, 0, 'T', 'middle')).toBe(5);
+    expect(r8.resolveAssist(ctx(['A', 'B', 'C', 'D', 'E', 'T', 'G']), 'T', 'middle')).toBe(5);
+  });
+
+  it('非当選役がロックする引き込み位置はスキップし、次のクリーン位置を選ぶ', () => {
+    // 当選役 p0(X,Y,Z) の X を中リール(reel1)…ではなく簡潔に reel0 で検証：
+    // 非当選役 c0(C,D,E) が完成してしまう位置は飛ばす。
+    // reel1/reel2 停止済み: 中段 D,E ＝ reel0 の中段が C になると c0 がロック。
+    // cells: offset1 の位置で middle=T だが top/bottom は関係なし。C が middle に来る offset は除外。
+    const rc = new SlipResolver(yakuList([['X', 'Y', 'Z']], [], [['C', 'D', 'E']]));
+    const c = {
+      reelIndex: 0,
+      basePosition: 0,
+      // pos0: mid=C（c0ロック→スキップ）/ pos1: mid=T（クリーン→採用）
+      strip: strip(['C', 'T', 'A', 'B', 'F', 'G']),
+      stoppedVisibles: [
+        null,
+        { top: 'm', middle: 'D', bottom: 'm' },
+        { top: 'm', middle: 'E', bottom: 'm' },
+      ] as const,
+      exceptYakuId: 'p0',
+    };
+    // target 'C' を頼んでも pos0 は非当選役 c0 がロックするため選ばれない
+    expect(rc.resolveAssist(c, 'C', 'middle', 4)).toBeNull();
+    // target 'T' は pos1 がクリーンなのでそのまま
+    expect(rc.resolveAssist(c, 'T', 'middle', 4)).toBe(1);
   });
 });
 

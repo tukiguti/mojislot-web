@@ -61,7 +61,11 @@ import { QuizState } from './productions/QuizState';
 import { QuizQuestionView } from './render/QuizQuestionView';
 import { ZukanState } from './productions/ZukanState';
 import { ZukanOverlay } from './ui/ZukanOverlay';
-import { SlipResolver, type VisibleColumn } from './productions/SlipResolver';
+import {
+  SlipResolver,
+  type SlipContext,
+  type VisibleColumn,
+} from './productions/SlipResolver';
 import {
   extractGrid,
   getVisibleCell,
@@ -77,7 +81,6 @@ import {
   QuizListSchema,
   TuningSchema,
   type Yaku,
-  type ReelStrip,
   type ShisaTier,
   type ShisaTierColor,
   type InternalRoleState,
@@ -1370,8 +1373,7 @@ export async function bootstrap() {
   const pickAssistSlip = (
     lines: readonly TenpaiLine[],
     finalIdx: number,
-    strip: ReelStrip,
-    basePos: number,
+    assistCtx: SlipContext,
   ): number => {
     let bestSlip = 0;
     let bestScore = -1; // 大きいほど優先
@@ -1385,8 +1387,7 @@ export async function bootstrap() {
           : ASSIST_MAX_CELLS;
       if (maxCells <= 0) continue;
       const slip = slipResolver.resolveAssist(
-        strip,
-        basePos,
+        assistCtx,
         l.yaku.symbols[finalIdx],
         l.vertical,
         maxCells,
@@ -1418,13 +1419,24 @@ export async function bootstrap() {
     stoppedVisibles: (VisibleColumn | null)[],
   ): number => {
     let slipCells = 0;
+    // 引き込みにも蹴りと同じ「非当選役をロックさせない」ガードを効かせるための文脈。
+    // exceptYakuId＝いま出目に出てよい唯一の役。
+    const flagId = announcedBonus && announcedRole
+      ? announcedRole.id
+      : (activeFlagYakuId() ?? undefined);
+    const assistCtx: SlipContext = {
+      reelIndex: idx,
+      basePosition: basePos,
+      strip: engine.strip,
+      stoppedVisibles,
+      exceptYakuId: flagId ?? undefined,
+    };
     if (announcedBonus && announcedRole) {
       // 確定告知ランプ：点灯時に固定した役の図柄を、第1・第2・最終すべてのリールで中段へ強く引き込む。
       const sym = announcedRole.symbols[idx];
       if (sym !== undefined) {
         const hint = slipResolver.resolveAssist(
-          engine.strip,
-          basePos,
+          assistCtx,
           sym,
           'middle',
           tuning.announceLamp.assistMaxCells,
@@ -1434,7 +1446,7 @@ export async function bootstrap() {
     } else {
       const assistTenpai = tenpaiDetector.detect(stoppedVisibles);
       if (assistTenpai && assistTenpai.missingReelIndex === idx) {
-        slipCells = pickAssistSlip(assistTenpai.lines, idx, engine.strip, basePos);
+        slipCells = pickAssistSlip(assistTenpai.lines, idx, assistCtx);
       } else if (isAimLikeEffect()) {
         // 予告役/押し順役の第1・第2停止：対象文字を中段へ軽く引き込む
         //（最大 AIM_HINT_MAX_CELLS コマ）。窓外なら引き込まず自力ミス扱い＝目押しの妙味は残す。
@@ -1445,8 +1457,7 @@ export async function bootstrap() {
         const targetSymbol = noticeYaku?.symbols[idx];
         if (targetSymbol !== undefined) {
           const hint = slipResolver.resolveAssist(
-            engine.strip,
-            basePos,
+            assistCtx,
             targetSymbol,
             'middle',
             AIM_HINT_MAX_CELLS,
@@ -1464,34 +1475,30 @@ export async function bootstrap() {
         for (const y of shisaNoticeYakus()) {
           const sym = y.symbols[idx];
           if (sym === undefined) continue;
-          const hint = slipResolver.resolveAssist(
-            engine.strip,
-            basePos,
-            sym,
-            'middle',
-            hintMax,
-          );
+          const hint = slipResolver.resolveAssist(assistCtx, sym, 'middle', hintMax);
           if (hint !== null && (best === null || hint < best)) best = hint;
         }
         if (best !== null) slipCells = best;
       }
-      if (slipCells === 0) {
-        // 実機のテーブル制御：当選役（内部役）以外の全役を、揃わない位置へ決定的に蹴る。
-        // 引き込みが効かなかった（＝この停止で内部役を狙って揃えていない）局面のみ作用し、
-        // 「出目＝フラグ」を保証する。当選役だけは exceptYakuId で保護＝出目に出てよい。
-        // さらに、クリーンな候補が複数ある時は出目の意味を揃える：
-        //   1枚役／押し順ミス → 2個テンパイ（惜しい出目）へ、ハズレ → 何も揃わない出目へ。
-        const wantsTenpai =
-          currentRound?.internalRole.kind === 'single' || pressOrderMissed();
-        slipCells = slipResolver.resolveKick({
-          reelIndex: idx,
-          basePosition: basePos,
-          strip: engine.strip,
-          stoppedVisibles,
-          exceptYakuId: activeFlagYakuId() ?? undefined,
-          prefer: wantsTenpai ? 'tenpai' : 'blank',
-        });
-      }
+    }
+    if (slipCells === 0) {
+      // 実機のテーブル制御：当選役（内部役）以外の全役を、揃わない位置へ決定的に蹴る。
+      // 引き込みが効かなかった（＝この停止で内部役を狙って揃えていない）局面のみ作用し、
+      // 「出目＝フラグ」を保証する。当選役だけは exceptYakuId で保護＝出目に出てよい。
+      // 確定告知ランプ中も同様（引き込みが窓外だった停止で非当選役が揃うのを防ぐ）。
+      // さらに、クリーンな候補が複数ある時は出目の意味を揃える：
+      //   1枚役／押し順ミス → 2個テンパイ（惜しい出目）へ、ハズレ → 何も揃わない出目へ。
+      const wantsTenpai =
+        !announcedBonus &&
+        (currentRound?.internalRole.kind === 'single' || pressOrderMissed());
+      slipCells = slipResolver.resolveKick({
+        reelIndex: idx,
+        basePosition: basePos,
+        strip: engine.strip,
+        stoppedVisibles,
+        exceptYakuId: flagId ?? undefined,
+        prefer: wantsTenpai ? 'tenpai' : 'blank',
+      });
     }
     // フリーズ中は引き込み/蹴りを無効化し、強制セットした位置(basePos)へそのままスナップ。
     if (freezeActive) slipCells = 0;

@@ -163,23 +163,31 @@ export class SlipResolver {
   }
 
   /**
-   * 演出時の最終リール引き込み（5ライン対応）。指定の可視位置 vertical（上/中/下）の
-   * セルが targetSymbol になる最小の順方向コマ数（0..ASSIST_MAX_CELLS）を返す。
-   * 窓内に無ければ null（プレイヤーのミス＝補助なし）。
-   * 斜めラインは最終リールで必要な行が中段以外になるため vertical で指定する。
+   * 演出時の引き込み（5ライン対応）。指定の可視位置 vertical（上/中/下）のセルが
+   * targetSymbol になる最小の順方向コマ数（0..maxCells）を返す。窓内に無ければ null
+   * （プレイヤーのミス＝補助なし）。斜めラインは vertical で行を指定する。
+   *
+   * 引き込みも蹴りと同じテーブル制御に従う：**当選役（ctx.exceptYakuId）以外の役が
+   * ロックしてしまう位置へは引き込まない**。これが無いと、引き込み先の別の行で
+   * 非当選役が偶然揃い「揃っているのに払い出し対象外」が引き込み経由で復活する
+   * （tests/audit/assist-guarantee.test.ts で全数監査）。
+   * クリーンな引き込み位置が窓内に無ければ null＝引き込まず、呼び出し側の蹴りに任せる。
    */
   resolveAssist(
-    strip: ReelStrip,
-    basePosition: number,
+    ctx: SlipContext,
     targetSymbol: string,
     vertical: Vertical,
     maxCells?: number,
   ): number | null {
     const max = maxCells ?? this.assistMaxCells;
+    const exceptId = ctx.exceptYakuId;
+    const nonFlagged = this.allYakus.filter((y) => y.id !== exceptId);
+    const total = ctx.strip.cells.length;
     for (let offset = 0; offset <= max; offset++) {
-      if (visibleAt(strip.cells, basePosition + offset, vertical) === targetSymbol) {
-        return offset;
-      }
+      const pos = (((ctx.basePosition + offset) % total) + total) % total;
+      if (visibleAt(ctx.strip.cells, pos, vertical) !== targetSymbol) continue;
+      if (this.anyCompletes(pos, ctx, nonFlagged)) continue;
+      return offset;
     }
     return null;
   }
