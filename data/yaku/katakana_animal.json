@@ -94,8 +94,8 @@
       "displayYakuId": null,
       "pressOrder": null,
       "rate": {
-        "default": 0.34,
-        "rescue": 0.195,
+        "default": 0.253,
+        "rescue": 0.16,
         "bonus": 0.0
       }
     },
@@ -105,9 +105,9 @@
       "displayYakuId": null,
       "pressOrder": null,
       "rate": {
-        "default": 0.2,
-        "rescue": 0.18,
-        "bonus": 0.1
+        "default": 0.23374183,
+        "rescue": 0.2041989,
+        "bonus": 0.09639483
       }
     },
     {
@@ -116,9 +116,9 @@
       "displayYakuId": "usagi",
       "pressOrder": null,
       "rate": {
-        "default": 0.1,
-        "rescue": 0.13,
-        "bonus": 0.22
+        "default": 0.11687093,
+        "rescue": 0.13922652,
+        "bonus": 0.2313476
       }
     },
     {
@@ -130,9 +130,9 @@
         "reel": 0
       },
       "rate": {
-        "default": 0.0334,
-        "rescue": 0.0434,
-        "bonus": 0.0734
+        "default": 0.03895698,
+        "rescue": 0.04640884,
+        "bonus": 0.07711587
       }
     },
     {
@@ -144,9 +144,9 @@
         "reel": 1
       },
       "rate": {
-        "default": 0.0333,
-        "rescue": 0.0433,
-        "bonus": 0.0733
+        "default": 0.03895698,
+        "rescue": 0.04640884,
+        "bonus": 0.07711587
       }
     },
     {
@@ -158,9 +158,9 @@
         "reel": 2
       },
       "rate": {
-        "default": 0.0333,
-        "rescue": 0.0433,
-        "bonus": 0.0733
+        "default": 0.03895698,
+        "rescue": 0.04640884,
+        "bonus": 0.07711587
       }
     },
     {
@@ -176,9 +176,9 @@
         ]
       },
       "rate": {
-        "default": 0.035,
-        "rescue": 0.05,
-        "bonus": 0.09
+        "default": 0.0438266,
+        "rescue": 0.05569061,
+        "bonus": 0.08675535
       }
     },
     {
@@ -194,9 +194,9 @@
         ]
       },
       "rate": {
-        "default": 0.035,
-        "rescue": 0.05,
-        "bonus": 0.09
+        "default": 0.0438266,
+        "rescue": 0.05569061,
+        "bonus": 0.08675535
       }
     },
     {
@@ -205,9 +205,9 @@
       "displayYakuId": "kirin",
       "pressOrder": null,
       "rate": {
-        "default": 0.1,
-        "rescue": 0.12,
-        "bonus": 0.2
+        "default": 0.11687093,
+        "rescue": 0.13922652,
+        "bonus": 0.19278967
       }
     },
     {
@@ -216,9 +216,9 @@
       "displayYakuId": "sai",
       "pressOrder": null,
       "rate": {
-        "default": 0.05,
-        "rescue": 0.07,
-        "bonus": 0.07
+        "default": 0.05843546,
+        "rescue": 0.07425414,
+        "bonus": 0.06747638
       }
     },
     {
@@ -227,9 +227,9 @@
       "displayYakuId": "reg",
       "pressOrder": null,
       "rate": {
-        "default": 0.03,
-        "rescue": 0.06,
-        "bonus": 0.008
+        "default": 0.01168709,
+        "rescue": 0.02320442,
+        "bonus": 0.00578369
       }
     },
     {
@@ -238,9 +238,9 @@
       "displayYakuId": "dragon",
       "pressOrder": null,
       "rate": {
-        "default": 0.005,
-        "rescue": 0.0075,
-        "bonus": 0.001
+        "default": 0.00243481,
+        "rescue": 0.00464088,
+        "bonus": 0.00067476
       }
     },
     {
@@ -249,9 +249,9 @@
       "displayYakuId": "inko",
       "pressOrder": null,
       "rate": {
-        "default": 0.005,
-        "rescue": 0.0075,
-        "bonus": 0.001
+        "default": 0.00243481,
+        "rescue": 0.00464088,
+        "bonus": 0.00067476
       }
     }
   ]
