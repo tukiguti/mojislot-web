@@ -94,8 +94,8 @@
       "displayYakuId": null,
       "pressOrder": null,
       "rate": {
-        "default": 0.253,
-        "rescue": 0.16,
+        "default": 0.2230000001,
+        "rescue": 0.14,
         "bonus": 0.0
       }
     },
@@ -105,9 +105,9 @@
       "displayYakuId": null,
       "pressOrder": null,
       "rate": {
-        "default": 0.23374183,
-        "rescue": 0.2041989,
-        "bonus": 0.09639483
+        "default": 0.20374183,
+        "rescue": 0.1841989,
+        "bonus": 0.05639483
       }
     },
     {
@@ -116,9 +116,9 @@
       "displayYakuId": "budou",
       "pressOrder": null,
       "rate": {
-        "default": 0.11687093,
-        "rescue": 0.13922652,
-        "bonus": 0.2313476
+        "default": 0.1309885768,
+        "rescue": 0.1484572892,
+        "bonus": 0.2416701806
       }
     },
     {
@@ -130,9 +130,9 @@
         "reel": 0
       },
       "rate": {
-        "default": 0.03895698,
-        "rescue": 0.04640884,
-        "bonus": 0.07711587
+        "default": 0.0436628627,
+        "rescue": 0.0494857631,
+        "bonus": 0.0805567303
       }
     },
     {
@@ -144,9 +144,9 @@
         "reel": 1
       },
       "rate": {
-        "default": 0.03895698,
-        "rescue": 0.04640884,
-        "bonus": 0.07711587
+        "default": 0.0436628627,
+        "rescue": 0.0494857631,
+        "bonus": 0.0805567303
       }
     },
     {
@@ -158,9 +158,9 @@
         "reel": 2
       },
       "rate": {
-        "default": 0.03895698,
-        "rescue": 0.04640884,
-        "bonus": 0.07711587
+        "default": 0.0436628627,
+        "rescue": 0.0494857631,
+        "bonus": 0.0805567303
       }
     },
     {
@@ -176,9 +176,9 @@
         ]
       },
       "rate": {
-        "default": 0.0438266,
-        "rescue": 0.05569061,
-        "bonus": 0.08675535
+        "default": 0.0491207177,
+        "rescue": 0.0593829178,
+        "bonus": 0.0906263177
       }
     },
     {
@@ -194,20 +194,20 @@
         ]
       },
       "rate": {
-        "default": 0.0438266,
-        "rescue": 0.05569061,
-        "bonus": 0.08675535
+        "default": 0.0491207177,
+        "rescue": 0.0593829178,
+        "bonus": 0.0906263177
       }
     },
     {
       "id": "tofu",
-      "kind": "replay",
+      "kind": "core",
       "displayYakuId": "tofu",
       "pressOrder": null,
       "rate": {
-        "default": 0.11687093,
-        "rescue": 0.13922652,
-        "bonus": 0.19278967
+        "default": 0.1309885768,
+        "rescue": 0.1484572892,
+        "bonus": 0.2013918206
       }
     },
     {
@@ -216,9 +216,9 @@
       "displayYakuId": "momo",
       "pressOrder": null,
       "rate": {
-        "default": 0.05843546,
-        "rescue": 0.07425414,
-        "bonus": 0.06747638
+        "default": 0.0654942828,
+        "rescue": 0.0791772167,
+        "bonus": 0.0704871325
       }
     },
     {
@@ -253,6 +253,41 @@
         "rescue": 0.00464088,
         "bonus": 0.00067476
       }
+    }
+  ],
+  "singleYaku": [
+    {
+      "id": "single_a",
+      "name": "なしん",
+      "symbols": [
+        "な",
+        "し",
+        "ん"
+      ],
+      "category": "single",
+      "noArt": true
+    },
+    {
+      "id": "single_b",
+      "name": "みしご",
+      "symbols": [
+        "み",
+        "し",
+        "ご"
+      ],
+      "category": "single",
+      "noArt": true
+    },
+    {
+      "id": "single_c",
+      "name": "もしん",
+      "symbols": [
+        "も",
+        "し",
+        "ん"
+      ],
+      "category": "single",
+      "noArt": true
     }
   ]
 }

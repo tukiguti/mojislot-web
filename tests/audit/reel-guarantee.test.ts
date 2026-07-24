@@ -64,14 +64,16 @@ describe('リール配列監査：出目＝フラグの保証（②が残らな�
       const N = reels[0].length; // 21
       const resolver = new SlipResolver(yakuList);
       const judge = new YakuJudge(yakuList);
-      const flags: (string | null)[] = [
-        null,
+      // フラグ集合ケース: miss（空）／各表示役（単独）／1枚役グループ（全部で1フラグ）。
+      const flags: { label: string; ids: string[] }[] = [
+        { label: 'miss', ids: [] },
         ...[
           ...yakuList.coreYaku,
           ...yakuList.cherryYaku,
           ...yakuList.bonusYaku,
           ...yakuList.premiumYaku,
-        ].map((y) => y.id),
+        ].map((y) => ({ label: y.id, ids: [y.id] })),
+        { label: 'single*', ids: yakuList.singleYaku.map((y) => y.id) },
       ];
 
       let games = 0;
@@ -79,7 +81,8 @@ describe('リール配列監査：出目＝フラグの保証（②が残らな�
       const leakByFlag = new Map<string, number>();
 
       for (const flag of flags) {
-        const flagKey = flag ?? 'miss';
+        const flagKey = flag.label;
+        const idSet = new Set(flag.ids);
         for (const order of STOP_ORDERS) {
           for (let p0 = 0; p0 < N; p0++) {
             for (let p1 = 0; p1 < N; p1++) {
@@ -94,7 +97,7 @@ describe('リール配列監査：出目＝フラグの保証（②が残らな�
                     basePosition: base,
                     strip: { id: `r${idx}`, cells: reels[idx] },
                     stoppedVisibles: stopped,
-                    exceptYakuId: flag ?? undefined,
+                    exceptYakuIds: flag.ids,
                   });
                   const fp = (base + slip) % N;
                   finalPos[idx] = fp;
@@ -102,7 +105,7 @@ describe('リール配列監査：出目＝フラグの保証（②が残らな�
                 }
                 const grid = buildGrid(stopped as VisibleColumn[]);
                 const hits = judge.judgeAll(grid).hits;
-                const bad = hits.filter((h) => h.yaku.id !== flag);
+                const bad = hits.filter((h) => !idSet.has(h.yaku.id));
                 games++;
                 if (bad.length > 0) {
                   leakGames++;

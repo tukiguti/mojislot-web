@@ -32,7 +32,12 @@ export class YakuJudge {
   private readonly cherryIndex = new Map<string, Yaku>();
 
   constructor(list: YakuList) {
-    const all = [...list.premiumYaku, ...list.coreYaku, ...list.bonusYaku];
+    const all = [
+      ...list.premiumYaku,
+      ...list.coreYaku,
+      ...list.bonusYaku,
+      ...list.singleYaku,
+    ];
     for (const y of all) {
       this.index.set(y.symbols.join(''), y);
     }

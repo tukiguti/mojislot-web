@@ -1287,23 +1287,46 @@ export async function bootstrap() {
     !pressOrderSatisfied(currentRound.internalRole.pressOrder, stopOrder);
 
   /**
-   * この停止時点で「まだ狙える当選役」のID。
-   * 押し順を外した／miss・1枚役フラグなら null＝引き込み対象なし（＝全役が蹴り対象）。
+   * 押し順を守れている時だけ有効な「演出・引き込みの対象になる表示役」ID。
+   * miss／1枚役フラグ／押し順ミス後は null。
    */
-  const activeFlagYakuId = (): string | null => {
+  const activeDisplayYakuId = (): string | null => {
     if (!currentRound) return null;
     if (pressOrderMissed()) return null;
     return currentRound.internalRole.yakuId;
   };
 
+  /** 1枚役グループのID一覧（singleYaku のどれが揃ってもよい）。 */
+  const singleYakuIds = yakuList.singleYaku.map((y) => y.id);
+
+  /**
+   * この停止時点で「出目に出てよい役」のID群（払い出し・蹴り・引き込みガードの正）。
+   * - miss: 空＝全役が蹴り対象
+   * - 1枚役フラグ／押し順ミス: singleYaku 全ID（こぼし先）
+   * - 通常: 表示役の単数
+   */
+  const activeFlagYakuIds = (): string[] => {
+    if (!currentRound) return [];
+    const role = currentRound.internalRole;
+    if (role.kind === 'miss') return [];
+    if (role.kind === 'single') return singleYakuIds;
+    if (pressOrderMissed()) return singleYakuIds;
+    return role.yakuId ? [role.yakuId] : [];
+  };
+
+  /** 1枚役の自動引き込みが働くゲームか（1枚役フラグ or 押し順ミス確定後）。 */
+  const singleSpillActive = (): boolean =>
+    currentRound !== null &&
+    (currentRound.internalRole.kind === 'single' || pressOrderMissed());
+
   const currentInternalYaku = (): Yaku | null => {
-    const id = activeFlagYakuId();
+    const id = activeDisplayYakuId();
     return id ? (allYakusFlat.find((y) => y.id === id) ?? null) : null;
   };
 
   /** 演出による引き込みは、レバーONで確定した内部役（押し順を守れている時のみ）を対象にする。 */
   const effectAllowsYaku = (yaku: Yaku): boolean =>
-    currentEffect !== 'none' && yaku.id === activeFlagYakuId();
+    currentEffect !== 'none' && yaku.id === activeDisplayYakuId();
 
   /** 示唆tierでの、役カテゴリ別の引き込み窓（コマ）。対象外は0。 */
   const shisaMaxCellsFor = (category: Yaku['category']): number => {
@@ -1335,7 +1358,7 @@ export async function bootstrap() {
    */
   const currentTargetYakuId = (): string | null => {
     if (currentEffect === 'aim' || currentEffect === 'quiz') {
-      return activeFlagYakuId();
+      return activeDisplayYakuId();
     }
     return null;
   };
@@ -1348,14 +1371,15 @@ export async function bootstrap() {
 
   /** 引き込みの対象役ID（aim=予告役 / quiz=答えの役 / push=押し順役）。押し順を外せば null。 */
   const pullInTargetYakuId = (): string | null =>
-    isAimLikeEffect() ? activeFlagYakuId() : null;
+    isAimLikeEffect() ? activeDisplayYakuId() : null;
 
-  /** 引き込み優先のカテゴリ序列（premium > bonus > core > cherry） */
+  /** 引き込み優先のカテゴリ序列（premium > bonus > core > cherry > single） */
   const CAT_RANK: Record<Yaku['category'], number> = {
     premium: 3,
     bonus: 2,
     core: 1,
     cherry: 0,
+    single: 0,
   };
 
   /** 通常テンパイ（示唆など）の最終リール引き込み最大コマ数（実機準拠4）。 */
@@ -1420,16 +1444,17 @@ export async function bootstrap() {
   ): number => {
     let slipCells = 0;
     // 引き込みにも蹴りと同じ「非当選役をロックさせない」ガードを効かせるための文脈。
-    // exceptYakuId＝いま出目に出てよい唯一の役。
-    const flagId = announcedBonus && announcedRole
-      ? announcedRole.id
-      : (activeFlagYakuId() ?? undefined);
+    // exceptYakuIds＝いま出目に出てよい役ID群（1枚役こぼし時はグループ全体）。
+    const flagIds: readonly string[] =
+      announcedBonus && announcedRole
+        ? [announcedRole.id]
+        : activeFlagYakuIds();
     const assistCtx: SlipContext = {
       reelIndex: idx,
       basePosition: basePos,
       strip: engine.strip,
       stoppedVisibles,
-      exceptYakuId: flagId ?? undefined,
+      exceptYakuIds: flagIds,
     };
     if (announcedBonus && announcedRole) {
       // 確定告知ランプ：点灯時に固定した役の図柄を、第1・第2・最終すべてのリールで中段へ強く引き込む。
@@ -1443,6 +1468,26 @@ export async function bootstrap() {
         );
         if (hint !== null) slipCells = hint;
       }
+    } else if (singleSpillActive()) {
+      // 1枚役フラグ／押し順ミスのこぼし：実機の「当選小役は自動で引き込む」に相当。
+      // 演出は出ない（1枚役はベース機構）。中段一直線のみ・窓4コマで、
+      // 停止済みリールの中段と矛盾しない1枚役のうち最小スベリで作れるものを狙う。
+      // どれも窓外なら引き込まず＝こぼれ（実機の1枚役こぼしと同じ）。
+      let best: number | null = null;
+      for (const y of yakuList.singleYaku) {
+        const consistent = stoppedVisibles.every(
+          (v, i) => v === null || i === idx || v.middle === y.symbols[i],
+        );
+        if (!consistent) continue;
+        const s = slipResolver.resolveAssist(
+          assistCtx,
+          y.symbols[idx],
+          'middle',
+          ASSIST_MAX_CELLS,
+        );
+        if (s !== null && (best === null || s < best)) best = s;
+      }
+      if (best !== null) slipCells = best;
     } else {
       const assistTenpai = tenpaiDetector.detect(stoppedVisibles);
       if (assistTenpai && assistTenpai.missingReelIndex === idx) {
@@ -1484,20 +1529,14 @@ export async function bootstrap() {
     if (slipCells === 0) {
       // 実機のテーブル制御：当選役（内部役）以外の全役を、揃わない位置へ決定的に蹴る。
       // 引き込みが効かなかった（＝この停止で内部役を狙って揃えていない）局面のみ作用し、
-      // 「出目＝フラグ」を保証する。当選役だけは exceptYakuId で保護＝出目に出てよい。
+      // 「出目＝フラグ」を保証する。当選役グループだけは exceptYakuIds で保護。
       // 確定告知ランプ中も同様（引き込みが窓外だった停止で非当選役が揃うのを防ぐ）。
-      // さらに、クリーンな候補が複数ある時は出目の意味を揃える：
-      //   1枚役／押し順ミス → 2個テンパイ（惜しい出目）へ、ハズレ → 何も揃わない出目へ。
-      const wantsTenpai =
-        !announcedBonus &&
-        (currentRound?.internalRole.kind === 'single' || pressOrderMissed());
       slipCells = slipResolver.resolveKick({
         reelIndex: idx,
         basePosition: basePos,
         strip: engine.strip,
         stoppedVisibles,
-        exceptYakuId: flagId ?? undefined,
-        prefer: wantsTenpai ? 'tenpai' : 'blank',
+        exceptYakuIds: flagIds,
       });
     }
     // フリーズ中は引き込み/蹴りを無効化し、強制セットした位置(basePos)へそのままスナップ。
@@ -1573,7 +1612,15 @@ export async function bootstrap() {
       const grid = extractGrid(engines);
       const middleSymbols = grid[1] as [string, string, string]; // 既存UI互換用
       const displayedHits = judge.judgeAll(grid).hits;
-      const hits = resolveInternalRoleHits(activeFlagYakuId(), displayedHits);
+      const allowedHits = resolveInternalRoleHits(
+        activeFlagYakuIds(),
+        displayedHits,
+      );
+      // 1枚役は「こぼし」＝連チャン・図鑑・成立演出には乗せず、払い出しだけ別枠で扱う。
+      const singleHits = allowedHits.filter(
+        (h) => h.yaku.category === 'single',
+      );
+      const hits = allowedHits.filter((h) => h.yaku.category !== 'single');
       const willHit = hits.length > 0;
       const quizTargetYakuId =
         currentEffect === 'quiz' ? quizState.targetYakuId() : null;
@@ -1588,26 +1635,10 @@ export async function bootstrap() {
       const streakAfter = willHit ? playStats.stats.get().streak + 1 : 0;
       const streakMult = calc.streakMult(streakAfter);
       let win = calc.calcMulti(hits, bonusSpinActive, streakMult);
-      // 1枚役：2個テンパイ（3文字役のうちちょうど2つが一致した惜しい出目）＝1枚、全ハズレ＝0枚。
-      // 1枚役フラグ／押し順ミスは蹴りが2個テンパイへ寄せる（prefer:'tenpai'）。
-      // 実際に2個テンパイが表示された時だけ払う＝「揃ってないのに払い出し」を避ける。
-      // コンボ（連チャン）には乗せない固定払い出し＝連の価値を薄めない。
-      const gridHasNearMiss = (): boolean =>
-        PAYLINES.some((line) => {
-          const cells = line.cells.map(([r, c]) => grid[r][c]);
-          return allYakusFlat.some((y) => {
-            if (y.symbols.length !== 3) return false;
-            let matched = 0;
-            for (let i = 0; i < 3; i++) if (y.symbols[i] === cells[i]) matched++;
-            return matched === 2;
-          });
-        });
-      const wantsSingle =
-        currentRound?.internalRole.kind === 'single' || pressOrderMissed();
+      // 1枚役：実役として表示された時だけ固定1枚（1Gあたり最大1枚）。
+      // コンボ・ボーナス倍率には乗せない＝連の価値を薄めない。
       const singleWin =
-        hits.length === 0 && wantsSingle && gridHasNearMiss()
-          ? payout.baseMultiplier.single
-          : 0;
+        singleHits.length > 0 ? payout.baseMultiplier.single : 0;
       win += singleWin;
       // 予告役（狙え＝予告役／クイズ＝答えの役）が実際に成立 → その役ライン分に達成ボーナスを上乗せ。
       // currentTargetYakuId() は aim→予告役 / quiz→問題の答え役 / それ以外→null。

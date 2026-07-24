@@ -94,7 +94,7 @@ describe('引き込み経路の監査：assist先でも出目＝フラグが崩�
                     basePosition: base,
                     strip: { id: `r${idx}`, cells: reels[idx] },
                     stoppedVisibles: stopped,
-                    exceptYakuId: flagYaku.id,
+                    exceptYakuIds: [flagYaku.id],
                   };
                   let slip = 0;
                   // 1) 最終リール：当選役のテンパイ引き込み（窓8・main.ts pickAssistSlip 相当）
@@ -141,8 +141,7 @@ describe('引き込み経路の監査：assist先でも出目＝フラグが崩�
                       basePosition: base,
                       strip: assistCtx.strip,
                       stoppedVisibles: stopped,
-                      exceptYakuId: flagYaku.id,
-                      prefer: 'blank',
+                      exceptYakuIds: [flagYaku.id],
                     });
                   }
                   stopped[idx] = visCol(reels[idx], (base + slip) % N);
@@ -166,6 +165,72 @@ describe('引き込み経路の監査：assist先でも出目＝フラグが崩�
           }
         }
       }
+      // --- 1枚役グループ（1枚役フラグ／押し順ミスのこぼし）：自動引き込み経路 ---
+      // main.ts singleSpillActive 分岐と同じ：停止済み中段と矛盾しない1枚役を
+      // 最小スベリで中段へ引き込み（ガード付き）、引き込めなければ蹴り。
+      const singleIds = yakuList.singleYaku.map((y) => y.id);
+      const singleIdSet = new Set(singleIds);
+      for (const order of STOP_ORDERS) {
+        for (let p0 = 0; p0 < N; p0++) {
+          for (let p1 = 0; p1 < N; p1++) {
+            for (let p2 = 0; p2 < N; p2++) {
+              const press = [p0, p1, p2];
+              const stopped: (VisibleColumn | null)[] = [null, null, null];
+              for (const idx of order) {
+                const base = press[idx];
+                const assistCtx = {
+                  reelIndex: idx,
+                  basePosition: base,
+                  strip: { id: `r${idx}`, cells: reels[idx] },
+                  stoppedVisibles: stopped,
+                  exceptYakuIds: singleIds,
+                };
+                let slip = 0;
+                let best: number | null = null;
+                for (const y of yakuList.singleYaku) {
+                  const consistent = stopped.every(
+                    (v, i) => v === null || i === idx || v.middle === y.symbols[i],
+                  );
+                  if (!consistent) continue;
+                  const s = resolver.resolveAssist(
+                    assistCtx,
+                    y.symbols[idx],
+                    'middle',
+                    AIM_HINT_MAX_CELLS,
+                  );
+                  if (s !== null && (best === null || s < best)) best = s;
+                }
+                if (best !== null) slip = best;
+                if (slip === 0) {
+                  slip = resolver.resolveKick({
+                    reelIndex: idx,
+                    basePosition: base,
+                    strip: assistCtx.strip,
+                    stoppedVisibles: stopped,
+                    exceptYakuIds: singleIds,
+                  });
+                }
+                stopped[idx] = visCol(reels[idx], (base + slip) % N);
+              }
+              const grid = buildGrid(stopped as VisibleColumn[]);
+              const bad = judge
+                .judgeAll(grid)
+                .hits.filter((h) => !singleIdSet.has(h.yaku.id));
+              games++;
+              if (bad.length > 0) {
+                leakGames++;
+                totalLeaks++;
+                if (examples.length < 20) {
+                  examples.push(
+                    `${chapter} flag=single* order=${order.join('>')} press=${press.join(',')} → ${bad[0].yaku.id}(${bad[0].paylineName})`,
+                  );
+                }
+              }
+            }
+          }
+        }
+      }
+
       summary.push(
         `${chapter}: ${leakGames}/${games} 漏れ (${((leakGames / games) * 100).toFixed(4)}%)`,
       );

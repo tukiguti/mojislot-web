@@ -16,20 +16,27 @@ const hit = (id: string): PaylineHit => ({
 
 describe('resolveInternalRoleHits', () => {
   it('内部役と一致する表示ラインだけを成立させる', () => {
-    expect(resolveInternalRoleHits('target', [hit('other'), hit('target')])).toEqual([
-      hit('target'),
-    ]);
+    expect(
+      resolveInternalRoleHits(['target'], [hit('other'), hit('target')]),
+    ).toEqual([hit('target')]);
   });
 
-  it('miss（当選役なし）では偶然役が表示されても成立させない', () => {
-    expect(resolveInternalRoleHits(null, [hit('other')])).toEqual([]);
+  it('miss（当選役なし＝空配列）では偶然役が表示されても成立させない', () => {
+    expect(resolveInternalRoleHits([], [hit('other')])).toEqual([]);
   });
 
-  it('押し順を外した時（当選役null）も成立させない＝1枚役へこぼれる', () => {
-    expect(resolveInternalRoleHits(null, [hit('target')])).toEqual([]);
+  it('1枚役グループ（複数ID）はどれが表示されても成立する', () => {
+    expect(
+      resolveInternalRoleHits(
+        ['single_a', 'single_b'],
+        [hit('single_b'), hit('other')],
+      ),
+    ).toEqual([hit('single_b')]);
   });
 
   it('同じ内部役の複数ラインはすべて残す', () => {
-    expect(resolveInternalRoleHits('target', [hit('target'), hit('target')])).toHaveLength(2);
+    expect(
+      resolveInternalRoleHits(['target'], [hit('target'), hit('target')]),
+    ).toHaveLength(2);
   });
 });

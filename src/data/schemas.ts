@@ -16,19 +16,25 @@ export type ReelStrip = z.infer<typeof ReelStripSchema>;
 export type ReelConfig = z.infer<typeof ReelConfigSchema>;
 
 // core=小役 / premium=BIG(7・バー揃い) / bonus=RB / cherry=チェリー(2文字役)
-export const YakuCategorySchema = z.enum(['core', 'premium', 'bonus', 'cherry']);
+// single=1枚役（実機の制御用1枚役。既存文字の無意味な並び＝「単語にならなかった」出目）
+export const YakuCategorySchema = z.enum([
+  'core',
+  'premium',
+  'bonus',
+  'cherry',
+  'single',
+]);
 
 /**
  * レバーONで抽選する内部役の種別（実機のフラグに相当）。
  * - miss   : ハズレ。何も揃わない出目に着地させる＝0枚
- * - single : 1枚役。2個テンパイ（惜しい出目）に着地させる＝1枚。押し順/目押しを外した時のこぼし先
- * - replay : 再遊技（PB=1・必ず揃う）
+ * - single : 1枚役。singleYaku のどれかを自動引き込みで揃える＝1枚。
+ *            押し順を外した時のこぼし先もこのグループ（実機の押し順ベルこぼし）
  * - core/cherry/reg/big : 表示役に対応するフラグ
  */
 export const InternalRoleKindSchema = z.enum([
   'miss',
   'single',
-  'replay',
   'core',
   'cherry',
   'reg',
@@ -88,6 +94,12 @@ export const YakuListSchema = z
     bonusYaku: z.array(YakuSchema).default([]),
     // チェリー（2文字役・左+中の2リールで成立）。ジャグラー型のみ使用
     cherryYaku: z.array(YakuSchema).default([]),
+    /**
+     * 1枚役（実機の制御用1枚役）。既存リール文字の無意味な並びで、単語役と被らない。
+     * single フラグ時はこのグループの**どれか**を自動引き込みで揃える（中段のみ）。
+     * 押し順ミスのこぼし先・停止制御の受け皿を兼ねる。複数種で引き込みカバー率を稼ぐ。
+     */
+    singleYaku: z.array(YakuSchema).default([]),
     /** 内部役テーブル（表示役と分離。押し順役・1枚役を含む）。 */
     internalRoles: z.array(InternalRoleSchema).min(1),
   })
@@ -100,6 +112,22 @@ export const YakuListSchema = z
         ...list.premiumYaku,
       ].map((y) => y.id),
     );
+    list.singleYaku.forEach((y, i) => {
+      if (y.category !== 'single') {
+        ctx.addIssue({
+          code: 'custom',
+          path: ['singleYaku', i, 'category'],
+          message: `singleYaku「${y.id}」の category は single にしてください`,
+        });
+      }
+      if (y.symbols.length !== 3) {
+        ctx.addIssue({
+          code: 'custom',
+          path: ['singleYaku', i, 'symbols'],
+          message: `singleYaku「${y.id}」は3文字（中段一直線で揃える）にしてください`,
+        });
+      }
+    });
     for (const state of InternalRoleStateSchema.options) {
       const total = list.internalRoles.reduce(
         (sum, role) => sum + role.rate[state],

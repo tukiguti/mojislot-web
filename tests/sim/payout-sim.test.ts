@@ -236,10 +236,21 @@ function runChapter(chapter: string, skill: Skill, spins: number, seed: number):
     const stopped: (VisibleColumn | null)[] = [null, null, null];
     const stopOrder: number[] = [];
     const isAimLike = effect === 'aim' || effect === 'quiz' || effect === 'push';
+    const singleIds = yakuList.singleYaku.map((y) => y.id);
+    // main.ts activeFlagYakuIds と同じ: miss=[] / single・押し順ミス=1枚役グループ / 通常=[表示役]
+    const flagIdsNow = (): string[] => {
+      if (role.kind === 'miss') return [];
+      if (role.kind === 'single') return singleIds;
+      if (!pressOrderSatisfied(role.pressOrder, stopOrder)) return singleIds;
+      return role.yakuId ? [role.yakuId] : [];
+    };
+    const singleSpill = (): boolean =>
+      role.kind === 'single' || !pressOrderSatisfied(role.pressOrder, stopOrder);
 
     for (const idx of seq) {
       stopOrder.push(idx);
-      const flagId = pressOrderSatisfied(role.pressOrder, stopOrder) ? role.yakuId : null;
+      const displayOk = pressOrderSatisfied(role.pressOrder, stopOrder);
+      const flagId = displayOk ? role.yakuId : null;
       const target = flagId ? (yakuById.get(flagId) ?? null) : null;
       const cells = reels[idx];
 
@@ -262,7 +273,30 @@ function runChapter(chapter: string, skill: Skill, spins: number, seed: number):
       // --- resolveStopSlip 相当 ---
       let slipCells = 0;
       const tenpai = tenpaiDetector.detect(stopped);
-      if (tenpai && tenpai.missingReelIndex === idx) {
+      if (singleSpill()) {
+        // 1枚役フラグ／押し順ミス：中段一直線のみ・窓4で自動引き込み（main.ts と同じ）。
+        let best: number | null = null;
+        for (const y of yakuList.singleYaku) {
+          const consistent = stopped.every(
+            (v, i) => v === null || i === idx || v.middle === y.symbols[i],
+          );
+          if (!consistent) continue;
+          const s = slip.resolveAssist(
+            {
+              reelIndex: idx,
+              basePosition: basePos,
+              strip: { id: `r${idx}`, cells },
+              stoppedVisibles: stopped,
+              exceptYakuIds: singleIds,
+            },
+            y.symbols[idx]!,
+            'middle',
+            tuning.assist.assistMaxCells,
+          );
+          if (s !== null && (best === null || s < best)) best = s;
+        }
+        if (best !== null) slipCells = best;
+      } else if (tenpai && tenpai.missingReelIndex === idx) {
         let bestSlip = 0, bestScore = -1;
         const CAT_RANK: Record<Yaku['category'], number> =
           { premium: 3, bonus: 2, core: 1, cherry: 0 };
@@ -284,7 +318,7 @@ function runChapter(chapter: string, skill: Skill, spins: number, seed: number):
               basePosition: basePos,
               strip: { id: `r${idx}`, cells },
               stoppedVisibles: stopped,
-              exceptYakuId: flagId ?? undefined,
+              exceptYakuIds: flagId ? [flagId] : [],
             },
             l.yaku.symbols[idx]!,
             l.vertical,
@@ -305,7 +339,7 @@ function runChapter(chapter: string, skill: Skill, spins: number, seed: number):
               basePosition: basePos,
               strip: { id: `r${idx}`, cells },
               stoppedVisibles: stopped,
-              exceptYakuId: flagId ?? undefined,
+              exceptYakuIds: flagId ? [flagId] : [],
             },
             s2,
             'middle',
@@ -315,15 +349,12 @@ function runChapter(chapter: string, skill: Skill, spins: number, seed: number):
         }
       }
       if (slipCells === 0) {
-        const wantsTenpai =
-          role.kind === 'single' || !pressOrderSatisfied(role.pressOrder, stopOrder);
         slipCells = slip.resolveKick({
           reelIndex: idx,
           basePosition: basePos,
           strip: { id: `r${idx}`, cells },
           stoppedVisibles: stopped,
-          exceptYakuId: flagId ?? undefined,
-          prefer: wantsTenpai ? 'tenpai' : 'blank',
+          exceptYakuIds: flagIdsNow(),
         });
       }
       stopped[idx] = visCol(cells, (basePos + slipCells) % N);
@@ -331,28 +362,22 @@ function runChapter(chapter: string, skill: Skill, spins: number, seed: number):
 
     // --- 判定・払い出し ---
     const grid = buildGrid(stopped as VisibleColumn[]);
-    const flagId = pressOrderSatisfied(role.pressOrder, stopOrder) ? role.yakuId : null;
-    const hits = resolveInternalRoleHits(flagId, judge.judgeAll(grid).hits);
+    const allowedHits = resolveInternalRoleHits(
+      flagIdsNow(),
+      judge.judgeAll(grid).hits,
+    );
+    const singleHits = allowedHits.filter((h) => h.yaku.category === 'single');
+    const hits = allowedHits.filter((h) => h.yaku.category !== 'single');
     const willHit = hits.length > 0;
     const streakAfter = willHit ? streak + 1 : 0;
     const streakMult = calc.streakMult(streakAfter);
     let win = calc.calcMulti(hits, bonusActive, streakMult);
 
-    const nearMiss = PAYLINES.some((line) => {
-      const cs = line.cells.map(([r, c]) => grid[r][c]);
-      return allYaku.some((y) => {
-        if (y.symbols.length !== 3) return false;
-        let m = 0;
-        for (let i = 0; i < 3; i++) if (y.symbols[i] === cs[i]) m++;
-        return m === 2;
-      });
-    });
-    const wantsSingle =
-      role.kind === 'single' || !pressOrderSatisfied(role.pressOrder, stopOrder);
-    if (hits.length === 0 && wantsSingle && nearMiss) {
+    if (singleHits.length > 0) {
       win += payout.baseMultiplier.single;
       res.singleWins++;
     }
+    const flagId = pressOrderSatisfied(role.pressOrder, stopOrder) ? role.yakuId : null;
     if ((effect === 'aim' || effect === 'quiz') && flagId) {
       win += calc.aimBonus(hits.filter((h) => h.yaku.id === flagId), bonusActive, streakMult);
     }

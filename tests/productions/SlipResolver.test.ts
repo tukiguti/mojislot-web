@@ -16,6 +16,7 @@ const yakuList = (
   premiumYaku: premium.map((s, i) => ({ id: `p${i}`, name: `p${i}`, symbols: s, category: 'premium' })),
   bonusYaku: bonus.map((s, i) => ({ id: `b${i}`, name: `b${i}`, symbols: s, category: 'bonus' })),
   cherryYaku: cherry.map((s, i) => ({ id: `ch${i}`, name: `ch${i}`, symbols: s, category: 'cherry' })),
+  singleYaku: [],
   // 蹴りの検証では抽選しないので、内部役はハズレ1件だけ置く（スキーマ上の合計＝1）。
   internalRoles: [
     { id: 'miss', kind: 'miss', displayYakuId: null, pressOrder: null, rate: { default: 1, rescue: 1, bonus: 1 } },
@@ -32,7 +33,7 @@ describe('SlipResolver.resolveAssist', () => {
     basePosition,
     strip: strip(cells),
     stoppedVisibles: [null, null, null] as const,
-    exceptYakuId: 'p0',
+    exceptYakuIds: ['p0'],
   });
 
   it('中段に target が来る最小の順方向コマ数を返す', () => {
@@ -75,7 +76,7 @@ describe('SlipResolver.resolveAssist', () => {
         { top: 'm', middle: 'D', bottom: 'm' },
         { top: 'm', middle: 'E', bottom: 'm' },
       ] as const,
-      exceptYakuId: 'p0',
+      exceptYakuIds: ['p0'],
     };
     // target 'C' を頼んでも pos0 は非当選役 c0 がロックするため選ばれない
     expect(rc.resolveAssist(c, 'C', 'middle', 4)).toBeNull();
@@ -105,8 +106,8 @@ describe('SlipResolver.resolveKick（テーブル制御：決定的・全非当�
     }
   });
 
-  it('exceptYakuId（当選役）は蹴らない＝出目に出てよい', () => {
-    const kick = r.resolveKick({ ...ctxBase, basePosition: 0, exceptYakuId: 'p0' });
+  it('exceptYakuIds（当選役）は蹴らない＝出目に出てよい', () => {
+    const kick = r.resolveKick({ ...ctxBase, basePosition: 0, exceptYakuIds: ['p0'] });
     expect(kick).toBe(0);
   });
 
@@ -163,7 +164,7 @@ describe('SlipResolver.resolveKick（テーブル制御：決定的・全非当�
         { top: 'D', middle: 'Y', bottom: 'm' },
         { top: 'E', middle: 'Z', bottom: 'm' },
       ],
-      exceptYakuId: 'p0',
+      exceptYakuIds: ['p0'],
     });
     expect(kick).toBe(2);
   });
