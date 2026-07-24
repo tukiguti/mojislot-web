@@ -4,18 +4,40 @@
     "core": 3,
     "premium": 20,
     "bonus": 10,
-    "cherry": 2
+    "cherry": 2,
+    "single": 1
   },
   "bonusZoneMultiplier": 2.0,
   "initialCoins": 0,
   "streakTiers": [
-    { "minStreak": 2, "mult": 1.5 },
-    { "minStreak": 3, "mult": 2.0 },
-    { "minStreak": 5, "mult": 3.0 },
-    { "minStreak": 8, "mult": 4.0 },
-    { "minStreak": 12, "mult": 5.0 },
-    { "minStreak": 16, "mult": 6.0 },
-    { "minStreak": 20, "mult": 7.0 }
+    {
+      "minStreak": 2,
+      "mult": 1.5
+    },
+    {
+      "minStreak": 3,
+      "mult": 2.0
+    },
+    {
+      "minStreak": 5,
+      "mult": 3.0
+    },
+    {
+      "minStreak": 8,
+      "mult": 4.0
+    },
+    {
+      "minStreak": 12,
+      "mult": 5.0
+    },
+    {
+      "minStreak": 16,
+      "mult": 6.0
+    },
+    {
+      "minStreak": 20,
+      "mult": 7.0
+    }
   ],
   "aimBonusMultiplier": 1.5,
   "maxComboMultiplier": 10.0

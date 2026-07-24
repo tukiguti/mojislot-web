@@ -28,6 +28,7 @@ import { getMemberId, getMemberName } from './productions/Member';
 import { NearMissDetector } from './productions/NearMissDetector';
 import {
   InternalRoleLottery,
+  pressOrderSatisfied,
   type InternalRoleResult,
 } from './productions/InternalRoleLottery';
 import {
@@ -41,6 +42,8 @@ import {
   spawnButtonRipple,
   showAimNotice,
   hideAimNotice,
+  showPushOrder,
+  hidePushOrder,
   setEffectHost,
   showEntryCharge,
   showFreezeBanner,
@@ -92,7 +95,8 @@ import './style.css';
 
 const REEL_GAP = 16;
 const REEL_COUNT = 3;
-type ForcedEffect = Exclude<EffectType, 'none'>;
+// デバッグ等で明示指定できる演出。push（押し順ナビ）は押し順役に自動付与されるため含めない。
+type ForcedEffect = Exclude<EffectType, 'none' | 'push'>;
 const CANVAS_W = 600;
 const CANVAS_H = 732;
 // 液晶エリア（演出液晶＋マスコット領域）の高さ。
@@ -184,8 +188,6 @@ export async function bootstrap() {
   const jinState = new JinState();
   const quizState = new QuizState();
   const slipResolver = new SlipResolver(yakuList, {
-    kickProbability: tuning.assist.kickProbability,
-    kickMaxCells: tuning.assist.kickMaxCells,
     assistMaxCells: tuning.assist.assistMaxCells,
   });
   const bonusZone = new BonusZone({
@@ -232,6 +234,8 @@ export async function bootstrap() {
   // レバーONで確定し、全停止まで保持する内部役と演出の正本。
   let currentRound: RoundContext | null = null;
   let roundNumber = 0;
+  /** このスピンでリールを停止させた順（押し順役の判定に使う）。レバーONで空に戻す。 */
+  let stopOrder: number[] = [];
   // 現在の示唆の期待度tier（青/黄/緑/赤/金）。applyEffect('shisa')で抽選、他演出ではnull。
   let currentShisaTier: ShisaTier | null = null;
 
@@ -514,6 +518,7 @@ export async function bootstrap() {
       'shisa',
       'quiz',
       'aim',
+      'push',
       'tier-blue',
       'tier-yellow',
       'tier-green',
@@ -558,6 +563,29 @@ export async function bootstrap() {
         reelTopYFrac: reelY / CANVAS_H,
       });
       sfx.shisa(); // 既存の示唆 SE を流用
+      jinSpeech.say('shisa');
+    } else if (effect === 'push') {
+      effectStatusEl.textContent = '押し順';
+      effectStatusEl.classList.add('push');
+      jinState.set('shisa');
+      const po = currentRound?.internalRole.pressOrder ?? null;
+      // reelIndex → 押す順番(1始まり) or null(自由)
+      const slots: (number | null)[] = [null, null, null];
+      if (po?.type === 'first') {
+        slots[po.reel] = 1;
+      } else if (po?.type === 'exact') {
+        po.order.forEach((reel, i) => {
+          slots[reel] = i + 1;
+        });
+      }
+      showPushOrder({
+        slots,
+        reelCentersXFrac: [0, 1, 2].map(
+          (i) => (startX + i * (CELL_WIDTH + REEL_GAP) + CELL_WIDTH / 2) / CANVAS_W,
+        ),
+        reelTopYFrac: reelY / CANVAS_H,
+      });
+      sfx.shisa();
       jinSpeech.say('shisa');
     } else {
       effectStatusEl.textContent = '通常';
@@ -636,7 +664,8 @@ export async function bootstrap() {
   const drawDebugRole = (effect: ForcedEffect): InternalRoleResult =>
     internalRoleLottery.draw(activeInternalRoleState(), {
       allowMiss: false,
-      yakuFilter: (yaku) => effectCanRepresent(effect, yaku),
+      // デバッグ強制は「その演出で表現できる表示役を持つ内部役」だけに絞る（1枚役は除外）。
+      roleFilter: (_role, yaku) => yaku !== null && effectCanRepresent(effect, yaku),
     });
 
   const forceDebugEffect = (effect: ForcedEffect, label: string) => {
@@ -1119,6 +1148,7 @@ export async function bootstrap() {
     for (const engine of engines) engine.reset();
     for (const v of views) v.stopTenpaiFlash();
     hideAimNotice();
+    hidePushOrder();
     quizState.reset();
     applyEffect('none');
     // AUTO の狙い状態もクリア
@@ -1178,6 +1208,7 @@ export async function bootstrap() {
     if (!betPlaced) return;
     // レバーONを1ゲームの確定点とし、内部役→対応できる演出の順に決める。
     // フリーズ／確定ランプは通常抽選より優先し、強制役もRoundContextへ保存する。
+    stopOrder = [];
     const doFreeze =
       !bonusZone.isActive() && (pendingFreeze || Math.random() < FREEZE_RATE);
     pendingFreeze = false;
@@ -1214,9 +1245,13 @@ export async function bootstrap() {
     } else {
       const role = internalRoleLottery.draw(activeInternalRoleState());
       const yaku = internalRoleLottery.yakuFor(role);
-      const effect = yaku
-        ? scheduler.rollAvailable(eligibleEffectsForYaku(yaku))
-        : 'none';
+      // 押し順役は押し順ナビ（push）を強制付与＝順番を提示。順不問の役は従来のレート抽選。
+      // miss / 1枚役（表示役なし）は none。
+      const effect: EffectType = role.pressOrder
+        ? 'push'
+        : yaku
+          ? scheduler.rollAvailable(eligibleEffectsForYaku(yaku))
+          : 'none';
       activateRound(role, effect, 'lottery');
     }
 
@@ -1240,12 +1275,32 @@ export async function bootstrap() {
     window.setTimeout(doEntry, CHARGE_MS);
   };
 
-  const currentInternalYaku = (): Yaku | null =>
-    currentRound ? internalRoleLottery.yakuFor(currentRound.internalRole) : null;
+  /**
+   * 押し順を外したか（押し順役のみ）。実機の押し順ベルと同じで、順を外した瞬間に
+   * 当選役は引き込まれなくなり、1枚役（2個テンパイ）へこぼれる。
+   */
+  const pressOrderMissed = (): boolean =>
+    currentRound !== null &&
+    !pressOrderSatisfied(currentRound.internalRole.pressOrder, stopOrder);
 
-  /** 演出による引き込みは、レバーONで確定した具体的な内部役だけを対象にする。 */
+  /**
+   * この停止時点で「まだ狙える当選役」のID。
+   * 押し順を外した／miss・1枚役フラグなら null＝引き込み対象なし（＝全役が蹴り対象）。
+   */
+  const activeFlagYakuId = (): string | null => {
+    if (!currentRound) return null;
+    if (pressOrderMissed()) return null;
+    return currentRound.internalRole.yakuId;
+  };
+
+  const currentInternalYaku = (): Yaku | null => {
+    const id = activeFlagYakuId();
+    return id ? (allYakusFlat.find((y) => y.id === id) ?? null) : null;
+  };
+
+  /** 演出による引き込みは、レバーONで確定した内部役（押し順を守れている時のみ）を対象にする。 */
   const effectAllowsYaku = (yaku: Yaku): boolean =>
-    currentEffect !== 'none' && yaku.id === currentRound?.internalRole.yakuId;
+    currentEffect !== 'none' && yaku.id === activeFlagYakuId();
 
   /** 示唆tierでの、役カテゴリ別の引き込み窓（コマ）。対象外は0。 */
   const shisaMaxCellsFor = (category: Yaku['category']): number => {
@@ -1277,10 +1332,20 @@ export async function bootstrap() {
    */
   const currentTargetYakuId = (): string | null => {
     if (currentEffect === 'aim' || currentEffect === 'quiz') {
-      return currentRound?.internalRole.yakuId ?? null;
+      return activeFlagYakuId();
     }
     return null;
   };
+
+  /** aim/quiz/push は第1・第2停止にも中段引き込みが効く（＝ナビ/予告に従えば取れる）。 */
+  const isAimLikeEffect = (): boolean =>
+    currentEffect === 'aim' ||
+    currentEffect === 'quiz' ||
+    currentEffect === 'push';
+
+  /** 引き込みの対象役ID（aim=予告役 / quiz=答えの役 / push=押し順役）。押し順を外せば null。 */
+  const pullInTargetYakuId = (): string | null =>
+    isAimLikeEffect() ? activeFlagYakuId() : null;
 
   /** 引き込み優先のカテゴリ序列（premium > bonus > core > cherry） */
   const CAT_RANK: Record<Yaku['category'], number> = {
@@ -1313,12 +1378,11 @@ export async function bootstrap() {
     for (const l of lines) {
       if (!effectAllowsYaku(l.yaku)) continue;
       // 引き込み窓：予告役(狙え/クイズ)は拡大、示唆はtier×カテゴリ、通常は実機準拠4。
-      const maxCells =
-        currentEffect === 'aim' || currentEffect === 'quiz'
-          ? NOTICE_ASSIST_MAX_CELLS
-          : currentEffect === 'shisa'
-            ? shisaMaxCellsFor(l.yaku.category)
-            : ASSIST_MAX_CELLS;
+      const maxCells = isAimLikeEffect()
+        ? NOTICE_ASSIST_MAX_CELLS
+        : currentEffect === 'shisa'
+          ? shisaMaxCellsFor(l.yaku.category)
+          : ASSIST_MAX_CELLS;
       if (maxCells <= 0) continue;
       const slip = slipResolver.resolveAssist(
         strip,
@@ -1371,10 +1435,10 @@ export async function bootstrap() {
       const assistTenpai = tenpaiDetector.detect(stoppedVisibles);
       if (assistTenpai && assistTenpai.missingReelIndex === idx) {
         slipCells = pickAssistSlip(assistTenpai.lines, idx, engine.strip, basePos);
-      } else if (currentEffect === 'aim' || currentEffect === 'quiz') {
-        // 予告役（狙え＝予告役／クイズ＝答えの役）の第1・第2停止：対象文字を中段へ軽く引き込む
+      } else if (isAimLikeEffect()) {
+        // 予告役/押し順役の第1・第2停止：対象文字を中段へ軽く引き込む
         //（最大 AIM_HINT_MAX_CELLS コマ）。窓外なら引き込まず自力ミス扱い＝目押しの妙味は残す。
-        const noticeId = currentTargetYakuId();
+        const noticeId = pullInTargetYakuId();
         const noticeYaku = noticeId
           ? allYakusFlat.find((y) => y.id === noticeId)
           : null;
@@ -1412,21 +1476,20 @@ export async function bootstrap() {
         if (best !== null) slipCells = best;
       }
       if (slipCells === 0) {
-        // 演出なしスピンは小役も蹴る＝「演出中に目押しできた時だけ獲れる」技術介入機の前提。
-        // ボーナス中は毎G演出が出るので該当しない（ボーナス中の小役は常に獲れる）。
-        const kc = tuning.assist.kickCore;
-        const kickCore =
-          kc.enabled && currentEffect === 'none' && !bonusZone.isActive();
+        // 実機のテーブル制御：当選役（内部役）以外の全役を、揃わない位置へ決定的に蹴る。
+        // 引き込みが効かなかった（＝この停止で内部役を狙って揃えていない）局面のみ作用し、
+        // 「出目＝フラグ」を保証する。当選役だけは exceptYakuId で保護＝出目に出てよい。
+        // さらに、クリーンな候補が複数ある時は出目の意味を揃える：
+        //   1枚役／押し順ミス → 2個テンパイ（惜しい出目）へ、ハズレ → 何も揃わない出目へ。
+        const wantsTenpai =
+          currentRound?.internalRole.kind === 'single' || pressOrderMissed();
         slipCells = slipResolver.resolveKick({
           reelIndex: idx,
           basePosition: basePos,
           strip: engine.strip,
           stoppedVisibles,
-          // 内部役だけは蹴らず、無関係な偶然の表示役は従来どおり蹴り対象にする。
-          exceptYakuId: currentRound?.internalRole.yakuId ?? undefined,
-          kickCore,
-          kickProbability: kickCore ? kc.probability : undefined,
-          kickMaxCells: kickCore ? kc.maxCells : undefined,
+          exceptYakuId: activeFlagYakuId() ?? undefined,
+          prefer: wantsTenpai ? 'tenpai' : 'blank',
         });
       }
     }
@@ -1441,6 +1504,8 @@ export async function bootstrap() {
     if (engine.state.get() !== 'spinning') return;
     // フリーズ演出の一時的な60コマ/秒ではなく、プレイヤーが選んだ通常速度を記録する。
     recordRunSpeed(reelSpeed());
+    // 押し順役の判定はこの停止を含めて確定させるため、引き込み解決の前に順を記録する。
+    stopOrder.push(idx);
 
     // 滑り（引き込み）を解決：停止済みリールの可視3セルを SlipResolver に渡す
     const total = engine.strip.cells.length;
@@ -1496,11 +1561,12 @@ export async function bootstrap() {
     if (engines.every((e) => e.state.get() === 'stopped')) {
       // 全停止したので「狙え！」演出は閉じる（レバーオン示唆として出た場合）
       hideAimNotice();
+      hidePushOrder();
       // 物理表示を5ラインで検出し、内部役と一致するラインだけを成立扱いにする。
       const grid = extractGrid(engines);
       const middleSymbols = grid[1] as [string, string, string]; // 既存UI互換用
       const displayedHits = judge.judgeAll(grid).hits;
-      const hits = resolveInternalRoleHits(currentRound, displayedHits);
+      const hits = resolveInternalRoleHits(activeFlagYakuId(), displayedHits);
       const willHit = hits.length > 0;
       const quizTargetYakuId =
         currentEffect === 'quiz' ? quizState.targetYakuId() : null;
@@ -1515,6 +1581,27 @@ export async function bootstrap() {
       const streakAfter = willHit ? playStats.stats.get().streak + 1 : 0;
       const streakMult = calc.streakMult(streakAfter);
       let win = calc.calcMulti(hits, bonusSpinActive, streakMult);
+      // 1枚役：2個テンパイ（3文字役のうちちょうど2つが一致した惜しい出目）＝1枚、全ハズレ＝0枚。
+      // 1枚役フラグ／押し順ミスは蹴りが2個テンパイへ寄せる（prefer:'tenpai'）。
+      // 実際に2個テンパイが表示された時だけ払う＝「揃ってないのに払い出し」を避ける。
+      // コンボ（連チャン）には乗せない固定払い出し＝連の価値を薄めない。
+      const gridHasNearMiss = (): boolean =>
+        PAYLINES.some((line) => {
+          const cells = line.cells.map(([r, c]) => grid[r][c]);
+          return allYakusFlat.some((y) => {
+            if (y.symbols.length !== 3) return false;
+            let matched = 0;
+            for (let i = 0; i < 3; i++) if (y.symbols[i] === cells[i]) matched++;
+            return matched === 2;
+          });
+        });
+      const wantsSingle =
+        currentRound?.internalRole.kind === 'single' || pressOrderMissed();
+      const singleWin =
+        hits.length === 0 && wantsSingle && gridHasNearMiss()
+          ? payout.baseMultiplier.single
+          : 0;
+      win += singleWin;
       // 予告役（狙え＝予告役／クイズ＝答えの役）が実際に成立 → その役ライン分に達成ボーナスを上乗せ。
       // currentTargetYakuId() は aim→予告役 / quiz→問題の答え役 / それ以外→null。
       let noticeBonus = 0;
@@ -1781,6 +1868,7 @@ export async function bootstrap() {
     applyEffect('none');
     quizState.reset();
     hideAimNotice();
+    hidePushOrder();
     updateButtons();
     sfx.freeze();
     showFreezeBanner();
@@ -1853,6 +1941,19 @@ export async function bootstrap() {
   };
 
   /** レバー直後にコールして、演出が表す内部役をAUTOの狙い役にする。 */
+  /**
+   * AUTO がリールを止める順番。デフォルトは順押し（左→中→右）。
+   * 押し順役ならナビの順に従う（first=指定リールを最初に、exact=完全指定）。
+   */
+  const autoStopSequence = (): number[] => {
+    const po = currentRound?.internalRole.pressOrder ?? null;
+    if (po?.type === 'exact') return [...po.order];
+    if (po?.type === 'first') {
+      return [po.reel, ...[0, 1, 2].filter((r) => r !== po.reel)];
+    }
+    return [0, 1, 2];
+  };
+
   const setupAutoTarget = () => {
     if (announcedBonus && announcedRole) {
       // 確定告知ランプ点灯中（演出は none 固定）：固定した確定役を AUTO でも全リール狙う。
@@ -1903,10 +2004,7 @@ export async function bootstrap() {
     // 引き込みの無い演出(shisa 等)は手前で止めると逆に揃わないため MARGIN=0。
     // aim/quiz と赤/金示唆は第1・第2にも中段引き込みが効くので手前マージンを取る。
     const aimMargin =
-      currentEffect === 'aim' ||
-      currentEffect === 'quiz' ||
-      shisaTargetsBonus() ||
-      announcedBonus
+      isAimLikeEffect() || shisaTargetsBonus() || announcedBonus
         ? AUTO_AIM_MARGIN
         : 0;
     const stopDist = Math.max(0, bestDist - aimMargin);
@@ -1943,16 +2041,14 @@ export async function bootstrap() {
     } else if (betPlaced && allIdle) {
       pullLever();
     } else if (anySpinning) {
-      // 1リールずつ処理。aim 待ち中はスキップ
-      for (let idx = 0; idx < REEL_COUNT; idx++) {
-        if (states[idx] !== 'spinning') continue;
-        if (aimPending.has(idx)) break;
+      // 押し順（デフォルト順押し／押し順役はナビ順）に沿って次の1リールを止める。aim 待ち中はスキップ。
+      const nextIdx = autoStopSequence().find((r) => states[r] === 'spinning');
+      if (nextIdx !== undefined && !aimPending.has(nextIdx)) {
         if (autoTargetYaku) {
-          scheduleAimedStop(idx);
+          scheduleAimedStop(nextIdx);
         } else {
-          stopReel(idx, performance.now());
+          stopReel(nextIdx, performance.now());
         }
-        break;
       }
     }
 

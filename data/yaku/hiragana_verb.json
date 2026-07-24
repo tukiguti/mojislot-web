@@ -1,20 +1,258 @@
 {
   "mode": "hiragana_verb",
-  "internalRoleMissRate": { "default": 0.5, "rescue": 0.3, "bonus": 0.0 },
   "coreYaku": [
-    { "id": "utau", "name": "うたう", "symbols": ["う", "た", "う"], "category": "core", "internalRoleKind": "core", "internalRoleRate": { "default": 0.10333333333333333, "rescue": 0.14, "bonus": 0.24 } },
-    { "id": "asobu", "name": "あそぶ", "symbols": ["あ", "そ", "ぶ"], "category": "core", "internalRoleKind": "replay", "internalRoleRate": { "default": 0.1, "rescue": 0.12, "bonus": 0.2 } },
-    { "id": "oyogu", "name": "およぐ", "symbols": ["お", "よ", "ぐ"], "category": "core", "internalRoleKind": "core", "internalRoleRate": { "default": 0.10333333333333333, "rescue": 0.14, "bonus": 0.24 } },
-    { "id": "hanasu", "name": "はなす", "symbols": ["は", "な", "す"], "category": "core", "internalRoleKind": "core", "internalRoleRate": { "default": 0.10333333333333333, "rescue": 0.14, "bonus": 0.24 } }
-  ],
-  "cherryYaku": [
-    { "id": "neru", "name": "ねる", "symbols": ["ね", "る"], "category": "cherry", "internalRoleKind": "cherry", "internalRoleRate": { "default": 0.05, "rescue": 0.07, "bonus": 0.07 } }
+    {
+      "id": "utau",
+      "name": "うたう",
+      "symbols": [
+        "う",
+        "た",
+        "う"
+      ],
+      "category": "core"
+    },
+    {
+      "id": "asobu",
+      "name": "あそぶ",
+      "symbols": [
+        "あ",
+        "そ",
+        "ぶ"
+      ],
+      "category": "core"
+    },
+    {
+      "id": "oyogu",
+      "name": "およぐ",
+      "symbols": [
+        "お",
+        "よ",
+        "ぐ"
+      ],
+      "category": "core"
+    },
+    {
+      "id": "hanasu",
+      "name": "はなす",
+      "symbols": [
+        "は",
+        "な",
+        "す"
+      ],
+      "category": "core"
+    }
   ],
   "premiumYaku": [
-    { "id": "ikiru", "name": "いきる", "symbols": ["い", "き", "る"], "category": "premium", "internalRoleKind": "big", "internalRoleRate": { "default": 0.005, "rescue": 0.015, "bonus": 0.001 } },
-    { "id": "yasumu", "name": "やすむ", "symbols": ["や", "す", "む"], "category": "premium", "internalRoleKind": "big", "internalRoleRate": { "default": 0.005, "rescue": 0.015, "bonus": 0.001 } }
+    {
+      "id": "ikiru",
+      "name": "いきる",
+      "symbols": [
+        "い",
+        "き",
+        "る"
+      ],
+      "category": "premium"
+    },
+    {
+      "id": "yasumu",
+      "name": "やすむ",
+      "symbols": [
+        "や",
+        "す",
+        "む"
+      ],
+      "category": "premium"
+    }
   ],
   "bonusYaku": [
-    { "id": "reg", "name": "いきむ", "symbols": ["い", "き", "む"], "category": "bonus", "internalRoleKind": "reg", "internalRoleRate": { "default": 0.03, "rescue": 0.06, "bonus": 0.008 } }
+    {
+      "id": "reg",
+      "name": "いきむ",
+      "symbols": [
+        "い",
+        "き",
+        "む"
+      ],
+      "category": "bonus"
+    }
+  ],
+  "cherryYaku": [
+    {
+      "id": "neru",
+      "name": "ねる",
+      "symbols": [
+        "ね",
+        "る"
+      ],
+      "category": "cherry"
+    }
+  ],
+  "internalRoles": [
+    {
+      "id": "miss",
+      "kind": "miss",
+      "displayYakuId": null,
+      "pressOrder": null,
+      "rate": {
+        "default": 0.34,
+        "rescue": 0.195,
+        "bonus": 0.0
+      }
+    },
+    {
+      "id": "single",
+      "kind": "single",
+      "displayYakuId": null,
+      "pressOrder": null,
+      "rate": {
+        "default": 0.2,
+        "rescue": 0.18,
+        "bonus": 0.1
+      }
+    },
+    {
+      "id": "utau",
+      "kind": "core",
+      "displayYakuId": "utau",
+      "pressOrder": null,
+      "rate": {
+        "default": 0.1,
+        "rescue": 0.13,
+        "bonus": 0.22
+      }
+    },
+    {
+      "id": "oyogu_first_l",
+      "kind": "core",
+      "displayYakuId": "oyogu",
+      "pressOrder": {
+        "type": "first",
+        "reel": 0
+      },
+      "rate": {
+        "default": 0.0334,
+        "rescue": 0.0434,
+        "bonus": 0.0734
+      }
+    },
+    {
+      "id": "oyogu_first_m",
+      "kind": "core",
+      "displayYakuId": "oyogu",
+      "pressOrder": {
+        "type": "first",
+        "reel": 1
+      },
+      "rate": {
+        "default": 0.0333,
+        "rescue": 0.0433,
+        "bonus": 0.0733
+      }
+    },
+    {
+      "id": "oyogu_first_r",
+      "kind": "core",
+      "displayYakuId": "oyogu",
+      "pressOrder": {
+        "type": "first",
+        "reel": 2
+      },
+      "rate": {
+        "default": 0.0333,
+        "rescue": 0.0433,
+        "bonus": 0.0733
+      }
+    },
+    {
+      "id": "hanasu_exact_asc",
+      "kind": "core",
+      "displayYakuId": "hanasu",
+      "pressOrder": {
+        "type": "exact",
+        "order": [
+          0,
+          1,
+          2
+        ]
+      },
+      "rate": {
+        "default": 0.035,
+        "rescue": 0.05,
+        "bonus": 0.09
+      }
+    },
+    {
+      "id": "hanasu_exact_desc",
+      "kind": "core",
+      "displayYakuId": "hanasu",
+      "pressOrder": {
+        "type": "exact",
+        "order": [
+          2,
+          1,
+          0
+        ]
+      },
+      "rate": {
+        "default": 0.035,
+        "rescue": 0.05,
+        "bonus": 0.09
+      }
+    },
+    {
+      "id": "asobu",
+      "kind": "replay",
+      "displayYakuId": "asobu",
+      "pressOrder": null,
+      "rate": {
+        "default": 0.1,
+        "rescue": 0.12,
+        "bonus": 0.2
+      }
+    },
+    {
+      "id": "neru",
+      "kind": "cherry",
+      "displayYakuId": "neru",
+      "pressOrder": null,
+      "rate": {
+        "default": 0.05,
+        "rescue": 0.07,
+        "bonus": 0.07
+      }
+    },
+    {
+      "id": "reg",
+      "kind": "reg",
+      "displayYakuId": "reg",
+      "pressOrder": null,
+      "rate": {
+        "default": 0.03,
+        "rescue": 0.06,
+        "bonus": 0.008
+      }
+    },
+    {
+      "id": "ikiru",
+      "kind": "big",
+      "displayYakuId": "ikiru",
+      "pressOrder": null,
+      "rate": {
+        "default": 0.005,
+        "rescue": 0.0075,
+        "bonus": 0.001
+      }
+    },
+    {
+      "id": "yasumu",
+      "kind": "big",
+      "displayYakuId": "yasumu",
+      "pressOrder": null,
+      "rate": {
+        "default": 0.005,
+        "rescue": 0.0075,
+        "bonus": 0.001
+      }
+    }
   ]
 }

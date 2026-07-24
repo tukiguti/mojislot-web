@@ -1,20 +1,258 @@
 {
   "mode": "security",
-  "internalRoleMissRate": { "default": 0.5, "rescue": 0.3, "bonus": 0.0 },
   "coreYaku": [
-    { "id": "hack", "name": "ハック", "symbols": ["ハ", "ッ", "ク"], "category": "core", "internalRoleKind": "core", "internalRoleRate": { "default": 0.10333333333333333, "rescue": 0.14, "bonus": 0.24 } },
-    { "id": "memori", "name": "メモリ", "symbols": ["メ", "モ", "リ"], "category": "core", "internalRoleKind": "replay", "internalRoleRate": { "default": 0.1, "rescue": 0.12, "bonus": 0.2 } },
-    { "id": "spam", "name": "スパム", "symbols": ["ス", "パ", "ム"], "category": "core", "internalRoleKind": "core", "internalRoleRate": { "default": 0.10333333333333333, "rescue": 0.14, "bonus": 0.24 } },
-    { "id": "flag", "name": "フラグ", "symbols": ["フ", "ラ", "グ"], "category": "core", "internalRoleKind": "core", "internalRoleRate": { "default": 0.10333333333333333, "rescue": 0.14, "bonus": 0.24 } }
-  ],
-  "cherryYaku": [
-    { "id": "bug", "name": "バグ", "symbols": ["バ", "グ"], "category": "cherry", "internalRoleKind": "cherry", "internalRoleRate": { "default": 0.05, "rescue": 0.07, "bonus": 0.07 } }
+    {
+      "id": "hack",
+      "name": "ハック",
+      "symbols": [
+        "ハ",
+        "ッ",
+        "ク"
+      ],
+      "category": "core"
+    },
+    {
+      "id": "memori",
+      "name": "メモリ",
+      "symbols": [
+        "メ",
+        "モ",
+        "リ"
+      ],
+      "category": "core"
+    },
+    {
+      "id": "spam",
+      "name": "スパム",
+      "symbols": [
+        "ス",
+        "パ",
+        "ム"
+      ],
+      "category": "core"
+    },
+    {
+      "id": "flag",
+      "name": "フラグ",
+      "symbols": [
+        "フ",
+        "ラ",
+        "グ"
+      ],
+      "category": "core"
+    }
   ],
   "premiumYaku": [
-    { "id": "code", "name": "コード", "symbols": ["コ", "ー", "ド"], "category": "premium", "internalRoleKind": "big", "internalRoleRate": { "default": 0.005, "rescue": 0.015, "bonus": 0.001 } },
-    { "id": "shell", "name": "シェル", "symbols": ["シ", "ェ", "ル"], "category": "premium", "internalRoleKind": "big", "internalRoleRate": { "default": 0.005, "rescue": 0.015, "bonus": 0.001 } }
+    {
+      "id": "code",
+      "name": "コード",
+      "symbols": [
+        "コ",
+        "ー",
+        "ド"
+      ],
+      "category": "premium"
+    },
+    {
+      "id": "shell",
+      "name": "シェル",
+      "symbols": [
+        "シ",
+        "ェ",
+        "ル"
+      ],
+      "category": "premium"
+    }
   ],
   "bonusYaku": [
-    { "id": "reg", "name": "コール", "symbols": ["コ", "ー", "ル"], "category": "bonus", "internalRoleKind": "reg", "internalRoleRate": { "default": 0.03, "rescue": 0.06, "bonus": 0.008 } }
+    {
+      "id": "reg",
+      "name": "コール",
+      "symbols": [
+        "コ",
+        "ー",
+        "ル"
+      ],
+      "category": "bonus"
+    }
+  ],
+  "cherryYaku": [
+    {
+      "id": "bug",
+      "name": "バグ",
+      "symbols": [
+        "バ",
+        "グ"
+      ],
+      "category": "cherry"
+    }
+  ],
+  "internalRoles": [
+    {
+      "id": "miss",
+      "kind": "miss",
+      "displayYakuId": null,
+      "pressOrder": null,
+      "rate": {
+        "default": 0.34,
+        "rescue": 0.195,
+        "bonus": 0.0
+      }
+    },
+    {
+      "id": "single",
+      "kind": "single",
+      "displayYakuId": null,
+      "pressOrder": null,
+      "rate": {
+        "default": 0.2,
+        "rescue": 0.18,
+        "bonus": 0.1
+      }
+    },
+    {
+      "id": "hack",
+      "kind": "core",
+      "displayYakuId": "hack",
+      "pressOrder": null,
+      "rate": {
+        "default": 0.1,
+        "rescue": 0.13,
+        "bonus": 0.22
+      }
+    },
+    {
+      "id": "spam_first_l",
+      "kind": "core",
+      "displayYakuId": "spam",
+      "pressOrder": {
+        "type": "first",
+        "reel": 0
+      },
+      "rate": {
+        "default": 0.0334,
+        "rescue": 0.0434,
+        "bonus": 0.0734
+      }
+    },
+    {
+      "id": "spam_first_m",
+      "kind": "core",
+      "displayYakuId": "spam",
+      "pressOrder": {
+        "type": "first",
+        "reel": 1
+      },
+      "rate": {
+        "default": 0.0333,
+        "rescue": 0.0433,
+        "bonus": 0.0733
+      }
+    },
+    {
+      "id": "spam_first_r",
+      "kind": "core",
+      "displayYakuId": "spam",
+      "pressOrder": {
+        "type": "first",
+        "reel": 2
+      },
+      "rate": {
+        "default": 0.0333,
+        "rescue": 0.0433,
+        "bonus": 0.0733
+      }
+    },
+    {
+      "id": "flag_exact_asc",
+      "kind": "core",
+      "displayYakuId": "flag",
+      "pressOrder": {
+        "type": "exact",
+        "order": [
+          0,
+          1,
+          2
+        ]
+      },
+      "rate": {
+        "default": 0.035,
+        "rescue": 0.05,
+        "bonus": 0.09
+      }
+    },
+    {
+      "id": "flag_exact_desc",
+      "kind": "core",
+      "displayYakuId": "flag",
+      "pressOrder": {
+        "type": "exact",
+        "order": [
+          2,
+          1,
+          0
+        ]
+      },
+      "rate": {
+        "default": 0.035,
+        "rescue": 0.05,
+        "bonus": 0.09
+      }
+    },
+    {
+      "id": "memori",
+      "kind": "replay",
+      "displayYakuId": "memori",
+      "pressOrder": null,
+      "rate": {
+        "default": 0.1,
+        "rescue": 0.12,
+        "bonus": 0.2
+      }
+    },
+    {
+      "id": "bug",
+      "kind": "cherry",
+      "displayYakuId": "bug",
+      "pressOrder": null,
+      "rate": {
+        "default": 0.05,
+        "rescue": 0.07,
+        "bonus": 0.07
+      }
+    },
+    {
+      "id": "reg",
+      "kind": "reg",
+      "displayYakuId": "reg",
+      "pressOrder": null,
+      "rate": {
+        "default": 0.03,
+        "rescue": 0.06,
+        "bonus": 0.008
+      }
+    },
+    {
+      "id": "code",
+      "kind": "big",
+      "displayYakuId": "code",
+      "pressOrder": null,
+      "rate": {
+        "default": 0.005,
+        "rescue": 0.0075,
+        "bonus": 0.001
+      }
+    },
+    {
+      "id": "shell",
+      "kind": "big",
+      "displayYakuId": "shell",
+      "pressOrder": null,
+      "rate": {
+        "default": 0.005,
+        "rescue": 0.0075,
+        "bonus": 0.001
+      }
+    }
   ]
 }

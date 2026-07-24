@@ -20,13 +20,6 @@
     "assistMaxCells": 4,
     "noticeAssistMaxCells": 8,
     "aimHintMaxCells": 4,
-    "kickMaxCells": 2,
-    "kickProbability": 0.5,
-    "kickCore": {
-      "enabled": true,
-      "probability": 0.8,
-      "maxCells": 4
-    },
     "shisaTiers": [
       { "color": "blue", "weight": 0.55, "coreCells": 2, "bonusCells": 0, "premiumCells": 0, "noticeHintCells": 0 },
       { "color": "yellow", "weight": 0.25, "coreCells": 3, "bonusCells": 0, "premiumCells": 0, "noticeHintCells": 0 },

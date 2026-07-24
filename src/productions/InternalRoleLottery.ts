@@ -1,44 +1,72 @@
 import type {
+  InternalRole,
   InternalRoleKind,
   InternalRoleState,
+  PressOrder,
   Yaku,
   YakuList,
 } from '../data/schemas';
 
+/** レバーONで確定した内部役（1ゲーム不変）。 */
 export interface InternalRoleResult {
+  /** 内部役テーブル上のID（押し順違いを区別する）。 */
+  roleId: string;
   kind: InternalRoleKind;
+  /** 揃えさせたい表示役ID。miss / single は null。 */
   yakuId: string | null;
   yakuName: string | null;
+  /** 押し順条件。null=不問。 */
+  pressOrder: PressOrder | null;
 }
 
 export interface InternalRoleDrawOptions {
-  /** falseならmissを候補から外す（デバッグ強制演出用）。 */
+  /** falseなら miss を候補から外す（デバッグ強制演出用）。 */
   allowMiss?: boolean;
-  /** 演出で表現可能な役だけに絞る。 */
-  yakuFilter?: (yaku: Yaku) => boolean;
+  /** 演出で表現可能な内部役だけに絞る（yaku は displayYakuId の実体・無い場合 null）。 */
+  roleFilter?: (role: InternalRole, yaku: Yaku | null) => boolean;
 }
 
 type RandomSource = () => number;
 
 /**
+ * 押し順条件を満たしているか（途中経過も判定する）。
+ * stoppedOrder は「停止した順」に並んだリールindexの配列。
+ * まだ確定していない段階では true（＝まだ外していない）を返す。
+ */
+export function pressOrderSatisfied(
+  pressOrder: PressOrder | null,
+  stoppedOrder: readonly number[],
+): boolean {
+  if (!pressOrder) return true;
+  if (pressOrder.type === 'first') {
+    if (stoppedOrder.length === 0) return true;
+    return stoppedOrder[0] === pressOrder.reel;
+  }
+  // exact: 停止済みの並びが指定順の先頭一致であること
+  return stoppedOrder.every((reel, i) => reel === pressOrder.order[i]);
+}
+
+/**
  * レバーON時の内部役抽選。
- * 役種別を中間抽選せず、章JSONに設定した具体役ごとの確率で直接選ぶ。
+ * 表示役ではなく**内部役テーブル**（押し順違い・1枚役を含む）から直接抽選する。
  */
 export class InternalRoleLottery {
-  private readonly allYakus: readonly Yaku[];
-  private readonly missRates: YakuList['internalRoleMissRate'];
+  private readonly roles: readonly InternalRole[];
+  private readonly yakuById: Map<string, Yaku>;
 
   constructor(
     yakuList: YakuList,
     private readonly random: RandomSource = Math.random,
   ) {
-    this.missRates = yakuList.internalRoleMissRate;
-    this.allYakus = [
-      ...yakuList.coreYaku,
-      ...yakuList.cherryYaku,
-      ...yakuList.bonusYaku,
-      ...yakuList.premiumYaku,
-    ];
+    this.roles = yakuList.internalRoles;
+    this.yakuById = new Map(
+      [
+        ...yakuList.coreYaku,
+        ...yakuList.cherryYaku,
+        ...yakuList.bonusYaku,
+        ...yakuList.premiumYaku,
+      ].map((y) => [y.id, y]),
+    );
   }
 
   draw(
@@ -46,42 +74,63 @@ export class InternalRoleLottery {
     options: InternalRoleDrawOptions = {},
   ): InternalRoleResult {
     const allowMiss = options.allowMiss !== false;
-    const candidates: Array<{
-      yaku: Yaku | null;
-      weight: number;
-    }> = [];
-
-    if (allowMiss && this.missRates[state] > 0) {
-      candidates.push({ yaku: null, weight: this.missRates[state] });
-    }
-
-    for (const yaku of this.allYakus) {
-      const weight = yaku.internalRoleRate[state];
-      if (weight > 0 && (options.yakuFilter?.(yaku) ?? true)) {
-        candidates.push({ yaku, weight });
-      }
-    }
-
+    const candidates = this.roles.filter((role) => {
+      if (role.rate[state] <= 0) return false;
+      if (!allowMiss && role.kind === 'miss') return false;
+      const yaku = role.displayYakuId
+        ? (this.yakuById.get(role.displayYakuId) ?? null)
+        : null;
+      return options.roleFilter?.(role, yaku) ?? true;
+    });
     if (candidates.length === 0) return this.miss();
-    const chosen = this.weightedPick(candidates, (candidate) => candidate.weight);
-    return chosen.yaku ? this.forYaku(chosen.yaku) : this.miss();
+    const chosen = this.weightedPick(candidates, (r) => r.rate[state]);
+    return this.toResult(chosen);
   }
 
+  /** 特定の表示役を強制する（フリーズ・確定告知ランプ用）。押し順不問の内部役を優先。 */
   forYaku(yaku: Yaku): InternalRoleResult {
-    return {
-      kind: yaku.internalRoleKind,
-      yakuId: yaku.id,
-      yakuName: yaku.name,
-    };
+    const matches = this.roles.filter((r) => r.displayYakuId === yaku.id);
+    const unconditional = matches.find((r) => r.pressOrder === null);
+    const role = unconditional ?? matches[0];
+    if (!role) {
+      // テーブルに無い表示役を強制した場合は押し順不問の擬似内部役として扱う。
+      return {
+        roleId: `forced:${yaku.id}`,
+        kind: 'core',
+        yakuId: yaku.id,
+        yakuName: yaku.name,
+        pressOrder: null,
+      };
+    }
+    return this.toResult(role);
   }
 
   yakuFor(role: InternalRoleResult): Yaku | null {
     if (!role.yakuId) return null;
-    return this.allYakus.find((yaku) => yaku.id === role.yakuId) ?? null;
+    return this.yakuById.get(role.yakuId) ?? null;
+  }
+
+  private toResult(role: InternalRole): InternalRoleResult {
+    const yaku = role.displayYakuId
+      ? (this.yakuById.get(role.displayYakuId) ?? null)
+      : null;
+    return {
+      roleId: role.id,
+      kind: role.kind,
+      yakuId: role.displayYakuId,
+      yakuName: yaku?.name ?? null,
+      pressOrder: role.pressOrder,
+    };
   }
 
   private miss(): InternalRoleResult {
-    return { kind: 'miss', yakuId: null, yakuName: null };
+    return {
+      roleId: 'miss',
+      kind: 'miss',
+      yakuId: null,
+      yakuName: null,
+      pressOrder: null,
+    };
   }
 
   private weightedPick<T>(items: readonly T[], weightOf: (item: T) => number): T {

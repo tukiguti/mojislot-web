@@ -1,5 +1,4 @@
 import { describe, expect, it } from 'vitest';
-import type { RoundContext } from '../../src/core/RoundContext';
 import { resolveInternalRoleHits } from '../../src/core/RoleResolver';
 import type { PaylineHit } from '../../src/core/YakuJudge';
 
@@ -11,36 +10,26 @@ const hit = (id: string): PaylineHit => ({
     name: id,
     symbols: ['a', 'b', 'c'],
     category: 'core',
-    internalRoleKind: 'core',
-    internalRoleRate: { default: 1, rescue: 1, bonus: 1 },
   },
   symbols: ['a', 'b', 'c'],
 });
 
-const round = (yakuId: string | null): RoundContext => ({
-  roundNumber: 1,
-  internalRole: {
-    kind: yakuId ? 'core' : 'miss',
-    yakuId,
-    yakuName: yakuId,
-  },
-  effect: yakuId ? 'quiz' : 'none',
-  source: 'lottery',
-  bonusActive: false,
-});
-
 describe('resolveInternalRoleHits', () => {
   it('内部役と一致する表示ラインだけを成立させる', () => {
-    expect(resolveInternalRoleHits(round('target'), [hit('other'), hit('target')])).toEqual([
+    expect(resolveInternalRoleHits('target', [hit('other'), hit('target')])).toEqual([
       hit('target'),
     ]);
   });
 
-  it('missでは偶然役が表示されても成立させない', () => {
-    expect(resolveInternalRoleHits(round(null), [hit('other')])).toEqual([]);
+  it('miss（当選役なし）では偶然役が表示されても成立させない', () => {
+    expect(resolveInternalRoleHits(null, [hit('other')])).toEqual([]);
+  });
+
+  it('押し順を外した時（当選役null）も成立させない＝1枚役へこぼれる', () => {
+    expect(resolveInternalRoleHits(null, [hit('target')])).toEqual([]);
   });
 
   it('同じ内部役の複数ラインはすべて残す', () => {
-    expect(resolveInternalRoleHits(round('target'), [hit('target'), hit('target')])).toHaveLength(2);
+    expect(resolveInternalRoleHits('target', [hit('target'), hit('target')])).toHaveLength(2);
   });
 });

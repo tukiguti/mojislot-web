@@ -1,20 +1,258 @@
 {
   "mode": "hiragana_food",
-  "internalRoleMissRate": { "default": 0.5, "rescue": 0.3, "bonus": 0.0 },
   "coreYaku": [
-    { "id": "budou", "name": "ぶどう", "symbols": ["ぶ", "ど", "う"], "category": "core", "internalRoleKind": "core", "internalRoleRate": { "default": 0.10333333333333333, "rescue": 0.14, "bonus": 0.24 } },
-    { "id": "tofu", "name": "とうふ", "symbols": ["と", "う", "ふ"], "category": "core", "internalRoleKind": "replay", "internalRoleRate": { "default": 0.1, "rescue": 0.12, "bonus": 0.2 } },
-    { "id": "dango", "name": "だんご", "symbols": ["だ", "ん", "ご"], "category": "core", "internalRoleKind": "core", "internalRoleRate": { "default": 0.10333333333333333, "rescue": 0.14, "bonus": 0.24 } },
-    { "id": "mikan", "name": "みかん", "symbols": ["み", "か", "ん"], "category": "core", "internalRoleKind": "core", "internalRoleRate": { "default": 0.10333333333333333, "rescue": 0.14, "bonus": 0.24 } }
-  ],
-  "cherryYaku": [
-    { "id": "momo", "name": "もも", "symbols": ["も", "も"], "category": "cherry", "internalRoleKind": "cherry", "internalRoleRate": { "default": 0.05, "rescue": 0.07, "bonus": 0.07 } }
+    {
+      "id": "budou",
+      "name": "ぶどう",
+      "symbols": [
+        "ぶ",
+        "ど",
+        "う"
+      ],
+      "category": "core"
+    },
+    {
+      "id": "tofu",
+      "name": "とうふ",
+      "symbols": [
+        "と",
+        "う",
+        "ふ"
+      ],
+      "category": "core"
+    },
+    {
+      "id": "dango",
+      "name": "だんご",
+      "symbols": [
+        "だ",
+        "ん",
+        "ご"
+      ],
+      "category": "core"
+    },
+    {
+      "id": "mikan",
+      "name": "みかん",
+      "symbols": [
+        "み",
+        "か",
+        "ん"
+      ],
+      "category": "core"
+    }
   ],
   "premiumYaku": [
-    { "id": "sushiya", "name": "寿司屋", "symbols": ["す", "し", "や"], "category": "premium", "internalRoleKind": "big", "internalRoleRate": { "default": 0.005, "rescue": 0.015, "bonus": 0.001 } },
-    { "id": "namazu", "name": "ナマズ", "symbols": ["な", "ま", "ず"], "category": "premium", "internalRoleKind": "big", "internalRoleRate": { "default": 0.005, "rescue": 0.015, "bonus": 0.001 } }
+    {
+      "id": "sushiya",
+      "name": "寿司屋",
+      "symbols": [
+        "す",
+        "し",
+        "や"
+      ],
+      "category": "premium"
+    },
+    {
+      "id": "namazu",
+      "name": "ナマズ",
+      "symbols": [
+        "な",
+        "ま",
+        "ず"
+      ],
+      "category": "premium"
+    }
   ],
   "bonusYaku": [
-    { "id": "reg", "name": "寿司酢", "symbols": ["す", "し", "ず"], "category": "bonus", "internalRoleKind": "reg", "internalRoleRate": { "default": 0.03, "rescue": 0.06, "bonus": 0.008 } }
+    {
+      "id": "reg",
+      "name": "寿司酢",
+      "symbols": [
+        "す",
+        "し",
+        "ず"
+      ],
+      "category": "bonus"
+    }
+  ],
+  "cherryYaku": [
+    {
+      "id": "momo",
+      "name": "もも",
+      "symbols": [
+        "も",
+        "も"
+      ],
+      "category": "cherry"
+    }
+  ],
+  "internalRoles": [
+    {
+      "id": "miss",
+      "kind": "miss",
+      "displayYakuId": null,
+      "pressOrder": null,
+      "rate": {
+        "default": 0.34,
+        "rescue": 0.195,
+        "bonus": 0.0
+      }
+    },
+    {
+      "id": "single",
+      "kind": "single",
+      "displayYakuId": null,
+      "pressOrder": null,
+      "rate": {
+        "default": 0.2,
+        "rescue": 0.18,
+        "bonus": 0.1
+      }
+    },
+    {
+      "id": "budou",
+      "kind": "core",
+      "displayYakuId": "budou",
+      "pressOrder": null,
+      "rate": {
+        "default": 0.1,
+        "rescue": 0.13,
+        "bonus": 0.22
+      }
+    },
+    {
+      "id": "dango_first_l",
+      "kind": "core",
+      "displayYakuId": "dango",
+      "pressOrder": {
+        "type": "first",
+        "reel": 0
+      },
+      "rate": {
+        "default": 0.0334,
+        "rescue": 0.0434,
+        "bonus": 0.0734
+      }
+    },
+    {
+      "id": "dango_first_m",
+      "kind": "core",
+      "displayYakuId": "dango",
+      "pressOrder": {
+        "type": "first",
+        "reel": 1
+      },
+      "rate": {
+        "default": 0.0333,
+        "rescue": 0.0433,
+        "bonus": 0.0733
+      }
+    },
+    {
+      "id": "dango_first_r",
+      "kind": "core",
+      "displayYakuId": "dango",
+      "pressOrder": {
+        "type": "first",
+        "reel": 2
+      },
+      "rate": {
+        "default": 0.0333,
+        "rescue": 0.0433,
+        "bonus": 0.0733
+      }
+    },
+    {
+      "id": "mikan_exact_asc",
+      "kind": "core",
+      "displayYakuId": "mikan",
+      "pressOrder": {
+        "type": "exact",
+        "order": [
+          0,
+          1,
+          2
+        ]
+      },
+      "rate": {
+        "default": 0.035,
+        "rescue": 0.05,
+        "bonus": 0.09
+      }
+    },
+    {
+      "id": "mikan_exact_desc",
+      "kind": "core",
+      "displayYakuId": "mikan",
+      "pressOrder": {
+        "type": "exact",
+        "order": [
+          2,
+          1,
+          0
+        ]
+      },
+      "rate": {
+        "default": 0.035,
+        "rescue": 0.05,
+        "bonus": 0.09
+      }
+    },
+    {
+      "id": "tofu",
+      "kind": "replay",
+      "displayYakuId": "tofu",
+      "pressOrder": null,
+      "rate": {
+        "default": 0.1,
+        "rescue": 0.12,
+        "bonus": 0.2
+      }
+    },
+    {
+      "id": "momo",
+      "kind": "cherry",
+      "displayYakuId": "momo",
+      "pressOrder": null,
+      "rate": {
+        "default": 0.05,
+        "rescue": 0.07,
+        "bonus": 0.07
+      }
+    },
+    {
+      "id": "reg",
+      "kind": "reg",
+      "displayYakuId": "reg",
+      "pressOrder": null,
+      "rate": {
+        "default": 0.03,
+        "rescue": 0.06,
+        "bonus": 0.008
+      }
+    },
+    {
+      "id": "sushiya",
+      "kind": "big",
+      "displayYakuId": "sushiya",
+      "pressOrder": null,
+      "rate": {
+        "default": 0.005,
+        "rescue": 0.0075,
+        "bonus": 0.001
+      }
+    },
+    {
+      "id": "namazu",
+      "kind": "big",
+      "displayYakuId": "namazu",
+      "pressOrder": null,
+      "rate": {
+        "default": 0.005,
+        "rescue": 0.0075,
+        "bonus": 0.001
+      }
+    }
   ]
 }

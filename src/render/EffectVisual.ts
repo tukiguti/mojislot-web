@@ -18,6 +18,8 @@ const TINT_BY_EFFECT: Record<EffectType, number | null> = {
   quiz: 0xff66cc,
   // 「狙え！」演出は赤系のタイトめなトーンで、視線をリールに向ける
   aim: 0xff8866,
+  // 押し順ナビは黄緑（順番を示す＝実機の押し順ナビの色味）
+  push: 0x88dd44,
 };
 
 const TINT_ALPHA_LIQUID = 0.16;

@@ -18,16 +18,16 @@ export type ReelConfig = z.infer<typeof ReelConfigSchema>;
 // core=小役 / premium=BIG(7・バー揃い) / bonus=RB / cherry=チェリー(2文字役)
 export const YakuCategorySchema = z.enum(['core', 'premium', 'bonus', 'cherry']);
 
-/** レバーONで抽選する内部役。miss以外は具体的な役IDを伴う。 */
+/**
+ * レバーONで抽選する内部役の種別（実機のフラグに相当）。
+ * - miss   : ハズレ。何も揃わない出目に着地させる＝0枚
+ * - single : 1枚役。2個テンパイ（惜しい出目）に着地させる＝1枚。押し順/目押しを外した時のこぼし先
+ * - replay : 再遊技（PB=1・必ず揃う）
+ * - core/cherry/reg/big : 表示役に対応するフラグ
+ */
 export const InternalRoleKindSchema = z.enum([
   'miss',
-  'replay',
-  'core',
-  'cherry',
-  'reg',
-  'big',
-]);
-export const YakuInternalRoleKindSchema = z.enum([
+  'single',
   'replay',
   'core',
   'cherry',
@@ -41,16 +41,41 @@ export const InternalRoleRateSchema = z.object({
   bonus: z.number().min(0).max(1),
 });
 
+/**
+ * 押し順条件（実機の押し順役）。2形式を用意する。
+ * - first : 第1停止のリールだけ指定（実機の押し順ベル左/中/右に相当・3択）
+ * - exact : 3リールの停止順を完全指定（6通り・難度高）
+ * null は押し順不問。順を外すと当選役は引き込まれず 1枚役へこぼれる。
+ */
+export const PressOrderSchema = z.discriminatedUnion('type', [
+  z.object({ type: z.literal('first'), reel: z.number().int().min(0).max(2) }),
+  z.object({
+    type: z.literal('exact'),
+    order: z.array(z.number().int().min(0).max(2)).length(3),
+  }),
+]);
+
+/**
+ * 内部役テーブル1件。**表示役（displayYakuId）と内部役を分離**し、
+ * 同じ表示役に押し順違いの内部役を複数ぶら下げられる（＝実機の押し順ベル群）。
+ */
+export const InternalRoleSchema = z.object({
+  id: z.string(),
+  kind: InternalRoleKindSchema,
+  /** 揃えさせたい表示役。miss / single は null。 */
+  displayYakuId: z.string().nullable().default(null),
+  /** 押し順条件。null=不問。 */
+  pressOrder: PressOrderSchema.nullable().default(null),
+  /** 抽選確率（通常／救済／ボーナス中）。全内部役の合計＝1。 */
+  rate: InternalRoleRateSchema,
+});
+
 export const YakuSchema = z.object({
   id: z.string(),
   name: z.string(),
   // 通常は3文字。チェリー(2文字役=左+中)のみ2文字を許容
   symbols: z.array(z.string()).min(2).max(3),
   category: YakuCategorySchema,
-  /** 配当・演出で使う内部役種別。抽選自体は下の役別確率で行う。 */
-  internalRoleKind: YakuInternalRoleKindSchema,
-  /** この具体役をレバーONで直接抽選する確率（通常／救済／ボーナス中）。 */
-  internalRoleRate: InternalRoleRateSchema,
   // 図柄画像(webp)を持たない役。true なら画像読込をスキップし色タイル＋文字で描く
   noArt: z.boolean().optional(),
 });
@@ -58,41 +83,69 @@ export const YakuSchema = z.object({
 export const YakuListSchema = z
   .object({
     mode: z.string(),
-    /** ハズレも状態別に章データへ置き、全役との合計を同じファイルで検証する。 */
-    internalRoleMissRate: InternalRoleRateSchema,
     coreYaku: z.array(YakuSchema),
     premiumYaku: z.array(YakuSchema),
     bonusYaku: z.array(YakuSchema).default([]),
     // チェリー（2文字役・左+中の2リールで成立）。ジャグラー型のみ使用
     cherryYaku: z.array(YakuSchema).default([]),
+    /** 内部役テーブル（表示役と分離。押し順役・1枚役を含む）。 */
+    internalRoles: z.array(InternalRoleSchema).min(1),
   })
   .superRefine((list, ctx) => {
-    const yakus = [
-      ...list.coreYaku,
-      ...list.cherryYaku,
-      ...list.bonusYaku,
-      ...list.premiumYaku,
-    ];
+    const yakuIds = new Set(
+      [
+        ...list.coreYaku,
+        ...list.cherryYaku,
+        ...list.bonusYaku,
+        ...list.premiumYaku,
+      ].map((y) => y.id),
+    );
     for (const state of InternalRoleStateSchema.options) {
-      const total = yakus.reduce(
-        (sum, yaku) => sum + yaku.internalRoleRate[state],
-        list.internalRoleMissRate[state],
+      const total = list.internalRoles.reduce(
+        (sum, role) => sum + role.rate[state],
+        0,
       );
       if (Math.abs(total - 1) >= 1e-9) {
         ctx.addIssue({
           code: 'custom',
-          path: ['internalRoleMissRate', state],
-          message: `内部役の${state}確率はmissと全役の合計を1にしてください（現在${total}）`,
+          path: ['internalRoles'],
+          message: `内部役の${state}確率は合計を1にしてください（現在${total}）`,
         });
       }
     }
+    list.internalRoles.forEach((role, i) => {
+      const needsDisplay =
+        role.kind !== 'miss' && role.kind !== 'single';
+      if (needsDisplay && !role.displayYakuId) {
+        ctx.addIssue({
+          code: 'custom',
+          path: ['internalRoles', i, 'displayYakuId'],
+          message: `内部役 ${role.id}（${role.kind}）には displayYakuId が必要です`,
+        });
+      }
+      if (!needsDisplay && role.displayYakuId) {
+        ctx.addIssue({
+          code: 'custom',
+          path: ['internalRoles', i, 'displayYakuId'],
+          message: `内部役 ${role.id}（${role.kind}）は displayYakuId を持てません`,
+        });
+      }
+      if (role.displayYakuId && !yakuIds.has(role.displayYakuId)) {
+        ctx.addIssue({
+          code: 'custom',
+          path: ['internalRoles', i, 'displayYakuId'],
+          message: `内部役 ${role.id} の displayYakuId「${role.displayYakuId}」が役に存在しません`,
+        });
+      }
+    });
   });
 
 export type YakuCategory = z.infer<typeof YakuCategorySchema>;
 export type InternalRoleKind = z.infer<typeof InternalRoleKindSchema>;
-export type YakuInternalRoleKind = z.infer<typeof YakuInternalRoleKindSchema>;
 export type InternalRoleState = z.infer<typeof InternalRoleStateSchema>;
 export type InternalRoleRate = z.infer<typeof InternalRoleRateSchema>;
+export type PressOrder = z.infer<typeof PressOrderSchema>;
+export type InternalRole = z.infer<typeof InternalRoleSchema>;
 export type Yaku = z.infer<typeof YakuSchema>;
 export type YakuList = z.infer<typeof YakuListSchema>;
 
@@ -106,6 +159,8 @@ export const PayoutSchema = z.object({
     premium: z.number(),
     bonus: z.number(),
     cherry: z.number().default(2),
+    /** 1枚役（2個テンパイ＝惜しい出目）の払い出し。全ハズレは0枚。 */
+    single: z.number().default(1),
   }),
   // ボーナス中の素点倍率。実運用値は data/payouts/default.json が正（現行2.0）。
   bonusZoneMultiplier: z.number(),
@@ -206,22 +261,6 @@ const DEFAULT_SHISA_TIERS: ShisaTier[] = [
   { color: 'gold', weight: 0.02, coreCells: 0, bonusCells: 8, premiumCells: 8, noticeHintCells: 4 },
 ];
 
-/**
- * 演出なし時の小役蹴り。
- * 「演出中に目押しできれば獲れる」技術介入機にするため、**演出が無いスピンは小役も揃わない**
- * （＝実機の小役非当選に相当）。これが無いと目押しの上手いプレイヤーが通常時に無限に増やせる。
- * ボーナス中と確定告知ランプ点灯中は適用しない。
- */
-const KickCoreSchema = z
-  .object({
-    enabled: z.boolean().default(true),
-    /** 蹴りの発動確率（0..1）。 */
-    probability: z.number().min(0).max(1).default(0.8),
-    /** 「揃わない位置」を探す最大コマ数。窓内に無ければ蹴らない＝たまに揃う。 */
-    maxCells: z.number().int().nonnegative().default(4),
-  })
-  .default({ enabled: true, probability: 0.8, maxCells: 4 });
-
 export const TuningSchema = z.object({
   /** ベット毎の演出抽選レート（通常／ハマり救済／ボーナス中）。各合計は1.0必須。 */
   effectRates: z.object({
@@ -253,23 +292,14 @@ export const TuningSchema = z.object({
       noticeAssistMaxCells: z.number().int().nonnegative().default(8),
       /** 予告役の第1・第2停止の中段引き込み最大コマ数（最終リール以外も引き込む・既定4）。 */
       aimHintMaxCells: z.number().int().nonnegative().default(4),
-      /** 偶然の bonus/premium 揃いを蹴る最大コマ数。 */
-      kickMaxCells: z.number().int().nonnegative().default(2),
-      /** 蹴りの発動確率（0..1）。 */
-      kickProbability: z.number().min(0).max(1).default(0.5),
       /** 示唆の期待度tier（青<黄<緑<赤<金）。引いた示唆はこの配列から重み抽選される。 */
       shisaTiers: z.array(ShisaTierSchema).min(1).default(DEFAULT_SHISA_TIERS),
-      /** 演出なしスピンで小役(core/cherry)も蹴るか（技術介入機の前提＝演出中だけ獲れる）。 */
-      kickCore: KickCoreSchema,
     })
     .default({
       assistMaxCells: 4,
       noticeAssistMaxCells: 8,
       aimHintMaxCells: 4,
-      kickMaxCells: 2,
-      kickProbability: 0.5,
       shisaTiers: DEFAULT_SHISA_TIERS,
-      kickCore: { enabled: true, probability: 0.8, maxCells: 4 },
     }),
   /** フリーズ演出。 */
   freeze: z

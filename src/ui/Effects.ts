@@ -296,6 +296,57 @@ export function hideAimNotice(): void {
 }
 
 /**
+ * 押し順ナビ。押し順役が出た時、各リールの上に「押す順番」を表示する。
+ * slots[reelIndex] = 押す順番(1始まり) or null（順不問＝この後は自由）。
+ * 実機のAT中ナビに相当。プレイヤーはこの順で止め、さらに目押しして役を揃える。
+ */
+export interface PushOrderOptions {
+  /** reelIndex → 押す順番(1始まり) または null（自由）。length=3。 */
+  slots: readonly (number | null)[];
+  /** 各リール中心 x の canvas 幅比（0〜1）。 */
+  reelCentersXFrac?: readonly number[];
+  /** リール上端 y の canvas 高さ比（0〜1）。 */
+  reelTopYFrac?: number;
+}
+
+export function showPushOrder(opts: PushOrderOptions): void {
+  hidePushOrder();
+  const canvas = document.getElementById('game') as HTMLCanvasElement | null;
+  if (!canvas) return;
+  const rect = canvas.getBoundingClientRect();
+  const fracs = opts.reelCentersXFrac ?? [154 / 600, 300 / 600, 446 / 600];
+  const topFrac = opts.reelTopYFrac ?? 260 / 600;
+  const badgeY = rect.top + rect.height * topFrac - 16;
+
+  const head = document.createElement('div');
+  head.className = 'push-order-head';
+  head.textContent = '押し順ナビ';
+  head.style.left = `${rect.left + rect.width / 2}px`;
+  head.style.top = `${rect.top + 8}px`;
+  document.body.appendChild(head);
+  requestAnimationFrame(() => head.classList.add('show'));
+
+  opts.slots.slice(0, 3).forEach((n, i) => {
+    const badge = document.createElement('div');
+    badge.className = n === null ? 'push-badge free' : 'push-badge';
+    badge.textContent = n === null ? '自由' : String(n);
+    badge.style.left = `${rect.left + rect.width * fracs[i]}px`;
+    badge.style.top = `${badgeY}px`;
+    // 順番に沿ってポップさせる（1→2→3）。
+    badge.style.animationDelay = `${(n ?? 4) * 90}ms`;
+    document.body.appendChild(badge);
+    requestAnimationFrame(() => badge.classList.add('show'));
+  });
+}
+
+export function hidePushOrder(): void {
+  document.querySelectorAll('.push-order-head, .push-badge').forEach((el) => {
+    el.classList.add('out');
+    window.setTimeout(() => el.remove(), 240);
+  });
+}
+
+/**
  * ボタン押下位置から外側へ広がる円形リップル。
  * 短命（450ms）で残らない。LEVER/STOP/BET 等の操作フィードバック用。
  */
