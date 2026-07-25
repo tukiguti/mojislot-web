@@ -11,6 +11,7 @@ import { InternalRoleLottery } from '../../src/productions/InternalRoleLottery';
 import { YakuJudge } from '../../src/core/YakuJudge';
 import { PayoutCalc } from '../../src/core/PayoutCalc';
 import { RoundResolver } from '../../src/core/RoundResolver';
+import { EffectEligibility } from '../../src/productions/EffectEligibility';
 import { StopTableLookup } from '../../src/core/StopTable';
 import { StopController } from '../../src/core/StopController';
 import { ReachEyes } from '../../src/core/ReachEyes';
@@ -184,34 +185,13 @@ function runChapter(chapter: string, skill: Skill, spins: number, seed: number):
     return Math.sqrt(-2 * Math.log(u)) * Math.cos(2 * Math.PI * rng());
   };
 
-  const shisaTiersForYaku = (y: Yaku): ShisaTier[] =>
-    tuning.assist.shisaTiers.filter((t) => t.targets.includes(y.category));
-
-  /** この tier で当たりうる役（main.ts shisaCandidateYakus と同じ逆算）。 */
-  const shisaCandidatesFor = (
-    tier: ShisaTier,
-    state: InternalRoleState,
-  ): Yaku[] => {
-    const seen = new Set<string>();
-    const out: Yaku[] = [];
-    for (const role of yakuList.internalRoles) {
-      if (!role.displayYakuId || role.rate[state] <= 0) continue;
-      if (seen.has(role.displayYakuId)) continue;
-      const y = yakuById.get(role.displayYakuId);
-      if (!y) continue;
-      if (!tier.targets.includes(y.category)) continue;
-      seen.add(y.id);
-      out.push(y);
-    }
-    return out;
-  };
-
-  const eligibleEffects = (y: Yaku, bonusActive: boolean): ('shisa' | 'quiz' | 'aim')[] =>
-    (['shisa', 'quiz', 'aim'] as const).filter((e) => {
-      if (e === 'shisa') return shisaTiersForYaku(y).length > 0;
-      if (e === 'quiz') return quizzes.some((q) => q.answerYakuId === y.id);
-      return y.symbols.length === 3;
-    });
+  // 演出の可否・示唆の色・候補役はゲーム本体と同じ実装を通す。
+  const eligibility = new EffectEligibility({
+    yakuList,
+    quizzes,
+    shisaTiers: tuning.assist.shisaTiers,
+    reelCount: 3,
+  });
 
   const pickWeighted = <T,>(items: readonly T[], w: (t: T) => number): T => {
     const total = items.reduce((s, i) => s + Math.max(0, w(i)), 0);
@@ -292,14 +272,14 @@ function runChapter(chapter: string, skill: Skill, spins: number, seed: number):
     if (heldYaku || carried) {
       effect = 'none'; // 持ち越し中は無告知（出目＝リーチ目で察知する）
     } else if (yaku) {
-      const cands = eligibleEffects(yaku, bonusActive);
+      const cands = eligibility.eligibleEffects(yaku);
       effect = cands.length ? pickWeighted(cands, (e) => rates[e]) : 'none';
     } else {
       effect = 'none';
     }
     const shisaTier =
       effect === 'shisa' && yaku
-        ? pickWeighted(shisaTiersForYaku(yaku), (t) => t.weight)
+        ? eligibility.pickTier(yaku, rng)
         : null;
 
     // 本作は順押し前提（左→中→右）。押し順は停止制御の入力であって役ではない。
@@ -322,7 +302,7 @@ function runChapter(chapter: string, skill: Skill, spins: number, seed: number):
     // 発展（内部役の図柄が中段に来る）以降は、明かされた役を狙える。
     let shisaGuess: Yaku | null = null;
     if (effect === 'shisa' && shisaTier && yaku) {
-      const cands = shisaCandidatesFor(shisaTier, state);
+      const cands = eligibility.candidatesFor(shisaTier, state);
       shisaGuess = cands.length > 0 ? cands[Math.floor(rng() * cands.length)] : yaku;
     }
     // 持ち越しに気づけるか（リーチ目の読み）。腕が上がるほど気づく。

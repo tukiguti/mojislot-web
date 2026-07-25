@@ -20,6 +20,7 @@ import {
 } from './productions/EffectScheduler';
 import { BonusZone } from './productions/BonusZone';
 import { BonusSession } from './productions/BonusSession';
+import { EffectEligibility } from './productions/EffectEligibility';
 import { SfxEngine } from './audio/SfxEngine';
 import { BgmEngine } from './audio/BgmEngine';
 import { TenpaiDetector } from './productions/TenpaiDetector';
@@ -506,16 +507,6 @@ export async function bootstrap() {
   let autoMode = false;
 
   const internalRoleLottery = new InternalRoleLottery(yakuList, Math.random);
-  const weightedPick = <T>(items: readonly T[], weight: (t: T) => number): T => {
-    const ws = items.map(weight);
-    const total = ws.reduce((a, b) => a + b, 0);
-    let r = Math.random() * total;
-    for (let i = 0; i < items.length; i++) {
-      r -= ws[i];
-      if (r <= 0) return items[i];
-    }
-    return items[items.length - 1];
-  };
 
   // 示唆の期待度tier色 → 画面tint(hex) / ジンの煽り台詞。
   const SHISA_TINT: Record<ShisaTierColor, number> = {
@@ -614,50 +605,13 @@ export async function bootstrap() {
   };
   applyEffect('none');
 
-  const shisaTiersForYaku = (yaku: Yaku): ShisaTier[] =>
-    tuning.assist.shisaTiers.filter((tier) =>
-      tier.targets.includes(yaku.category),
-    );
-
-  /**
-   * この tier が出た時に「当たりうる役」の一覧（吹き出しの候補表示）。
-   * 内部役テーブルから逆算する：現在の状態でレートが立っていて、
-   * かつその tier を引ける役だけを並べる。
-   * ＝ 表示される候補は必ず本当に当たりうるもので、嘘をつかない。
-   */
-  const shisaCandidateYakus = (tier: ShisaTier): Yaku[] => {
-    const state = activeInternalRoleState();
-    const seen = new Set<string>();
-    const out: Yaku[] = [];
-    for (const role of yakuList.internalRoles) {
-      if (!role.displayYakuId || role.rate[state] <= 0) continue;
-      if (seen.has(role.displayYakuId)) continue;
-      const yaku = allYakusFlat.find((y) => y.id === role.displayYakuId);
-      if (!yaku) continue;
-      if (!shisaTiersForYaku(yaku).some((t) => t.color === tier.color)) continue;
-      seen.add(yaku.id);
-      out.push(yaku);
-    }
-    return out;
-  };
-
-  const effectCanRepresent = (effect: ForcedEffect, yaku: Yaku): boolean => {
-    if (effect === 'shisa') return shisaTiersForYaku(yaku).length > 0;
-    if (effect === 'quiz') {
-      return quizList.quizzes.some((quiz) => quiz.answerYakuId === yaku.id);
-    }
-    return yaku.symbols.length === REEL_COUNT;
-  };
-
-  const eligibleEffectsForYaku = (yaku: Yaku): ForcedEffect[] =>
-    (['shisa', 'quiz', 'aim'] as const).filter((effect) =>
-      effectCanRepresent(effect, yaku),
-    );
-
-  const pickShisaTierForYaku = (yaku: Yaku): ShisaTier | null => {
-    const tiers = shisaTiersForYaku(yaku);
-    return tiers.length > 0 ? weightedPick(tiers, (tier) => tier.weight) : null;
-  };
+  // 演出が本当の内部役を表せるかの判定と、示唆が示す候補役の逆算。
+  const eligibility = new EffectEligibility({
+    yakuList,
+    quizzes: quizList.quizzes,
+    shisaTiers: tuning.assist.shisaTiers,
+    reelCount: REEL_COUNT,
+  });
 
   const activeInternalRoleState = (): InternalRoleState => {
     if (bonusSession.spinActive) return 'bonus';
@@ -675,7 +629,7 @@ export async function bootstrap() {
   ) => {
     const yaku = internalRoleLottery.yakuFor(role);
     const shisaTier =
-      effect === 'shisa' && yaku ? pickShisaTierForYaku(yaku) : null;
+      effect === 'shisa' && yaku ? eligibility.pickTier(yaku, Math.random) : null;
     const nextRoundNumber =
       reuseRoundNumber && currentRound ? currentRound.roundNumber : ++roundNumber;
     currentRound = createRoundContext({
@@ -693,7 +647,9 @@ export async function bootstrap() {
     applyEffect(effect, {
       targetYaku: yaku,
       shisaTier,
-      shisaCandidates: shisaTier ? shisaCandidateYakus(shisaTier) : undefined,
+      shisaCandidates: shisaTier
+        ? eligibility.candidatesFor(shisaTier, activeInternalRoleState())
+        : undefined,
     });
   };
 
@@ -701,7 +657,8 @@ export async function bootstrap() {
     internalRoleLottery.draw(activeInternalRoleState(), {
       allowMiss: false,
       // デバッグ強制は「その演出で表現できる表示役を持つ内部役」だけに絞る（1枚役は除外）。
-      roleFilter: (_role, yaku) => yaku !== null && effectCanRepresent(effect, yaku),
+      roleFilter: (_role, yaku) =>
+        yaku !== null && eligibility.canRepresent(effect, yaku),
     });
 
   const forceDebugEffect = (effect: ForcedEffect, label: string) => {
@@ -1287,7 +1244,7 @@ export async function bootstrap() {
       const yaku = internalRoleLottery.yakuFor(role);
       // miss / 1枚役（表示役なし）は none。それ以外は表現できる演出からレート抽選。
       const effect: EffectType = yaku
-        ? scheduler.rollAvailable(eligibleEffectsForYaku(yaku))
+        ? scheduler.rollAvailable(eligibility.eligibleEffects(yaku))
         : 'none';
       activateRound(role, effect, 'lottery');
     }
