@@ -66,6 +66,7 @@ import {
   type VisibleColumn,
 } from './productions/SlipResolver';
 import { StopTableLookup } from './core/StopTable';
+import { ReachEyes } from './core/ReachEyes';
 import {
   extractGrid,
   getVisibleCell,
@@ -80,6 +81,7 @@ import {
   PayoutSchema,
   QuizListSchema,
   StopTableSchema,
+  ReachEyeTableSchema,
   TuningSchema,
   type Yaku,
   type ShisaTier,
@@ -177,6 +179,11 @@ export async function bootstrap() {
   const quizList = QuizListSchema.parse(chapter.quizData);
   // 停止テーブル（第1停止＝実機のリール制御表）。手編集可・無ければ既定制御へフォールバック。
   const stopTable = new StopTableLookup(StopTableSchema.parse(chapter.stopData));
+  // リーチ目表（ボーナスフラグでしか出ない出目）。持ち越し中の察知に使う。
+  const reachEyes = new ReachEyes(
+    ReachEyeTableSchema.parse(chapter.reachData),
+    yakuList,
+  );
   // 演出レート・補助・フリーズ等の調整値（散在していた定数を集約）。data/tuning/default.json。
   const tuning = TuningSchema.parse(tuningDataRaw);
   // 役の id → 役オブジェクトの逆引き（AUTO のターゲット解決などで使う）
@@ -248,6 +255,8 @@ export async function bootstrap() {
   let currentShisaTier: ShisaTier | null = null;
   /** 示唆が「狙え！」へ発展済みか（1ゲーム1回だけ発展させる）。 */
   let shisaEscalated = false;
+  /** このゲームで既にリーチ目告知を出したか（1ゲーム1回）。 */
+  let reachEyeShown = false;
 
   // === フリーズ演出の状態 ===
   // freezeActive: シーケンス中は全ユーザー入力をブロックし、stopReel の引き込み/蹴りも無効化する。
@@ -277,6 +286,14 @@ export async function bootstrap() {
   // 全リール（第1・第2・最終）を同じ役の図柄へ引き込む。確定ランプは種別を最終リールまで伏せる
   // 演出のため共通プレフィックスの [0] 役に固定（例: BIG=すしや / REG=すしず は左中「す・し」共通）。
   let announcedRole: Yaku | null = null;
+  /**
+   * こぼしたボーナスフラグの持ち越し（実機Aタイプ）。演出も告知も出ないので、
+   * プレイヤーは**出目（リーチ目）**で察知して自力で揃えに行く。
+   * 確定告知ランプ（announcedBonus）は「告知あり」の持ち越しで、こちらは無告知。
+   */
+  let heldBonusYaku: Yaku | null = null;
+  /** 持ち越しが始まってからのゲーム数（リーチ目の演出判定に使う）。 */
+  let heldBonusSpins = 0;
 
   // 液晶エリアの土台。単色の黒板だと「空っぽの余白」に見えるので、
   // 紫星雲の極薄環境光（radialグラデ）で“画面が点いている”奥行きを出す（18_cabinet-design GLOW ZONE 1）。
@@ -665,6 +682,7 @@ export async function bootstrap() {
       cabinetEl.dataset.internalRole = `${role.kind}:${role.yakuId ?? '-'}`;
     }
     shisaEscalated = false;
+    reachEyeShown = false;
     applyEffect(effect, {
       targetYaku: yaku,
       shisaTier,
@@ -1253,6 +1271,15 @@ export async function bootstrap() {
       const effect = pendingDebugEffect;
       pendingDebugEffect = null;
       activateRound(drawDebugRole(effect), effect, 'debug');
+    } else if (heldBonusYaku) {
+      // 持ち越し中：フラグは生きているが**演出は出ない**（実機Aタイプ）。
+      // 小役は全部蹴られるので出目が普段と変わる＝それがリーチ目になる。
+      heldBonusSpins++;
+      activateRound(
+        internalRoleLottery.forYaku(heldBonusYaku),
+        'none',
+        'held-bonus',
+      );
     } else {
       const role = internalRoleLottery.draw(activeInternalRoleState());
       const yaku = internalRoleLottery.yakuFor(role);
@@ -1507,6 +1534,16 @@ export async function bootstrap() {
       result.errorMs <= BITA_MS ? '#ffd700' : '#ff5566',
     );
 
+    // 中段にボーナス専用図柄が止まった＝その場でボーナス確定（一発リーチ目）。
+    // 停止テーブルが非ボーナスフラグではこれを中段に残さないので、出た時点で確定になる。
+    if (!reachEyeShown && reachEyes.isBonusOnlyAtMiddle(idx, getVisibleCell(engine, 'middle'))) {
+      reachEyeShown = true;
+      views[idx].startTenpaiFlash(true);
+      sfx.tenpaiPremium();
+      jinSpeech.say('premium');
+      showResult('リーチ目！ ボーナス確定', 'premium');
+    }
+
     // 示唆 →「狙え！」への発展。
     // 内部役の図柄がこの停止で中段に来た＝候補が1役に絞れたので、吹き出しを差し替える。
     // 「本当に当たっている役」でしか発展しないので、ガセにはならない。
@@ -1585,6 +1622,32 @@ export async function bootstrap() {
       const isRegular = !isPremium && bonusHit !== null;
       // 確定告知ランプ点灯中にボーナス（BIG/REG）が揃ったら回収完了＝消灯。
       if (announcedBonus && (isPremium || isRegular)) clearAnnounceLamp();
+      // リーチ目：ボーナスフラグでしか出ない出目。持ち越し中は演出も告知も出ないので、
+      // これが「まだフラグが生きている」唯一の合図になる（実機の察知遊び）。
+      const reachKind = !willHit ? reachEyes.detect(grid) : null;
+      // ボーナスフラグの持ち越し（実機Aタイプ）。
+      // 揃えば解除、こぼせば次ゲーム以降も保持し続ける（無告知＝リーチ目で察知する）。
+      // 確定告知ランプは告知ありの別経路なので、そちらが点灯中は二重に持たない。
+      if (isPremium || isRegular) {
+        heldBonusYaku = null;
+        heldBonusSpins = 0;
+      } else if (!announcedBonus && !bonusZone.isActive()) {
+        const flagged = currentInternalYaku();
+        if (
+          flagged &&
+          (flagged.category === 'premium' || flagged.category === 'bonus')
+        ) {
+          heldBonusYaku = flagged;
+        }
+      }
+      if (reachKind && heldBonusYaku) {
+        // 枠を光らせて「今の出目はただのハズレじゃない」と伝える。
+        // 種別（REG/BIG）は伏せたまま＝出目を読める人だけが分かる。
+        for (const v of views) v.startTenpaiFlash(reachKind !== 'reg');
+        sfx.tenpaiPremium();
+        jinSpeech.say('tenpai');
+        showResult('リーチ目！？', 'premium');
+      }
       // チェリー重複（実機のレア役＋ボーナス同時当選）。
       // チェリーが**実際に揃った**時だけ抽選し、当たれば確定告知ランプを点灯＝次ゲーム以降ボーナス確定。
       // 成立表示の余韻を残してから点灯させ、「チェリーが呼んだ」と読める間を作る。

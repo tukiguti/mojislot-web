@@ -239,6 +239,17 @@ export const StopTableSchema = z.object({
 });
 export type StopTable = z.infer<typeof StopTableSchema>;
 
+/**
+ * リーチ目表。出目キー（`左上中下|中…|右…`）→ 確定するボーナス種別。
+ * 停止制御を全数実行して「ボーナスフラグでしか出ない出目」を抽出したもので、
+ * 手で描いた絵ではなく制御の副産物。生成は tests/tools/find-reach-eyes.test.ts。
+ */
+export const ReachEyeTableSchema = z.object({
+  mode: z.string(),
+  eyes: z.record(z.string(), z.enum(['reg', 'big', 'both'])),
+});
+export type ReachEyeTable = z.infer<typeof ReachEyeTableSchema>;
+
 export type Quiz = z.infer<typeof QuizSchema>;
 export type QuizList = z.infer<typeof QuizListSchema>;
 

@@ -52,6 +52,28 @@ export function flagYakusFor(yakuList: YakuList, flagKey: string): Yaku[] {
   return y ? [y] : [];
 }
 
+/**
+ * 各リールの「ボーナス役にしか使われない図柄」＝ボーナス専用図柄。
+ * 非ボーナスフラグではこれを第1停止の中段に止めないことで、
+ * 「中段にこの図柄＝ボーナス確定」という一発リーチ目が成立する（実機の中段告知と同じ）。
+ */
+export function bonusOnlySymbols(yakuList: YakuList, reel: number): Set<string> {
+  const bonusSide = new Set(
+    [...yakuList.bonusYaku, ...yakuList.premiumYaku]
+      .map((y) => y.symbols[reel])
+      .filter((v): v is string => v !== undefined),
+  );
+  for (const y of [
+    ...yakuList.coreYaku,
+    ...yakuList.cherryYaku,
+    ...yakuList.singleYaku,
+  ]) {
+    const sym = y.symbols[reel];
+    if (sym !== undefined) bonusSide.delete(sym);
+  }
+  return bonusSide;
+}
+
 /** 第1停止（他リール未停止）のスベリコマ数を現行制御から計算する。 */
 export function computeFirstStopSlip(
   resolver: SlipResolver,
@@ -95,18 +117,27 @@ describe.skipIf(!RUN)('停止テーブル生成', () => {
       const firstStop: Record<string, number[][]> = {};
       for (const role of yakuList.internalRoles) {
         const targets = flagYakusFor(yakuList, role.id);
-        firstStop[role.id] = [0, 1, 2].map((reel) =>
-          Array.from({ length: reels[reel].length }, (_, press) =>
-            computeFirstStopSlip(
-              resolver,
-              targets,
-              reels[reel],
-              reel,
-              press,
-              tuning.assist.pullInCells,
-            ),
-          ),
-        );
+        const isBonusFlag = role.kind === 'reg' || role.kind === 'big';
+        firstStop[role.id] = [0, 1, 2].map((reel) => {
+          const cells = reels[reel];
+          const n = cells.length;
+          const forbidden = isBonusFlag
+            ? new Set<string>()
+            : bonusOnlySymbols(yakuList, reel);
+          return Array.from({ length: n }, (_, press) => {
+            const slip = computeFirstStopSlip(
+              resolver, targets, cells, reel, press, tuning.assist.pullInCells,
+            );
+            // ボーナス専用図柄を中段に残さない（＝中段に出たらボーナス確定になる）。
+            // 引き込みが決まっている場合は中段が当選役の図柄なので、ここには入らない。
+            if (forbidden.size === 0) return slip;
+            for (let d = 0; d <= tuning.assist.pullInCells; d++) {
+              const cand = (slip + d) % (tuning.assist.pullInCells + 1);
+              if (!forbidden.has(cells[(press + cand) % n])) return cand;
+            }
+            return slip; // 窓内すべて専用図柄（配列的にあり得ないが保険）
+          });
+        });
       }
       const out = { mode: chapter, firstStop };
       writeFileSync(

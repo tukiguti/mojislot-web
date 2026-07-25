@@ -93,8 +93,8 @@
       "kind": "miss",
       "displayYakuId": null,
       "rate": {
-        "default": 0.2246894374,
-        "rescue": 0.1421153489,
+        "default": 0.2253501952,
+        "rescue": 0.1429426854,
         "bonus": 0.0
       }
     },
@@ -103,9 +103,9 @@
       "kind": "single",
       "displayYakuId": null,
       "rate": {
-        "default": 0.2052853684,
-        "rescue": 0.1869820784,
-        "bonus": 0.0565771548
+        "default": 0.2058890634,
+        "rescue": 0.1880706104,
+        "bonus": 0.0566484641
       }
     },
     {
@@ -113,9 +113,9 @@
       "kind": "core",
       "displayYakuId": "hack",
       "rate": {
-        "default": 0.13198094,
-        "rescue": 0.1507004247,
-        "bonus": 0.242451502
+        "default": 0.1323690643,
+        "rescue": 0.1515777399,
+        "bonus": 0.2427570854
       }
     },
     {
@@ -123,9 +123,9 @@
       "kind": "core",
       "displayYakuId": "spam",
       "rate": {
-        "default": 0.1319809515,
-        "rescue": 0.1507004247,
-        "bonus": 0.2424515121
+        "default": 0.1323690758,
+        "rescue": 0.1515777399,
+        "bonus": 0.2427570955
       }
     },
     {
@@ -133,9 +133,9 @@
       "kind": "core",
       "displayYakuId": "flag",
       "rate": {
-        "default": 0.0989857078,
-        "rescue": 0.120560344,
-        "bonus": 0.1818386262
+        "default": 0.099276801,
+        "rescue": 0.1212621962,
+        "bonus": 0.1820678138
       }
     },
     {
@@ -143,9 +143,9 @@
       "kind": "core",
       "displayYakuId": "memori",
       "rate": {
-        "default": 0.13198094,
-        "rescue": 0.1507004247,
-        "bonus": 0.2020429216
+        "default": 0.1323690643,
+        "rescue": 0.1515777399,
+        "bonus": 0.2022975744
       }
     },
     {
@@ -153,9 +153,9 @@
       "kind": "cherry",
       "displayYakuId": "bug",
       "rate": {
-        "default": 0.0659904644,
-        "rescue": 0.0803735556,
-        "bonus": 0.0707150178
+        "default": 0.0661845265,
+        "rescue": 0.080841457,
+        "bonus": 0.0708041463
       }
     },
     {
@@ -163,9 +163,9 @@
       "kind": "reg",
       "displayYakuId": "reg",
       "rate": {
-        "default": 0.0064278995,
-        "rescue": 0.012762431,
-        "bonus": 0.0031810295
+        "default": 0.0043709717,
+        "rescue": 0.0086784531,
+        "bonus": 0.0021631001
       }
     },
     {
@@ -173,9 +173,9 @@
       "kind": "big",
       "displayYakuId": "code",
       "rate": {
-        "default": 0.0013391455,
-        "rescue": 0.002552484,
-        "bonus": 0.000371118
+        "default": 0.0009106189,
+        "rescue": 0.0017356891,
+        "bonus": 0.0002523602
       }
     },
     {
@@ -183,9 +183,9 @@
       "kind": "big",
       "displayYakuId": "shell",
       "rate": {
-        "default": 0.0013391455,
-        "rescue": 0.002552484,
-        "bonus": 0.000371118
+        "default": 0.0009106189,
+        "rescue": 0.0017356891,
+        "bonus": 0.0002523602
       }
     }
   ],
