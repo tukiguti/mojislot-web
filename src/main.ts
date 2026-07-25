@@ -19,6 +19,7 @@ import {
   type EffectType,
 } from './productions/EffectScheduler';
 import { BonusZone } from './productions/BonusZone';
+import { BonusSession } from './productions/BonusSession';
 import { SfxEngine } from './audio/SfxEngine';
 import { BgmEngine } from './audio/BgmEngine';
 import { TenpaiDetector } from './productions/TenpaiDetector';
@@ -207,6 +208,8 @@ export async function bootstrap() {
     spinsPerReg: tuning.bonus.spinsPerReg,
     bonusEffectRates: tuning.effectRates.bonus,
   });
+  // 突入〜消化しきりの区間管理（獲得集計・おかわり判定・締め）は BonusSession が持つ。
+  const bonusSession = new BonusSession(bonusZone);
   const sfx = new SfxEngine();
   const bgm = new BgmEngine();
   const tenpaiDetector = new TenpaiDetector(yakuList);
@@ -650,7 +653,7 @@ export async function bootstrap() {
   };
 
   const activeInternalRoleState = (): InternalRoleState => {
-    if (bonusSpinActive) return 'bonus';
+    if (bonusSession.spinActive) return 'bonus';
     if (playStats.stats.get().missStreak >= tuning.rescueMissThreshold) {
       return 'rescue';
     }
@@ -673,7 +676,7 @@ export async function bootstrap() {
       internalRole: role,
       effect,
       source,
-      bonusActive: bonusSpinActive,
+      bonusActive: bonusSession.spinActive,
     });
     if (debugVisible) {
       cabinetEl.dataset.internalRole = `${role.kind}:${role.yakuId ?? '-'}`;
@@ -1007,14 +1010,15 @@ export async function bootstrap() {
   // === デバッグアクション（設定モーダルから呼ばれる） ===
   settingsOverlay.setDebugActions({
     triggerBonus: () => {
-      // デバッグ：代表的なプレミアム役名で BIG 突入演出を確認（溜めは省略・即演出）
-      bonusZone.trigger('big');
+      // デバッグ：代表的なプレミアム役名で BIG 突入演出を確認（溜めは省略・即演出）。
+      // 実戦と同じく区間として開始するので、消化しきれば終了リザルトも出る。
+      bonusSession.enter('big');
       const premium = yakuList.premiumYaku[0];
       if (premium) showBonusEntryFx(premium, 'big');
     },
     triggerRegular: () => {
       // デバッグ：レギュラーボーナス（すし＋別字）を強制発動（シルバー基調）
-      bonusZone.trigger('reg');
+      bonusSession.enter('reg');
       const reg = yakuList.bonusYaku[0];
       if (reg) showBonusEntryFx(reg, 'reg');
     },
@@ -1141,13 +1145,7 @@ export async function bootstrap() {
   };
 
   // === ボーナス終了リザルト（獲得枚数＋ファンファーレ）===
-  // 突入〜消化しきりまでの獲得枚数を集計し、終了時に締め演出を出す。
-  // 突入トリガー役そのものの払い出しは通常時 earnings なので集計から除外。
-  let bonusRunActive = false;
-  let bonusRunPayout = 0;
-  let bonusRunKind: 'big' | 'reg' = 'big';
-  // BET 成功時点の状態を保持し、その1Gの演出・配当・終了判定を一貫してボーナス扱いにする。
-  let bonusSpinActive = false;
+  // 区間の集計そのものは BonusSession が持つ。ここは締めの演出だけ。
   const showBonusResult = (payout: number, kind: 'big' | 'reg') => {
     const label = kind === 'reg' ? 'REG BONUS' : 'BIG BONUS';
     showResult(`${label} 終了  獲得 +${payout}枚`, 'premium');
@@ -1168,7 +1166,7 @@ export async function bootstrap() {
 
   const resetForNextSpin = () => {
     betPlaced = false;
-    bonusSpinActive = false;
+    bonusSession.resetSpin();
     currentRound = null;
     if (debugVisible) delete cabinetEl.dataset.internalRole;
     for (const engine of engines) engine.reset();
@@ -1206,7 +1204,7 @@ export async function bootstrap() {
     bgm.init();
     bgm.play(bonusZone.isActive() ? 'bonus' : 'normal');
     if (!wallet.bet(calc.bet)) return;
-    bonusSpinActive = bonusZone.isActive();
+    bonusSession.beginSpin();
     recordRunSpeed(reelSpeed());
     if (autoMode) runAutoUsed = true;
     betPlaced = true;
@@ -1218,7 +1216,7 @@ export async function bootstrap() {
     // レバーON後の演出抽選に使うレートを、ボーナス > 救済 > 通常で準備する。
     if (announcedBonus) {
       scheduler.setRates({ none: 1, shisa: 0, quiz: 0, aim: 0 });
-    } else if (bonusSpinActive) {
+    } else if (bonusSession.spinActive) {
       scheduler.setRates(bonusZone.config.bonusEffectRates);
     } else if (playStats.stats.get().missStreak >= tuning.rescueMissThreshold) {
       scheduler.setRates(tuning.effectRates.rescue);
@@ -1582,7 +1580,7 @@ export async function bootstrap() {
       // 成立後の連チャン数で配当倍率を評価（3連達成スピンから恩恵が乗る）
       const streakAfter = willHit ? playStats.stats.get().streak + 1 : 0;
       const streakMult = calc.streakMult(streakAfter);
-      let win = calc.calcMulti(hits, bonusSpinActive, streakMult);
+      let win = calc.calcMulti(hits, bonusSession.spinActive, streakMult);
       // 1枚役：実役として表示された時だけ固定1枚（1Gあたり最大1枚）。
       // コンボ・ボーナス倍率には乗せない＝連の価値を薄めない。
       const singleWin =
@@ -1591,12 +1589,10 @@ export async function bootstrap() {
       // 予告役（狙え＝予告役／クイズ＝答えの役）が実際に成立 → その役ライン分に達成ボーナスを上乗せ。
       // currentTargetYakuId() は aim→予告役 / quiz→問題の答え役 / それ以外→null。
       let noticeBonus = 0;
-      // この spin でボーナスに新規突入したか（突入役の払い出しを獲得集計から除く）
-      let enteredBonusThisSpin = false;
       const noticeYakuId = currentTargetYakuId();
       if (noticeYakuId) {
         const noticeHits = hits.filter((h) => h.yaku.id === noticeYakuId);
-        noticeBonus = calc.aimBonus(noticeHits, bonusSpinActive, streakMult);
+        noticeBonus = calc.aimBonus(noticeHits, bonusSession.spinActive, streakMult);
         win += noticeBonus;
       }
       if (quizTargetYakuId) {
@@ -1662,7 +1658,7 @@ export async function bootstrap() {
           leftIndicators.highlight(h.paylineId);
         }
         const cls = isPremium || isRegular ? 'premium' : 'win';
-        const bonusTag = bonusSpinActive ? ' ×BONUS' : '';
+        const bonusTag = bonusSession.spinActive ? ' ×BONUS' : '';
         const streakTag = streakMult > 1 ? ` ${streakAfter}連 ×${streakMult}` : '';
         const lineTag = hits.length > 1 ? ` (${hits.length}ライン)` : '';
         const noticeLabel = currentEffect === 'quiz' ? 'クイズ的中' : '狙え的中';
@@ -1724,34 +1720,19 @@ export async function bootstrap() {
         if (noticeBonus > 0) showCoinBurst(10);
         // プレミアム成立でビッグボーナス突入＋全画面演出
         if (isPremium && premiumHit) {
-          const isAddBig = bonusRunActive; // 既にボーナス中の再当選 = おかわり
-          if (!bonusRunActive) {
-            bonusRunActive = true;
-            bonusRunPayout = 0;
-            enteredBonusThisSpin = true;
-          }
-          bonusRunKind = 'big';
-          bonusZone.trigger('big');
-          if (isAddBig) {
+          const entry = bonusSession.enter('big');
+          if (entry.isAddition) {
             // おかわり（ボーナス中の再当選）: 突入演出は出さず軽い上乗せ演出
-            showBonusAdd(bonusZone.config.spinsPerBonus, 'big');
+            showBonusAdd(entry.spinsAdded, 'big');
           } else {
             // 新規突入: 「溜め」→ 突入演出（カットイン/フラッシュ/紙吹雪/バナー）
             enterWithCharge('big', () => showBonusEntryFx(premiumHit.yaku, 'big'));
           }
         } else if (isRegular && bonusHit) {
           // レギュラーボーナス（すし＋別字）突入。シルバー基調・控えめ
-          const isAddReg = bonusRunActive; // ボーナス中の再当選 = おかわり
-          if (!bonusRunActive) {
-            bonusRunActive = true;
-            bonusRunPayout = 0;
-            enteredBonusThisSpin = true;
-          }
-          // 既に BIG 区間中なら種別を降格させない（おかわりの reg では big を維持）
-          if (!isAddReg) bonusRunKind = 'reg';
-          bonusZone.trigger('reg');
-          if (isAddReg) {
-            showBonusAdd(bonusZone.config.spinsPerReg, 'reg');
+          const entry = bonusSession.enter('reg');
+          if (entry.isAddition) {
+            showBonusAdd(entry.spinsAdded, 'reg');
           } else {
             // 新規突入: 「溜め」（シルバー）→ 突入演出
             enterWithCharge('reg', () => showBonusEntryFx(bonusHit.yaku, 'reg'));
@@ -1790,19 +1771,11 @@ export async function bootstrap() {
         if (!quizTargetYakuId) sfx.miss();
       }
 
-      // ボーナス残数は、このゲームの演出・配当・上乗せ判定がすべて終わってから消費する。
-      // これにより残り1Gも倍率対象になり、同一Gのおかわり分は消費後も正しく残る。
-      if (bonusSpinActive) bonusZone.consumeSpin();
-
-      // ボーナス中スピンの獲得を集計し、消化しきったら終了リザルト＋ファンファーレ
-      if (bonusRunActive) {
-        if (!enteredBonusThisSpin) bonusRunPayout += Math.max(0, win);
-        if (!bonusZone.isActive()) {
-          const payout = bonusRunPayout;
-          const endedKind = bonusRunKind;
-          bonusRunActive = false;
-          window.setTimeout(() => showBonusResult(payout, endedKind), 900);
-        }
+      // 残数消費・獲得集計・終了判定はまとめて BonusSession に任せる。
+      // このゲームの演出・配当・上乗せ判定がすべて終わってから呼ぶ（順序が意味を持つ）。
+      const runEnd = bonusSession.settle(win);
+      if (runEnd) {
+        window.setTimeout(() => showBonusResult(runEnd.payout, runEnd.kind), 900);
       }
 
       window.setTimeout(resetForNextSpin, 1200);
