@@ -255,15 +255,20 @@ export const EffectRatesSchema = z
     { message: '演出レート none/shisa/quiz/aim の合計は 1 にしてください' },
   );
 
-/** 示唆の期待度ランク色（青<黄<緑<赤<金）。tint・ステータス・ジン台詞に使う。 */
-export const ShisaTierColorSchema = z.enum(['blue', 'yellow', 'green', 'red', 'gold']);
+/**
+ * 示唆のランク色（青<緑<赤<金）。tint・ステータス・ジン台詞に使う。
+ * 黄は青と紛らわしいため廃止（2026-07-25）。
+ */
+export const ShisaTierColorSchema = z.enum(['blue', 'green', 'red', 'gold']);
 export type ShisaTierColor = z.infer<typeof ShisaTierColorSchema>;
 
 /**
- * 示唆の1段階（期待度tier）。色が上がるほど引き込みが強く・対象が広がる。
- *  - 青→黄→緑: 小役(core/cherry)の最終リール引き込みを 2→3→4コマ に段階強化（bonus/premiumは対象外）
- *  - 赤: 小役引き込みを切り、RB(bonus)を引き込み対象に追加（第1・第2停止も中段引き込み）
- *  - 金: さらに BB(premium=7揃い/バー揃いの2役)も引き込み対象に追加
+ * 示唆の1段階（tier）。色は「どのカテゴリを引き込むか」＝候補役の範囲を示す。
+ *  - 青→緑: 小役(core/cherry)の最終リール引き込みを 2→3コマ に段階強化
+ *  - 赤: 小役を切り、RB(bonus)を引き込み対象に
+ *  - 金: さらに BB(premium=7揃い/バー揃いの2役)も対象に
+ * 全tierが第1・第2停止にも中段引き込みを持つ（`noticeHintCells`）。ここで内部役の図柄が
+ * 中段に来ると候補が1役に絞れ、演出が「狙え！」へ発展する（[24]§4 / [17]）。
  */
 const ShisaTierSchema = z.object({
   color: ShisaTierColorSchema,
@@ -275,16 +280,15 @@ const ShisaTierSchema = z.object({
   bonusCells: z.number().int().nonnegative(),
   /** BB(premium=7揃い/バー揃い)の最終リール引き込み窓（コマ）。0=対象外。 */
   premiumCells: z.number().int().nonnegative(),
-  /** bonus/premium の第1・第2停止の中段引き込み窓（コマ・aim相当）。0=第1/2は自力。 */
+  /** 第1・第2停止の中段引き込み窓（コマ）。ここで止まると「狙え！」へ発展する。 */
   noticeHintCells: z.number().int().nonnegative(),
 });
 export type ShisaTier = z.infer<typeof ShisaTierSchema>;
 
-/** 示唆tierの既定（青55/黄25/緑12/赤6/金2%）。data/tuning が正、ここはフォールバック。 */
+/** 示唆tierの既定（青72/緑20/赤6/金2%）。data/tuning が正、ここはフォールバック。 */
 const DEFAULT_SHISA_TIERS: ShisaTier[] = [
-  { color: 'blue', weight: 0.55, coreCells: 2, bonusCells: 0, premiumCells: 0, noticeHintCells: 0 },
-  { color: 'yellow', weight: 0.25, coreCells: 3, bonusCells: 0, premiumCells: 0, noticeHintCells: 0 },
-  { color: 'green', weight: 0.12, coreCells: 4, bonusCells: 0, premiumCells: 0, noticeHintCells: 0 },
+  { color: 'blue', weight: 0.72, coreCells: 2, bonusCells: 0, premiumCells: 0, noticeHintCells: 2 },
+  { color: 'green', weight: 0.2, coreCells: 3, bonusCells: 0, premiumCells: 0, noticeHintCells: 2 },
   { color: 'red', weight: 0.06, coreCells: 0, bonusCells: 8, premiumCells: 0, noticeHintCells: 4 },
   { color: 'gold', weight: 0.02, coreCells: 0, bonusCells: 8, premiumCells: 8, noticeHintCells: 4 },
 ];

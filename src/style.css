@@ -2080,19 +2080,12 @@ body.shake {
   font-weight: 900;
 }
 
-/* 示唆の期待度tier（青<黄<緑<赤<金）。色が上がるほど信頼度が高い。 */
+/* 示唆のtier（青<緑<赤<金）。色は「候補役の範囲」を示す。黄は青と紛らわしく廃止。 */
 #effect-status.shisa.tier-blue {
   color: #66ccff;
   border-color: #66ccff;
   background: rgba(20, 40, 80, 0.85);
   box-shadow: 0 0 12px rgba(102, 204, 255, 0.5);
-}
-
-#effect-status.shisa.tier-yellow {
-  color: #ffd23f;
-  border-color: #ffd23f;
-  background: rgba(70, 60, 15, 0.85);
-  box-shadow: 0 0 13px rgba(255, 210, 63, 0.6);
 }
 
 #effect-status.shisa.tier-green {
@@ -4262,4 +4255,123 @@ body.shake {
     background: rgba(40, 60, 80, 0.7);
     color: #ccc;
   }
+}
+
+
+/* ---- 示唆予告（候補提示「どれかな…？」）---------------------------------
+   示唆はカテゴリしか示さないので、当たりうる役を全部並べて迷わせる。
+   第1・第2停止で内部役の図柄が中段に来ると .aim-notice（狙え！）へ差し替わる。 */
+.shisa-notice {
+  position: fixed;
+  transform: translate(-50%, -6px);
+  opacity: 0;
+  text-align: center;
+  z-index: 158;
+  pointer-events: none;
+  transition:
+    transform 240ms cubic-bezier(0.2, 1.2, 0.4, 1),
+    opacity 200ms ease-out;
+}
+
+.shisa-notice.show {
+  transform: translate(-50%, 0);
+  opacity: 1;
+}
+
+.shisa-notice.out {
+  opacity: 0;
+  transform: translate(-50%, -6px) scale(0.96);
+}
+
+.shisa-notice-head {
+  font-size: 20px;
+  font-weight: 900;
+  letter-spacing: 0.08em;
+  color: #fff;
+  text-shadow:
+    0 0 4px rgba(0, 0, 0, 0.9),
+    0 0 12px currentColor;
+  margin-bottom: 6px;
+}
+
+.shisa-candidates {
+  display: inline-flex;
+  flex-direction: column;
+  gap: 5px;
+  padding: 8px 14px;
+  border-radius: 10px;
+  background: rgba(18, 14, 28, 0.62);
+  border: 2px solid currentColor;
+}
+
+.shisa-cand {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  justify-content: space-between;
+  opacity: 0;
+  animation: shisa-cand-in 260ms ease-out forwards;
+}
+
+@keyframes shisa-cand-in {
+  from {
+    opacity: 0;
+    transform: translateX(-6px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+.shisa-cand-name {
+  font-size: 15px;
+  font-weight: 700;
+  color: #f2ecff;
+  text-shadow: 0 0 4px rgba(0, 0, 0, 0.9);
+  min-width: 4.5em;
+  text-align: left;
+}
+
+.shisa-cand-symbols {
+  display: inline-flex;
+  gap: 4px;
+}
+
+.shisa-cand-symbols span {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 30px;
+  height: 30px;
+  font-size: 20px;
+  font-family: 'Hiragino Mincho ProN', 'Yu Mincho', serif;
+  font-weight: 900;
+  color: #fff;
+  background: rgba(96, 84, 122, 0.6);
+  border: 1.5px solid rgba(255, 255, 255, 0.35);
+  border-radius: 6px;
+  text-shadow: 0 0 4px rgba(0, 0, 0, 0.85);
+}
+
+/* tier色（currentColor で枠と見出しに効かせる） */
+.shisa-notice.tier-blue {
+  color: #66ccff;
+}
+
+.shisa-notice.tier-green {
+  color: #4cd964;
+}
+
+.shisa-notice.tier-red {
+  color: #ff5b52;
+}
+
+.shisa-notice.tier-gold {
+  color: var(--gold);
+}
+
+.shisa-notice.tier-red .shisa-candidates,
+.shisa-notice.tier-gold .shisa-candidates {
+  box-shadow: 0 0 16px currentColor;
 }

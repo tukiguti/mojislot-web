@@ -110,6 +110,8 @@ interface Result {
   pushRoles: number;
   pushHit: number;
   singleWins: number;
+  shisaSpins: number;
+  shisaEscalated: number;
 }
 
 function runChapter(chapter: string, skill: Skill, spins: number, seed: number): Result {
@@ -158,6 +160,27 @@ function runChapter(chapter: string, skill: Skill, spins: number, seed: number):
     return tiers.filter((t) => t.coreCells > 0);
   };
 
+  /** この tier で当たりうる役（main.ts shisaCandidateYakus と同じ逆算）。 */
+  const shisaCandidatesFor = (
+    tier: ShisaTier,
+    state: InternalRoleState,
+    bonusActive: boolean,
+  ): Yaku[] => {
+    const seen = new Set<string>();
+    const out: Yaku[] = [];
+    for (const role of yakuList.internalRoles) {
+      if (role.pressOrder) continue;
+      if (!role.displayYakuId || role.rate[state] <= 0) continue;
+      if (seen.has(role.displayYakuId)) continue;
+      const y = yakuById.get(role.displayYakuId);
+      if (!y) continue;
+      if (!shisaTiersForYaku(y, bonusActive).some((t) => t.color === tier.color)) continue;
+      seen.add(y.id);
+      out.push(y);
+    }
+    return out;
+  };
+
   const eligibleEffects = (y: Yaku, bonusActive: boolean): ('shisa' | 'quiz' | 'aim')[] =>
     (['shisa', 'quiz', 'aim'] as const).filter((e) => {
       if (e === 'shisa') return shisaTiersForYaku(y, bonusActive).length > 0;
@@ -180,6 +203,7 @@ function runChapter(chapter: string, skill: Skill, spins: number, seed: number):
     spins: 0, totalBet: 0, totalWin: 0, normalBet: 0, normalWin: 0,
     big: 0, reg: 0, bonusSpins: 0, bigPayout: 0, regPayout: 0,
     pushRoles: 0, pushHit: 0, singleWins: 0,
+    shisaSpins: 0, shisaEscalated: 0,
   };
 
   let missStreak = 0;
@@ -247,6 +271,15 @@ function runChapter(chapter: string, skill: Skill, spins: number, seed: number):
     const singleSpill = (): boolean =>
       role.kind === 'single' || !pressOrderSatisfied(role.pressOrder, stopOrder);
 
+    // 示唆は「どれかな…？」＝プレイヤーは候補から1つを選んで狙う（正解は知らない）。
+    // 発展（内部役の図柄が中段に来る）以降は、明かされた役を狙える。
+    let shisaGuess: Yaku | null = null;
+    if (effect === 'shisa' && shisaTier && yaku) {
+      const cands = shisaCandidatesFor(shisaTier, state, bonusActive);
+      shisaGuess = cands.length > 0 ? cands[Math.floor(rng() * cands.length)] : yaku;
+    }
+    let escalated = false;
+    let stopN = 0;
     for (const idx of seq) {
       stopOrder.push(idx);
       const displayOk = pressOrderSatisfied(role.pressOrder, stopOrder);
@@ -256,7 +289,10 @@ function runChapter(chapter: string, skill: Skill, spins: number, seed: number):
 
       // 押下位置：狙う図柄があれば「その図柄が中段に来る位置」を狙い、腕に応じた誤差を乗せる
       let basePos: number;
-      const sym = effect !== 'none' && target ? target.symbols[idx] : undefined;
+      // 示唆で未発展の間は「自分が選んだ候補」を狙う（外していれば引き込みは効かない）。
+      const aimYaku =
+        effect === 'shisa' && !escalated ? shisaGuess : target;
+      const sym = effect !== 'none' && aimYaku ? aimYaku.symbols[idx] : undefined;
       if (sym === undefined) {
         basePos = Math.floor(rng() * N);
       } else {
@@ -347,6 +383,24 @@ function runChapter(chapter: string, skill: Skill, spins: number, seed: number):
           );
           if (hint !== null) slipCells = hint;
         }
+      } else if (effect === 'shisa' && shisaTier && shisaTier.noticeHintCells > 0 && target) {
+        // 示唆の第1・第2停止：内部役の図柄を中段へ引き込む（青緑2/赤金4コマ）。
+        const s3 = target.symbols[idx];
+        if (s3 !== undefined) {
+          const hint = slip.resolveAssist(
+            {
+              reelIndex: idx,
+              basePosition: basePos,
+              strip: { id: `r${idx}`, cells },
+              stoppedVisibles: stopped,
+              exceptYakuIds: flagId ? [flagId] : [],
+            },
+            s3,
+            'middle',
+            shisaTier.noticeHintCells,
+          );
+          if (hint !== null) slipCells = hint;
+        }
       }
       if (slipCells === 0) {
         slipCells = slip.resolveKick({
@@ -358,6 +412,16 @@ function runChapter(chapter: string, skill: Skill, spins: number, seed: number):
         });
       }
       stopped[idx] = visCol(cells, (basePos + slipCells) % N);
+      stopN++;
+      // 示唆→「狙え！」への発展：最終停止より前に内部役の図柄が中段へ来たか。
+      if (effect === 'shisa' && !escalated && stopN < 3 && yaku) {
+        const sy = yaku.symbols[idx];
+        if (sy !== undefined && stopped[idx]!.middle === sy) escalated = true;
+      }
+    }
+    if (effect === 'shisa') {
+      res.shisaSpins++;
+      if (escalated) res.shisaEscalated++;
     }
 
     // --- 判定・払い出し ---
@@ -416,11 +480,12 @@ describe.skipIf(!RUN)('出玉シミュレーション（新モデル）', () => 
   it('腕別の機械割・突入率・ボーナス平均を測る', () => {
     const SPINS = 200000;
     const lines: string[] = [];
-    lines.push('腕      機械割   通常時純増  ボ中純増  突入(1/G)  BIG平均  REG平均  押し順的中');
+    lines.push('腕      機械割   通常時純増  ボ中純増  突入(1/G)  BIG平均  REG平均  押し順的中  示唆発展');
     for (const skill of SKILLS) {
       let bet = 0, win = 0, nbet = 0, nwin = 0, big = 0, reg = 0;
       let bspins = 0, bigPay = 0, regPay = 0;
       let pushRoles = 0, pushHit = 0, spins = 0;
+      let shisaSpins = 0, shisaEsc = 0;
       CHAPTERS.forEach((ch, i) => {
         const r = runChapter(ch, skill, SPINS / CHAPTERS.length, 12345 + i * 977);
         bet += r.totalBet; win += r.totalWin;
@@ -428,6 +493,7 @@ describe.skipIf(!RUN)('出玉シミュレーション（新モデル）', () => 
         big += r.big; reg += r.reg;
         bspins += r.bonusSpins; bigPay += r.bigPayout; regPay += r.regPayout;
         pushRoles += r.pushRoles; pushHit += r.pushHit;
+        shisaSpins += r.shisaSpins; shisaEsc += r.shisaEscalated;
         spins += r.spins;
       });
       const rtp = (win / bet) * 100;
@@ -439,7 +505,8 @@ describe.skipIf(!RUN)('出玉シミュレーション（新モデル）', () => 
         `${skill.name.padEnd(5)} ${rtp.toFixed(1).padStart(6)}% ${normalNet.toFixed(2).padStart(9)}枚 ` +
         `${bonusNet.toFixed(2).padStart(7)}枚 ${('1/' + entry.toFixed(0)).padStart(9)} ` +
         `${(bigPay / Math.max(1, big)).toFixed(0).padStart(6)}枚 ${(regPay / Math.max(1, reg)).toFixed(0).padStart(6)}枚 ` +
-        `${((pushHit / Math.max(1, pushRoles)) * 100).toFixed(0).padStart(9)}%`,
+        `${((pushHit / Math.max(1, pushRoles)) * 100).toFixed(0).padStart(9)}% ` +
+        `${((shisaEsc / Math.max(1, shisaSpins)) * 100).toFixed(0).padStart(7)}%`,
       );
     }
     console.log('\n===== 出玉シミュレーション（' + SPINS + 'G/腕・全5章）=====\n' + lines.join('\n'));

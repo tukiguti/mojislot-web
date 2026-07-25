@@ -42,6 +42,8 @@ import {
   spawnButtonRipple,
   showAimNotice,
   hideAimNotice,
+  showShisaNotice,
+  hideShisaNotice,
   showPushOrder,
   hidePushOrder,
   setEffectHost,
@@ -241,6 +243,8 @@ export async function bootstrap() {
   let stopOrder: number[] = [];
   // 現在の示唆の期待度tier（青/黄/緑/赤/金）。applyEffect('shisa')で抽選、他演出ではnull。
   let currentShisaTier: ShisaTier | null = null;
+  /** 示唆が「狙え！」へ発展済みか（1ゲーム1回だけ発展させる）。 */
+  let shisaEscalated = false;
 
   // === フリーズ演出の状態 ===
   // freezeActive: シーケンス中は全ユーザー入力をブロックし、stopReel の引き込み/蹴りも無効化する。
@@ -489,14 +493,12 @@ export async function bootstrap() {
   // 示唆の期待度tier色 → 画面tint(hex) / ジンの煽り台詞。
   const SHISA_TINT: Record<ShisaTierColor, number> = {
     blue: 0x66ccff,
-    yellow: 0xffd23f,
     green: 0x4cd964,
     red: 0xff3b30,
     gold: 0xffcc33,
   };
   const SHISA_SPEECH: Record<ShisaTierColor, JinSpeechEvent> = {
     blue: 'shisaWeak',
-    yellow: 'shisaMid',
     green: 'shisaStrong',
     red: 'shisaBonus',
     gold: 'shisaPremium',
@@ -504,6 +506,8 @@ export async function bootstrap() {
   interface EffectOptions {
     targetYaku?: Yaku | null;
     shisaTier?: ShisaTier | null;
+    /** 示唆で「この色なら当たりうる」役の一覧（吹き出しに並べて迷わせる）。 */
+    shisaCandidates?: readonly Yaku[];
   }
 
   const applyEffect = (effect: EffectType, options: EffectOptions = {}) => {
@@ -523,7 +527,6 @@ export async function bootstrap() {
       'aim',
       'push',
       'tier-blue',
-      'tier-yellow',
       'tier-green',
       'tier-red',
       'tier-gold',
@@ -534,6 +537,19 @@ export async function bootstrap() {
       jinState.set('shisa');
       sfx.shisa();
       jinSpeech.say(SHISA_SPEECH[currentShisaTier.color]);
+      // 示唆はカテゴリしか示さない＝候補を全部並べて「どれかな…？」と迷わせる。
+      // 第1・第2停止で内部役の図柄が中段に来たら escalateShisa() が「狙え！」へ発展させる。
+      const cands = options.shisaCandidates ?? [];
+      if (cands.length > 0) {
+        showShisaNotice({
+          color: currentShisaTier.color,
+          candidates: cands.map((y) => ({
+            name: y.name,
+            symbols: y.symbols,
+            colors: y.symbols.map((s, i) => colorResolver.cssFor(i, s)),
+          })),
+        });
+      }
     } else if (effect === 'quiz') {
       effectStatusEl.textContent = 'クイズ';
       effectStatusEl.classList.add('quiz');
@@ -614,6 +630,29 @@ export async function bootstrap() {
     return tiers.filter((tier) => tier.coreCells > 0);
   };
 
+  /**
+   * この tier が出た時に「当たりうる役」の一覧（吹き出しの候補表示）。
+   * 内部役テーブルから逆算する：押し順役は押し順ナビ（push）になるので除外し、
+   * 現在の状態でレートが立っていて、かつその tier を引ける役だけを並べる。
+   * ＝ 表示される候補は必ず本当に当たりうるもので、嘘をつかない。
+   */
+  const shisaCandidateYakus = (tier: ShisaTier): Yaku[] => {
+    const state = activeInternalRoleState();
+    const seen = new Set<string>();
+    const out: Yaku[] = [];
+    for (const role of yakuList.internalRoles) {
+      if (role.pressOrder) continue;
+      if (!role.displayYakuId || role.rate[state] <= 0) continue;
+      if (seen.has(role.displayYakuId)) continue;
+      const yaku = allYakusFlat.find((y) => y.id === role.displayYakuId);
+      if (!yaku) continue;
+      if (!shisaTiersForYaku(yaku).some((t) => t.color === tier.color)) continue;
+      seen.add(yaku.id);
+      out.push(yaku);
+    }
+    return out;
+  };
+
   const effectCanRepresent = (effect: ForcedEffect, yaku: Yaku): boolean => {
     if (effect === 'shisa') return shisaTiersForYaku(yaku).length > 0;
     if (effect === 'quiz') {
@@ -661,7 +700,12 @@ export async function bootstrap() {
     if (debugVisible) {
       cabinetEl.dataset.internalRole = `${role.kind}:${role.yakuId ?? '-'}`;
     }
-    applyEffect(effect, { targetYaku: yaku, shisaTier });
+    shisaEscalated = false;
+    applyEffect(effect, {
+      targetYaku: yaku,
+      shisaTier,
+      shisaCandidates: shisaTier ? shisaCandidateYakus(shisaTier) : undefined,
+    });
   };
 
   const drawDebugRole = (effect: ForcedEffect): InternalRoleResult =>
@@ -1151,6 +1195,7 @@ export async function bootstrap() {
     for (const engine of engines) engine.reset();
     for (const v of views) v.stopTenpaiFlash();
     hideAimNotice();
+    hideShisaNotice();
     hidePushOrder();
     quizState.reset();
     applyEffect('none');
@@ -1509,12 +1554,9 @@ export async function bootstrap() {
           );
           if (hint !== null) slipCells = hint;
         }
-      } else if (
-        shisaTargetsBonus() &&
-        currentShisaTier &&
-        currentShisaTier.noticeHintCells > 0
-      ) {
-        // 赤/金示唆の第1・第2停止：RB/BB の図柄を中段へ引き込む（複数候補から最も近いものへ）。
+      } else if (currentShisaTier && currentShisaTier.noticeHintCells > 0) {
+        // 示唆の第1・第2停止：内部役の図柄を中段へ引き込む（青緑2コマ／赤金4コマ）。
+        // ここで止まると候補が1役に絞れ、演出が「狙え！」へ発展する（escalateShisa）。
         const hintMax = currentShisaTier.noticeHintCells;
         let best: number | null = null;
         for (const y of shisaNoticeYakus()) {
@@ -1584,6 +1626,37 @@ export async function bootstrap() {
       result.errorMs <= BITA_MS ? '#ffd700' : '#ff5566',
     );
 
+    // 示唆 →「狙え！」への発展。
+    // 内部役の図柄がこの停止で中段に来た＝候補が1役に絞れたので、吹き出しを差し替える。
+    // 「本当に当たっている役」でしか発展しないので、ガセにはならない。
+    if (
+      currentEffect === 'shisa' &&
+      !shisaEscalated &&
+      engines.some((e) => e.state.get() === 'spinning')
+    ) {
+      const target = currentInternalYaku();
+      const sym = target?.symbols[idx];
+      if (target && sym !== undefined && getVisibleCell(engine, 'middle') === sym) {
+        shisaEscalated = true;
+        hideShisaNotice();
+        showAimNotice({
+          symbols: target.symbols,
+          colors: target.symbols.map((s, i) => colorResolver.cssFor(i, s)),
+          yakuName: target.name,
+          imageUrl: `${ART_BASE}aim_text.webp`,
+          hasPremium: target.category === 'premium',
+          reelCentersXFrac: [0, 1, 2].map(
+            (i) => (startX + i * (CELL_WIDTH + REEL_GAP) + CELL_WIDTH / 2) / CANVAS_W,
+          ),
+          reelTopYFrac: reelY / CANVAS_H,
+          // 停止済みリールには矢印を出さない（残りのリールだけを指す）。
+          arrowReels: engines.map((e) => e.state.get() === 'spinning'),
+        });
+        sfx.shisa();
+        jinSpeech.say('shisa');
+      }
+    }
+
     // 第2停止後：テンパイ検出（5ライン）→ 残ったリールの枠フラッシュ＆SE
     const visAfter: (VisibleColumn | null)[] = engines.map((e) => {
       if (e.state.get() !== 'stopped') return null;
@@ -1607,6 +1680,7 @@ export async function bootstrap() {
     if (engines.every((e) => e.state.get() === 'stopped')) {
       // 全停止したので「狙え！」演出は閉じる（レバーオン示唆として出た場合）
       hideAimNotice();
+      hideShisaNotice();
       hidePushOrder();
       // 物理表示を5ラインで検出し、内部役と一致するラインだけを成立扱いにする。
       const grid = extractGrid(engines);
@@ -1906,6 +1980,7 @@ export async function bootstrap() {
     applyEffect('none');
     quizState.reset();
     hideAimNotice();
+    hideShisaNotice();
     hidePushOrder();
     updateButtons();
     sfx.freeze();

@@ -215,6 +215,11 @@ export interface AimNoticeOptions {
   reelCentersXFrac?: readonly number[];
   /** リール上端 y の canvas 高さ比（0〜1）。矢印をリール直上に置く。未指定なら旧既定値。 */
   reelTopYFrac?: number;
+  /**
+   * 矢印を出すリール（true=出す）。示唆から「狙え！」へ発展した時、
+   * 停止済みリールに矢印を出さないために使う。未指定なら全リールに出す。
+   */
+  arrowReels?: readonly boolean[];
 }
 
 export function showAimNotice(opts: AimNoticeOptions): void {
@@ -275,6 +280,7 @@ export function showAimNotice(opts: AimNoticeOptions): void {
   const reelTopFrac = opts.reelTopYFrac ?? 260 / 600;
   const reelTopY = rect.top + rect.height * reelTopFrac - 8;
   for (let i = 0; i < 3; i++) {
+    if (opts.arrowReels && !opts.arrowReels[i]) continue;
     const arrow = document.createElement('div');
     arrow.className = 'aim-arrow';
     if (opts.hasPremium) arrow.classList.add('premium');
@@ -290,6 +296,80 @@ export function showAimNotice(opts: AimNoticeOptions): void {
 
 export function hideAimNotice(): void {
   document.querySelectorAll('.aim-notice, .aim-arrow').forEach((el) => {
+    el.classList.add('out');
+    window.setTimeout(() => el.remove(), 240);
+  });
+}
+
+/**
+ * 示唆予告（候補提示）。示唆はカテゴリしか示さないので、**そのtierで当たりうる役を
+ * 全部並べて「どれかな…？」と迷わせる**のが狙い（初期コンセプト＝考えて打つ）。
+ * 第1・第2停止で内部役の図柄が中段に来たら、呼び出し側が hideShisaNotice() →
+ * showAimNotice() に切り替えて「狙え！」へ発展させる。
+ */
+export interface ShisaCandidate {
+  name: string;
+  /** 役の文字（チェリー等の2文字役もあり得る） */
+  symbols: readonly string[];
+  /** 各文字の色（実リールのセル色に合わせる） */
+  colors?: readonly string[];
+}
+
+export interface ShisaNoticeOptions {
+  candidates: readonly ShisaCandidate[];
+  /** tier色。枠と見出しの色に反映する。 */
+  color: 'blue' | 'green' | 'red' | 'gold';
+}
+
+export function showShisaNotice(opts: ShisaNoticeOptions): void {
+  hideShisaNotice();
+  const canvas = document.getElementById('game') as HTMLCanvasElement | null;
+  if (!canvas) return;
+  const rect = canvas.getBoundingClientRect();
+
+  const notice = document.createElement('div');
+  notice.className = `shisa-notice tier-${opts.color}`;
+  notice.style.left = `${rect.left + rect.width / 2}px`;
+  notice.style.top = `${rect.top + 8}px`;
+  notice.style.width = `${rect.width}px`;
+
+  const head = document.createElement('div');
+  head.className = 'shisa-notice-head';
+  head.textContent = opts.candidates.length > 1 ? 'どれかな…？' : 'これだ…？';
+  notice.appendChild(head);
+
+  const list = document.createElement('div');
+  list.className = 'shisa-candidates';
+  opts.candidates.forEach((c, ci) => {
+    const row = document.createElement('div');
+    row.className = 'shisa-cand';
+    row.style.animationDelay = `${ci * 90}ms`;
+    const name = document.createElement('span');
+    name.className = 'shisa-cand-name';
+    name.textContent = c.name;
+    row.appendChild(name);
+    const syms = document.createElement('span');
+    syms.className = 'shisa-cand-symbols';
+    c.symbols.forEach((s, i) => {
+      const span = document.createElement('span');
+      span.textContent = s;
+      const col = c.colors?.[i];
+      if (col) {
+        span.style.color = col;
+        span.style.borderColor = col;
+      }
+      syms.appendChild(span);
+    });
+    row.appendChild(syms);
+    list.appendChild(row);
+  });
+  notice.appendChild(list);
+  document.body.appendChild(notice);
+  requestAnimationFrame(() => notice.classList.add('show'));
+}
+
+export function hideShisaNotice(): void {
+  document.querySelectorAll('.shisa-notice').forEach((el) => {
     el.classList.add('out');
     window.setTimeout(() => el.remove(), 240);
   });

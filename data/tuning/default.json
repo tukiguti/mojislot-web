@@ -26,27 +26,19 @@
     "shisaTiers": [
       {
         "color": "blue",
-        "weight": 0.5,
+        "weight": 0.73,
         "coreCells": 2,
         "bonusCells": 0,
         "premiumCells": 0,
-        "noticeHintCells": 0
-      },
-      {
-        "color": "yellow",
-        "weight": 0.28,
-        "coreCells": 3,
-        "bonusCells": 0,
-        "premiumCells": 0,
-        "noticeHintCells": 0
+        "noticeHintCells": 2
       },
       {
         "color": "green",
-        "weight": 0.17,
-        "coreCells": 4,
+        "weight": 0.22,
+        "coreCells": 3,
         "bonusCells": 0,
         "premiumCells": 0,
-        "noticeHintCells": 0
+        "noticeHintCells": 2
       },
       {
         "color": "red",
@@ -73,27 +65,19 @@
     "shisaTiers": [
       {
         "color": "blue",
-        "weight": 0.55,
+        "weight": 0.72,
         "coreCells": 2,
         "bonusCells": 0,
         "premiumCells": 0,
-        "noticeHintCells": 0
-      },
-      {
-        "color": "yellow",
-        "weight": 0.25,
-        "coreCells": 3,
-        "bonusCells": 0,
-        "premiumCells": 0,
-        "noticeHintCells": 0
+        "noticeHintCells": 2
       },
       {
         "color": "green",
-        "weight": 0.12,
-        "coreCells": 4,
+        "weight": 0.2,
+        "coreCells": 3,
         "bonusCells": 0,
         "premiumCells": 0,
-        "noticeHintCells": 0
+        "noticeHintCells": 2
       },
       {
         "color": "red",
