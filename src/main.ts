@@ -5,7 +5,7 @@ import { loadSymbolArt } from './render/ReelArt';
 import { RunTimer } from './ui/RunTimer';
 import { SymbolColorResolver } from './render/SymbolStyle';
 import { YakuJudge } from './core/YakuJudge';
-import { resolveInternalRoleHits } from './core/RoleResolver';
+import { RoundResolver } from './core/RoundResolver';
 import {
   createRoundContext,
   type RoundContext,
@@ -196,6 +196,13 @@ export async function bootstrap() {
 
   const judge = new YakuJudge(yakuList);
   const calc = new PayoutCalc(payout);
+  // 全停止時の「何が揃って何枚か」の確定。表示・音は含まない純粋な計算。
+  const roundResolver = new RoundResolver({
+    judge,
+    calc,
+    reachEyes,
+    singlePayout: payout.baseMultiplier.single,
+  });
   const wallet = new CoinWallet(payout.initialCoins);
   const scheduler = new EffectScheduler(tuning.effectRates.default);
   const jinState = new JinState();
@@ -1510,32 +1517,23 @@ export async function bootstrap() {
       // 全停止したので「狙え！」演出は閉じる（レバーオン示唆として出た場合）
       hideAimNotice();
       hideShisaNotice();
-        // 物理表示を5ラインで検出し、内部役と一致するラインだけを成立扱いにする。
+      // 出目から成立ラインと払い出しを確定させる（表示はしない純粋な計算）。
       const grid = extractGrid(engines);
       const middleSymbols = grid[1] as [string, string, string]; // 既存UI互換用
-      const displayedHits = judge.judgeAll(grid).hits;
-      const allowedHits = resolveInternalRoleHits(
-        activeFlagYakuIds(),
-        displayedHits,
-      );
-      // 1枚役は「こぼし」＝連チャン・図鑑・成立演出には乗せず、払い出しだけ別枠で扱う。
-      const singleHits = allowedHits.filter(
-        (h) => h.yaku.category === 'single',
-      );
-      const hits = allowedHits.filter((h) => h.yaku.category !== 'single');
-      const willHit = hits.length > 0;
+      const outcome = roundResolver.resolve({
+        grid,
+        flagYakuIds: activeFlagYakuIds(),
+        bonusActive: bonusSession.spinActive,
+        streakBefore: playStats.stats.get().streak,
+        noticeYakuId: currentTargetYakuId(),
+      });
+      const { hits, willHit, premiumHit, bonusHit, isPremium, isRegular } =
+        outcome;
+      const { streakAfter, streakMult, noticeBonus, win, reachKind } = outcome;
       const quizTargetYakuId =
         currentEffect === 'quiz' ? quizState.targetYakuId() : null;
-      const premiumHit = hits.find((h) => h.yaku.category === 'premium') ?? null;
-      const isPremium = premiumHit !== null;
-      // レギュラー役（すし＋別字）。プレミアムが無いときだけ REG 扱い
-      const bonusHit = hits.find((h) => h.yaku.category === 'bonus') ?? null;
-      const isRegular = !isPremium && bonusHit !== null;
       // 確定告知ランプ点灯中にボーナス（BIG/REG）が揃ったら回収完了＝消灯。
       if (announcedBonus && (isPremium || isRegular)) clearAnnounceLamp();
-      // リーチ目：ボーナスフラグでしか出ない出目。持ち越し中は演出も告知も出ないので、
-      // これが「まだフラグが生きている」唯一の合図になる（実機の察知遊び）。
-      const reachKind = !willHit ? reachEyes.detect(grid) : null;
       // ボーナスフラグの持ち越し（実機Aタイプ）。
       // 揃えば解除、こぼせば次ゲーム以降も保持し続ける（無告知＝リーチ目で察知する）。
       // 確定告知ランプは告知ありの別経路なので、そちらが点灯中は二重に持たない。
@@ -1562,9 +1560,8 @@ export async function bootstrap() {
       // チェリー重複（実機のレア役＋ボーナス同時当選）。
       // チェリーが**実際に揃った**時だけ抽選し、当たれば確定告知ランプを点灯＝次ゲーム以降ボーナス確定。
       // 成立表示の余韻を残してから点灯させ、「チェリーが呼んだ」と読める間を作る。
-      const cherryHit = hits.some((h) => h.yaku.category === 'cherry');
       if (
-        cherryHit &&
+        outcome.cherryHit &&
         !announcedBonus &&
         !bonusZone.isActive() &&
         !freezeActive &&
@@ -1576,24 +1573,6 @@ export async function bootstrap() {
           announceBonus(tuning.cherryBonus.bigRatio);
           showResult('チェリー重複！ ボーナス確定', 'premium');
         }, tuning.cherryBonus.delayMs);
-      }
-      // 成立後の連チャン数で配当倍率を評価（3連達成スピンから恩恵が乗る）
-      const streakAfter = willHit ? playStats.stats.get().streak + 1 : 0;
-      const streakMult = calc.streakMult(streakAfter);
-      let win = calc.calcMulti(hits, bonusSession.spinActive, streakMult);
-      // 1枚役：実役として表示された時だけ固定1枚（1Gあたり最大1枚）。
-      // コンボ・ボーナス倍率には乗せない＝連の価値を薄めない。
-      const singleWin =
-        singleHits.length > 0 ? payout.baseMultiplier.single : 0;
-      win += singleWin;
-      // 予告役（狙え＝予告役／クイズ＝答えの役）が実際に成立 → その役ライン分に達成ボーナスを上乗せ。
-      // currentTargetYakuId() は aim→予告役 / quiz→問題の答え役 / それ以外→null。
-      let noticeBonus = 0;
-      const noticeYakuId = currentTargetYakuId();
-      if (noticeYakuId) {
-        const noticeHits = hits.filter((h) => h.yaku.id === noticeYakuId);
-        noticeBonus = calc.aimBonus(noticeHits, bonusSession.spinActive, streakMult);
-        win += noticeBonus;
       }
       if (quizTargetYakuId) {
         const quizMatched = hits.some((h) => h.yaku.id === quizTargetYakuId);

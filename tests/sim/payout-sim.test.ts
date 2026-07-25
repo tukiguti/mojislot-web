@@ -10,7 +10,7 @@ import { TenpaiDetector, type TenpaiLine } from '../../src/productions/TenpaiDet
 import { InternalRoleLottery } from '../../src/productions/InternalRoleLottery';
 import { YakuJudge } from '../../src/core/YakuJudge';
 import { PayoutCalc } from '../../src/core/PayoutCalc';
-import { resolveInternalRoleHits } from '../../src/core/RoleResolver';
+import { RoundResolver } from '../../src/core/RoundResolver';
 import { StopTableLookup } from '../../src/core/StopTable';
 import { StopController } from '../../src/core/StopController';
 import { ReachEyes } from '../../src/core/ReachEyes';
@@ -159,6 +159,12 @@ function runChapter(chapter: string, skill: Skill, spins: number, seed: number):
   );
   const judge = new YakuJudge(yakuList);
   const calc = new PayoutCalc(payout);
+  const roundResolver = new RoundResolver({
+    judge,
+    calc,
+    reachEyes,
+    singlePayout: payout.baseMultiplier.single,
+  });
 
   const reels = reelCfg.reels.map((r) => r.cells);
   const N = reels[0].length;
@@ -376,25 +382,18 @@ function runChapter(chapter: string, skill: Skill, spins: number, seed: number):
 
     // --- 判定・払い出し ---
     const grid = buildGrid(stopped as VisibleColumn[]);
-    const allowedHits = resolveInternalRoleHits(
-      flagIdsNow(),
-      judge.judgeAll(grid).hits,
-    );
-    const singleHits = allowedHits.filter((h) => h.yaku.category === 'single');
-    const hits = allowedHits.filter((h) => h.yaku.category !== 'single');
-    const willHit = hits.length > 0;
-    const streakAfter = willHit ? streak + 1 : 0;
-    const streakMult = calc.streakMult(streakAfter);
-    let win = calc.calcMulti(hits, bonusActive, streakMult);
-
-    if (singleHits.length > 0) {
-      win += payout.baseMultiplier.single;
-      res.singleWins++;
-    }
     const flagId = role.yakuId;
-    if ((effect === 'aim' || effect === 'quiz') && flagId) {
-      win += calc.aimBonus(hits.filter((h) => h.yaku.id === flagId), bonusActive, streakMult);
-    }
+    // 判定・払い出しはゲーム本体と同じ RoundResolver を通す（合成規則を写さない）。
+    const outcome = roundResolver.resolve({
+      grid,
+      flagYakuIds: flagIdsNow(),
+      bonusActive,
+      streakBefore: streak,
+      noticeYakuId:
+        (effect === 'aim' || effect === 'quiz') && flagId ? flagId : null,
+    });
+    const { hits, willHit, streakAfter, win } = outcome;
+    if (outcome.singleHits.length > 0) res.singleWins++;
 
     // 誤告知の計測：ボーナスフラグでないのに中段へ専用図柄が出たか
     const isBonusFlag =
