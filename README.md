@@ -147,9 +147,15 @@ npm test         # Vitest によるユニットテスト
 
 ```
 src/
-├── main.ts          # エントリーポイント（Pixi 初期化 + DOM 接続・ゲーム進行）
-├── core/            # 描画非依存のゲームロジック（ReelEngine/YakuJudge/PayoutCalc/Paylines）
-├── productions/     # 演出ロジック（EffectScheduler/BonusZone/SlipResolver/TenpaiDetector 等）
+├── main.ts          # エントリーポイント（Pixi 初期化 + DOM 接続・演出の出し分け）
+├── core/            # 描画非依存のゲームロジック
+│                    #   StopController  停止制御の唯一の実装（本体・監査・シミュレーター共通）
+│                    #   RoundResolver   全停止時の成立判定と払い出し合成
+│                    #   ReelEngine / YakuJudge / PayoutCalc / Paylines / ReachEyes
+├── productions/     # 演出ロジック（描画非依存）
+│                    #   BonusSession      ボーナス区間（突入〜消化しきり）の会計
+│                    #   EffectEligibility 演出の可否判定と示唆候補の逆算
+│                    #   EffectScheduler / BonusZone / SlipResolver / TenpaiDetector 等
 ├── render/          # Pixi 描画層（ReelView/EffectVisual/JinView 等）
 ├── ui/              # DOM UI 層（Effects/SettingsOverlay/ZukanOverlay 等）
 ├── card/            # 図鑑・統計・セーブ（カード）のコーデック/管理
