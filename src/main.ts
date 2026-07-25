@@ -1535,8 +1535,16 @@ export async function bootstrap() {
     );
 
     // 中段にボーナス専用図柄が止まった＝その場でボーナス確定（一発リーチ目）。
-    // 停止テーブルが非ボーナスフラグではこれを中段に残さないので、出た時点で確定になる。
-    if (!reachEyeShown && reachEyes.isBonusOnlyAtMiddle(idx, getVisibleCell(engine, 'middle'))) {
+    // **第1停止だけ**が対象。「非ボーナスフラグではこの図柄を中段に止めない」規則は
+    // 停止テーブル（第1停止）でしか保証しておらず、第2・第3停止はアルゴリズム任せで
+    // 普通に中段へ来てしまうため（実測で誤告知14〜21%）。実機の「左中段◯◯＝確定」も
+    // 第1停止の話なので、これが正しい範囲。
+    const isFirstStop = stopOrder.length === 1;
+    if (
+      isFirstStop &&
+      !reachEyeShown &&
+      reachEyes.isBonusOnlyAtMiddle(idx, getVisibleCell(engine, 'middle'))
+    ) {
       reachEyeShown = true;
       views[idx].startTenpaiFlash(true);
       sfx.tenpaiPremium();

@@ -115,6 +115,12 @@ interface Result {
   carriedReach: number;
   /** そのうち「中段にボーナス専用図柄」が出たゲーム数（一発リーチ目） */
   carriedMiddleTell: number;
+  /** 非ボーナスフラグなのに中段告知が出たゲーム数（＝誤告知） */
+  falseTellSpins: number;
+  /** 非ボーナスフラグなのに第1停止で中段告知が出たゲーム数 */
+  falseTellFirst: number;
+  /** 非ボーナスフラグの総ゲーム数 */
+  nonBonusSpins: number;
   /** 確定告知ランプ（通常抽選）で確定したボーナス数 */
   lampBonus: number;
   /** チェリー重複で確定したボーナス数 */
@@ -210,6 +216,7 @@ function runChapter(chapter: string, skill: Skill, spins: number, seed: number):
     singleWins: 0,
     shisaSpins: 0, shisaEscalated: 0, lampBonus: 0, cherryBonus: 0,
     carriedSpins: 0, carriedReach: 0, carriedMiddleTell: 0,
+    falseTellSpins: 0, falseTellFirst: 0, nonBonusSpins: 0,
   };
 
   let missStreak = 0;
@@ -439,13 +446,25 @@ function runChapter(chapter: string, skill: Skill, spins: number, seed: number):
       win += calc.aimBonus(hits.filter((h) => h.yaku.id === flagId), bonusActive, streakMult);
     }
 
+    // 誤告知の計測：ボーナスフラグでないのに中段へ専用図柄が出たか
+    const isBonusFlag =
+      !!heldYaku || !!carried || role.kind === 'reg' || role.kind === 'big';
+    if (!isBonusFlag) {
+      res.nonBonusSpins++;
+      if ([0, 1, 2].some((r) => reachEyes.isBonusOnlyAtMiddle(r, grid[1][r]))) {
+        res.falseTellSpins++;
+      }
+      const firstReel = seq[0];
+      if (reachEyes.isBonusOnlyAtMiddle(firstReel, grid[1][firstReel])) {
+        res.falseTellFirst++;
+      }
+    }
     if (carried) {
       res.carriedSpins++;
       if (hits.length === 0 && reachEyes.detect(grid) !== null) res.carriedReach++;
-      // 一発リーチ目：どれかのリールの中段がボーナス専用図柄なら、その場で確定告知になる。
-      if ([0, 1, 2].some((r) => reachEyes.isBonusOnlyAtMiddle(r, grid[1][r]))) {
-        res.carriedMiddleTell++;
-      }
+      // 一発リーチ目：**第1停止**の中段がボーナス専用図柄なら、その場で確定告知になる。
+      const fr = seq[0];
+      if (reachEyes.isBonusOnlyAtMiddle(fr, grid[1][fr])) res.carriedMiddleTell++;
     }
     const isPremiumNow = hits.some((h) => h.yaku.category === 'premium');
     const isRegNow = !isPremiumNow && hits.some((h) => h.yaku.category === 'bonus');
@@ -501,12 +520,12 @@ describe.skipIf(!RUN)('出玉シミュレーション（新モデル）', () => 
   it('腕別の機械割・突入率・ボーナス平均を測る', () => {
     const SPINS = 200000;
     const lines: string[] = [];
-    lines.push('腕      機械割   通常時純増  ボ中純増  突入(1/G)  BIG平均  REG平均  示唆発展  ランプ  チェリー重複  持越G  出目R  中段告知');
+    lines.push('腕      機械割   通常時純増  ボ中純増  突入(1/G)  BIG平均  REG平均  示唆発展  ランプ  チェリー重複  持越G  中段告知  誤告知(全)  誤告知(第1)');
     for (const skill of SKILLS) {
       let bet = 0, win = 0, nbet = 0, nwin = 0, big = 0, reg = 0;
       let bspins = 0, bigPay = 0, regPay = 0;
       let spins = 0;
-      let shisaSpins = 0, shisaEsc = 0, lampB = 0, cherryB = 0, carS = 0, carR = 0, carM = 0;
+      let shisaSpins = 0, shisaEsc = 0, lampB = 0, cherryB = 0, carS = 0, carR = 0, carM = 0, fT = 0, fT1 = 0, nb = 0;
       CHAPTERS.forEach((ch, i) => {
         const r = runChapter(ch, skill, SPINS / CHAPTERS.length, 12345 + i * 977);
         bet += r.totalBet; win += r.totalWin;
@@ -516,6 +535,7 @@ describe.skipIf(!RUN)('出玉シミュレーション（新モデル）', () => 
         shisaSpins += r.shisaSpins; shisaEsc += r.shisaEscalated;
         lampB += r.lampBonus; cherryB += r.cherryBonus;
         carS += r.carriedSpins; carR += r.carriedReach; carM += r.carriedMiddleTell;
+        fT += r.falseTellSpins; fT1 += r.falseTellFirst; nb += r.nonBonusSpins;
         spins += r.spins;
       });
       const rtp = (win / bet) * 100;
@@ -531,8 +551,9 @@ describe.skipIf(!RUN)('出玉シミュレーション（新モデル）', () => 
         `${(lampB / Math.max(1, big + reg) * 100).toFixed(0).padStart(5)}% ` +
         `${(cherryB / Math.max(1, big + reg) * 100).toFixed(0).padStart(9)}% ` +
         `${carS.toString().padStart(6)} ` +
-        `${((carR / Math.max(1, carS)) * 100).toFixed(1).padStart(5)}% ` +
-        `${((carM / Math.max(1, carS)) * 100).toFixed(1).padStart(7)}%`,
+        `${((carM / Math.max(1, carS)) * 100).toFixed(1).padStart(7)}% ` +
+        `${((fT / Math.max(1, nb)) * 100).toFixed(1).padStart(9)}% ` +
+        `${((fT1 / Math.max(1, nb)) * 100).toFixed(2).padStart(10)}%`,
       );
     }
     console.log('\n===== 出玉シミュレーション（' + SPINS + 'G/腕・全5章）=====\n' + lines.join('\n'));
