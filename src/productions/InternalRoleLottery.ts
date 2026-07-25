@@ -14,6 +14,8 @@ export interface InternalRoleResult {
   /** 揃えさせたい表示役ID。miss / single は null。 */
   yakuId: string | null;
   yakuName: string | null;
+  /** 当選と同時にフリーズ演出を発動する強レア役か。 */
+  freeze: boolean;
 }
 
 export interface InternalRoleDrawOptions {
@@ -67,9 +69,14 @@ export class InternalRoleLottery {
     return this.toResult(chosen);
   }
 
-  /** 特定の表示役を強制する（フリーズ・確定告知ランプ用）。 */
+  /**
+   * 特定の表示役を強制する（確定告知ランプ・持ち越し用）。
+   * フリーズ役は**選ばない**。告知や持ち越しの消化でフリーズが暴発しないようにする。
+   */
   forYaku(yaku: Yaku): InternalRoleResult {
-    const role = this.roles.find((r) => r.displayYakuId === yaku.id);
+    const role = this.roles.find(
+      (r) => r.displayYakuId === yaku.id && !r.freeze,
+    );
     if (!role) {
       // テーブルに無い表示役を強制した場合は押し順不問の擬似内部役として扱う。
       return {
@@ -77,9 +84,22 @@ export class InternalRoleLottery {
         kind: 'core',
         yakuId: yaku.id,
         yakuName: yaku.name,
+        freeze: false,
       };
     }
     return this.toResult(role);
+  }
+
+  /** 内部役IDを直接指定して引く（デバッグのフリーズ強制用）。無ければ null。 */
+  forRoleId(roleId: string): InternalRoleResult | null {
+    const role = this.roles.find((r) => r.id === roleId);
+    return role ? this.toResult(role) : null;
+  }
+
+  /** フリーズを発動する内部役（章に1つ想定）。 */
+  freezeRole(): InternalRoleResult | null {
+    const role = this.roles.find((r) => r.freeze);
+    return role ? this.toResult(role) : null;
   }
 
   yakuFor(role: InternalRoleResult): Yaku | null {
@@ -96,6 +116,7 @@ export class InternalRoleLottery {
       kind: role.kind,
       yakuId: role.displayYakuId,
       yakuName: yaku?.name ?? null,
+      freeze: role.freeze,
     };
   }
 
@@ -105,6 +126,7 @@ export class InternalRoleLottery {
       kind: 'miss',
       yakuId: null,
       yakuName: null,
+      freeze: false,
     };
   }
 

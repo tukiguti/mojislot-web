@@ -272,7 +272,6 @@ export async function bootstrap() {
   let freezeActive = false;
   let pendingFreeze = false;
   // レバーオン時のフリーズ抽選確率（通常時のみ）／倍速回転スピード。data/tuning で調整。
-  const FREEZE_RATE = tuning.freeze.rate;
   const FREEZE_SPIN_SPEED = tuning.freeze.spinSpeed;
 
   /**
@@ -1197,20 +1196,22 @@ export async function bootstrap() {
     // レバーONを1ゲームの確定点とし、内部役→対応できる演出の順に決める。
     // フリーズ／確定ランプは通常抽選より優先し、強制役もRoundContextへ保存する。
     stopOrder = [];
-    const doFreeze =
-      !bonusZone.isActive() && (pendingFreeze || Math.random() < FREEZE_RATE);
+    // フリーズはデバッグ強制の時だけ先取りする。通常は内部役テーブルの
+    // 強レア役として引かれる（実機と同じ「フラグ連動」＝独立抽選ではない）。
+    const forcedFreezeRole =
+      pendingFreeze && !bonusZone.isActive()
+        ? internalRoleLottery.freezeRole()
+        : null;
     pendingFreeze = false;
+    let doFreeze = forcedFreezeRole !== null;
     const shouldAnnounce =
       !doFreeze &&
       !bonusZone.isActive() &&
       !announcedBonus &&
       Math.random() < tuning.announceLamp.rate;
 
-    if (doFreeze) {
-      const headline = yakuList.premiumYaku[0];
-      if (headline) {
-        activateRound(internalRoleLottery.forYaku(headline), 'none', 'freeze');
-      }
+    if (forcedFreezeRole) {
+      activateRound(forcedFreezeRole, 'none', 'freeze');
     } else if (announcedBonus && announcedRole) {
       activateRound(
         internalRoleLottery.forYaku(announcedRole),
@@ -1242,11 +1243,15 @@ export async function bootstrap() {
     } else {
       const role = internalRoleLottery.draw(activeInternalRoleState());
       const yaku = internalRoleLottery.yakuFor(role);
+      // フリーズ役を引いた＝その場でBIG確定。演出は出さずフリーズシーケンスへ渡す。
+      doFreeze = role.freeze;
       // miss / 1枚役（表示役なし）は none。それ以外は表現できる演出からレート抽選。
-      const effect: EffectType = yaku
-        ? scheduler.rollAvailable(eligibility.eligibleEffects(yaku))
-        : 'none';
-      activateRound(role, effect, 'lottery');
+      const effect: EffectType = doFreeze
+        ? 'none'
+        : yaku
+          ? scheduler.rollAvailable(eligibility.eligibleEffects(yaku))
+          : 'none';
+      activateRound(role, effect, doFreeze ? 'freeze' : 'lottery');
     }
 
     for (const engine of engines) engine.spin();

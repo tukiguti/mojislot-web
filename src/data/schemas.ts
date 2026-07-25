@@ -59,6 +59,12 @@ export const InternalRoleSchema = z.object({
   displayYakuId: z.string().nullable().default(null),
   /** 抽選確率（通常／救済／ボーナス中）。全内部役の合計＝1。 */
   rate: InternalRoleRateSchema,
+  /**
+   * この内部役に当選した時にフリーズ演出を発動する（実機の「フリーズ＝フラグ連動」）。
+   * 独立抽選ではなく内部役テーブルに置くことで、フリーズが「引けたら確定」の
+   * 強レア役になり、確率も他の役と同じ場所で管理できる。
+   */
+  freeze: z.boolean().default(false),
 });
 
 export const YakuSchema = z.object({
@@ -331,15 +337,17 @@ export const TuningSchema = z.object({
       shisaTiers: z.array(ShisaTierSchema).min(1).default(DEFAULT_SHISA_TIERS),
     })
     .default({ pullInCells: 4, shisaTiers: DEFAULT_SHISA_TIERS }),
-  /** フリーズ演出。 */
+  /**
+   * フリーズ演出。**発生確率はここには無い**——
+   * `data/yaku/<章>.json` の `freeze: true` を持つ内部役のレートが確率そのもの
+   * （実機と同じフラグ連動。独立抽選ではない）。
+   */
   freeze: z
     .object({
-      /** レバーオン時のフリーズ抽選確率（通常時のみ）。 */
-      rate: z.number().min(0).max(1).default(0.005),
       /** フリーズ中の倍速回転スピード（コマ/秒）。 */
       spinSpeed: z.number().positive().default(60),
     })
-    .default({ rate: 0.005, spinSpeed: 60 }),
+    .default({ spinSpeed: 60 }),
   /** 確定告知ランプ（点灯=ボーナス確定・種別は内部確定で伏せる）。 */
   announceLamp: z
     .object({

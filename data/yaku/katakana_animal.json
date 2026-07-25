@@ -93,9 +93,9 @@
       "kind": "miss",
       "displayYakuId": null,
       "rate": {
-        "default": 0.2253501952,
-        "rescue": 0.1429426854,
-        "bonus": 0.0
+        "default": 0.2248501952,
+        "rescue": 0.1424426854,
+        "bonus": 0
       }
     },
     {
@@ -177,6 +177,17 @@
         "rescue": 0.0017356891,
         "bonus": 0.0002523602
       }
+    },
+    {
+      "id": "dragon_freeze",
+      "kind": "big",
+      "displayYakuId": "dragon",
+      "rate": {
+        "default": 0.0005,
+        "rescue": 0.0005,
+        "bonus": 0
+      },
+      "freeze": true
     },
     {
       "id": "inko",

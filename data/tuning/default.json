@@ -52,7 +52,6 @@
     ]
   },
   "freeze": {
-    "rate": 0.0005,
     "spinSpeed": 60
   },
   "announceLamp": {

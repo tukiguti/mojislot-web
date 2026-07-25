@@ -13,7 +13,20 @@ const role = (
   kind: InternalRole['kind'],
   displayYakuId: string | null,
   value: number,
-): InternalRole => ({ id, kind, displayYakuId, rate: rate(value) });
+): InternalRole => ({ id, kind, displayYakuId, rate: rate(value), freeze: false });
+
+/** フリーズを発動する強レア役（実機の「フリーズ＝フラグ連動」）。 */
+const freezeRole = (
+  id: string,
+  displayYakuId: string,
+  value: number,
+): InternalRole => ({
+  id,
+  kind: 'big',
+  displayYakuId,
+  rate: rate(value),
+  freeze: true,
+});
 
 const yakuList: YakuList = {
   mode: 'test',
@@ -91,6 +104,54 @@ describe('InternalRoleLottery', () => {
     const lottery = new InternalRoleLottery(list, () => 0);
     const bell = list.coreYaku.find((y) => y.id === 'bell')!;
     expect(lottery.forYaku(bell)).toMatchObject({ roleId: 'bell_any', yakuId: 'bell' });
+  });
+
+  describe('フリーズ役（強レア役）', () => {
+    // 同じ表示役(big)に通常のBIGとフリーズ役をぶら下げる＝実機の「フリーズ専用フラグ」
+    const withFreeze: YakuList = {
+      ...yakuList,
+      internalRoles: [
+        role('miss', 'miss', null, 0.5),
+        role('big', 'big', 'big', 0.3),
+        freezeRole('big_freeze', 'big', 0.2),
+      ],
+    };
+    const big = withFreeze.premiumYaku.find((y) => y.id === 'big')!;
+
+    it('抽選で引けば freeze フラグが立つ', () => {
+      // 累積 miss(0.5) → big(0.8) → big_freeze(1.0)。0.9 は最後に落ちる
+      const lottery = new InternalRoleLottery(withFreeze, () => 0.9);
+      expect(lottery.draw('default')).toMatchObject({
+        roleId: 'big_freeze',
+        freeze: true,
+      });
+    });
+
+    it('通常のBIGでは freeze フラグが立たない', () => {
+      const lottery = new InternalRoleLottery(withFreeze, () => 0.6);
+      expect(lottery.draw('default')).toMatchObject({
+        roleId: 'big',
+        freeze: false,
+      });
+    });
+
+    it('forYaku はフリーズ役を選ばない（告知や持ち越しの消化で暴発させない）', () => {
+      const lottery = new InternalRoleLottery(withFreeze, () => 0);
+      expect(lottery.forYaku(big)).toMatchObject({
+        roleId: 'big',
+        freeze: false,
+      });
+    });
+
+    it('freezeRole でフリーズ役を直接引ける（デバッグ強制用）', () => {
+      const lottery = new InternalRoleLottery(withFreeze, () => 0);
+      expect(lottery.freezeRole()).toMatchObject({
+        roleId: 'big_freeze',
+        freeze: true,
+      });
+      // フリーズ役が無い章では null（＝強制しても何も起きない）
+      expect(new InternalRoleLottery(yakuList, () => 0).freezeRole()).toBeNull();
+    });
   });
 });
 
