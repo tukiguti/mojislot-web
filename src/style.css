@@ -4348,7 +4348,20 @@ body.shake {
 .aim-reel-symbol.show {
   transform: translate(-50%, 0) scale(1);
   opacity: 1;
-  animation: aim-symbol-bounce 0.5s ease-in-out infinite;
+  /* 中央寄せの translate(-50%) を含んだ専用キーフレームを使う。
+     aim-symbol-bounce（translateY だけ）を流用すると transform ごと
+     上書きされ、タイルが幅の半分だけ右へずれる。 */
+  animation: aim-reel-symbol-bounce 0.5s ease-in-out infinite;
+}
+
+@keyframes aim-reel-symbol-bounce {
+  0%,
+  100% {
+    transform: translate(-50%, 0) scale(1);
+  }
+  50% {
+    transform: translate(-50%, -4px) scale(1);
+  }
 }
 
 .aim-reel-symbol.out {
