@@ -240,41 +240,29 @@ export const EffectRatesSchema = z
   );
 
 /**
- * 示唆のランク色（青<緑<赤<金）。tint・ステータス・ジン台詞に使う。
- * 黄は青と紛らわしいため廃止（2026-07-25）。
+ * 示唆のランク色（青<赤<金）。tint・ステータス・ジン台詞に使う。
+ * 停止制御は**内部役だけで決まる**ようになった（実機準拠）ので、色は
+ * 「どのカテゴリの当選か」という**情報だけ**を表す。引き込みの強さは色で変わらない。
+ * 旧・黄と緑は青と同じ意味（小役確定）になるため廃止（2026-07-25）。
  */
-export const ShisaTierColorSchema = z.enum(['blue', 'green', 'red', 'gold']);
+export const ShisaTierColorSchema = z.enum(['blue', 'red', 'gold']);
 export type ShisaTierColor = z.infer<typeof ShisaTierColorSchema>;
 
-/**
- * 示唆の1段階（tier）。色は「どのカテゴリを引き込むか」＝候補役の範囲を示す。
- *  - 青→緑: 小役(core/cherry)の最終リール引き込みを 2→3コマ に段階強化
- *  - 赤: 小役を切り、RB(bonus)を引き込み対象に
- *  - 金: さらに BB(premium=7揃い/バー揃いの2役)も対象に
- * 全tierが第1・第2停止にも中段引き込みを持つ（`noticeHintCells`）。ここで内部役の図柄が
- * 中段に来ると候補が1役に絞れ、演出が「狙え！」へ発展する（[24]§4 / [17]）。
- */
+/** 示唆の1段階。`targets` に含まれるカテゴリの内部役が当選した時だけこの色が出る。 */
 const ShisaTierSchema = z.object({
   color: ShisaTierColorSchema,
-  /** この tier の抽選ウェイト（配列内の総和で正規化。合計≈1 を想定）。 */
+  /** 同じ内部役に複数tierが該当する時の抽選ウェイト。 */
   weight: z.number().min(0),
-  /** 小役(core/cherry)の最終リール引き込み窓（コマ）。0=引き込まない（赤/金）。 */
-  coreCells: z.number().int().nonnegative(),
-  /** RB(bonus)の最終リール引き込み窓（コマ）。0=対象外。 */
-  bonusCells: z.number().int().nonnegative(),
-  /** BB(premium=7揃い/バー揃い)の最終リール引き込み窓（コマ）。0=対象外。 */
-  premiumCells: z.number().int().nonnegative(),
-  /** 第1・第2停止の中段引き込み窓（コマ）。ここで止まると「狙え！」へ発展する。 */
-  noticeHintCells: z.number().int().nonnegative(),
+  /** この色が示すカテゴリ（＝当たりうる役の範囲）。 */
+  targets: z.array(YakuCategorySchema).min(1),
 });
 export type ShisaTier = z.infer<typeof ShisaTierSchema>;
 
-/** 示唆tierの既定（青72/緑20/赤6/金2%）。data/tuning が正、ここはフォールバック。 */
+/** 示唆tierの既定。data/tuning が正、ここはフォールバック。 */
 const DEFAULT_SHISA_TIERS: ShisaTier[] = [
-  { color: 'blue', weight: 0.72, coreCells: 2, bonusCells: 0, premiumCells: 0, noticeHintCells: 2 },
-  { color: 'green', weight: 0.2, coreCells: 3, bonusCells: 0, premiumCells: 0, noticeHintCells: 2 },
-  { color: 'red', weight: 0.06, coreCells: 0, bonusCells: 8, premiumCells: 0, noticeHintCells: 4 },
-  { color: 'gold', weight: 0.02, coreCells: 0, bonusCells: 8, premiumCells: 8, noticeHintCells: 4 },
+  { color: 'blue', weight: 1, targets: ['core', 'cherry'] },
+  { color: 'red', weight: 1, targets: ['bonus'] },
+  { color: 'gold', weight: 1, targets: ['premium'] },
 ];
 
 export const TuningSchema = z.object({
@@ -299,24 +287,18 @@ export const TuningSchema = z.object({
       shisaTiers: z.array(ShisaTierSchema).min(1).optional(),
     })
     .default({ spinsPerBig: 10, spinsPerReg: 5 }),
-  /** 引き込み/蹴り（目押し補助）の強さ。コマ数が大きいほど揃いやすい。 */
+  /**
+   * 引き込み（目押し補助）。実機同様、**引き込み窓は内部役だけで決まり演出では変わらない**。
+   * 難易度はリール配列（図柄の間隔）が担う＝4コマ内に図柄が無ければ取りこぼす。
+   */
   assist: z
     .object({
-      /** 通常テンパイ（示唆など）の最終リール引き込み最大コマ数（実機準拠＝4）。 */
-      assistMaxCells: z.number().int().nonnegative().default(4),
-      /** 予告役(狙え/クイズ)の最終リール引き込み最大コマ数（拡大＝狙えば獲れる・既定8）。 */
-      noticeAssistMaxCells: z.number().int().nonnegative().default(8),
-      /** 予告役の第1・第2停止の中段引き込み最大コマ数（最終リール以外も引き込む・既定4）。 */
-      aimHintMaxCells: z.number().int().nonnegative().default(4),
-      /** 示唆の期待度tier（青<黄<緑<赤<金）。引いた示唆はこの配列から重み抽選される。 */
+      /** 当選役を引き込む最大コマ数（実機準拠＝最大スベリ4コマ）。 */
+      pullInCells: z.number().int().nonnegative().default(4),
+      /** 示唆tier（色＝当選カテゴリの情報。引き込みには影響しない）。 */
       shisaTiers: z.array(ShisaTierSchema).min(1).default(DEFAULT_SHISA_TIERS),
     })
-    .default({
-      assistMaxCells: 4,
-      noticeAssistMaxCells: 8,
-      aimHintMaxCells: 4,
-      shisaTiers: DEFAULT_SHISA_TIERS,
-    }),
+    .default({ pullInCells: 4, shisaTiers: DEFAULT_SHISA_TIERS }),
   /** フリーズ演出。 */
   freeze: z
     .object({
@@ -333,10 +315,8 @@ export const TuningSchema = z.object({
       rate: z.number().min(0).max(1).default(0.0033),
       /** 確定種別がBIGになる割合（残りはREG）。 */
       bigRatio: z.number().min(0).max(1).default(0.3),
-      /** 点灯中、確定役の図柄へ引き込む最大コマ数（強め＝揃えに行きやすい）。 */
-      assistMaxCells: z.number().int().nonnegative().default(8),
     })
-    .default({ rate: 0.0033, bigRatio: 0.3, assistMaxCells: 8 }),
+    .default({ rate: 0.0033, bigRatio: 0.3 }),
   /**
    * チェリー重複（実機のレア役＋ボーナス同時当選）。
    * チェリーが**実際に揃った**時だけ抽選し、当たれば確定告知ランプを点灯させて

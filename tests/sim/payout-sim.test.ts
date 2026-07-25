@@ -121,7 +121,7 @@ function runChapter(chapter: string, skill: Skill, spins: number, seed: number):
   const rng = makeRng(seed);
   const lottery = new InternalRoleLottery(yakuList, rng);
   const slip = new SlipResolver(yakuList, {
-    assistMaxCells: tuning.assist.assistMaxCells,
+    assistMaxCells: tuning.assist.pullInCells,
   });
   const tenpaiDetector = new TenpaiDetector(yakuList);
   const judge = new YakuJudge(yakuList);
@@ -136,6 +136,7 @@ function runChapter(chapter: string, skill: Skill, spins: number, seed: number):
     ...yakuList.premiumYaku,
   ];
   const yakuById = new Map(allYaku.map((y) => [y.id, y]));
+  const allYakuWithSingle: Yaku[] = [...allYaku, ...yakuList.singleYaku];
   const sigmaCells = (skill.sigmaMs * tuning.reelSpeed) / 1000;
 
   const gauss = (): number => {
@@ -144,22 +145,13 @@ function runChapter(chapter: string, skill: Skill, spins: number, seed: number):
     return Math.sqrt(-2 * Math.log(u)) * Math.cos(2 * Math.PI * rng());
   };
 
-  const shisaTiersForYaku = (y: Yaku, bonusActive: boolean): ShisaTier[] => {
-    const tiers =
-      (bonusActive ? tuning.bonus.shisaTiers : undefined) ?? tuning.assist.shisaTiers;
-    if (y.category === 'premium') return tiers.filter((t) => t.premiumCells > 0);
-    if (y.category === 'bonus') {
-      const regOnly = tiers.filter((t) => t.bonusCells > 0 && t.premiumCells === 0);
-      return regOnly.length > 0 ? regOnly : tiers.filter((t) => t.bonusCells > 0);
-    }
-    return tiers.filter((t) => t.coreCells > 0);
-  };
+  const shisaTiersForYaku = (y: Yaku): ShisaTier[] =>
+    tuning.assist.shisaTiers.filter((t) => t.targets.includes(y.category));
 
   /** この tier で当たりうる役（main.ts shisaCandidateYakus と同じ逆算）。 */
   const shisaCandidatesFor = (
     tier: ShisaTier,
     state: InternalRoleState,
-    bonusActive: boolean,
   ): Yaku[] => {
     const seen = new Set<string>();
     const out: Yaku[] = [];
@@ -168,7 +160,7 @@ function runChapter(chapter: string, skill: Skill, spins: number, seed: number):
       if (seen.has(role.displayYakuId)) continue;
       const y = yakuById.get(role.displayYakuId);
       if (!y) continue;
-      if (!shisaTiersForYaku(y, bonusActive).some((t) => t.color === tier.color)) continue;
+      if (!tier.targets.includes(y.category)) continue;
       seen.add(y.id);
       out.push(y);
     }
@@ -177,7 +169,7 @@ function runChapter(chapter: string, skill: Skill, spins: number, seed: number):
 
   const eligibleEffects = (y: Yaku, bonusActive: boolean): ('shisa' | 'quiz' | 'aim')[] =>
     (['shisa', 'quiz', 'aim'] as const).filter((e) => {
-      if (e === 'shisa') return shisaTiersForYaku(y, bonusActive).length > 0;
+      if (e === 'shisa') return shisaTiersForYaku(y).length > 0;
       if (e === 'quiz') return quizzes.some((q) => q.answerYakuId === y.id);
       return y.symbols.length === 3;
     });
@@ -250,7 +242,7 @@ function runChapter(chapter: string, skill: Skill, spins: number, seed: number):
     }
     const shisaTier =
       effect === 'shisa' && yaku
-        ? pickWeighted(shisaTiersForYaku(yaku, bonusActive), (t) => t.weight)
+        ? pickWeighted(shisaTiersForYaku(yaku), (t) => t.weight)
         : null;
 
     // 本作は順押し前提（左→中→右）。押し順は停止制御の入力であって役ではない。
@@ -272,7 +264,7 @@ function runChapter(chapter: string, skill: Skill, spins: number, seed: number):
     // 発展（内部役の図柄が中段に来る）以降は、明かされた役を狙える。
     let shisaGuess: Yaku | null = null;
     if (effect === 'shisa' && shisaTier && yaku) {
-      const cands = shisaCandidatesFor(shisaTier, state, bonusActive);
+      const cands = shisaCandidatesFor(shisaTier, state);
       shisaGuess = cands.length > 0 ? cands[Math.floor(rng() * cands.length)] : yaku;
     }
     let escalated = false;
@@ -302,118 +294,50 @@ function runChapter(chapter: string, skill: Skill, spins: number, seed: number):
         basePos = (((intended + err) % N) + N) % N;
       }
 
-      // --- resolveStopSlip 相当 ---
+      // --- resolveStopSlip 相当（引き込み対象も窓も内部役だけで決まる）---
       let slipCells = 0;
-      const tenpai = tenpaiDetector.detect(stopped);
-      if (heldYaku) {
-        // 確定告知ランプ点灯中：全リールで確定役の図柄を中段へ強く引き込む。
-        const hs = heldYaku.symbols[idx];
-        if (hs !== undefined) {
-          const hint = slip.resolveAssist(
-            {
-              reelIndex: idx,
-              basePosition: basePos,
-              strip: { id: `r${idx}`, cells },
-              stoppedVisibles: stopped,
-              exceptYakuIds: [heldYaku.id],
-            },
-            hs,
-            'middle',
-            tuning.announceLamp.assistMaxCells,
-          );
-          if (hint !== null) slipCells = hint;
+      const flagIds = flagIdsNow();
+      const targets = flagIds
+        .map((id) => allYakuWithSingle.find((y) => y.id === id))
+        .filter((y): y is Yaku => y !== undefined);
+      const actx = (b: number) => ({
+        reelIndex: idx,
+        basePosition: b,
+        strip: { id: `r${idx}`, cells },
+        stoppedVisibles: stopped,
+        exceptYakuIds: flagIds,
+      });
+      if (targets.length > 0) {
+        const tenpai = tenpaiDetector.detect(stopped);
+        if (tenpai && tenpai.missingReelIndex === idx) {
+          let bestSlip = 0, bestScore = -1;
+          const CAT_RANK: Record<Yaku['category'], number> =
+            { premium: 3, bonus: 2, core: 1, cherry: 0, single: 0 };
+          for (const l of tenpai.lines as TenpaiLine[]) {
+            if (!flagIds.includes(l.yaku.id)) continue;
+            const sres = slip.resolveAssist(
+              actx(basePos), l.yaku.symbols[idx]!, l.vertical, tuning.assist.pullInCells,
+            );
+            if (sres === null) continue;
+            const score = CAT_RANK[l.yaku.category] * 100 +
+              (tuning.assist.pullInCells - sres) * 4 + (l.vertical === 'middle' ? 1 : 0);
+            if (score > bestScore) { bestScore = score; bestSlip = sres; }
+          }
+          slipCells = bestSlip;
         }
-      } else if (singleSpill()) {
-        // 1枚役フラグ／押し順ミス：中段一直線のみ・窓4で自動引き込み（main.ts と同じ）。
-        let best: number | null = null;
-        for (const y of yakuList.singleYaku) {
-          const consistent = stopped.every(
-            (v, i) => v === null || i === idx || v.middle === y.symbols[i],
-          );
-          if (!consistent) continue;
-          const s = slip.resolveAssist(
-            {
-              reelIndex: idx,
-              basePosition: basePos,
-              strip: { id: `r${idx}`, cells },
-              stoppedVisibles: stopped,
-              exceptYakuIds: singleIds,
-            },
-            y.symbols[idx]!,
-            'middle',
-            tuning.assist.assistMaxCells,
-          );
-          if (s !== null && (best === null || s < best)) best = s;
-        }
-        if (best !== null) slipCells = best;
-      } else if (tenpai && tenpai.missingReelIndex === idx) {
-        let bestSlip = 0, bestScore = -1;
-        const CAT_RANK: Record<Yaku['category'], number> =
-          { premium: 3, bonus: 2, core: 1, cherry: 0 };
-        for (const l of tenpai.lines as TenpaiLine[]) {
-          if (effect === 'none' || l.yaku.id !== flagId) continue;
-          const maxCells = isAimLike
-            ? tuning.assist.noticeAssistMaxCells
-            : effect === 'shisa' && shisaTier
-              ? (l.yaku.category === 'premium'
-                  ? shisaTier.premiumCells
-                  : l.yaku.category === 'bonus'
-                    ? shisaTier.bonusCells
-                    : shisaTier.coreCells)
-              : tuning.assist.assistMaxCells;
-          if (maxCells <= 0) continue;
-          const s = slip.resolveAssist(
-            {
-              reelIndex: idx,
-              basePosition: basePos,
-              strip: { id: `r${idx}`, cells },
-              stoppedVisibles: stopped,
-              exceptYakuIds: flagId ? [flagId] : [],
-            },
-            l.yaku.symbols[idx]!,
-            l.vertical,
-            maxCells,
-          );
-          if (s === null) continue;
-          const score = CAT_RANK[l.yaku.category] * 100 + (maxCells - s) * 4 +
-            (l.vertical === 'middle' ? 1 : 0);
-          if (score > bestScore) { bestScore = score; bestSlip = s; }
-        }
-        slipCells = bestSlip;
-      } else if (isAimLike && target) {
-        const s2 = target.symbols[idx];
-        if (s2 !== undefined) {
-          const hint = slip.resolveAssist(
-            {
-              reelIndex: idx,
-              basePosition: basePos,
-              strip: { id: `r${idx}`, cells },
-              stoppedVisibles: stopped,
-              exceptYakuIds: flagId ? [flagId] : [],
-            },
-            s2,
-            'middle',
-            tuning.assist.aimHintMaxCells,
-          );
-          if (hint !== null) slipCells = hint;
-        }
-      } else if (effect === 'shisa' && shisaTier && shisaTier.noticeHintCells > 0 && target) {
-        // 示唆の第1・第2停止：内部役の図柄を中段へ引き込む（青緑2/赤金4コマ）。
-        const s3 = target.symbols[idx];
-        if (s3 !== undefined) {
-          const hint = slip.resolveAssist(
-            {
-              reelIndex: idx,
-              basePosition: basePos,
-              strip: { id: `r${idx}`, cells },
-              stoppedVisibles: stopped,
-              exceptYakuIds: flagId ? [flagId] : [],
-            },
-            s3,
-            'middle',
-            shisaTier.noticeHintCells,
-          );
-          if (hint !== null) slipCells = hint;
+        if (slipCells === 0) {
+          let best: number | null = null;
+          for (const y of targets) {
+            const sym = y.symbols[idx];
+            if (sym === undefined) continue;
+            const consistent = stopped.every(
+              (v, i2) => v === null || i2 === idx || y.symbols[i2] === undefined || v.middle === y.symbols[i2],
+            );
+            if (!consistent) continue;
+            const hint = slip.resolveAssist(actx(basePos), sym, 'middle', tuning.assist.pullInCells);
+            if (hint !== null && (best === null || hint < best)) best = hint;
+          }
+          if (best !== null) slipCells = best;
         }
       }
       if (slipCells === 0) {
@@ -422,7 +346,7 @@ function runChapter(chapter: string, skill: Skill, spins: number, seed: number):
           basePosition: basePos,
           strip: { id: `r${idx}`, cells },
           stoppedVisibles: stopped,
-          exceptYakuIds: flagIdsNow(),
+          exceptYakuIds: flagIds,
         });
       }
       stopped[idx] = visCol(cells, (basePos + slipCells) % N);

@@ -15,8 +15,7 @@ import type { ReelConfig, YakuList } from '../../src/data/schemas';
  * 引き込み先の停止位置で「当選役とは別の役」が偶然ロックすると、②（揃っているのに
  * 払い出し対象外）が引き込み経由で復活する。
  *
- * ここでは最も引き込みが強いシナリオ（aim/push 相当：最終リール窓8コマ＋
- * 第1・第2停止の中段ヒント4コマ）で main.ts の停止フローを忠実に再現し、
+ * ここでは main.ts の停止フロー（当選役を窓4コマで引き込み→駄目なら蹴り）を再現し、
  * 全章 × 全当選役 × 全停止順 × 全押下位置で非当選役の混入を数える。
  */
 
@@ -30,8 +29,11 @@ const CHAPTERS = [
   'yasai',
 ] as const;
 
-/** main.ts の引き込み窓（tuning/default.json と同値）。 */
-const NOTICE_ASSIST_MAX_CELLS = 8;
+/**
+ * 引き込み窓（tuning/default.json の assist.pullInCells と同値）。
+ * 実機準拠で**内部役だけで決まり、演出では変わらない**ので単一値。
+ */
+const NOTICE_ASSIST_MAX_CELLS = 4;
 const AIM_HINT_MAX_CELLS = 4;
 
 const CAT_RANK: Record<string, number> = {
@@ -39,6 +41,7 @@ const CAT_RANK: Record<string, number> = {
   bonus: 2,
   core: 1,
   cherry: 0,
+  single: 0,
 };
 
 const readJson = <T>(p: string): T => JSON.parse(readFileSync(p, 'utf-8')) as T;
@@ -57,7 +60,7 @@ const STOP_ORDERS: readonly (readonly number[])[] = [
 ];
 
 describe('引き込み経路の監査：assist先でも出目＝フラグが崩れないか', () => {
-  it('aim/push相当の最強引き込みでも非当選役が出目に混入しない', () => {
+  it('引き込み経路でも非当選役が出目に混入しない', () => {
     const summary: string[] = [];
     let totalLeaks = 0;
     const examples: string[] = [];

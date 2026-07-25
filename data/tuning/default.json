@@ -22,78 +22,32 @@
   "rescueMissThreshold": 30,
   "bonus": {
     "spinsPerBig": 18,
-    "spinsPerReg": 8,
-    "shisaTiers": [
-      {
-        "color": "blue",
-        "weight": 0.73,
-        "coreCells": 2,
-        "bonusCells": 0,
-        "premiumCells": 0,
-        "noticeHintCells": 2
-      },
-      {
-        "color": "green",
-        "weight": 0.22,
-        "coreCells": 3,
-        "bonusCells": 0,
-        "premiumCells": 0,
-        "noticeHintCells": 2
-      },
-      {
-        "color": "red",
-        "weight": 0.04,
-        "coreCells": 0,
-        "bonusCells": 8,
-        "premiumCells": 0,
-        "noticeHintCells": 4
-      },
-      {
-        "color": "gold",
-        "weight": 0.01,
-        "coreCells": 0,
-        "bonusCells": 8,
-        "premiumCells": 8,
-        "noticeHintCells": 4
-      }
-    ]
+    "spinsPerReg": 8
   },
   "assist": {
-    "assistMaxCells": 4,
-    "noticeAssistMaxCells": 8,
-    "aimHintMaxCells": 4,
+    "pullInCells": 4,
     "shisaTiers": [
       {
         "color": "blue",
-        "weight": 0.72,
-        "coreCells": 2,
-        "bonusCells": 0,
-        "premiumCells": 0,
-        "noticeHintCells": 2
-      },
-      {
-        "color": "green",
-        "weight": 0.2,
-        "coreCells": 3,
-        "bonusCells": 0,
-        "premiumCells": 0,
-        "noticeHintCells": 2
+        "weight": 1,
+        "targets": [
+          "core",
+          "cherry"
+        ]
       },
       {
         "color": "red",
-        "weight": 0.06,
-        "coreCells": 0,
-        "bonusCells": 8,
-        "premiumCells": 0,
-        "noticeHintCells": 4
+        "weight": 1,
+        "targets": [
+          "bonus"
+        ]
       },
       {
         "color": "gold",
-        "weight": 0.02,
-        "coreCells": 0,
-        "bonusCells": 8,
-        "premiumCells": 8,
-        "noticeHintCells": 4
+        "weight": 1,
+        "targets": [
+          "premium"
+        ]
       }
     ]
   },
@@ -103,8 +57,7 @@
   },
   "announceLamp": {
     "rate": 0.0033,
-    "bigRatio": 0.3,
-    "assistMaxCells": 8
+    "bigRatio": 0.3
   },
   "cherryBonus": {
     "rate": 0.05,

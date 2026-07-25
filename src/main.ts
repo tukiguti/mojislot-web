@@ -190,7 +190,7 @@ export async function bootstrap() {
   const jinState = new JinState();
   const quizState = new QuizState();
   const slipResolver = new SlipResolver(yakuList, {
-    assistMaxCells: tuning.assist.assistMaxCells,
+    assistMaxCells: tuning.assist.pullInCells,
   });
   const bonusZone = new BonusZone({
     spinsPerBonus: tuning.bonus.spinsPerBig,
@@ -490,13 +490,11 @@ export async function bootstrap() {
   // 示唆の期待度tier色 → 画面tint(hex) / ジンの煽り台詞。
   const SHISA_TINT: Record<ShisaTierColor, number> = {
     blue: 0x66ccff,
-    green: 0x4cd964,
     red: 0xff3b30,
     gold: 0xffcc33,
   };
   const SHISA_SPEECH: Record<ShisaTierColor, JinSpeechEvent> = {
     blue: 'shisaWeak',
-    green: 'shisaStrong',
     red: 'shisaBonus',
     gold: 'shisaPremium',
   };
@@ -586,22 +584,10 @@ export async function bootstrap() {
   };
   applyEffect('none');
 
-  const shisaTiersForYaku = (yaku: Yaku): ShisaTier[] => {
-    const tiers =
-      (bonusSpinActive ? tuning.bonus.shisaTiers : null) ?? tuning.assist.shisaTiers;
-    if (yaku.category === 'premium') {
-      return tiers.filter((tier) => tier.premiumCells > 0);
-    }
-    if (yaku.category === 'bonus') {
-      const regOnly = tiers.filter(
-        (tier) => tier.bonusCells > 0 && tier.premiumCells === 0,
-      );
-      return regOnly.length > 0
-        ? regOnly
-        : tiers.filter((tier) => tier.bonusCells > 0);
-    }
-    return tiers.filter((tier) => tier.coreCells > 0);
-  };
+  const shisaTiersForYaku = (yaku: Yaku): ShisaTier[] =>
+    tuning.assist.shisaTiers.filter((tier) =>
+      tier.targets.includes(yaku.category),
+    );
 
   /**
    * この tier が出た時に「当たりうる役」の一覧（吹き出しの候補表示）。
@@ -1315,42 +1301,16 @@ export async function bootstrap() {
     return role.yakuId ? [role.yakuId] : [];
   };
 
-  /** 1枚役の自動引き込みが働くゲームか。 */
-  const singleSpillActive = (): boolean =>
-    currentRound?.internalRole.kind === 'single';
-
   const currentInternalYaku = (): Yaku | null => {
     const id = activeDisplayYakuId();
     return id ? (allYakusFlat.find((y) => y.id === id) ?? null) : null;
   };
 
-  /** 演出による引き込みは、レバーONで確定した内部役（押し順を守れている時のみ）を対象にする。 */
-  const effectAllowsYaku = (yaku: Yaku): boolean =>
-    currentEffect !== 'none' && yaku.id === activeDisplayYakuId();
-
-  /** 示唆tierでの、役カテゴリ別の引き込み窓（コマ）。対象外は0。 */
-  const shisaMaxCellsFor = (category: Yaku['category']): number => {
-    const t = currentShisaTier;
-    if (!t) return 0;
-    if (category === 'core' || category === 'cherry') return t.coreCells;
-    if (category === 'bonus') return t.bonusCells;
-    if (category === 'premium') return t.premiumCells;
-    return 0;
-  };
-
-  /** 現在の示唆が bonus/premium を引き込む（赤/金）か。第1/2停止・蹴り除外・AUTOで使う。 */
+  /** 現在の示唆がボーナス（赤/金）を示しているか。AUTO の狙い判定に使う。 */
   const shisaTargetsBonus = (): boolean =>
     currentEffect === 'shisa' &&
     currentShisaTier !== null &&
-    (currentShisaTier.bonusCells > 0 || currentShisaTier.premiumCells > 0);
-
-  /** 赤/金示唆で引き込み対象になる、現在の内部役。 */
-  const shisaNoticeYakus = (): Yaku[] => {
-    const t = currentShisaTier;
-    if (currentEffect !== 'shisa' || !t) return [];
-    const yaku = currentInternalYaku();
-    return yaku && effectAllowsYaku(yaku) ? [yaku] : [];
-  };
+    currentShisaTier.targets.some((c) => c === 'bonus' || c === 'premium');
 
   /**
    * 蹴りで除外する「予告した役」ID。aim/quiz が premium/bonus を予告した時、その役は
@@ -1367,10 +1327,6 @@ export async function bootstrap() {
   const isAimLikeEffect = (): boolean =>
     currentEffect === 'aim' || currentEffect === 'quiz';
 
-  /** 引き込みの対象役ID（aim=予告役 / quiz=答えの役）。 */
-  const pullInTargetYakuId = (): string | null =>
-    isAimLikeEffect() ? activeDisplayYakuId() : null;
-
   /** 引き込み優先のカテゴリ序列（premium > bonus > core > cherry > single） */
   const CAT_RANK: Record<Yaku['category'], number> = {
     premium: 3,
@@ -1380,12 +1336,11 @@ export async function bootstrap() {
     single: 0,
   };
 
-  /** 通常テンパイ（示唆など）の最終リール引き込み最大コマ数（実機準拠4）。 */
-  const ASSIST_MAX_CELLS = tuning.assist.assistMaxCells;
-  /** 予告役（狙え/クイズ）の最終リール引き込み最大コマ数（拡大＝狙えば獲れる）。 */
-  const NOTICE_ASSIST_MAX_CELLS = tuning.assist.noticeAssistMaxCells;
-  /** 「狙え！」「クイズ」時、第1・第2停止でも狙い役を中段へ引き込む最大コマ数（最終リール以外も引き込む）。 */
-  const AIM_HINT_MAX_CELLS = tuning.assist.aimHintMaxCells;
+  /**
+   * 当選役の引き込み窓（コマ）。**実機同様、演出では変わらない**。
+   * 難易度はリール配列（図柄の間隔）が担う＝4コマ内に無ければ取りこぼす。
+   */
+  const PULL_IN_CELLS = tuning.assist.pullInCells;
 
   /**
    * テンパイ成立ライン群（5ライン）から、演出の対象役に合う最良の引き込みコマ数を返す。
@@ -1400,14 +1355,8 @@ export async function bootstrap() {
     let bestSlip = 0;
     let bestScore = -1; // 大きいほど優先
     for (const l of lines) {
-      if (!effectAllowsYaku(l.yaku)) continue;
-      // 引き込み窓：予告役(狙え/クイズ)は拡大、示唆はtier×カテゴリ、通常は実機準拠4。
-      const maxCells = isAimLikeEffect()
-        ? NOTICE_ASSIST_MAX_CELLS
-        : currentEffect === 'shisa'
-          ? shisaMaxCellsFor(l.yaku.category)
-          : ASSIST_MAX_CELLS;
-      if (maxCells <= 0) continue;
+      if (l.yaku.id !== activeDisplayYakuId()) continue;
+      const maxCells = PULL_IN_CELLS;
       const slip = slipResolver.resolveAssist(
         assistCtx,
         l.yaku.symbols[finalIdx],
@@ -1454,68 +1403,31 @@ export async function bootstrap() {
       stoppedVisibles,
       exceptYakuIds: flagIds,
     };
-    if (announcedBonus && announcedRole) {
-      // 確定告知ランプ：点灯時に固定した役の図柄を、第1・第2・最終すべてのリールで中段へ強く引き込む。
-      const sym = announcedRole.symbols[idx];
-      if (sym !== undefined) {
-        const hint = slipResolver.resolveAssist(
-          assistCtx,
-          sym,
-          'middle',
-          tuning.announceLamp.assistMaxCells,
-        );
-        if (hint !== null) slipCells = hint;
-      }
-    } else if (singleSpillActive()) {
-      // 1枚役フラグ／押し順ミスのこぼし：実機の「当選小役は自動で引き込む」に相当。
-      // 演出は出ない（1枚役はベース機構）。中段一直線のみ・窓4コマで、
-      // 停止済みリールの中段と矛盾しない1枚役のうち最小スベリで作れるものを狙う。
-      // どれも窓外なら引き込まず＝こぼれ（実機の1枚役こぼしと同じ）。
-      let best: number | null = null;
-      for (const y of yakuList.singleYaku) {
-        const consistent = stoppedVisibles.every(
-          (v, i) => v === null || i === idx || v.middle === y.symbols[i],
-        );
-        if (!consistent) continue;
-        const s = slipResolver.resolveAssist(
-          assistCtx,
-          y.symbols[idx],
-          'middle',
-          ASSIST_MAX_CELLS,
-        );
-        if (s !== null && (best === null || s < best)) best = s;
-      }
-      if (best !== null) slipCells = best;
-    } else {
+    // 実機のリール制御：**引き込み対象も窓も内部役だけで決まる**（演出は関与しない）。
+    // 1) 当選役があれば引き込む（最終リールは5ラインのテンパイを見る／それ以外は中段）
+    // 2) 引き込めなければ、非当選役が揃わない位置へ蹴る
+    // ＝ 停止位置は「内部役 × 押し順 × 押下位置」で一意に決まる。
+    const targets: Yaku[] = flagIds
+      .map((id) => allYakusFlat.find((y) => y.id === id))
+      .filter((y): y is Yaku => y !== undefined);
+    if (targets.length > 0) {
       const assistTenpai = tenpaiDetector.detect(stoppedVisibles);
       if (assistTenpai && assistTenpai.missingReelIndex === idx) {
+        // 最終リール：テンパイしているラインへ引き込む（斜め含む5ライン）。
         slipCells = pickAssistSlip(assistTenpai.lines, idx, assistCtx);
-      } else if (isAimLikeEffect()) {
-        // 予告役/押し順役の第1・第2停止：対象文字を中段へ軽く引き込む
-        //（最大 AIM_HINT_MAX_CELLS コマ）。窓外なら引き込まず自力ミス扱い＝目押しの妙味は残す。
-        const noticeId = pullInTargetYakuId();
-        const noticeYaku = noticeId
-          ? allYakusFlat.find((y) => y.id === noticeId)
-          : null;
-        const targetSymbol = noticeYaku?.symbols[idx];
-        if (targetSymbol !== undefined) {
-          const hint = slipResolver.resolveAssist(
-            assistCtx,
-            targetSymbol,
-            'middle',
-            AIM_HINT_MAX_CELLS,
-          );
-          if (hint !== null) slipCells = hint;
-        }
-      } else if (currentShisaTier && currentShisaTier.noticeHintCells > 0) {
-        // 示唆の第1・第2停止：内部役の図柄を中段へ引き込む（青緑2コマ／赤金4コマ）。
-        // ここで止まると候補が1役に絞れ、演出が「狙え！」へ発展する（escalateShisa）。
-        const hintMax = currentShisaTier.noticeHintCells;
+      }
+      if (slipCells === 0) {
+        // 第1・第2停止（および最終でテンパイが無い時）：当選役の図柄を中段へ。
+        // 1枚役はグループなので、停止済みの中段と矛盾しないものだけを候補にする。
         let best: number | null = null;
-        for (const y of shisaNoticeYakus()) {
+        for (const y of targets) {
           const sym = y.symbols[idx];
           if (sym === undefined) continue;
-          const hint = slipResolver.resolveAssist(assistCtx, sym, 'middle', hintMax);
+          const consistent = stoppedVisibles.every(
+            (v, i) => v === null || i === idx || y.symbols[i] === undefined || v.middle === y.symbols[i],
+          );
+          if (!consistent) continue;
+          const hint = slipResolver.resolveAssist(assistCtx, sym, 'middle', PULL_IN_CELLS);
           if (hint !== null && (best === null || hint < best)) best = hint;
         }
         if (best !== null) slipCells = best;
@@ -2038,8 +1950,8 @@ export async function bootstrap() {
   };
 
   /** AUTO が予告役を狙うとき、target を中段の手前何コマで止めて残りを引き込みに
-   *  委ねるかのマージン（第1・第2の引き込み上限 AIM_HINT_MAX_CELLS に合わせる）。 */
-  const AUTO_AIM_MARGIN = AIM_HINT_MAX_CELLS;
+   *  委ねるかのマージン（引き込み上限 PULL_IN_CELLS に合わせる）。 */
+  const AUTO_AIM_MARGIN = PULL_IN_CELLS;
 
   /**
    * AUTO の狙い停止：target symbol が中段付近に来たら stopReel を呼ぶ。
@@ -2071,7 +1983,7 @@ export async function bootstrap() {
       return;
     }
 
-    // aim/quiz は第1・第2にも中段引き込み(最大 AIM_HINT_MAX_CELLS)が効くので、
+    // 当選役は第1・第2にも中段引き込み(最大 PULL_IN_CELLS)が効くので、
     // 狙い役の手前 AUTO_AIM_MARGIN コマで止め、残りの寄せを引き込みに委ねる。
     // 引き込みの無い演出(shisa 等)は手前で止めると逆に揃わないため MARGIN=0。
     // aim/quiz と赤/金示唆は第1・第2にも中段引き込みが効くので手前マージンを取る。
