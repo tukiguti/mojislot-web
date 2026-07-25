@@ -44,9 +44,11 @@ export async function loadSymbolArt(
   const textures = new Map<string, Texture>();
   const texturesPlain = new Map<string, Texture>();
 
-  // リール絵柄スタイル（遊ぶ設定）：image=図柄画像 / plain=色タイル＋文字（旧スタイル）。
-  // plain のときは画像を一切読み込まない。
-  const useArtImages = localStorage.getItem('mojislot.reelArt.v1') !== 'plain';
+  // リール絵柄スタイル（遊ぶ設定）：image=図柄画像 / plain=色タイル＋文字。
+  // **既定は plain**（文字のみ）。図柄画像を作り直し中で、絵で識別できてしまうと
+  // 「文字を見てビタ押しする」というコンセプトが崩れるため、明示的に image を
+  // 選んだ時だけ画像を読み込む。
+  const useArtImages = localStorage.getItem('mojislot.reelArt.v1') === 'image';
   if (useArtImages && CHAPTERS_WITH_SYMBOL_ART.has(chapterId)) {
     const orderedForArt = [
       ...yakuList.premiumYaku,
