@@ -289,7 +289,8 @@ function runChapter(chapter: string, skill: Skill, spins: number, seed: number):
         : null;
 
     // 本作は順押し前提（左→中→右）。押し順は停止制御の入力であって役ではない。
-    const seq = [0, 1, 2];
+    // SEQ=2,1,0 のように指定すると押し順を変えて比較できる（検証用）。
+    const seq = (process.env.SEQ ?? '0,1,2').split(',').map(Number);
 
     const stopped: (VisibleColumn | null)[] = [null, null, null];
     const stopOrder: number[] = [];
