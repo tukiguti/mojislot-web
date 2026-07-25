@@ -12,6 +12,7 @@ import { YakuJudge } from '../../src/core/YakuJudge';
 import { PayoutCalc } from '../../src/core/PayoutCalc';
 import { resolveInternalRoleHits } from '../../src/core/RoleResolver';
 import { StopTableLookup } from '../../src/core/StopTable';
+import { StopController } from '../../src/core/StopController';
 import { ReachEyes } from '../../src/core/ReachEyes';
 import { PAYLINES, type Grid3x3, type Vertical } from '../../src/core/Paylines';
 import {
@@ -145,6 +146,13 @@ function runChapter(chapter: string, skill: Skill, spins: number, seed: number):
   const stopTable = new StopTableLookup(
     StopTableSchema.parse(readJson(`${DATA}/stops/${chapter}.json`)),
   );
+  const stopController = new StopController({
+    yakuList,
+    slipResolver: slip,
+    tenpaiDetector,
+    stopTable,
+    pullInCells: tuning.assist.pullInCells,
+  });
   const reachEyes = new ReachEyes(
     ReachEyeTableSchema.parse(readJson(`${DATA}/reach/${chapter}.json`)),
     yakuList,
@@ -343,75 +351,16 @@ function runChapter(chapter: string, skill: Skill, spins: number, seed: number):
         basePos = (((intended + err) % N) + N) % N;
       }
 
-      // --- resolveStopSlip 相当（引き込み対象も窓も内部役だけで決まる）---
-      let slipCells = 0;
+      // --- 停止制御（ゲーム本体と同じ StopController を使う）---
       const flagIds = flagIdsNow();
-      // 第1停止は停止テーブルを引く（main.ts と同じ）。
-      const tabledSlip =
-        stopOrder.length === 1
-          ? stopTable.firstStopSlip(heldYaku ? heldRoleId! : role.roleId, idx, basePos)
-          : null;
-      if (tabledSlip !== null) {
-        stopped[idx] = visCol(cells, (basePos + tabledSlip) % N);
-        stopN++;
-        if (effect === 'shisa' && !escalated && stopN < 3 && yaku) {
-          const sy = yaku.symbols[idx];
-          if (sy !== undefined && stopped[idx]!.middle === sy) escalated = true;
-        }
-        continue;
-      }
-      const targets = flagIds
-        .map((id) => allYakuWithSingle.find((y) => y.id === id))
-        .filter((y): y is Yaku => y !== undefined);
-      const actx = (b: number) => ({
+      const slipCells = stopController.resolveSlip({
         reelIndex: idx,
-        basePosition: b,
+        basePosition: basePos,
         strip: { id: `r${idx}`, cells },
         stoppedVisibles: stopped,
-        exceptYakuIds: flagIds,
+        flagYakuIds: flagIds,
+        flagKey: heldYaku ? heldRoleId : role.roleId,
       });
-      if (targets.length > 0) {
-        const tenpai = tenpaiDetector.detect(stopped);
-        if (tenpai && tenpai.missingReelIndex === idx) {
-          let bestSlip = 0, bestScore = -1;
-          const CAT_RANK: Record<Yaku['category'], number> =
-            { premium: 3, bonus: 2, core: 1, cherry: 0, single: 0 };
-          for (const l of tenpai.lines as TenpaiLine[]) {
-            if (!flagIds.includes(l.yaku.id)) continue;
-            const sres = slip.resolveAssist(
-              actx(basePos), l.yaku.symbols[idx]!, l.vertical, tuning.assist.pullInCells,
-            );
-            if (sres === null) continue;
-            const score = CAT_RANK[l.yaku.category] * 100 +
-              (tuning.assist.pullInCells - sres) * 4 + (l.vertical === 'middle' ? 1 : 0);
-            if (score > bestScore) { bestScore = score; bestSlip = sres; }
-          }
-          slipCells = bestSlip;
-        }
-        if (slipCells === 0) {
-          let best: number | null = null;
-          for (const y of targets) {
-            const sym = y.symbols[idx];
-            if (sym === undefined) continue;
-            const consistent = stopped.every(
-              (v, i2) => v === null || i2 === idx || y.symbols[i2] === undefined || v.middle === y.symbols[i2],
-            );
-            if (!consistent) continue;
-            const hint = slip.resolveAssist(actx(basePos), sym, 'middle', tuning.assist.pullInCells);
-            if (hint !== null && (best === null || hint < best)) best = hint;
-          }
-          if (best !== null) slipCells = best;
-        }
-      }
-      if (slipCells === 0) {
-        slipCells = slip.resolveKick({
-          reelIndex: idx,
-          basePosition: basePos,
-          strip: { id: `r${idx}`, cells },
-          stoppedVisibles: stopped,
-          exceptYakuIds: flagIds,
-        });
-      }
       stopped[idx] = visCol(cells, (basePos + slipCells) % N);
       stopN++;
       // 示唆→「狙え！」への発展：最終停止より前に内部役の図柄が中段へ来たか。

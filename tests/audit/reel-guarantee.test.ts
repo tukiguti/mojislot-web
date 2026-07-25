@@ -7,6 +7,8 @@ import { YakuJudge } from '../../src/core/YakuJudge';
 import type { Grid3x3 } from '../../src/core/Paylines';
 import { StopTableSchema, type ReelConfig, type YakuList } from '../../src/data/schemas';
 import { StopTableLookup } from '../../src/core/StopTable';
+import { StopController } from '../../src/core/StopController';
+import { TenpaiDetector } from '../../src/productions/TenpaiDetector';
 
 /**
  * リール配列監査（フェーズ2）。
@@ -69,6 +71,14 @@ describe('リール配列監査：出目＝フラグの保証（②が残らな�
       const stopTable = new StopTableLookup(
         StopTableSchema.parse(readJson(`${DATA}/stops/${chapter}.json`)),
       );
+      // ゲーム本体と同じ停止制御を通す（実装は StopController に一本化）。
+      const controller = new StopController({
+        yakuList,
+        slipResolver: resolver,
+        tenpaiDetector: new TenpaiDetector(yakuList),
+        stopTable,
+        pullInCells: 4,
+      });
       // フラグ集合ケース: miss（空）／各表示役（単独）／1枚役グループ（全部で1フラグ）。
       const flags: { label: string; ids: string[] }[] = [
         { label: 'miss', ids: [] },
@@ -95,21 +105,16 @@ describe('リール配列監査：出目＝フラグの保証（②が残らな�
                 const press = [p0, p1, p2];
                 const stopped: (VisibleColumn | null)[] = [null, null, null];
                 const finalPos = [0, 0, 0];
-                let step = 0;
                 for (const idx of order) {
                   const base = press[idx];
-                  const tabled =
-                    step === 0 ? stopTable.firstStopSlip(flag.label, idx, base) : null;
-                  step++;
-                  const slip =
-                    tabled ??
-                    resolver.resolveKick({
-                      reelIndex: idx,
-                      basePosition: base,
-                      strip: { id: `r${idx}`, cells: reels[idx] },
-                      stoppedVisibles: stopped,
-                      exceptYakuIds: flag.ids,
-                    });
+                  const slip = controller.resolveSlip({
+                    reelIndex: idx,
+                    basePosition: base,
+                    strip: { id: `r${idx}`, cells: reels[idx] },
+                    stoppedVisibles: stopped,
+                    flagYakuIds: flag.ids,
+                    flagKey: flag.label,
+                  });
                   const fp = (base + slip) % N;
                   finalPos[idx] = fp;
                   stopped[idx] = visCol(reels[idx], fp);

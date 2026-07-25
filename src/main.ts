@@ -21,7 +21,7 @@ import {
 import { BonusZone } from './productions/BonusZone';
 import { SfxEngine } from './audio/SfxEngine';
 import { BgmEngine } from './audio/BgmEngine';
-import { TenpaiDetector, type TenpaiLine } from './productions/TenpaiDetector';
+import { TenpaiDetector } from './productions/TenpaiDetector';
 import { PlayStats } from './productions/PlayStats';
 import { appendRunRecord, RUN_RULESET_VERSION } from './productions/RunHistory';
 import { getMemberId, getMemberName } from './productions/Member';
@@ -60,12 +60,9 @@ import { QuizState } from './productions/QuizState';
 import { QuizQuestionView } from './render/QuizQuestionView';
 import { ZukanState } from './productions/ZukanState';
 import { ZukanOverlay } from './ui/ZukanOverlay';
-import {
-  SlipResolver,
-  type SlipContext,
-  type VisibleColumn,
-} from './productions/SlipResolver';
+import { SlipResolver, type VisibleColumn } from './productions/SlipResolver';
 import { StopTableLookup } from './core/StopTable';
+import { StopController } from './core/StopController';
 import { ReachEyes } from './core/ReachEyes';
 import {
   extractGrid,
@@ -1360,15 +1357,6 @@ export async function bootstrap() {
   const isAimLikeEffect = (): boolean =>
     currentEffect === 'aim' || currentEffect === 'quiz';
 
-  /** 引き込み優先のカテゴリ序列（premium > bonus > core > cherry > single） */
-  const CAT_RANK: Record<Yaku['category'], number> = {
-    premium: 3,
-    bonus: 2,
-    core: 1,
-    cherry: 0,
-    single: 0,
-  };
-
   /**
    * 当選役の引き込み窓（コマ）。**実機同様、演出では変わらない**。
    * 難易度はリール配列（図柄の間隔）が担う＝4コマ内に無ければ取りこぼす。
@@ -1376,122 +1364,39 @@ export async function bootstrap() {
   const PULL_IN_CELLS = tuning.assist.pullInCells;
 
   /**
-   * テンパイ成立ライン群（5ライン）から、演出の対象役に合う最良の引き込みコマ数を返す。
-   * 優先順位: カテゴリ（premium>bonus>core>cherry）→ 引き込みが近い → 中段ライン。
-   * 対象なし・窓外なら 0（引き込みしない）。
+   * 停止制御（実機のリール制御）。ロジックは StopController に集約してあり、
+   * ゲーム本体・監査テスト・出玉シミュレーターが同じ実装を使う。
+   * ここは「今どの役が出目に出てよいか」をゲーム状態から組み立てて渡すだけ。
    */
-  const pickAssistSlip = (
-    lines: readonly TenpaiLine[],
-    finalIdx: number,
-    assistCtx: SlipContext,
-  ): number => {
-    let bestSlip = 0;
-    let bestScore = -1; // 大きいほど優先
-    for (const l of lines) {
-      if (l.yaku.id !== activeDisplayYakuId()) continue;
-      const maxCells = PULL_IN_CELLS;
-      const slip = slipResolver.resolveAssist(
-        assistCtx,
-        l.yaku.symbols[finalIdx],
-        l.vertical,
-        maxCells,
-      );
-      if (slip === null) continue;
-      // slip は 0..maxCells。近いほど高スコア。
-      const score =
-        CAT_RANK[l.yaku.category] * 100 +
-        (maxCells - slip) * 4 +
-        (l.vertical === 'middle' ? 1 : 0);
-      if (score > bestScore) {
-        bestScore = score;
-        bestSlip = slip;
-      }
-    }
-    return bestSlip;
-  };
+  const stopController = new StopController({
+    yakuList,
+    slipResolver,
+    tenpaiDetector,
+    stopTable,
+    pullInCells: PULL_IN_CELLS,
+  });
 
-  /**
-   * 1リール停止時の引き込み/蹴りコマ数を決定する（設計: 17_assist-and-slip.md）。
-   * - 確定告知ランプ点灯中: 確定役（BIG=7主役 / REG=RB）の図柄を中段へ強く引き込む。
-   * - 通常: 最終リールのテンパイ引き込み → aim/quiz の中段ヒント → 予告外 premium/bonus の蹴り。
-   * - フリーズ中: 一切無効化（強制セット位置へそのままスナップ）。
-   */
   const resolveStopSlip = (
     idx: number,
     engine: ReelEngine,
     basePos: number,
     stoppedVisibles: (VisibleColumn | null)[],
   ): number => {
-    let slipCells = 0;
-    // 引き込みにも蹴りと同じ「非当選役をロックさせない」ガードを効かせるための文脈。
-    // exceptYakuIds＝いま出目に出てよい役ID群（1枚役こぼし時はグループ全体）。
-    const flagIds: readonly string[] =
-      announcedBonus && announcedRole
-        ? [announcedRole.id]
-        : activeFlagYakuIds();
-    const assistCtx: SlipContext = {
+    // 確定告知ランプ点灯中はその確定役、それ以外は内部役（1枚役はグループ）。
+    const lamp = announcedBonus && announcedRole ? announcedRole : null;
+    const flagYakuIds = lamp ? [lamp.id] : activeFlagYakuIds();
+    const flagKey = lamp
+      ? (allRolesFlat.find((r) => r.displayYakuId === lamp.id)?.id ?? null)
+      : (currentRound?.internalRole.roleId ?? null);
+    return stopController.resolveSlip({
       reelIndex: idx,
       basePosition: basePos,
       strip: engine.strip,
       stoppedVisibles,
-      exceptYakuIds: flagIds,
-    };
-    // 実機のリール制御：**引き込み対象も窓も内部役だけで決まる**（演出は関与しない）。
-    // 1) 当選役があれば引き込む（最終リールは5ラインのテンパイを見る／それ以外は中段）
-    // 2) 引き込めなければ、非当選役が揃わない位置へ蹴る
-    // ＝ 停止位置は「内部役 × 押し順 × 押下位置」で一意に決まる。
-    // 第1停止（他リールが未停止）は**停止テーブル**を引く。まだどの役もロックし得ないので
-    // 蹴りは効かず、ここが出目（リーチ目・入り目）の設計点になる。
-    const noneStopped = stoppedVisibles.every((v) => v === null);
-    if (noneStopped && !freezeActive) {
-      const flagKey = announcedBonus && announcedRole
-        ? (allRolesFlat.find((r) => r.displayYakuId === announcedRole?.id)?.id ?? null)
-        : (currentRound?.internalRole.roleId ?? null);
-      const tabled = flagKey ? stopTable.firstStopSlip(flagKey, idx, basePos) : null;
-      if (tabled !== null) return tabled;
-    }
-    const targets: Yaku[] = flagIds
-      .map((id) => allYakusFlat.find((y) => y.id === id))
-      .filter((y): y is Yaku => y !== undefined);
-    if (targets.length > 0) {
-      const assistTenpai = tenpaiDetector.detect(stoppedVisibles);
-      if (assistTenpai && assistTenpai.missingReelIndex === idx) {
-        // 最終リール：テンパイしているラインへ引き込む（斜め含む5ライン）。
-        slipCells = pickAssistSlip(assistTenpai.lines, idx, assistCtx);
-      }
-      if (slipCells === 0) {
-        // 第1・第2停止（および最終でテンパイが無い時）：当選役の図柄を中段へ。
-        // 1枚役はグループなので、停止済みの中段と矛盾しないものだけを候補にする。
-        let best: number | null = null;
-        for (const y of targets) {
-          const sym = y.symbols[idx];
-          if (sym === undefined) continue;
-          const consistent = stoppedVisibles.every(
-            (v, i) => v === null || i === idx || y.symbols[i] === undefined || v.middle === y.symbols[i],
-          );
-          if (!consistent) continue;
-          const hint = slipResolver.resolveAssist(assistCtx, sym, 'middle', PULL_IN_CELLS);
-          if (hint !== null && (best === null || hint < best)) best = hint;
-        }
-        if (best !== null) slipCells = best;
-      }
-    }
-    if (slipCells === 0) {
-      // 実機のテーブル制御：当選役（内部役）以外の全役を、揃わない位置へ決定的に蹴る。
-      // 引き込みが効かなかった（＝この停止で内部役を狙って揃えていない）局面のみ作用し、
-      // 「出目＝フラグ」を保証する。当選役グループだけは exceptYakuIds で保護。
-      // 確定告知ランプ中も同様（引き込みが窓外だった停止で非当選役が揃うのを防ぐ）。
-      slipCells = slipResolver.resolveKick({
-        reelIndex: idx,
-        basePosition: basePos,
-        strip: engine.strip,
-        stoppedVisibles,
-        exceptYakuIds: flagIds,
-      });
-    }
-    // フリーズ中は引き込み/蹴りを無効化し、強制セットした位置(basePos)へそのままスナップ。
-    if (freezeActive) slipCells = 0;
-    return slipCells;
+      flagYakuIds,
+      flagKey,
+      freeze: freezeActive,
+    });
   };
 
   const stopReel = (idx: number, timestamp: number) => {
