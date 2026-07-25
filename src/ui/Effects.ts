@@ -325,8 +325,8 @@ export interface ShisaCandidate {
 
 export interface ShisaNoticeOptions {
   candidates: readonly ShisaCandidate[];
-  /** tier色。枠と見出しの色に反映する。push=押し順ナビ用の中立色。 */
-  color: 'blue' | 'green' | 'red' | 'gold' | 'push';
+  /** tier色。枠と見出しの色に反映する。 */
+  color: 'blue' | 'green' | 'red' | 'gold';
   /** 見出し文（未指定なら候補数から自動）。押し順ナビは「どれだ？」を渡す。 */
   headline?: string;
 }
@@ -386,80 +386,6 @@ export function hideShisaNotice(): void {
   });
 }
 
-/**
- * 押し順ナビ。押し順役が出た時、各リールの上に「押す順番」を表示する。
- * slots[reelIndex] = 押す順番(1始まり) or null（順不問＝この後は自由）。
- * 実機のAT中ナビに相当。プレイヤーはこの順で止め、さらに目押しして役を揃える。
- */
-export interface PushOrderOptions {
-  /** reelIndex → 押す順番(1始まり) または null（自由）。length=3。 */
-  slots: readonly (number | null)[];
-  /** 停止済みリール（true=停止済み）。そのリールのバッジは消し、残りを繰り上げる。 */
-  stopped?: readonly boolean[];
-  /** 見出し文。null なら見出しを出さない（候補提示と重なる時に使う）。 */
-  headText?: string | null;
-  /** 各リール中心 x の canvas 幅比（0〜1）。 */
-  reelCentersXFrac?: readonly number[];
-  /** リール上端 y の canvas 高さ比（0〜1）。 */
-  reelTopYFrac?: number;
-}
-
-/** 押し順バッジの直径（次に押すものほど大きい）。 */
-const PUSH_BADGE_SIZES = [54, 40, 32];
-
-export function showPushOrder(opts: PushOrderOptions): void {
-  hidePushOrder();
-  const canvas = document.getElementById('game') as HTMLCanvasElement | null;
-  if (!canvas) return;
-  const rect = canvas.getBoundingClientRect();
-  const fracs = opts.reelCentersXFrac ?? [154 / 600, 300 / 600, 446 / 600];
-  const topFrac = opts.reelTopYFrac ?? 260 / 600;
-  // リールに被らないよう、上端よりしっかり上へ出す。
-  const badgeY = rect.top + rect.height * topFrac - 62;
-
-  if (opts.headText !== null) {
-    const head = document.createElement('div');
-    head.className = 'push-order-head';
-    head.textContent = opts.headText ?? '押し順ナビ';
-    head.style.left = `${rect.left + rect.width / 2}px`;
-    head.style.top = `${rect.top + 8}px`;
-    document.body.appendChild(head);
-    requestAnimationFrame(() => head.classList.add('show'));
-  }
-
-  // まだ押していない「順番指定あり」のリールを順位順に。先頭＝次に押すものを最大に。
-  const pending = opts.slots
-    .map((n, i) => ({ n, i }))
-    .filter((x) => x.n !== null && !opts.stopped?.[x.i])
-    .sort((a, b) => (a.n as number) - (b.n as number));
-
-  opts.slots.slice(0, 3).forEach((n, i) => {
-    if (opts.stopped?.[i]) return; // 押し終わったリールのバッジは消す
-    const rank = pending.findIndex((p) => p.i === i);
-    // 順番指定なし（自由）は最小サイズで控えめに。
-    const size = rank >= 0 ? PUSH_BADGE_SIZES[Math.min(rank, 2)] : PUSH_BADGE_SIZES[2];
-    const badge = document.createElement('div');
-    badge.className = n === null ? 'push-badge free' : 'push-badge';
-    if (rank === 0) badge.classList.add('next');
-    badge.textContent = n === null ? '自由' : String(n);
-    badge.style.left = `${rect.left + rect.width * fracs[i]}px`;
-    badge.style.top = `${badgeY}px`;
-    badge.style.width = `${size}px`;
-    badge.style.height = `${size}px`;
-    badge.style.lineHeight = `${size}px`;
-    badge.style.fontSize = n === null ? `${size * 0.32}px` : `${size * 0.56}px`;
-    badge.style.animationDelay = `${(n ?? 4) * 90}ms`;
-    document.body.appendChild(badge);
-    requestAnimationFrame(() => badge.classList.add('show'));
-  });
-}
-
-export function hidePushOrder(): void {
-  document.querySelectorAll('.push-order-head, .push-badge').forEach((el) => {
-    el.classList.add('out');
-    window.setTimeout(() => el.remove(), 240);
-  });
-}
 
 /**
  * ボタン押下位置から外側へ広がる円形リップル。

@@ -48,30 +48,15 @@ export const InternalRoleRateSchema = z.object({
 });
 
 /**
- * 押し順条件（実機の押し順役）。2形式を用意する。
- * - first : 第1停止のリールだけ指定（実機の押し順ベル左/中/右に相当・3択）
- * - exact : 3リールの停止順を完全指定（6通り・難度高）
- * null は押し順不問。順を外すと当選役は引き込まれず 1枚役へこぼれる。
- */
-export const PressOrderSchema = z.discriminatedUnion('type', [
-  z.object({ type: z.literal('first'), reel: z.number().int().min(0).max(2) }),
-  z.object({
-    type: z.literal('exact'),
-    order: z.array(z.number().int().min(0).max(2)).length(3),
-  }),
-]);
-
-/**
- * 内部役テーブル1件。**表示役（displayYakuId）と内部役を分離**し、
- * 同じ表示役に押し順違いの内部役を複数ぶら下げられる（＝実機の押し順ベル群）。
+ * 内部役テーブル1件。**表示役（displayYakuId）と内部役を分離**する。
+ * 押し順は「役の種類」ではなく**停止制御の入力**なので、ここには持たない
+ * （停止位置は 内部役 × 押し順 × 押下位置 の制御で決まる）。
  */
 export const InternalRoleSchema = z.object({
   id: z.string(),
   kind: InternalRoleKindSchema,
   /** 揃えさせたい表示役。miss / single は null。 */
   displayYakuId: z.string().nullable().default(null),
-  /** 押し順条件。null=不問。 */
-  pressOrder: PressOrderSchema.nullable().default(null),
   /** 抽選確率（通常／救済／ボーナス中）。全内部役の合計＝1。 */
   rate: InternalRoleRateSchema,
 });
@@ -172,7 +157,6 @@ export type YakuCategory = z.infer<typeof YakuCategorySchema>;
 export type InternalRoleKind = z.infer<typeof InternalRoleKindSchema>;
 export type InternalRoleState = z.infer<typeof InternalRoleStateSchema>;
 export type InternalRoleRate = z.infer<typeof InternalRoleRateSchema>;
-export type PressOrder = z.infer<typeof PressOrderSchema>;
 export type InternalRole = z.infer<typeof InternalRoleSchema>;
 export type Yaku = z.infer<typeof YakuSchema>;
 export type YakuList = z.infer<typeof YakuListSchema>;

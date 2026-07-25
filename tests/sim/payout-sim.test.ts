@@ -7,10 +7,7 @@ import {
   type VisibleColumn,
 } from '../../src/productions/SlipResolver';
 import { TenpaiDetector, type TenpaiLine } from '../../src/productions/TenpaiDetector';
-import {
-  InternalRoleLottery,
-  pressOrderSatisfied,
-} from '../../src/productions/InternalRoleLottery';
+import { InternalRoleLottery } from '../../src/productions/InternalRoleLottery';
 import { YakuJudge } from '../../src/core/YakuJudge';
 import { PayoutCalc } from '../../src/core/PayoutCalc';
 import { resolveInternalRoleHits } from '../../src/core/RoleResolver';
@@ -63,17 +60,13 @@ interface Skill {
   name: string;
   /** 押下タイミング誤差の標準偏差（ms） */
   sigmaMs: number;
-  /** 押し順ナビに従える確率 */
-  naviFollow: number;
 }
 
-// 押し順ナビは「どのリールを先に止めるか」を明示するだけで目押し精度を要さないため、
-// 初心者でも大半は従える前提に置く（従えない分は取りこぼして1枚役へ落ちる）。
 const SKILLS: Skill[] = [
-  { name: '初心者', sigmaMs: 100, naviFollow: 0.75 },
-  { name: '中級', sigmaMs: 50, naviFollow: 0.92 },
-  { name: '上級', sigmaMs: 25, naviFollow: 1.0 },
-  { name: '神', sigmaMs: 10, naviFollow: 1.0 },
+  { name: '初心者', sigmaMs: 100 },
+  { name: '中級', sigmaMs: 50 },
+  { name: '上級', sigmaMs: 25 },
+  { name: '神', sigmaMs: 10 },
 ];
 
 const VERTICALS: readonly Vertical[] = ['top', 'middle', 'bottom'];
@@ -107,8 +100,6 @@ interface Result {
   bonusSpins: number;
   bigPayout: number;
   regPayout: number;
-  pushRoles: number;
-  pushHit: number;
   singleWins: number;
   shisaSpins: number;
   shisaEscalated: number;
@@ -173,7 +164,6 @@ function runChapter(chapter: string, skill: Skill, spins: number, seed: number):
     const seen = new Set<string>();
     const out: Yaku[] = [];
     for (const role of yakuList.internalRoles) {
-      if (role.pressOrder) continue;
       if (!role.displayYakuId || role.rate[state] <= 0) continue;
       if (seen.has(role.displayYakuId)) continue;
       const y = yakuById.get(role.displayYakuId);
@@ -206,7 +196,7 @@ function runChapter(chapter: string, skill: Skill, spins: number, seed: number):
   const res: Result = {
     spins: 0, totalBet: 0, totalWin: 0, normalBet: 0, normalWin: 0,
     big: 0, reg: 0, bonusSpins: 0, bigPayout: 0, regPayout: 0,
-    pushRoles: 0, pushHit: 0, singleWins: 0,
+    singleWins: 0,
     shisaSpins: 0, shisaEscalated: 0, lampBonus: 0, cherryBonus: 0,
   };
 
@@ -249,12 +239,9 @@ function runChapter(chapter: string, skill: Skill, spins: number, seed: number):
           ? tuning.effectRates.rescue
           : tuning.effectRates.default;
 
-    let effect: 'none' | 'shisa' | 'quiz' | 'aim' | 'push';
+    let effect: 'none' | 'shisa' | 'quiz' | 'aim';
     if (heldYaku) {
       effect = 'none';
-    } else if (role.pressOrder) {
-      effect = 'push';
-      res.pushRoles++;
     } else if (yaku) {
       const cands = eligibleEffects(yaku, bonusActive);
       effect = cands.length ? pickWeighted(cands, (e) => rates[e]) : 'none';
@@ -266,28 +253,20 @@ function runChapter(chapter: string, skill: Skill, spins: number, seed: number):
         ? pickWeighted(shisaTiersForYaku(yaku, bonusActive), (t) => t.weight)
         : null;
 
-    // 押し順（デフォルト順押し／ナビに従えるかは腕）
-    let seq = [0, 1, 2];
-    if (role.pressOrder && rng() < skill.naviFollow) {
-      seq =
-        role.pressOrder.type === 'exact'
-          ? [...role.pressOrder.order]
-          : [role.pressOrder.reel, ...[0, 1, 2].filter((r) => r !== role.pressOrder!.reel)];
-    }
+    // 本作は順押し前提（左→中→右）。押し順は停止制御の入力であって役ではない。
+    const seq = [0, 1, 2];
 
     const stopped: (VisibleColumn | null)[] = [null, null, null];
     const stopOrder: number[] = [];
-    const isAimLike = effect === 'aim' || effect === 'quiz' || effect === 'push';
+    const isAimLike = effect === 'aim' || effect === 'quiz';
     const singleIds = yakuList.singleYaku.map((y) => y.id);
     // main.ts activeFlagYakuIds と同じ: miss=[] / single・押し順ミス=1枚役グループ / 通常=[表示役]
     const flagIdsNow = (): string[] => {
       if (role.kind === 'miss') return [];
       if (role.kind === 'single') return singleIds;
-      if (!pressOrderSatisfied(role.pressOrder, stopOrder)) return singleIds;
       return role.yakuId ? [role.yakuId] : [];
     };
-    const singleSpill = (): boolean =>
-      role.kind === 'single' || !pressOrderSatisfied(role.pressOrder, stopOrder);
+    const singleSpill = (): boolean => role.kind === 'single';
 
     // 示唆は「どれかな…？」＝プレイヤーは候補から1つを選んで狙う（正解は知らない）。
     // 発展（内部役の図柄が中段に来る）以降は、明かされた役を狙える。
@@ -300,8 +279,7 @@ function runChapter(chapter: string, skill: Skill, spins: number, seed: number):
     let stopN = 0;
     for (const idx of seq) {
       stopOrder.push(idx);
-      const displayOk = pressOrderSatisfied(role.pressOrder, stopOrder);
-      const flagId = displayOk ? role.yakuId : null;
+      const flagId = role.yakuId;
       const target = flagId ? (yakuById.get(flagId) ?? null) : null;
       const cells = reels[idx];
 
@@ -477,11 +455,10 @@ function runChapter(chapter: string, skill: Skill, spins: number, seed: number):
       win += payout.baseMultiplier.single;
       res.singleWins++;
     }
-    const flagId = pressOrderSatisfied(role.pressOrder, stopOrder) ? role.yakuId : null;
+    const flagId = role.yakuId;
     if ((effect === 'aim' || effect === 'quiz') && flagId) {
       win += calc.aimBonus(hits.filter((h) => h.yaku.id === flagId), bonusActive, streakMult);
     }
-    if (role.pressOrder && willHit) res.pushHit++;
 
     const isPremiumNow = hits.some((h) => h.yaku.category === 'premium');
     const isRegNow = !isPremiumNow && hits.some((h) => h.yaku.category === 'bonus');
@@ -531,11 +508,11 @@ describe.skipIf(!RUN)('出玉シミュレーション（新モデル）', () => 
   it('腕別の機械割・突入率・ボーナス平均を測る', () => {
     const SPINS = 200000;
     const lines: string[] = [];
-    lines.push('腕      機械割   通常時純増  ボ中純増  突入(1/G)  BIG平均  REG平均  押し順的中  示唆発展  ランプ  チェリー重複');
+    lines.push('腕      機械割   通常時純増  ボ中純増  突入(1/G)  BIG平均  REG平均  示唆発展  ランプ  チェリー重複');
     for (const skill of SKILLS) {
       let bet = 0, win = 0, nbet = 0, nwin = 0, big = 0, reg = 0;
       let bspins = 0, bigPay = 0, regPay = 0;
-      let pushRoles = 0, pushHit = 0, spins = 0;
+      let spins = 0;
       let shisaSpins = 0, shisaEsc = 0, lampB = 0, cherryB = 0;
       CHAPTERS.forEach((ch, i) => {
         const r = runChapter(ch, skill, SPINS / CHAPTERS.length, 12345 + i * 977);
@@ -543,7 +520,6 @@ describe.skipIf(!RUN)('出玉シミュレーション（新モデル）', () => 
         nbet += r.normalBet; nwin += r.normalWin;
         big += r.big; reg += r.reg;
         bspins += r.bonusSpins; bigPay += r.bigPayout; regPay += r.regPayout;
-        pushRoles += r.pushRoles; pushHit += r.pushHit;
         shisaSpins += r.shisaSpins; shisaEsc += r.shisaEscalated;
         lampB += r.lampBonus; cherryB += r.cherryBonus;
         spins += r.spins;
@@ -557,7 +533,6 @@ describe.skipIf(!RUN)('出玉シミュレーション（新モデル）', () => 
         `${skill.name.padEnd(5)} ${rtp.toFixed(1).padStart(6)}% ${normalNet.toFixed(2).padStart(9)}枚 ` +
         `${bonusNet.toFixed(2).padStart(7)}枚 ${('1/' + entry.toFixed(0)).padStart(9)} ` +
         `${(bigPay / Math.max(1, big)).toFixed(0).padStart(6)}枚 ${(regPay / Math.max(1, reg)).toFixed(0).padStart(6)}枚 ` +
-        `${((pushHit / Math.max(1, pushRoles)) * 100).toFixed(0).padStart(9)}% ` +
         `${((shisaEsc / Math.max(1, shisaSpins)) * 100).toFixed(0).padStart(7)}% ` +
         `${(lampB / Math.max(1, big + reg) * 100).toFixed(0).padStart(5)}% ` +
         `${(cherryB / Math.max(1, big + reg) * 100).toFixed(0).padStart(9)}%`,

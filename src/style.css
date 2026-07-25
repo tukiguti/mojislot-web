@@ -3180,57 +3180,6 @@ body.shake {
 
 /* ===== 「狙え！」演出（テンパイ時の煽り） ===== */
 /* 押し順ナビ（押し順役） */
-.push-order-head {
-  position: fixed;
-  transform: translate(-50%, 0) scale(0.6);
-  opacity: 0;
-  z-index: 161;
-  pointer-events: none;
-  font-weight: 800;
-  font-size: 18px;
-  letter-spacing: 0.15em;
-  color: #d7ffb0;
-  text-shadow: 0 0 6px rgba(0, 0, 0, 0.9), 0 0 14px #6fd83a;
-  transition: transform 240ms cubic-bezier(0.2, 1.4, 0.4, 1), opacity 200ms ease-out;
-}
-.push-order-head.show {
-  transform: translate(-50%, 0) scale(1);
-  opacity: 1;
-}
-.push-order-head.out {
-  opacity: 0;
-}
-.push-badge {
-  position: fixed;
-  transform: translate(-50%, -6px) scale(0.3);
-  opacity: 0;
-  z-index: 161;
-  pointer-events: none;
-  /* 幅/高さ/文字サイズは順位に応じて JS 側で指定する（次に押すものほど大きい） */
-  text-align: center;
-  border-radius: 50%;
-  font-weight: 900;
-  color: #0b1f05;
-  background: radial-gradient(circle at 40% 35%, #d7ff9c, #6fd83a 70%);
-  border: 3px solid #eaffd0;
-  box-shadow: 0 0 12px #6fd83a, 0 2px 6px rgba(0, 0, 0, 0.6);
-  transition: transform 260ms cubic-bezier(0.2, 1.6, 0.4, 1), opacity 200ms ease-out;
-}
-.push-badge.show {
-  transform: translate(-50%, 0) scale(1);
-  opacity: 1;
-}
-.push-badge.free {
-  color: #eafff0;
-  background: rgba(20, 40, 15, 0.72);
-  border-color: rgba(150, 220, 120, 0.6);
-  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.6);
-  font-size: 15px;
-}
-.push-badge.out {
-  transform: translate(-50%, -10px) scale(0.7);
-  opacity: 0;
-}
 
 .aim-notice {
   position: fixed;
@@ -4374,29 +4323,8 @@ body.shake {
 }
 
 
-/* 次に押すリールのバッジ（最大サイズ）は脈動させて視線を集める */
-.push-badge.next {
-  box-shadow:
-    0 0 20px #6fd83a,
-    0 0 34px rgba(111, 216, 58, 0.6),
-    0 2px 6px rgba(0, 0, 0, 0.6);
-  animation: push-badge-pulse 0.9s ease-in-out infinite;
-}
 
-@keyframes push-badge-pulse {
-  0%,
-  100% {
-    filter: brightness(1);
-  }
-  50% {
-    filter: brightness(1.28);
-  }
-}
 
-/* 押し順ナビの候補提示（tier色ではない中立色） */
-.shisa-notice.tier-push {
-  color: #9ee870;
-}
 
 /* ---- 狙え：各リールの上に「狙う図柄」を1文字 -------------------------- */
 .aim-reel-symbol {

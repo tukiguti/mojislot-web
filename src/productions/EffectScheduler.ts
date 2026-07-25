@@ -1,6 +1,6 @@
 // none/shisa/quiz/aim はレート抽選で選ぶ。push（押し順ナビ）は押し順役に対して強制付与され、
 // レート抽選（roll / rollAvailable）の対象には入らない。
-export type EffectType = 'none' | 'shisa' | 'quiz' | 'aim' | 'push';
+export type EffectType = 'none' | 'shisa' | 'quiz' | 'aim';
 
 export interface EffectRates {
   none: number;

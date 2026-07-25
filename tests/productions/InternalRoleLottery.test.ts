@@ -1,9 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { InternalRole, InternalRoleRate, YakuList } from '../../src/data/schemas';
-import {
-  InternalRoleLottery,
-  pressOrderSatisfied,
-} from '../../src/productions/InternalRoleLottery';
+import { InternalRoleLottery } from '../../src/productions/InternalRoleLottery';
 
 const rate = (value: number): InternalRoleRate => ({
   default: value,
@@ -16,8 +13,7 @@ const role = (
   kind: InternalRole['kind'],
   displayYakuId: string | null,
   value: number,
-  pressOrder: InternalRole['pressOrder'] = null,
-): InternalRole => ({ id, kind, displayYakuId, pressOrder, rate: rate(value) });
+): InternalRole => ({ id, kind, displayYakuId, rate: rate(value) });
 
 const yakuList: YakuList = {
   mode: 'test',
@@ -86,56 +82,15 @@ describe('InternalRoleLottery', () => {
     expect(result.yakuId).not.toBe('cherry');
   });
 
-  it('押し順役は pressOrder を持ったまま返る', () => {
-    const only: YakuList = {
-      ...yakuList,
-      internalRoles: [role('bell_r', 'core', 'bell', 1, { type: 'first', reel: 2 })],
-    };
-    const lottery = new InternalRoleLottery(only, () => 0.5);
-    expect(lottery.draw('default')).toMatchObject({
-      roleId: 'bell_r',
-      yakuId: 'bell',
-      pressOrder: { type: 'first', reel: 2 },
-    });
-  });
 
-  it('forYaku は押し順不問の内部役を優先する（強制演出が必ず狙えるように）', () => {
+  it('forYaku は指定した表示役の内部役を返す（強制演出用）', () => {
     const list: YakuList = {
       ...yakuList,
-      internalRoles: [
-        role('bell_l', 'core', 'bell', 0.5, { type: 'first', reel: 0 }),
-        role('bell_any', 'core', 'bell', 0.5),
-      ],
+      internalRoles: [role('bell_any', 'core', 'bell', 1.0)],
     };
     const lottery = new InternalRoleLottery(list, () => 0);
     const bell = list.coreYaku.find((y) => y.id === 'bell')!;
-    expect(lottery.forYaku(bell)).toMatchObject({
-      roleId: 'bell_any',
-      pressOrder: null,
-    });
+    expect(lottery.forYaku(bell)).toMatchObject({ roleId: 'bell_any', yakuId: 'bell' });
   });
 });
 
-describe('pressOrderSatisfied', () => {
-  it('押し順なし(null)は常に満たす', () => {
-    expect(pressOrderSatisfied(null, [2, 0, 1])).toBe(true);
-  });
-
-  it('first: 第1停止が一致すれば満たす', () => {
-    const order = { type: 'first', reel: 1 } as const;
-    expect(pressOrderSatisfied(order, [])).toBe(true); // まだ未確定
-    expect(pressOrderSatisfied(order, [1])).toBe(true);
-    expect(pressOrderSatisfied(order, [1, 0, 2])).toBe(true);
-    expect(pressOrderSatisfied(order, [0])).toBe(false);
-  });
-
-  it('exact: 停止済みの並びが先頭一致であること', () => {
-    const order = { type: 'exact', order: [2, 1, 0] } as const;
-    expect(pressOrderSatisfied(order, [])).toBe(true);
-    expect(pressOrderSatisfied(order, [2])).toBe(true);
-    expect(pressOrderSatisfied(order, [2, 1])).toBe(true);
-    expect(pressOrderSatisfied(order, [2, 1, 0])).toBe(true);
-    expect(pressOrderSatisfied(order, [2, 0])).toBe(false);
-    expect(pressOrderSatisfied(order, [1])).toBe(false);
-  });
-});

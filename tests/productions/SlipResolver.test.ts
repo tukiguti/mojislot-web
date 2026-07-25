@@ -19,7 +19,7 @@ const yakuList = (
   singleYaku: [],
   // 蹴りの検証では抽選しないので、内部役はハズレ1件だけ置く（スキーマ上の合計＝1）。
   internalRoles: [
-    { id: 'miss', kind: 'miss', displayYakuId: null, pressOrder: null, rate: { default: 1, rescue: 1, bonus: 1 } },
+    { id: 'miss', kind: 'miss', displayYakuId: null, rate: { default: 1, rescue: 1, bonus: 1 } },
   ],
 });
 

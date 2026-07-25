@@ -2,7 +2,6 @@ import type {
   InternalRole,
   InternalRoleKind,
   InternalRoleState,
-  PressOrder,
   Yaku,
   YakuList,
 } from '../data/schemas';
@@ -15,8 +14,6 @@ export interface InternalRoleResult {
   /** 揃えさせたい表示役ID。miss / single は null。 */
   yakuId: string | null;
   yakuName: string | null;
-  /** 押し順条件。null=不問。 */
-  pressOrder: PressOrder | null;
 }
 
 export interface InternalRoleDrawOptions {
@@ -29,26 +26,9 @@ export interface InternalRoleDrawOptions {
 type RandomSource = () => number;
 
 /**
- * 押し順条件を満たしているか（途中経過も判定する）。
- * stoppedOrder は「停止した順」に並んだリールindexの配列。
- * まだ確定していない段階では true（＝まだ外していない）を返す。
- */
-export function pressOrderSatisfied(
-  pressOrder: PressOrder | null,
-  stoppedOrder: readonly number[],
-): boolean {
-  if (!pressOrder) return true;
-  if (pressOrder.type === 'first') {
-    if (stoppedOrder.length === 0) return true;
-    return stoppedOrder[0] === pressOrder.reel;
-  }
-  // exact: 停止済みの並びが指定順の先頭一致であること
-  return stoppedOrder.every((reel, i) => reel === pressOrder.order[i]);
-}
-
-/**
  * レバーON時の内部役抽選。
- * 表示役ではなく**内部役テーブル**（押し順違い・1枚役を含む）から直接抽選する。
+ * 表示役ではなく**内部役テーブル**（1枚役を含む）から直接抽選する。
+ * 押し順は役の種類ではなく停止制御の入力なので、ここには現れない。
  */
 export class InternalRoleLottery {
   private readonly roles: readonly InternalRole[];
@@ -87,11 +67,9 @@ export class InternalRoleLottery {
     return this.toResult(chosen);
   }
 
-  /** 特定の表示役を強制する（フリーズ・確定告知ランプ用）。押し順不問の内部役を優先。 */
+  /** 特定の表示役を強制する（フリーズ・確定告知ランプ用）。 */
   forYaku(yaku: Yaku): InternalRoleResult {
-    const matches = this.roles.filter((r) => r.displayYakuId === yaku.id);
-    const unconditional = matches.find((r) => r.pressOrder === null);
-    const role = unconditional ?? matches[0];
+    const role = this.roles.find((r) => r.displayYakuId === yaku.id);
     if (!role) {
       // テーブルに無い表示役を強制した場合は押し順不問の擬似内部役として扱う。
       return {
@@ -99,7 +77,6 @@ export class InternalRoleLottery {
         kind: 'core',
         yakuId: yaku.id,
         yakuName: yaku.name,
-        pressOrder: null,
       };
     }
     return this.toResult(role);
@@ -119,7 +96,6 @@ export class InternalRoleLottery {
       kind: role.kind,
       yakuId: role.displayYakuId,
       yakuName: yaku?.name ?? null,
-      pressOrder: role.pressOrder,
     };
   }
 
@@ -129,7 +105,6 @@ export class InternalRoleLottery {
       kind: 'miss',
       yakuId: null,
       yakuName: null,
-      pressOrder: null,
     };
   }
 

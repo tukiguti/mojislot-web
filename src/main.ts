@@ -28,7 +28,6 @@ import { getMemberId, getMemberName } from './productions/Member';
 import { NearMissDetector } from './productions/NearMissDetector';
 import {
   InternalRoleLottery,
-  pressOrderSatisfied,
   type InternalRoleResult,
 } from './productions/InternalRoleLottery';
 import {
@@ -44,8 +43,6 @@ import {
   hideAimNotice,
   showShisaNotice,
   hideShisaNotice,
-  showPushOrder,
-  hidePushOrder,
   setEffectHost,
   showEntryCharge,
   showFreezeBanner,
@@ -100,8 +97,8 @@ import './style.css';
 
 const REEL_GAP = 16;
 const REEL_COUNT = 3;
-// デバッグ等で明示指定できる演出。push（押し順ナビ）は押し順役に自動付与されるため含めない。
-type ForcedEffect = Exclude<EffectType, 'none' | 'push'>;
+// デバッグ等で明示指定できる演出。
+type ForcedEffect = Exclude<EffectType, 'none'>;
 const CANVAS_W = 600;
 const CANVAS_H = 732;
 // 液晶エリア（演出液晶＋マスコット領域）の高さ。
@@ -245,8 +242,6 @@ export async function bootstrap() {
   let currentShisaTier: ShisaTier | null = null;
   /** 示唆が「狙え！」へ発展済みか（1ゲーム1回だけ発展させる）。 */
   let shisaEscalated = false;
-  /** 押し順ナビの表示内容（停止のたびに再描画して進行させる）。 */
-  let currentPushSlots: readonly (number | null)[] | null = null;
 
   // === フリーズ演出の状態 ===
   // freezeActive: シーケンス中は全ユーザー入力をブロックし、stopReel の引き込み/蹴りも無効化する。
@@ -505,24 +500,6 @@ export async function bootstrap() {
     red: 'shisaBonus',
     gold: 'shisaPremium',
   };
-  /**
-   * 押し順バッジを現在の停止状況で描き直す。押し終わったリールのバッジは消え、
-   * 残りが繰り上がって次に押すものが一番大きくなる。
-   * 見出しは候補提示（どれだ？）と重なるので出さない。
-   */
-  const renderPushOrder = () => {
-    if (!currentPushSlots) return;
-    showPushOrder({
-      slots: currentPushSlots,
-      stopped: engines.map((e) => e.state.get() === 'stopped'),
-      headText: null,
-      reelCentersXFrac: [0, 1, 2].map(
-        (i) => (startX + i * (CELL_WIDTH + REEL_GAP) + CELL_WIDTH / 2) / CANVAS_W,
-      ),
-      reelTopYFrac: reelY / CANVAS_H,
-    });
-  };
-
   interface EffectOptions {
     targetYaku?: Yaku | null;
     shisaTier?: ShisaTier | null;
@@ -545,7 +522,6 @@ export async function bootstrap() {
       'shisa',
       'quiz',
       'aim',
-      'push',
       'tier-blue',
       'tier-green',
       'tier-red',
@@ -603,39 +579,6 @@ export async function bootstrap() {
       });
       sfx.shisa(); // 既存の示唆 SE を流用
       jinSpeech.say('shisa');
-    } else if (effect === 'push') {
-      effectStatusEl.textContent = '押し順';
-      effectStatusEl.classList.add('push');
-      jinState.set('shisa');
-      const po = currentRound?.internalRole.pressOrder ?? null;
-      // reelIndex → 押す順番(1始まり) or null(自由)
-      const slots: (number | null)[] = [null, null, null];
-      if (po?.type === 'first') {
-        slots[po.reel] = 1;
-      } else if (po?.type === 'exact') {
-        po.order.forEach((reel, i) => {
-          slots[reel] = i + 1;
-        });
-      }
-      // 停止のたびにバッジを更新する（押したものを消し、次を大きくする）ため保持。
-      currentPushSlots = slots;
-      renderPushOrder();
-      // 押し順ナビは「順番」しか教えないので、**狙う役の候補**も並べて出す。
-      // これが無いと「順に押すだけで取れる」ように見えてしまう（目押しも要る）。
-      const pushCands = options.shisaCandidates ?? [];
-      if (pushCands.length > 0) {
-        showShisaNotice({
-          color: 'push',
-          headline: 'どれだ？',
-          candidates: pushCands.map((y) => ({
-            name: y.name,
-            symbols: y.symbols,
-            colors: y.symbols.map((s, i) => colorResolver.cssFor(i, s)),
-          })),
-        });
-      }
-      sfx.shisa();
-      jinSpeech.say('shisa');
     } else {
       effectStatusEl.textContent = '通常';
       jinState.set('idle');
@@ -662,8 +605,8 @@ export async function bootstrap() {
 
   /**
    * この tier が出た時に「当たりうる役」の一覧（吹き出しの候補表示）。
-   * 内部役テーブルから逆算する：押し順役は押し順ナビ（push）になるので除外し、
-   * 現在の状態でレートが立っていて、かつその tier を引ける役だけを並べる。
+   * 内部役テーブルから逆算する：現在の状態でレートが立っていて、
+   * かつその tier を引ける役だけを並べる。
    * ＝ 表示される候補は必ず本当に当たりうるもので、嘘をつかない。
    */
   const shisaCandidateYakus = (tier: ShisaTier): Yaku[] => {
@@ -671,32 +614,11 @@ export async function bootstrap() {
     const seen = new Set<string>();
     const out: Yaku[] = [];
     for (const role of yakuList.internalRoles) {
-      if (role.pressOrder) continue;
       if (!role.displayYakuId || role.rate[state] <= 0) continue;
       if (seen.has(role.displayYakuId)) continue;
       const yaku = allYakusFlat.find((y) => y.id === role.displayYakuId);
       if (!yaku) continue;
       if (!shisaTiersForYaku(yaku).some((t) => t.color === tier.color)) continue;
-      seen.add(yaku.id);
-      out.push(yaku);
-    }
-    return out;
-  };
-
-  /**
-   * 押し順ナビで「当たりうる役」の一覧。押し順条件つきの内部役から逆算する。
-   * ナビは順番しか教えないので、この候補提示で「どれかを狙う必要がある」ことを伝える。
-   */
-  const pushCandidateYakus = (): Yaku[] => {
-    const state = activeInternalRoleState();
-    const seen = new Set<string>();
-    const out: Yaku[] = [];
-    for (const role of yakuList.internalRoles) {
-      if (!role.pressOrder) continue;
-      if (!role.displayYakuId || role.rate[state] <= 0) continue;
-      if (seen.has(role.displayYakuId)) continue;
-      const yaku = allYakusFlat.find((y) => y.id === role.displayYakuId);
-      if (!yaku) continue;
       seen.add(yaku.id);
       out.push(yaku);
     }
@@ -751,15 +673,10 @@ export async function bootstrap() {
       cabinetEl.dataset.internalRole = `${role.kind}:${role.yakuId ?? '-'}`;
     }
     shisaEscalated = false;
-    currentPushSlots = null;
     applyEffect(effect, {
       targetYaku: yaku,
       shisaTier,
-      shisaCandidates: shisaTier
-        ? shisaCandidateYakus(shisaTier)
-        : effect === 'push'
-          ? pushCandidateYakus()
-          : undefined,
+      shisaCandidates: shisaTier ? shisaCandidateYakus(shisaTier) : undefined,
     });
   };
 
@@ -1251,7 +1168,6 @@ export async function bootstrap() {
     for (const v of views) v.stopTenpaiFlash();
     hideAimNotice();
     hideShisaNotice();
-    hidePushOrder();
     quizState.reset();
     applyEffect('none');
     // AUTO の狙い状態もクリア
@@ -1348,13 +1264,10 @@ export async function bootstrap() {
     } else {
       const role = internalRoleLottery.draw(activeInternalRoleState());
       const yaku = internalRoleLottery.yakuFor(role);
-      // 押し順役は押し順ナビ（push）を強制付与＝順番を提示。順不問の役は従来のレート抽選。
-      // miss / 1枚役（表示役なし）は none。
-      const effect: EffectType = role.pressOrder
-        ? 'push'
-        : yaku
-          ? scheduler.rollAvailable(eligibleEffectsForYaku(yaku))
-          : 'none';
+      // miss / 1枚役（表示役なし）は none。それ以外は表現できる演出からレート抽選。
+      const effect: EffectType = yaku
+        ? scheduler.rollAvailable(eligibleEffectsForYaku(yaku))
+        : 'none';
       activateRound(role, effect, 'lottery');
     }
 
@@ -1379,22 +1292,11 @@ export async function bootstrap() {
   };
 
   /**
-   * 押し順を外したか（押し順役のみ）。実機の押し順ベルと同じで、順を外した瞬間に
-   * 当選役は引き込まれなくなり、1枚役（2個テンパイ）へこぼれる。
-   */
-  const pressOrderMissed = (): boolean =>
-    currentRound !== null &&
-    !pressOrderSatisfied(currentRound.internalRole.pressOrder, stopOrder);
-
-  /**
    * 押し順を守れている時だけ有効な「演出・引き込みの対象になる表示役」ID。
    * miss／1枚役フラグ／押し順ミス後は null。
    */
-  const activeDisplayYakuId = (): string | null => {
-    if (!currentRound) return null;
-    if (pressOrderMissed()) return null;
-    return currentRound.internalRole.yakuId;
-  };
+  const activeDisplayYakuId = (): string | null =>
+    currentRound?.internalRole.yakuId ?? null;
 
   /** 1枚役グループのID一覧（singleYaku のどれが揃ってもよい）。 */
   const singleYakuIds = yakuList.singleYaku.map((y) => y.id);
@@ -1410,14 +1312,12 @@ export async function bootstrap() {
     const role = currentRound.internalRole;
     if (role.kind === 'miss') return [];
     if (role.kind === 'single') return singleYakuIds;
-    if (pressOrderMissed()) return singleYakuIds;
     return role.yakuId ? [role.yakuId] : [];
   };
 
-  /** 1枚役の自動引き込みが働くゲームか（1枚役フラグ or 押し順ミス確定後）。 */
+  /** 1枚役の自動引き込みが働くゲームか。 */
   const singleSpillActive = (): boolean =>
-    currentRound !== null &&
-    (currentRound.internalRole.kind === 'single' || pressOrderMissed());
+    currentRound?.internalRole.kind === 'single';
 
   const currentInternalYaku = (): Yaku | null => {
     const id = activeDisplayYakuId();
@@ -1463,13 +1363,11 @@ export async function bootstrap() {
     return null;
   };
 
-  /** aim/quiz/push は第1・第2停止にも中段引き込みが効く（＝ナビ/予告に従えば取れる）。 */
+  /** aim/quiz は第1・第2停止にも中段引き込みが効く（＝予告に従えば取れる）。 */
   const isAimLikeEffect = (): boolean =>
-    currentEffect === 'aim' ||
-    currentEffect === 'quiz' ||
-    currentEffect === 'push';
+    currentEffect === 'aim' || currentEffect === 'quiz';
 
-  /** 引き込みの対象役ID（aim=予告役 / quiz=答えの役 / push=押し順役）。押し順を外せば null。 */
+  /** 引き込みの対象役ID（aim=予告役 / quiz=答えの役）。 */
   const pullInTargetYakuId = (): string | null =>
     isAimLikeEffect() ? activeDisplayYakuId() : null;
 
@@ -1681,9 +1579,6 @@ export async function bootstrap() {
       result.errorMs <= BITA_MS ? '#ffd700' : '#ff5566',
     );
 
-    // 押し順ナビ：押したリールのバッジを消し、残りを繰り上げて次を大きくする。
-    if (currentEffect === 'push') renderPushOrder();
-
     // 示唆 →「狙え！」への発展。
     // 内部役の図柄がこの停止で中段に来た＝候補が1役に絞れたので、吹き出しを差し替える。
     // 「本当に当たっている役」でしか発展しないので、ガセにはならない。
@@ -1739,8 +1634,7 @@ export async function bootstrap() {
       // 全停止したので「狙え！」演出は閉じる（レバーオン示唆として出た場合）
       hideAimNotice();
       hideShisaNotice();
-      hidePushOrder();
-      // 物理表示を5ラインで検出し、内部役と一致するラインだけを成立扱いにする。
+        // 物理表示を5ラインで検出し、内部役と一致するラインだけを成立扱いにする。
       const grid = extractGrid(engines);
       const middleSymbols = grid[1] as [string, string, string]; // 既存UI互換用
       const displayedHits = judge.judgeAll(grid).hits;
@@ -2057,7 +1951,6 @@ export async function bootstrap() {
     quizState.reset();
     hideAimNotice();
     hideShisaNotice();
-    hidePushOrder();
     updateButtons();
     sfx.freeze();
     showFreezeBanner();
@@ -2130,18 +2023,8 @@ export async function bootstrap() {
   };
 
   /** レバー直後にコールして、演出が表す内部役をAUTOの狙い役にする。 */
-  /**
-   * AUTO がリールを止める順番。デフォルトは順押し（左→中→右）。
-   * 押し順役ならナビの順に従う（first=指定リールを最初に、exact=完全指定）。
-   */
-  const autoStopSequence = (): number[] => {
-    const po = currentRound?.internalRole.pressOrder ?? null;
-    if (po?.type === 'exact') return [...po.order];
-    if (po?.type === 'first') {
-      return [po.reel, ...[0, 1, 2].filter((r) => r !== po.reel)];
-    }
-    return [0, 1, 2];
-  };
+  /** AUTO がリールを止める順番。本作は**順押し前提**（左→中→右）。 */
+  const autoStopSequence = (): number[] => [0, 1, 2];
 
   const setupAutoTarget = () => {
     if (announcedBonus && announcedRole) {

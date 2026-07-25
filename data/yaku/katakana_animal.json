@@ -92,7 +92,6 @@
       "id": "miss",
       "kind": "miss",
       "displayYakuId": null,
-      "pressOrder": null,
       "rate": {
         "default": 0.2246894374,
         "rescue": 0.1421153489,
@@ -103,7 +102,6 @@
       "id": "single",
       "kind": "single",
       "displayYakuId": null,
-      "pressOrder": null,
       "rate": {
         "default": 0.2052853684,
         "rescue": 0.1869820784,
@@ -114,7 +112,6 @@
       "id": "usagi",
       "kind": "core",
       "displayYakuId": "usagi",
-      "pressOrder": null,
       "rate": {
         "default": 0.13198094,
         "rescue": 0.1507004247,
@@ -122,88 +119,29 @@
       }
     },
     {
-      "id": "tanuki_first_l",
+      "id": "tanuki",
       "kind": "core",
       "displayYakuId": "tanuki",
-      "pressOrder": {
-        "type": "first",
-        "reel": 0
-      },
       "rate": {
-        "default": 0.0439936505,
-        "rescue": 0.0502334749,
-        "bonus": 0.0808171707
+        "default": 0.1319809515,
+        "rescue": 0.1507004247,
+        "bonus": 0.2424515121
       }
     },
     {
-      "id": "tanuki_first_m",
-      "kind": "core",
-      "displayYakuId": "tanuki",
-      "pressOrder": {
-        "type": "first",
-        "reel": 1
-      },
-      "rate": {
-        "default": 0.0439936505,
-        "rescue": 0.0502334749,
-        "bonus": 0.0808171707
-      }
-    },
-    {
-      "id": "tanuki_first_r",
-      "kind": "core",
-      "displayYakuId": "tanuki",
-      "pressOrder": {
-        "type": "first",
-        "reel": 2
-      },
-      "rate": {
-        "default": 0.0439936505,
-        "rescue": 0.0502334749,
-        "bonus": 0.0808171707
-      }
-    },
-    {
-      "id": "tokage_exact_asc",
+      "id": "tokage",
       "kind": "core",
       "displayYakuId": "tokage",
-      "pressOrder": {
-        "type": "exact",
-        "order": [
-          0,
-          1,
-          2
-        ]
-      },
       "rate": {
-        "default": 0.0494928539,
-        "rescue": 0.060280172,
-        "bonus": 0.0909193131
-      }
-    },
-    {
-      "id": "tokage_exact_desc",
-      "kind": "core",
-      "displayYakuId": "tokage",
-      "pressOrder": {
-        "type": "exact",
-        "order": [
-          2,
-          1,
-          0
-        ]
-      },
-      "rate": {
-        "default": 0.0494928539,
-        "rescue": 0.060280172,
-        "bonus": 0.0909193131
+        "default": 0.0989857078,
+        "rescue": 0.120560344,
+        "bonus": 0.1818386262
       }
     },
     {
       "id": "kirin",
       "kind": "core",
       "displayYakuId": "kirin",
-      "pressOrder": null,
       "rate": {
         "default": 0.13198094,
         "rescue": 0.1507004247,
@@ -214,7 +152,6 @@
       "id": "sai",
       "kind": "cherry",
       "displayYakuId": "sai",
-      "pressOrder": null,
       "rate": {
         "default": 0.0659904644,
         "rescue": 0.0803735556,
@@ -225,7 +162,6 @@
       "id": "reg",
       "kind": "reg",
       "displayYakuId": "reg",
-      "pressOrder": null,
       "rate": {
         "default": 0.0064278995,
         "rescue": 0.012762431,
@@ -236,7 +172,6 @@
       "id": "dragon",
       "kind": "big",
       "displayYakuId": "dragon",
-      "pressOrder": null,
       "rate": {
         "default": 0.0013391455,
         "rescue": 0.002552484,
@@ -247,7 +182,6 @@
       "id": "inko",
       "kind": "big",
       "displayYakuId": "inko",
-      "pressOrder": null,
       "rate": {
         "default": 0.0013391455,
         "rescue": 0.002552484,
