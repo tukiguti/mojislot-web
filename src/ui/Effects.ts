@@ -258,29 +258,33 @@ export function showAimNotice(opts: AimNoticeOptions): void {
     label.textContent = opts.yakuName ? `狙え！ ${opts.yakuName}` : '狙え！';
     notice.appendChild(label);
   }
-  const symbolsEl = document.createElement('div');
-  symbolsEl.className = 'aim-notice-symbols';
-  opts.symbols.slice(0, 3).forEach((s, i) => {
-    const span = document.createElement('span');
-    span.textContent = s;
-    // 文字色を実リールのセル色に合わせる（揃った時の見た目と一致させる）。
-    const c = opts.colors?.[i];
-    if (c) {
-      span.style.color = c;
-      span.style.borderColor = c;
-      span.style.textShadow = `0 0 4px rgba(0,0,0,1), 0 0 10px ${c}`;
-    }
-    symbolsEl.appendChild(span);
-  });
-  notice.appendChild(symbolsEl);
   document.body.appendChild(notice);
 
-  // 3 リール全てに下向き矢印（プレイヤーに「ここで狙え」を明示）。
-  // 矢印先端をリール上端の少し上に置く（リールを指す）。
+  // 狙う図柄は**各リールの上**に1文字ずつ置く（どのリールで何を狙うかを直結させる）。
+  // 中央にまとめて並べる旧方式は廃止（リール上の表示と二重になるため）。
   const reelTopFrac = opts.reelTopYFrac ?? 260 / 600;
   const reelTopY = rect.top + rect.height * reelTopFrac - 8;
+  const symbolY = rect.top + rect.height * reelTopFrac - 66;
   for (let i = 0; i < 3; i++) {
     if (opts.arrowReels && !opts.arrowReels[i]) continue;
+    const sym = opts.symbols[i];
+    if (sym !== undefined) {
+      const tile = document.createElement('div');
+      tile.className = 'aim-reel-symbol';
+      if (opts.hasPremium) tile.classList.add('premium');
+      tile.textContent = sym;
+      const c = opts.colors?.[i];
+      if (c) {
+        tile.style.color = c;
+        tile.style.borderColor = c;
+        tile.style.textShadow = `0 0 4px rgba(0,0,0,1), 0 0 10px ${c}`;
+      }
+      tile.style.left = `${rect.left + rect.width * reelCenterFracs[i]}px`;
+      tile.style.top = `${symbolY}px`;
+      tile.style.animationDelay = `${i * 120}ms`;
+      document.body.appendChild(tile);
+      requestAnimationFrame(() => tile.classList.add('show'));
+    }
     const arrow = document.createElement('div');
     arrow.className = 'aim-arrow';
     if (opts.hasPremium) arrow.classList.add('premium');
@@ -295,10 +299,12 @@ export function showAimNotice(opts: AimNoticeOptions): void {
 }
 
 export function hideAimNotice(): void {
-  document.querySelectorAll('.aim-notice, .aim-arrow').forEach((el) => {
-    el.classList.add('out');
-    window.setTimeout(() => el.remove(), 240);
-  });
+  document
+    .querySelectorAll('.aim-notice, .aim-arrow, .aim-reel-symbol')
+    .forEach((el) => {
+      el.classList.add('out');
+      window.setTimeout(() => el.remove(), 240);
+    });
 }
 
 /**
@@ -317,8 +323,10 @@ export interface ShisaCandidate {
 
 export interface ShisaNoticeOptions {
   candidates: readonly ShisaCandidate[];
-  /** tier色。枠と見出しの色に反映する。 */
-  color: 'blue' | 'green' | 'red' | 'gold';
+  /** tier色。枠と見出しの色に反映する。push=押し順ナビ用の中立色。 */
+  color: 'blue' | 'green' | 'red' | 'gold' | 'push';
+  /** 見出し文（未指定なら候補数から自動）。押し順ナビは「どれだ？」を渡す。 */
+  headline?: string;
 }
 
 export function showShisaNotice(opts: ShisaNoticeOptions): void {
@@ -335,7 +343,8 @@ export function showShisaNotice(opts: ShisaNoticeOptions): void {
 
   const head = document.createElement('div');
   head.className = 'shisa-notice-head';
-  head.textContent = opts.candidates.length > 1 ? 'どれかな…？' : 'これだ…？';
+  head.textContent =
+    opts.headline ?? (opts.candidates.length > 1 ? 'どれかな…？' : 'これだ…？');
   notice.appendChild(head);
 
   const list = document.createElement('div');
@@ -383,11 +392,18 @@ export function hideShisaNotice(): void {
 export interface PushOrderOptions {
   /** reelIndex → 押す順番(1始まり) または null（自由）。length=3。 */
   slots: readonly (number | null)[];
+  /** 停止済みリール（true=停止済み）。そのリールのバッジは消し、残りを繰り上げる。 */
+  stopped?: readonly boolean[];
+  /** 見出し文。null なら見出しを出さない（候補提示と重なる時に使う）。 */
+  headText?: string | null;
   /** 各リール中心 x の canvas 幅比（0〜1）。 */
   reelCentersXFrac?: readonly number[];
   /** リール上端 y の canvas 高さ比（0〜1）。 */
   reelTopYFrac?: number;
 }
+
+/** 押し順バッジの直径（次に押すものほど大きい）。 */
+const PUSH_BADGE_SIZES = [54, 40, 32];
 
 export function showPushOrder(opts: PushOrderOptions): void {
   hidePushOrder();
@@ -396,23 +412,40 @@ export function showPushOrder(opts: PushOrderOptions): void {
   const rect = canvas.getBoundingClientRect();
   const fracs = opts.reelCentersXFrac ?? [154 / 600, 300 / 600, 446 / 600];
   const topFrac = opts.reelTopYFrac ?? 260 / 600;
-  const badgeY = rect.top + rect.height * topFrac - 16;
+  // リールに被らないよう、上端よりしっかり上へ出す。
+  const badgeY = rect.top + rect.height * topFrac - 62;
 
-  const head = document.createElement('div');
-  head.className = 'push-order-head';
-  head.textContent = '押し順ナビ';
-  head.style.left = `${rect.left + rect.width / 2}px`;
-  head.style.top = `${rect.top + 8}px`;
-  document.body.appendChild(head);
-  requestAnimationFrame(() => head.classList.add('show'));
+  if (opts.headText !== null) {
+    const head = document.createElement('div');
+    head.className = 'push-order-head';
+    head.textContent = opts.headText ?? '押し順ナビ';
+    head.style.left = `${rect.left + rect.width / 2}px`;
+    head.style.top = `${rect.top + 8}px`;
+    document.body.appendChild(head);
+    requestAnimationFrame(() => head.classList.add('show'));
+  }
+
+  // まだ押していない「順番指定あり」のリールを順位順に。先頭＝次に押すものを最大に。
+  const pending = opts.slots
+    .map((n, i) => ({ n, i }))
+    .filter((x) => x.n !== null && !opts.stopped?.[x.i])
+    .sort((a, b) => (a.n as number) - (b.n as number));
 
   opts.slots.slice(0, 3).forEach((n, i) => {
+    if (opts.stopped?.[i]) return; // 押し終わったリールのバッジは消す
+    const rank = pending.findIndex((p) => p.i === i);
+    // 順番指定なし（自由）は最小サイズで控えめに。
+    const size = rank >= 0 ? PUSH_BADGE_SIZES[Math.min(rank, 2)] : PUSH_BADGE_SIZES[2];
     const badge = document.createElement('div');
     badge.className = n === null ? 'push-badge free' : 'push-badge';
+    if (rank === 0) badge.classList.add('next');
     badge.textContent = n === null ? '自由' : String(n);
     badge.style.left = `${rect.left + rect.width * fracs[i]}px`;
     badge.style.top = `${badgeY}px`;
-    // 順番に沿ってポップさせる（1→2→3）。
+    badge.style.width = `${size}px`;
+    badge.style.height = `${size}px`;
+    badge.style.lineHeight = `${size}px`;
+    badge.style.fontSize = n === null ? `${size * 0.32}px` : `${size * 0.56}px`;
     badge.style.animationDelay = `${(n ?? 4) * 90}ms`;
     document.body.appendChild(badge);
     requestAnimationFrame(() => badge.classList.add('show'));

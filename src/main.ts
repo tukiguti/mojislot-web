@@ -245,6 +245,8 @@ export async function bootstrap() {
   let currentShisaTier: ShisaTier | null = null;
   /** 示唆が「狙え！」へ発展済みか（1ゲーム1回だけ発展させる）。 */
   let shisaEscalated = false;
+  /** 押し順ナビの表示内容（停止のたびに再描画して進行させる）。 */
+  let currentPushSlots: readonly (number | null)[] | null = null;
 
   // === フリーズ演出の状態 ===
   // freezeActive: シーケンス中は全ユーザー入力をブロックし、stopReel の引き込み/蹴りも無効化する。
@@ -503,6 +505,24 @@ export async function bootstrap() {
     red: 'shisaBonus',
     gold: 'shisaPremium',
   };
+  /**
+   * 押し順バッジを現在の停止状況で描き直す。押し終わったリールのバッジは消え、
+   * 残りが繰り上がって次に押すものが一番大きくなる。
+   * 見出しは候補提示（どれだ？）と重なるので出さない。
+   */
+  const renderPushOrder = () => {
+    if (!currentPushSlots) return;
+    showPushOrder({
+      slots: currentPushSlots,
+      stopped: engines.map((e) => e.state.get() === 'stopped'),
+      headText: null,
+      reelCentersXFrac: [0, 1, 2].map(
+        (i) => (startX + i * (CELL_WIDTH + REEL_GAP) + CELL_WIDTH / 2) / CANVAS_W,
+      ),
+      reelTopYFrac: reelY / CANVAS_H,
+    });
+  };
+
   interface EffectOptions {
     targetYaku?: Yaku | null;
     shisaTier?: ShisaTier | null;
@@ -597,13 +617,23 @@ export async function bootstrap() {
           slots[reel] = i + 1;
         });
       }
-      showPushOrder({
-        slots,
-        reelCentersXFrac: [0, 1, 2].map(
-          (i) => (startX + i * (CELL_WIDTH + REEL_GAP) + CELL_WIDTH / 2) / CANVAS_W,
-        ),
-        reelTopYFrac: reelY / CANVAS_H,
-      });
+      // 停止のたびにバッジを更新する（押したものを消し、次を大きくする）ため保持。
+      currentPushSlots = slots;
+      renderPushOrder();
+      // 押し順ナビは「順番」しか教えないので、**狙う役の候補**も並べて出す。
+      // これが無いと「順に押すだけで取れる」ように見えてしまう（目押しも要る）。
+      const pushCands = options.shisaCandidates ?? [];
+      if (pushCands.length > 0) {
+        showShisaNotice({
+          color: 'push',
+          headline: 'どれだ？',
+          candidates: pushCands.map((y) => ({
+            name: y.name,
+            symbols: y.symbols,
+            colors: y.symbols.map((s, i) => colorResolver.cssFor(i, s)),
+          })),
+        });
+      }
       sfx.shisa();
       jinSpeech.say('shisa');
     } else {
@@ -647,6 +677,26 @@ export async function bootstrap() {
       const yaku = allYakusFlat.find((y) => y.id === role.displayYakuId);
       if (!yaku) continue;
       if (!shisaTiersForYaku(yaku).some((t) => t.color === tier.color)) continue;
+      seen.add(yaku.id);
+      out.push(yaku);
+    }
+    return out;
+  };
+
+  /**
+   * 押し順ナビで「当たりうる役」の一覧。押し順条件つきの内部役から逆算する。
+   * ナビは順番しか教えないので、この候補提示で「どれかを狙う必要がある」ことを伝える。
+   */
+  const pushCandidateYakus = (): Yaku[] => {
+    const state = activeInternalRoleState();
+    const seen = new Set<string>();
+    const out: Yaku[] = [];
+    for (const role of yakuList.internalRoles) {
+      if (!role.pressOrder) continue;
+      if (!role.displayYakuId || role.rate[state] <= 0) continue;
+      if (seen.has(role.displayYakuId)) continue;
+      const yaku = allYakusFlat.find((y) => y.id === role.displayYakuId);
+      if (!yaku) continue;
       seen.add(yaku.id);
       out.push(yaku);
     }
@@ -701,10 +751,15 @@ export async function bootstrap() {
       cabinetEl.dataset.internalRole = `${role.kind}:${role.yakuId ?? '-'}`;
     }
     shisaEscalated = false;
+    currentPushSlots = null;
     applyEffect(effect, {
       targetYaku: yaku,
       shisaTier,
-      shisaCandidates: shisaTier ? shisaCandidateYakus(shisaTier) : undefined,
+      shisaCandidates: shisaTier
+        ? shisaCandidateYakus(shisaTier)
+        : effect === 'push'
+          ? pushCandidateYakus()
+          : undefined,
     });
   };
 
@@ -1625,6 +1680,9 @@ export async function bootstrap() {
       stopBtns[idx],
       result.errorMs <= BITA_MS ? '#ffd700' : '#ff5566',
     );
+
+    // 押し順ナビ：押したリールのバッジを消し、残りを繰り上げて次を大きくする。
+    if (currentEffect === 'push') renderPushOrder();
 
     // 示唆 →「狙え！」への発展。
     // 内部役の図柄がこの停止で中段に来た＝候補が1役に絞れたので、吹き出しを差し替える。
