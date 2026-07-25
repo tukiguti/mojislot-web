@@ -218,6 +218,27 @@ export const QuizListSchema = z.object({
   quizzes: z.array(QuizSchema).min(1),
 });
 
+/**
+ * 停止テーブル（第1停止）。実機のリール制御表に相当する。
+ * `firstStop[内部役ID][リールindex][押下位置] = スベリコマ数(0〜4)`。
+ *
+ * 第1停止は**まだどの役もロックし得ない**（3文字役は3リール、チェリーは2リール必要）ので
+ * 蹴りが発火せず、停止位置は完全に自由＝ここが出目（リーチ目・入り目）の設計点になる。
+ * 第2・第3停止は「当選役を揃える／非当選役を避ける」の制約でほぼ一意に決まるため、
+ * 表は持たずアルゴリズムに委ねる（[26_reel-guarantee] の②ゼロ保証もそちらで担保）。
+ *
+ * このファイルは生成できるが**手で書き換えてよい**。書き換えても②ゼロ保証は
+ * 第2・第3停止の蹴りが守るので崩れない（監査テストが全押下位置で検証する）。
+ */
+export const StopTableSchema = z.object({
+  mode: z.string(),
+  firstStop: z.record(
+    z.string(),
+    z.array(z.array(z.number().int().min(0).max(4)).length(21)).length(3),
+  ),
+});
+export type StopTable = z.infer<typeof StopTableSchema>;
+
 export type Quiz = z.infer<typeof QuizSchema>;
 export type QuizList = z.infer<typeof QuizListSchema>;
 

@@ -5,7 +5,8 @@ import { dirname, resolve } from 'node:path';
 import { SlipResolver, type VisibleColumn } from '../../src/productions/SlipResolver';
 import { YakuJudge } from '../../src/core/YakuJudge';
 import type { Grid3x3 } from '../../src/core/Paylines';
-import type { ReelConfig, YakuList } from '../../src/data/schemas';
+import { StopTableSchema, type ReelConfig, type YakuList } from '../../src/data/schemas';
+import { StopTableLookup } from '../../src/core/StopTable';
 
 /**
  * リール配列監査（フェーズ2）。
@@ -64,6 +65,10 @@ describe('リール配列監査：出目＝フラグの保証（②が残らな�
       const N = reels[0].length; // 21
       const resolver = new SlipResolver(yakuList);
       const judge = new YakuJudge(yakuList);
+      // 第1停止は停止テーブルを引く（手編集されていても②ゼロが崩れないことを確認する）。
+      const stopTable = new StopTableLookup(
+        StopTableSchema.parse(readJson(`${DATA}/stops/${chapter}.json`)),
+      );
       // フラグ集合ケース: miss（空）／各表示役（単独）／1枚役グループ（全部で1フラグ）。
       const flags: { label: string; ids: string[] }[] = [
         { label: 'miss', ids: [] },
@@ -73,7 +78,7 @@ describe('リール配列監査：出目＝フラグの保証（②が残らな�
           ...yakuList.bonusYaku,
           ...yakuList.premiumYaku,
         ].map((y) => ({ label: y.id, ids: [y.id] })),
-        { label: 'single*', ids: yakuList.singleYaku.map((y) => y.id) },
+        { label: 'single', ids: yakuList.singleYaku.map((y) => y.id) },
       ];
 
       let games = 0;
@@ -90,15 +95,21 @@ describe('リール配列監査：出目＝フラグの保証（②が残らな�
                 const press = [p0, p1, p2];
                 const stopped: (VisibleColumn | null)[] = [null, null, null];
                 const finalPos = [0, 0, 0];
+                let step = 0;
                 for (const idx of order) {
                   const base = press[idx];
-                  const slip = resolver.resolveKick({
-                    reelIndex: idx,
-                    basePosition: base,
-                    strip: { id: `r${idx}`, cells: reels[idx] },
-                    stoppedVisibles: stopped,
-                    exceptYakuIds: flag.ids,
-                  });
+                  const tabled =
+                    step === 0 ? stopTable.firstStopSlip(flag.label, idx, base) : null;
+                  step++;
+                  const slip =
+                    tabled ??
+                    resolver.resolveKick({
+                      reelIndex: idx,
+                      basePosition: base,
+                      strip: { id: `r${idx}`, cells: reels[idx] },
+                      stoppedVisibles: stopped,
+                      exceptYakuIds: flag.ids,
+                    });
                   const fp = (base + slip) % N;
                   finalPos[idx] = fp;
                   stopped[idx] = visCol(reels[idx], fp);

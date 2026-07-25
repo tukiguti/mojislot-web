@@ -11,12 +11,14 @@ import { InternalRoleLottery } from '../../src/productions/InternalRoleLottery';
 import { YakuJudge } from '../../src/core/YakuJudge';
 import { PayoutCalc } from '../../src/core/PayoutCalc';
 import { resolveInternalRoleHits } from '../../src/core/RoleResolver';
+import { StopTableLookup } from '../../src/core/StopTable';
 import { PAYLINES, type Grid3x3, type Vertical } from '../../src/core/Paylines';
 import {
   PayoutSchema,
   TuningSchema,
   YakuListSchema,
   ReelConfigSchema,
+  StopTableSchema,
   type Payout,
   type Tuning,
   type Yaku,
@@ -124,6 +126,9 @@ function runChapter(chapter: string, skill: Skill, spins: number, seed: number):
     assistMaxCells: tuning.assist.pullInCells,
   });
   const tenpaiDetector = new TenpaiDetector(yakuList);
+  const stopTable = new StopTableLookup(
+    StopTableSchema.parse(readJson(`${DATA}/stops/${chapter}.json`)),
+  );
   const judge = new YakuJudge(yakuList);
   const calc = new PayoutCalc(payout);
 
@@ -218,6 +223,15 @@ function runChapter(chapter: string, skill: Skill, spins: number, seed: number):
       res.lampBonus++;
     }
     // 持ち越し中は内部役を確定役へ強制し、演出は抑止（ランプが出ているため）。
+    const heldRoleId = pendingBonus
+      ? yakuList.internalRoles.find(
+          (r) =>
+            r.displayYakuId ===
+            (pendingBonus === 'big'
+              ? yakuList.premiumYaku[0]?.id
+              : yakuList.bonusYaku[0]?.id),
+        )?.id ?? null
+      : null;
     const heldYaku =
       pendingBonus && !bonusActive
         ? (pendingBonus === 'big' ? yakuList.premiumYaku[0] : yakuList.bonusYaku[0]) ?? null
@@ -297,6 +311,20 @@ function runChapter(chapter: string, skill: Skill, spins: number, seed: number):
       // --- resolveStopSlip 相当（引き込み対象も窓も内部役だけで決まる）---
       let slipCells = 0;
       const flagIds = flagIdsNow();
+      // 第1停止は停止テーブルを引く（main.ts と同じ）。
+      const tabledSlip =
+        stopOrder.length === 1
+          ? stopTable.firstStopSlip(heldYaku ? heldRoleId! : role.roleId, idx, basePos)
+          : null;
+      if (tabledSlip !== null) {
+        stopped[idx] = visCol(cells, (basePos + tabledSlip) % N);
+        stopN++;
+        if (effect === 'shisa' && !escalated && stopN < 3 && yaku) {
+          const sy = yaku.symbols[idx];
+          if (sy !== undefined && stopped[idx]!.middle === sy) escalated = true;
+        }
+        continue;
+      }
       const targets = flagIds
         .map((id) => allYakuWithSingle.find((y) => y.id === id))
         .filter((y): y is Yaku => y !== undefined);

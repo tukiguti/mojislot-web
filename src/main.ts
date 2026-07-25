@@ -65,6 +65,7 @@ import {
   type SlipContext,
   type VisibleColumn,
 } from './productions/SlipResolver';
+import { StopTableLookup } from './core/StopTable';
 import {
   extractGrid,
   getVisibleCell,
@@ -78,6 +79,7 @@ import {
   YakuListSchema,
   PayoutSchema,
   QuizListSchema,
+  StopTableSchema,
   TuningSchema,
   type Yaku,
   type ShisaTier,
@@ -173,6 +175,8 @@ export async function bootstrap() {
   };
   const payout = PayoutSchema.parse(payoutDataRaw);
   const quizList = QuizListSchema.parse(chapter.quizData);
+  // 停止テーブル（第1停止＝実機のリール制御表）。手編集可・無ければ既定制御へフォールバック。
+  const stopTable = new StopTableLookup(StopTableSchema.parse(chapter.stopData));
   // 演出レート・補助・フリーズ等の調整値（散在していた定数を集約）。data/tuning/default.json。
   const tuning = TuningSchema.parse(tuningDataRaw);
   // 役の id → 役オブジェクトの逆引き（AUTO のターゲット解決などで使う）
@@ -182,6 +186,8 @@ export async function bootstrap() {
     ...yakuList.bonusYaku,
     ...yakuList.cherryYaku,
   ];
+  /** 内部役テーブル（停止テーブルのキー解決に使う）。 */
+  const allRolesFlat = yakuList.internalRoles;
 
   const judge = new YakuJudge(yakuList);
   const calc = new PayoutCalc(payout);
@@ -1407,6 +1413,16 @@ export async function bootstrap() {
     // 1) 当選役があれば引き込む（最終リールは5ラインのテンパイを見る／それ以外は中段）
     // 2) 引き込めなければ、非当選役が揃わない位置へ蹴る
     // ＝ 停止位置は「内部役 × 押し順 × 押下位置」で一意に決まる。
+    // 第1停止（他リールが未停止）は**停止テーブル**を引く。まだどの役もロックし得ないので
+    // 蹴りは効かず、ここが出目（リーチ目・入り目）の設計点になる。
+    const noneStopped = stoppedVisibles.every((v) => v === null);
+    if (noneStopped && !freezeActive) {
+      const flagKey = announcedBonus && announcedRole
+        ? (allRolesFlat.find((r) => r.displayYakuId === announcedRole?.id)?.id ?? null)
+        : (currentRound?.internalRole.roleId ?? null);
+      const tabled = flagKey ? stopTable.firstStopSlip(flagKey, idx, basePos) : null;
+      if (tabled !== null) return tabled;
+    }
     const targets: Yaku[] = flagIds
       .map((id) => allYakusFlat.find((y) => y.id === id))
       .filter((y): y is Yaku => y !== undefined);
