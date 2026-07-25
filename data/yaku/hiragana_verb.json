@@ -1,20 +1,227 @@
 {
   "mode": "hiragana_verb",
-  "internalRoleMissRate": { "default": 0.5, "rescue": 0.3, "bonus": 0.0 },
   "coreYaku": [
-    { "id": "utau", "name": "うたう", "symbols": ["う", "た", "う"], "category": "core", "internalRoleKind": "core", "internalRoleRate": { "default": 0.10333333333333333, "rescue": 0.14, "bonus": 0.24 } },
-    { "id": "asobu", "name": "あそぶ", "symbols": ["あ", "そ", "ぶ"], "category": "core", "internalRoleKind": "replay", "internalRoleRate": { "default": 0.1, "rescue": 0.12, "bonus": 0.2 } },
-    { "id": "oyogu", "name": "およぐ", "symbols": ["お", "よ", "ぐ"], "category": "core", "internalRoleKind": "core", "internalRoleRate": { "default": 0.10333333333333333, "rescue": 0.14, "bonus": 0.24 } },
-    { "id": "hanasu", "name": "はなす", "symbols": ["は", "な", "す"], "category": "core", "internalRoleKind": "core", "internalRoleRate": { "default": 0.10333333333333333, "rescue": 0.14, "bonus": 0.24 } }
-  ],
-  "cherryYaku": [
-    { "id": "neru", "name": "ねる", "symbols": ["ね", "る"], "category": "cherry", "internalRoleKind": "cherry", "internalRoleRate": { "default": 0.05, "rescue": 0.07, "bonus": 0.07 } }
+    {
+      "id": "utau",
+      "name": "うたう",
+      "symbols": [
+        "う",
+        "た",
+        "う"
+      ],
+      "category": "core"
+    },
+    {
+      "id": "asobu",
+      "name": "あそぶ",
+      "symbols": [
+        "あ",
+        "そ",
+        "ぶ"
+      ],
+      "category": "core"
+    },
+    {
+      "id": "oyogu",
+      "name": "およぐ",
+      "symbols": [
+        "お",
+        "よ",
+        "ぐ"
+      ],
+      "category": "core"
+    },
+    {
+      "id": "hanasu",
+      "name": "はなす",
+      "symbols": [
+        "は",
+        "な",
+        "す"
+      ],
+      "category": "core"
+    }
   ],
   "premiumYaku": [
-    { "id": "ikiru", "name": "いきる", "symbols": ["い", "き", "る"], "category": "premium", "internalRoleKind": "big", "internalRoleRate": { "default": 0.005, "rescue": 0.015, "bonus": 0.001 } },
-    { "id": "yasumu", "name": "やすむ", "symbols": ["や", "す", "む"], "category": "premium", "internalRoleKind": "big", "internalRoleRate": { "default": 0.005, "rescue": 0.015, "bonus": 0.001 } }
+    {
+      "id": "ikiru",
+      "name": "いきる",
+      "symbols": [
+        "い",
+        "き",
+        "る"
+      ],
+      "category": "premium"
+    },
+    {
+      "id": "yasumu",
+      "name": "やすむ",
+      "symbols": [
+        "や",
+        "す",
+        "む"
+      ],
+      "category": "premium"
+    }
   ],
   "bonusYaku": [
-    { "id": "reg", "name": "いきむ", "symbols": ["い", "き", "む"], "category": "bonus", "internalRoleKind": "reg", "internalRoleRate": { "default": 0.03, "rescue": 0.06, "bonus": 0.008 } }
+    {
+      "id": "reg",
+      "name": "いきむ",
+      "symbols": [
+        "い",
+        "き",
+        "む"
+      ],
+      "category": "bonus"
+    }
+  ],
+  "cherryYaku": [
+    {
+      "id": "neru",
+      "name": "ねる",
+      "symbols": [
+        "ね",
+        "る"
+      ],
+      "category": "cherry"
+    }
+  ],
+  "internalRoles": [
+    {
+      "id": "miss",
+      "kind": "miss",
+      "displayYakuId": null,
+      "rate": {
+        "default": 0.2253501952,
+        "rescue": 0.1429426854,
+        "bonus": 0.0
+      }
+    },
+    {
+      "id": "single",
+      "kind": "single",
+      "displayYakuId": null,
+      "rate": {
+        "default": 0.2058890634,
+        "rescue": 0.1880706104,
+        "bonus": 0.0566484641
+      }
+    },
+    {
+      "id": "utau",
+      "kind": "core",
+      "displayYakuId": "utau",
+      "rate": {
+        "default": 0.1323690643,
+        "rescue": 0.1515777399,
+        "bonus": 0.2427570854
+      }
+    },
+    {
+      "id": "oyogu",
+      "kind": "core",
+      "displayYakuId": "oyogu",
+      "rate": {
+        "default": 0.1323690758,
+        "rescue": 0.1515777399,
+        "bonus": 0.2427570955
+      }
+    },
+    {
+      "id": "hanasu",
+      "kind": "core",
+      "displayYakuId": "hanasu",
+      "rate": {
+        "default": 0.099276801,
+        "rescue": 0.1212621962,
+        "bonus": 0.1820678138
+      }
+    },
+    {
+      "id": "asobu",
+      "kind": "core",
+      "displayYakuId": "asobu",
+      "rate": {
+        "default": 0.1323690643,
+        "rescue": 0.1515777399,
+        "bonus": 0.2022975744
+      }
+    },
+    {
+      "id": "neru",
+      "kind": "cherry",
+      "displayYakuId": "neru",
+      "rate": {
+        "default": 0.0661845265,
+        "rescue": 0.080841457,
+        "bonus": 0.0708041463
+      }
+    },
+    {
+      "id": "reg",
+      "kind": "reg",
+      "displayYakuId": "reg",
+      "rate": {
+        "default": 0.0043709717,
+        "rescue": 0.0086784531,
+        "bonus": 0.0021631001
+      }
+    },
+    {
+      "id": "ikiru",
+      "kind": "big",
+      "displayYakuId": "ikiru",
+      "rate": {
+        "default": 0.0009106189,
+        "rescue": 0.0017356891,
+        "bonus": 0.0002523602
+      }
+    },
+    {
+      "id": "yasumu",
+      "kind": "big",
+      "displayYakuId": "yasumu",
+      "rate": {
+        "default": 0.0009106189,
+        "rescue": 0.0017356891,
+        "bonus": 0.0002523602
+      }
+    }
+  ],
+  "singleYaku": [
+    {
+      "id": "single_a",
+      "name": "あすぐ",
+      "symbols": [
+        "あ",
+        "す",
+        "ぐ"
+      ],
+      "category": "single",
+      "noArt": true
+    },
+    {
+      "id": "single_b",
+      "name": "はたぶ",
+      "symbols": [
+        "は",
+        "た",
+        "ぶ"
+      ],
+      "category": "single",
+      "noArt": true
+    },
+    {
+      "id": "single_c",
+      "name": "おたむ",
+      "symbols": [
+        "お",
+        "た",
+        "む"
+      ],
+      "category": "single",
+      "noArt": true
+    }
   ]
 }

@@ -215,6 +215,11 @@ export interface AimNoticeOptions {
   reelCentersXFrac?: readonly number[];
   /** リール上端 y の canvas 高さ比（0〜1）。矢印をリール直上に置く。未指定なら旧既定値。 */
   reelTopYFrac?: number;
+  /**
+   * 矢印を出すリール（true=出す）。示唆から「狙え！」へ発展した時、
+   * 停止済みリールに矢印を出さないために使う。未指定なら全リールに出す。
+   */
+  arrowReels?: readonly boolean[];
 }
 
 export function showAimNotice(opts: AimNoticeOptions): void {
@@ -253,28 +258,35 @@ export function showAimNotice(opts: AimNoticeOptions): void {
     label.textContent = opts.yakuName ? `狙え！ ${opts.yakuName}` : '狙え！';
     notice.appendChild(label);
   }
-  const symbolsEl = document.createElement('div');
-  symbolsEl.className = 'aim-notice-symbols';
-  opts.symbols.slice(0, 3).forEach((s, i) => {
-    const span = document.createElement('span');
-    span.textContent = s;
-    // 文字色を実リールのセル色に合わせる（揃った時の見た目と一致させる）。
-    const c = opts.colors?.[i];
-    if (c) {
-      span.style.color = c;
-      span.style.borderColor = c;
-      span.style.textShadow = `0 0 4px rgba(0,0,0,1), 0 0 10px ${c}`;
-    }
-    symbolsEl.appendChild(span);
-  });
-  notice.appendChild(symbolsEl);
   document.body.appendChild(notice);
 
-  // 3 リール全てに下向き矢印（プレイヤーに「ここで狙え」を明示）。
-  // 矢印先端をリール上端の少し上に置く（リールを指す）。
+  // 狙う図柄は**各リールの上**に1文字ずつ置く（どのリールで何を狙うかを直結させる）。
+  // 中央にまとめて並べる旧方式は廃止（リール上の表示と二重になるため）。
   const reelTopFrac = opts.reelTopYFrac ?? 260 / 600;
-  const reelTopY = rect.top + rect.height * reelTopFrac - 8;
+  // 矢印は高さ28pxの三角。先端がリール上端の少し**上**で止まるよう -38 に置く
+  // （-8 だとリールに20px食い込んで図柄が隠れていた）。図柄タイルはさらに上。
+  const reelTopY = rect.top + rect.height * reelTopFrac - 38;
+  const symbolY = rect.top + rect.height * reelTopFrac - 96;
   for (let i = 0; i < 3; i++) {
+    if (opts.arrowReels && !opts.arrowReels[i]) continue;
+    const sym = opts.symbols[i];
+    if (sym !== undefined) {
+      const tile = document.createElement('div');
+      tile.className = 'aim-reel-symbol';
+      if (opts.hasPremium) tile.classList.add('premium');
+      tile.textContent = sym;
+      const c = opts.colors?.[i];
+      if (c) {
+        tile.style.color = c;
+        tile.style.borderColor = c;
+        tile.style.textShadow = `0 0 4px rgba(0,0,0,1), 0 0 10px ${c}`;
+      }
+      tile.style.left = `${rect.left + rect.width * reelCenterFracs[i]}px`;
+      tile.style.top = `${symbolY}px`;
+      tile.style.animationDelay = `${i * 120}ms`;
+      document.body.appendChild(tile);
+      requestAnimationFrame(() => tile.classList.add('show'));
+    }
     const arrow = document.createElement('div');
     arrow.className = 'aim-arrow';
     if (opts.hasPremium) arrow.classList.add('premium');
@@ -289,11 +301,91 @@ export function showAimNotice(opts: AimNoticeOptions): void {
 }
 
 export function hideAimNotice(): void {
-  document.querySelectorAll('.aim-notice, .aim-arrow').forEach((el) => {
+  document
+    .querySelectorAll('.aim-notice, .aim-arrow, .aim-reel-symbol')
+    .forEach((el) => {
+      el.classList.add('out');
+      window.setTimeout(() => el.remove(), 240);
+    });
+}
+
+/**
+ * 示唆予告（候補提示）。示唆はカテゴリしか示さないので、**そのtierで当たりうる役を
+ * 全部並べて「どれかな…？」と迷わせる**のが狙い（初期コンセプト＝考えて打つ）。
+ * 第1・第2停止で内部役の図柄が中段に来たら、呼び出し側が hideShisaNotice() →
+ * showAimNotice() に切り替えて「狙え！」へ発展させる。
+ */
+export interface ShisaCandidate {
+  name: string;
+  /** 役の文字（チェリー等の2文字役もあり得る） */
+  symbols: readonly string[];
+  /** 各文字の色（実リールのセル色に合わせる） */
+  colors?: readonly string[];
+}
+
+export interface ShisaNoticeOptions {
+  candidates: readonly ShisaCandidate[];
+  /** tier色。枠と見出しの色に反映する。 */
+  color: 'blue' | 'green' | 'red' | 'gold';
+  /** 見出し文（未指定なら候補数から自動）。押し順ナビは「どれだ？」を渡す。 */
+  headline?: string;
+}
+
+export function showShisaNotice(opts: ShisaNoticeOptions): void {
+  hideShisaNotice();
+  const canvas = document.getElementById('game') as HTMLCanvasElement | null;
+  if (!canvas) return;
+  const rect = canvas.getBoundingClientRect();
+
+  const notice = document.createElement('div');
+  notice.className = `shisa-notice tier-${opts.color}`;
+  notice.style.left = `${rect.left + rect.width / 2}px`;
+  notice.style.top = `${rect.top + 8}px`;
+  notice.style.width = `${rect.width}px`;
+
+  const head = document.createElement('div');
+  head.className = 'shisa-notice-head';
+  head.textContent =
+    opts.headline ?? (opts.candidates.length > 1 ? 'どれかな…？' : 'これだ…？');
+  notice.appendChild(head);
+
+  const list = document.createElement('div');
+  list.className = 'shisa-candidates';
+  opts.candidates.forEach((c, ci) => {
+    const row = document.createElement('div');
+    row.className = 'shisa-cand';
+    row.style.animationDelay = `${ci * 90}ms`;
+    const name = document.createElement('span');
+    name.className = 'shisa-cand-name';
+    name.textContent = c.name;
+    row.appendChild(name);
+    const syms = document.createElement('span');
+    syms.className = 'shisa-cand-symbols';
+    c.symbols.forEach((s, i) => {
+      const span = document.createElement('span');
+      span.textContent = s;
+      const col = c.colors?.[i];
+      if (col) {
+        span.style.color = col;
+        span.style.borderColor = col;
+      }
+      syms.appendChild(span);
+    });
+    row.appendChild(syms);
+    list.appendChild(row);
+  });
+  notice.appendChild(list);
+  document.body.appendChild(notice);
+  requestAnimationFrame(() => notice.classList.add('show'));
+}
+
+export function hideShisaNotice(): void {
+  document.querySelectorAll('.shisa-notice').forEach((el) => {
     el.classList.add('out');
     window.setTimeout(() => el.remove(), 240);
   });
 }
+
 
 /**
  * ボタン押下位置から外側へ広がる円形リップル。

@@ -1,3 +1,5 @@
+// none/shisa/quiz/aim はレート抽選で選ぶ。push（押し順ナビ）は押し順役に対して強制付与され、
+// レート抽選（roll / rollAvailable）の対象には入らない。
 export type EffectType = 'none' | 'shisa' | 'quiz' | 'aim';
 
 export interface EffectRates {
@@ -39,8 +41,9 @@ export class EffectScheduler {
   /**
    * 内部役を表現できる演出候補だけから、現在レートを重みとして再抽選する。
    * 内部役missは呼び出し側でnone固定にするため、通常はshisa/quiz/aimを渡す。
+   * push（押し順ナビ）はレート抽選の対象外なので、レートを持つ演出だけを受け取る。
    */
-  rollAvailable(available: readonly EffectType[]): EffectType {
+  rollAvailable(available: readonly (keyof EffectRates)[]): EffectType {
     const unique = [...new Set(available)];
     const weighted = unique
       .map((effect) => ({ effect, weight: this.rates[effect] }))

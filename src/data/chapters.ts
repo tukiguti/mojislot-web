@@ -10,18 +10,28 @@
 import hiraganaFoodReel from '../../data/reels/hiragana_food.json';
 import hiraganaFoodYaku from '../../data/yaku/hiragana_food.json';
 import hiraganaFoodQuiz from '../../data/quizzes/hiragana_food.json';
+import hiraganaFoodStops from '../../data/stops/hiragana_food.json';
+import hiraganaFoodReach from '../../data/reach/hiragana_food.json';
 import katakanaAnimalReel from '../../data/reels/katakana_animal.json';
 import katakanaAnimalYaku from '../../data/yaku/katakana_animal.json';
 import katakanaAnimalQuiz from '../../data/quizzes/katakana_animal.json';
+import katakanaAnimalStops from '../../data/stops/katakana_animal.json';
+import katakanaAnimalReach from '../../data/reach/katakana_animal.json';
 import hiraganaVerbReel from '../../data/reels/hiragana_verb.json';
 import hiraganaVerbYaku from '../../data/yaku/hiragana_verb.json';
 import hiraganaVerbQuiz from '../../data/quizzes/hiragana_verb.json';
+import hiraganaVerbStops from '../../data/stops/hiragana_verb.json';
+import hiraganaVerbReach from '../../data/reach/hiragana_verb.json';
 import yasaiReel from '../../data/reels/yasai.json';
 import yasaiYaku from '../../data/yaku/yasai.json';
 import yasaiQuiz from '../../data/quizzes/yasai.json';
+import yasaiStops from '../../data/stops/yasai.json';
+import yasaiReach from '../../data/reach/yasai.json';
 import securityReel from '../../data/reels/security.json';
 import securityYaku from '../../data/yaku/security.json';
 import securityQuiz from '../../data/quizzes/security.json';
+import securityStops from '../../data/stops/security.json';
+import securityReach from '../../data/reach/security.json';
 
 export interface ChapterBundle {
   id: string;
@@ -30,6 +40,10 @@ export interface ChapterBundle {
   reelData: unknown;
   yakuData: unknown;
   quizData: unknown;
+  /** 停止テーブル（第1停止）。実機のリール制御表に相当。 */
+  stopData: unknown;
+  /** リーチ目表（ボーナスフラグでしか出ない出目）。 */
+  reachData: unknown;
   /** true の章は、解除フラグが立つまで設定画面で非表示 */
   hidden?: boolean;
 }
@@ -42,6 +56,8 @@ export const CHAPTERS: readonly ChapterBundle[] = [
     reelData: hiraganaFoodReel,
     yakuData: hiraganaFoodYaku,
     quizData: hiraganaFoodQuiz,
+    stopData: hiraganaFoodStops,
+    reachData: hiraganaFoodReach,
   },
   {
     id: 'katakana_animal',
@@ -50,6 +66,8 @@ export const CHAPTERS: readonly ChapterBundle[] = [
     reelData: katakanaAnimalReel,
     yakuData: katakanaAnimalYaku,
     quizData: katakanaAnimalQuiz,
+    stopData: katakanaAnimalStops,
+    reachData: katakanaAnimalReach,
   },
   {
     id: 'hiragana_verb',
@@ -58,6 +76,8 @@ export const CHAPTERS: readonly ChapterBundle[] = [
     reelData: hiraganaVerbReel,
     yakuData: hiraganaVerbYaku,
     quizData: hiraganaVerbQuiz,
+    stopData: hiraganaVerbStops,
+    reachData: hiraganaVerbReach,
   },
   {
     id: 'yasai',
@@ -66,6 +86,8 @@ export const CHAPTERS: readonly ChapterBundle[] = [
     reelData: yasaiReel,
     yakuData: yasaiYaku,
     quizData: yasaiQuiz,
+    stopData: yasaiStops,
+    reachData: yasaiReach,
   },
   {
     id: 'security',
@@ -74,6 +96,8 @@ export const CHAPTERS: readonly ChapterBundle[] = [
     reelData: securityReel,
     yakuData: securityYaku,
     quizData: securityQuiz,
+    stopData: securityStops,
+    reachData: securityReach,
   },
 ];
 

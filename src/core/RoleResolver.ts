@@ -1,15 +1,17 @@
 import type { PaylineHit } from './YakuJudge';
-import type { RoundContext } from './RoundContext';
 
 /**
  * 物理的に表示された役のうち、レバーONで決まった内部役と一致するラインだけを成立させる。
- * 内部役がmiss、または目押しで対象役を表示できなければ払い出しは0になる。
+ * flagYakuIds は「この停止時点でまだ狙える当選役のID群」。
+ * - 通常役: そのIDだけの単数配列
+ * - 1枚役フラグ／押し順ミスのこぼし: singleYaku グループ全ID（どれが揃ってもよい）
+ * - miss: 空配列＝払い出しなし
  */
 export function resolveInternalRoleHits(
-  round: RoundContext | null,
+  flagYakuIds: readonly string[],
   displayedHits: readonly PaylineHit[],
 ): PaylineHit[] {
-  const yakuId = round?.internalRole.yakuId;
-  if (!yakuId) return [];
-  return displayedHits.filter((hit) => hit.yaku.id === yakuId);
+  if (flagYakuIds.length === 0) return [];
+  const ids = new Set(flagYakuIds);
+  return displayedHits.filter((hit) => ids.has(hit.yaku.id));
 }

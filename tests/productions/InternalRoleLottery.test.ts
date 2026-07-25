@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import type { InternalRoleRate, YakuList } from '../../src/data/schemas';
+import type { InternalRole, InternalRoleRate, YakuList } from '../../src/data/schemas';
 import { InternalRoleLottery } from '../../src/productions/InternalRoleLottery';
 
 const rate = (value: number): InternalRoleRate => ({
@@ -8,64 +8,40 @@ const rate = (value: number): InternalRoleRate => ({
   bonus: value,
 });
 
+const role = (
+  id: string,
+  kind: InternalRole['kind'],
+  displayYakuId: string | null,
+  value: number,
+): InternalRole => ({ id, kind, displayYakuId, rate: rate(value) });
+
 const yakuList: YakuList = {
   mode: 'test',
-  internalRoleMissRate: rate(0.5),
   coreYaku: [
-    {
-      id: 'grape',
-      name: 'ぶどう',
-      symbols: ['ぶ', 'ど', 'う'],
-      category: 'core',
-      internalRoleKind: 'core',
-      internalRoleRate: rate(0.1),
-    },
-    {
-      id: 'replay',
-      name: 'リプレイ',
-      symbols: ['り', 'ぷ', 'れ'],
-      category: 'core',
-      internalRoleKind: 'replay',
-      internalRoleRate: rate(0.1),
-    },
-    {
-      id: 'bell',
-      name: 'ベル',
-      symbols: ['べ', 'る', 'る'],
-      category: 'core',
-      internalRoleKind: 'core',
-      internalRoleRate: rate(0.1),
-    },
+    { id: 'grape', name: 'ぶどう', symbols: ['ぶ', 'ど', 'う'], category: 'core' },
+    { id: 'replay', name: 'リプレイ', symbols: ['り', 'ぷ', 'れ'], category: 'core' },
+    { id: 'bell', name: 'ベル', symbols: ['べ', 'る', 'る'], category: 'core' },
   ],
   cherryYaku: [
-    {
-      id: 'cherry',
-      name: 'チェリー',
-      symbols: ['ち', 'ぇ'],
-      category: 'cherry',
-      internalRoleKind: 'cherry',
-      internalRoleRate: rate(0.1),
-    },
+    { id: 'cherry', name: 'チェリー', symbols: ['ち', 'ぇ'], category: 'cherry' },
   ],
   bonusYaku: [
-    {
-      id: 'reg',
-      name: 'REG',
-      symbols: ['れ', 'ぐ', 'ぐ'],
-      category: 'bonus',
-      internalRoleKind: 'reg',
-      internalRoleRate: rate(0.05),
-    },
+    { id: 'reg', name: 'REG', symbols: ['れ', 'ぐ', 'ぐ'], category: 'bonus' },
   ],
   premiumYaku: [
-    {
-      id: 'big',
-      name: 'BIG',
-      symbols: ['び', 'っ', 'ぐ'],
-      category: 'premium',
-      internalRoleKind: 'big',
-      internalRoleRate: rate(0.05),
-    },
+    { id: 'big', name: 'BIG', symbols: ['び', 'っ', 'ぐ'], category: 'premium' },
+  ],
+  internalRoles: [
+    role('miss', 'miss', null, 0.4),
+    role('single', 'single', null, 0.1),
+    role('grape', 'core', 'grape', 0.1),
+    role('replay', 'replay', 'replay', 0.1),
+    // 同じ表示役(bell)に押し順違いの内部役をぶら下げる＝実機の押し順ベル群
+    role('bell_l', 'core', 'bell', 0.1, { type: 'first', reel: 0 }),
+    role('bell_r', 'core', 'bell', 0.1, { type: 'first', reel: 2 }),
+    role('cherry', 'cherry', 'cherry', 0.05),
+    role('reg', 'reg', 'reg', 0.03),
+    role('big', 'big', 'big', 0.02),
   ],
 };
 
@@ -77,16 +53,18 @@ const randomSequence = (...values: number[]) => {
 describe('InternalRoleLottery', () => {
   it('レートに従ってmissを返す', () => {
     const lottery = new InternalRoleLottery(yakuList, () => 0.1);
-    expect(lottery.draw('default')).toEqual({
+    expect(lottery.draw('default')).toMatchObject({
       kind: 'miss',
       yakuId: null,
-      yakuName: null,
     });
   });
 
-  it('replayを具体的な役ID付きで返す', () => {
-    const lottery = new InternalRoleLottery(yakuList, () => 0.65);
-    expect(lottery.draw('default')).toMatchObject({ kind: 'replay', yakuId: 'replay' });
+  it('1枚役(single)は表示役を持たない', () => {
+    // miss(0.4) の直後が single(0.1) → 累積 0.4..0.5
+    const lottery = new InternalRoleLottery(yakuList, () => 0.45);
+    const result = lottery.draw('default');
+    expect(result.kind).toBe('single');
+    expect(result.yakuId).toBeNull();
   });
 
   it('デバッグ用抽選ではmissを候補から外す', () => {
@@ -94,39 +72,25 @@ describe('InternalRoleLottery', () => {
     expect(lottery.draw('default', { allowMiss: false }).kind).not.toBe('miss');
   });
 
-  it('演出で表現できない役を候補から除外する', () => {
-    const lottery = new InternalRoleLottery(yakuList, randomSequence(0.7, 0));
+  it('roleFilter で候補を絞れる（表示役なしを除外）', () => {
+    const lottery = new InternalRoleLottery(yakuList, randomSequence(0.5, 0));
     const result = lottery.draw('default', {
       allowMiss: false,
-      yakuFilter: (yaku) => yaku.symbols.length === 3,
+      roleFilter: (_role, yaku) => yaku !== null && yaku.symbols.length === 3,
     });
+    expect(result.yakuId).not.toBeNull();
     expect(result.yakuId).not.toBe('cherry');
   });
 
-  it('同じcore種別でも役ごとの設定確率で直接選ぶ', () => {
-    const directRates: YakuList = {
+
+  it('forYaku は指定した表示役の内部役を返す（強制演出用）', () => {
+    const list: YakuList = {
       ...yakuList,
-      internalRoleMissRate: rate(0),
-      coreYaku: yakuList.coreYaku.map((yaku) => ({
-        ...yaku,
-        internalRoleRate: rate(
-          yaku.id === 'grape' ? 0.9 : yaku.id === 'bell' ? 0.1 : 0,
-        ),
-      })),
-      cherryYaku: yakuList.cherryYaku.map((yaku) => ({
-        ...yaku,
-        internalRoleRate: rate(0),
-      })),
-      bonusYaku: yakuList.bonusYaku.map((yaku) => ({
-        ...yaku,
-        internalRoleRate: rate(0),
-      })),
-      premiumYaku: yakuList.premiumYaku.map((yaku) => ({
-        ...yaku,
-        internalRoleRate: rate(0),
-      })),
+      internalRoles: [role('bell_any', 'core', 'bell', 1.0)],
     };
-    const lottery = new InternalRoleLottery(directRates, () => 0.95);
-    expect(lottery.draw('default').yakuId).toBe('bell');
+    const lottery = new InternalRoleLottery(list, () => 0);
+    const bell = list.coreYaku.find((y) => y.id === 'bell')!;
+    expect(lottery.forYaku(bell)).toMatchObject({ roleId: 'bell_any', yakuId: 'bell' });
   });
 });
+

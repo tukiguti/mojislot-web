@@ -1,22 +1,44 @@
 {
   "betPerSpin": 3,
   "baseMultiplier": {
-    "core": 3,
-    "premium": 20,
-    "bonus": 10,
-    "cherry": 2
+    "core": 5,
+    "premium": 34,
+    "bonus": 14,
+    "cherry": 4,
+    "single": 1
   },
-  "bonusZoneMultiplier": 2.0,
+  "bonusZoneMultiplier": 2.2,
   "initialCoins": 0,
   "streakTiers": [
-    { "minStreak": 2, "mult": 1.5 },
-    { "minStreak": 3, "mult": 2.0 },
-    { "minStreak": 5, "mult": 3.0 },
-    { "minStreak": 8, "mult": 4.0 },
-    { "minStreak": 12, "mult": 5.0 },
-    { "minStreak": 16, "mult": 6.0 },
-    { "minStreak": 20, "mult": 7.0 }
+    {
+      "minStreak": 2,
+      "mult": 1.25
+    },
+    {
+      "minStreak": 3,
+      "mult": 1.5
+    },
+    {
+      "minStreak": 5,
+      "mult": 1.9
+    },
+    {
+      "minStreak": 8,
+      "mult": 2.3
+    },
+    {
+      "minStreak": 12,
+      "mult": 2.8
+    },
+    {
+      "minStreak": 16,
+      "mult": 3.2
+    },
+    {
+      "minStreak": 20,
+      "mult": 3.6
+    }
   ],
   "aimBonusMultiplier": 1.5,
-  "maxComboMultiplier": 10.0
+  "maxComboMultiplier": 4.5
 }

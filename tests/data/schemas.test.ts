@@ -28,32 +28,60 @@ describe('EffectRatesSchema', () => {
   });
 });
 
-describe('YakuListSchema internalRoleRate', () => {
+describe('YakuListSchema internalRoles', () => {
+  const rate = (v: number) => ({ default: v, rescue: v, bonus: v });
   const yakuList = {
     mode: 'test',
-    internalRoleMissRate: { default: 0.5, rescue: 0.5, bonus: 0.5 },
     coreYaku: [
-      {
-        id: 'apple',
-        name: 'りんご',
-        symbols: ['り', 'ん', 'ご'],
-        category: 'core',
-        internalRoleKind: 'core',
-        internalRoleRate: { default: 0.5, rescue: 0.5, bonus: 0.5 },
-      },
+      { id: 'apple', name: 'りんご', symbols: ['り', 'ん', 'ご'], category: 'core' },
     ],
     cherryYaku: [],
     bonusYaku: [],
     premiumYaku: [],
+    internalRoles: [
+      { id: 'miss', kind: 'miss', displayYakuId: null, rate: rate(0.4) },
+      { id: 'single', kind: 'single', displayYakuId: null, rate: rate(0.2) },
+      { id: 'apple', kind: 'core', displayYakuId: 'apple', rate: rate(0.2) },
+      {
+        id: 'apple_l',
+        kind: 'core',
+        displayYakuId: 'apple',
+        rate: rate(0.1),
+      },
+      {
+        id: 'apple_exact',
+        kind: 'core',
+        displayYakuId: 'apple',
+        rate: rate(0.1),
+      },
+    ],
   };
 
-  it('各状態でmissと全具体役の合計が1なら受け入れる', () => {
+  it('各状態で内部役の合計が1なら受け入れる', () => {
     expect(YakuListSchema.safeParse(yakuList).success).toBe(true);
   });
 
-  it('どれかの状態で役別確率の合計が1でなければ拒否する', () => {
+  it('どれかの状態で内部役の合計が1でなければ拒否する', () => {
     const invalid = structuredClone(yakuList);
-    invalid.coreYaku[0].internalRoleRate.default = 0.6;
+    invalid.internalRoles[0].rate.default = 0.6;
+    expect(YakuListSchema.safeParse(invalid).success).toBe(false);
+  });
+
+  it('存在しない表示役を参照する内部役は拒否する', () => {
+    const invalid = structuredClone(yakuList);
+    invalid.internalRoles[2].displayYakuId = 'nope';
+    expect(YakuListSchema.safeParse(invalid).success).toBe(false);
+  });
+
+  it('miss / single は表示役を持てない', () => {
+    const invalid = structuredClone(yakuList);
+    invalid.internalRoles[1].displayYakuId = 'apple';
+    expect(YakuListSchema.safeParse(invalid).success).toBe(false);
+  });
+
+  it('core などの内部役には表示役が必須', () => {
+    const invalid = structuredClone(yakuList);
+    invalid.internalRoles[2].displayYakuId = null;
     expect(YakuListSchema.safeParse(invalid).success).toBe(false);
   });
 
@@ -63,7 +91,7 @@ describe('YakuListSchema internalRoleRate', () => {
     ['katakana_animal', katakanaAnimal],
     ['security', security],
     ['yasai', yasai],
-  ])('%s章の全役が明示設定され、状態別合計が1になる', (_mode, raw) => {
+  ])('%s章の内部役テーブルが妥当で、状態別合計が1になる', (_mode, raw) => {
     expect(YakuListSchema.safeParse(raw).success).toBe(true);
   });
 });

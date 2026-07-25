@@ -45,7 +45,7 @@ export function mountPlaySetup(cb: PlaySetupCallbacks): void {
 
   // 既存の正本から各トグルの初期状態を読む
   const missionsOn = localStorage.getItem(MISSIONS_KEY) !== '0'; // 既定ON
-  const artOn = localStorage.getItem(REEL_ART_KEY) !== 'plain'; // 既定ON=画像
+  const artOn = localStorage.getItem(REEL_ART_KEY) === 'image'; // 既定OFF=文字のみ
   const debugOn = localStorage.getItem(DEBUG_KEY) === '1'; // 既定OFF
   const autoOn = readAutoEnabled(); // 既定あり
 
@@ -85,7 +85,7 @@ export function mountPlaySetup(cb: PlaySetupCallbacks): void {
       <section class="setup-options" aria-label="プレイ設定">
         <div class="setup-options-title">プレイ設定</div>
         ${toggle('missions', 'ミッション', '達成状況を記録してトーストで通知', missionsOn)}
-        ${toggle('reelart', 'リール絵柄に画像を使う', 'OFFで色タイル＋文字（旧スタイル）。要リロード', artOn)}
+        ${toggle('reelart', 'リール絵柄に画像を使う', '既定OFF＝色タイル＋文字。ONで図柄画像（作り直し中）。要リロード', artOn)}
         ${toggle('auto', 'AUTOモード', 'ONでAUTOボタンを表示（自動消化）', autoOn)}
         ${toggle('debug', 'デバッグボタン', '設定内に演出の強制発動ボタンを表示', debugOn)}
       </section>

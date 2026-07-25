@@ -1,20 +1,227 @@
 {
   "mode": "hiragana_food",
-  "internalRoleMissRate": { "default": 0.5, "rescue": 0.3, "bonus": 0.0 },
   "coreYaku": [
-    { "id": "budou", "name": "ぶどう", "symbols": ["ぶ", "ど", "う"], "category": "core", "internalRoleKind": "core", "internalRoleRate": { "default": 0.10333333333333333, "rescue": 0.14, "bonus": 0.24 } },
-    { "id": "tofu", "name": "とうふ", "symbols": ["と", "う", "ふ"], "category": "core", "internalRoleKind": "replay", "internalRoleRate": { "default": 0.1, "rescue": 0.12, "bonus": 0.2 } },
-    { "id": "dango", "name": "だんご", "symbols": ["だ", "ん", "ご"], "category": "core", "internalRoleKind": "core", "internalRoleRate": { "default": 0.10333333333333333, "rescue": 0.14, "bonus": 0.24 } },
-    { "id": "mikan", "name": "みかん", "symbols": ["み", "か", "ん"], "category": "core", "internalRoleKind": "core", "internalRoleRate": { "default": 0.10333333333333333, "rescue": 0.14, "bonus": 0.24 } }
-  ],
-  "cherryYaku": [
-    { "id": "momo", "name": "もも", "symbols": ["も", "も"], "category": "cherry", "internalRoleKind": "cherry", "internalRoleRate": { "default": 0.05, "rescue": 0.07, "bonus": 0.07 } }
+    {
+      "id": "budou",
+      "name": "ぶどう",
+      "symbols": [
+        "ぶ",
+        "ど",
+        "う"
+      ],
+      "category": "core"
+    },
+    {
+      "id": "tofu",
+      "name": "とうふ",
+      "symbols": [
+        "と",
+        "う",
+        "ふ"
+      ],
+      "category": "core"
+    },
+    {
+      "id": "dango",
+      "name": "だんご",
+      "symbols": [
+        "だ",
+        "ん",
+        "ご"
+      ],
+      "category": "core"
+    },
+    {
+      "id": "mikan",
+      "name": "みかん",
+      "symbols": [
+        "み",
+        "か",
+        "ん"
+      ],
+      "category": "core"
+    }
   ],
   "premiumYaku": [
-    { "id": "sushiya", "name": "寿司屋", "symbols": ["す", "し", "や"], "category": "premium", "internalRoleKind": "big", "internalRoleRate": { "default": 0.005, "rescue": 0.015, "bonus": 0.001 } },
-    { "id": "namazu", "name": "ナマズ", "symbols": ["な", "ま", "ず"], "category": "premium", "internalRoleKind": "big", "internalRoleRate": { "default": 0.005, "rescue": 0.015, "bonus": 0.001 } }
+    {
+      "id": "sushiya",
+      "name": "寿司屋",
+      "symbols": [
+        "す",
+        "し",
+        "や"
+      ],
+      "category": "premium"
+    },
+    {
+      "id": "namazu",
+      "name": "ナマズ",
+      "symbols": [
+        "な",
+        "ま",
+        "ず"
+      ],
+      "category": "premium"
+    }
   ],
   "bonusYaku": [
-    { "id": "reg", "name": "寿司酢", "symbols": ["す", "し", "ず"], "category": "bonus", "internalRoleKind": "reg", "internalRoleRate": { "default": 0.03, "rescue": 0.06, "bonus": 0.008 } }
+    {
+      "id": "reg",
+      "name": "寿司酢",
+      "symbols": [
+        "す",
+        "し",
+        "ず"
+      ],
+      "category": "bonus"
+    }
+  ],
+  "cherryYaku": [
+    {
+      "id": "momo",
+      "name": "もも",
+      "symbols": [
+        "も",
+        "も"
+      ],
+      "category": "cherry"
+    }
+  ],
+  "internalRoles": [
+    {
+      "id": "miss",
+      "kind": "miss",
+      "displayYakuId": null,
+      "rate": {
+        "default": 0.2253501952,
+        "rescue": 0.1429426854,
+        "bonus": 0.0
+      }
+    },
+    {
+      "id": "single",
+      "kind": "single",
+      "displayYakuId": null,
+      "rate": {
+        "default": 0.2058890634,
+        "rescue": 0.1880706104,
+        "bonus": 0.0566484641
+      }
+    },
+    {
+      "id": "budou",
+      "kind": "core",
+      "displayYakuId": "budou",
+      "rate": {
+        "default": 0.1323690643,
+        "rescue": 0.1515777399,
+        "bonus": 0.2427570854
+      }
+    },
+    {
+      "id": "dango",
+      "kind": "core",
+      "displayYakuId": "dango",
+      "rate": {
+        "default": 0.1323690758,
+        "rescue": 0.1515777399,
+        "bonus": 0.2427570955
+      }
+    },
+    {
+      "id": "mikan",
+      "kind": "core",
+      "displayYakuId": "mikan",
+      "rate": {
+        "default": 0.099276801,
+        "rescue": 0.1212621962,
+        "bonus": 0.1820678138
+      }
+    },
+    {
+      "id": "tofu",
+      "kind": "core",
+      "displayYakuId": "tofu",
+      "rate": {
+        "default": 0.1323690643,
+        "rescue": 0.1515777399,
+        "bonus": 0.2022975744
+      }
+    },
+    {
+      "id": "momo",
+      "kind": "cherry",
+      "displayYakuId": "momo",
+      "rate": {
+        "default": 0.0661845265,
+        "rescue": 0.080841457,
+        "bonus": 0.0708041463
+      }
+    },
+    {
+      "id": "reg",
+      "kind": "reg",
+      "displayYakuId": "reg",
+      "rate": {
+        "default": 0.0043709717,
+        "rescue": 0.0086784531,
+        "bonus": 0.0021631001
+      }
+    },
+    {
+      "id": "sushiya",
+      "kind": "big",
+      "displayYakuId": "sushiya",
+      "rate": {
+        "default": 0.0009106189,
+        "rescue": 0.0017356891,
+        "bonus": 0.0002523602
+      }
+    },
+    {
+      "id": "namazu",
+      "kind": "big",
+      "displayYakuId": "namazu",
+      "rate": {
+        "default": 0.0009106189,
+        "rescue": 0.0017356891,
+        "bonus": 0.0002523602
+      }
+    }
+  ],
+  "singleYaku": [
+    {
+      "id": "single_a",
+      "name": "なしん",
+      "symbols": [
+        "な",
+        "し",
+        "ん"
+      ],
+      "category": "single",
+      "noArt": true
+    },
+    {
+      "id": "single_b",
+      "name": "みしご",
+      "symbols": [
+        "み",
+        "し",
+        "ご"
+      ],
+      "category": "single",
+      "noArt": true
+    },
+    {
+      "id": "single_c",
+      "name": "もしん",
+      "symbols": [
+        "も",
+        "し",
+        "ん"
+      ],
+      "category": "single",
+      "noArt": true
+    }
   ]
 }

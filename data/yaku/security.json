@@ -1,20 +1,227 @@
 {
   "mode": "security",
-  "internalRoleMissRate": { "default": 0.5, "rescue": 0.3, "bonus": 0.0 },
   "coreYaku": [
-    { "id": "hack", "name": "ハック", "symbols": ["ハ", "ッ", "ク"], "category": "core", "internalRoleKind": "core", "internalRoleRate": { "default": 0.10333333333333333, "rescue": 0.14, "bonus": 0.24 } },
-    { "id": "memori", "name": "メモリ", "symbols": ["メ", "モ", "リ"], "category": "core", "internalRoleKind": "replay", "internalRoleRate": { "default": 0.1, "rescue": 0.12, "bonus": 0.2 } },
-    { "id": "spam", "name": "スパム", "symbols": ["ス", "パ", "ム"], "category": "core", "internalRoleKind": "core", "internalRoleRate": { "default": 0.10333333333333333, "rescue": 0.14, "bonus": 0.24 } },
-    { "id": "flag", "name": "フラグ", "symbols": ["フ", "ラ", "グ"], "category": "core", "internalRoleKind": "core", "internalRoleRate": { "default": 0.10333333333333333, "rescue": 0.14, "bonus": 0.24 } }
-  ],
-  "cherryYaku": [
-    { "id": "bug", "name": "バグ", "symbols": ["バ", "グ"], "category": "cherry", "internalRoleKind": "cherry", "internalRoleRate": { "default": 0.05, "rescue": 0.07, "bonus": 0.07 } }
+    {
+      "id": "hack",
+      "name": "ハック",
+      "symbols": [
+        "ハ",
+        "ッ",
+        "ク"
+      ],
+      "category": "core"
+    },
+    {
+      "id": "memori",
+      "name": "メモリ",
+      "symbols": [
+        "メ",
+        "モ",
+        "リ"
+      ],
+      "category": "core"
+    },
+    {
+      "id": "spam",
+      "name": "スパム",
+      "symbols": [
+        "ス",
+        "パ",
+        "ム"
+      ],
+      "category": "core"
+    },
+    {
+      "id": "flag",
+      "name": "フラグ",
+      "symbols": [
+        "フ",
+        "ラ",
+        "グ"
+      ],
+      "category": "core"
+    }
   ],
   "premiumYaku": [
-    { "id": "code", "name": "コード", "symbols": ["コ", "ー", "ド"], "category": "premium", "internalRoleKind": "big", "internalRoleRate": { "default": 0.005, "rescue": 0.015, "bonus": 0.001 } },
-    { "id": "shell", "name": "シェル", "symbols": ["シ", "ェ", "ル"], "category": "premium", "internalRoleKind": "big", "internalRoleRate": { "default": 0.005, "rescue": 0.015, "bonus": 0.001 } }
+    {
+      "id": "code",
+      "name": "コード",
+      "symbols": [
+        "コ",
+        "ー",
+        "ド"
+      ],
+      "category": "premium"
+    },
+    {
+      "id": "shell",
+      "name": "シェル",
+      "symbols": [
+        "シ",
+        "ェ",
+        "ル"
+      ],
+      "category": "premium"
+    }
   ],
   "bonusYaku": [
-    { "id": "reg", "name": "コール", "symbols": ["コ", "ー", "ル"], "category": "bonus", "internalRoleKind": "reg", "internalRoleRate": { "default": 0.03, "rescue": 0.06, "bonus": 0.008 } }
+    {
+      "id": "reg",
+      "name": "コール",
+      "symbols": [
+        "コ",
+        "ー",
+        "ル"
+      ],
+      "category": "bonus"
+    }
+  ],
+  "cherryYaku": [
+    {
+      "id": "bug",
+      "name": "バグ",
+      "symbols": [
+        "バ",
+        "グ"
+      ],
+      "category": "cherry"
+    }
+  ],
+  "internalRoles": [
+    {
+      "id": "miss",
+      "kind": "miss",
+      "displayYakuId": null,
+      "rate": {
+        "default": 0.2253501952,
+        "rescue": 0.1429426854,
+        "bonus": 0.0
+      }
+    },
+    {
+      "id": "single",
+      "kind": "single",
+      "displayYakuId": null,
+      "rate": {
+        "default": 0.2058890634,
+        "rescue": 0.1880706104,
+        "bonus": 0.0566484641
+      }
+    },
+    {
+      "id": "hack",
+      "kind": "core",
+      "displayYakuId": "hack",
+      "rate": {
+        "default": 0.1323690643,
+        "rescue": 0.1515777399,
+        "bonus": 0.2427570854
+      }
+    },
+    {
+      "id": "spam",
+      "kind": "core",
+      "displayYakuId": "spam",
+      "rate": {
+        "default": 0.1323690758,
+        "rescue": 0.1515777399,
+        "bonus": 0.2427570955
+      }
+    },
+    {
+      "id": "flag",
+      "kind": "core",
+      "displayYakuId": "flag",
+      "rate": {
+        "default": 0.099276801,
+        "rescue": 0.1212621962,
+        "bonus": 0.1820678138
+      }
+    },
+    {
+      "id": "memori",
+      "kind": "core",
+      "displayYakuId": "memori",
+      "rate": {
+        "default": 0.1323690643,
+        "rescue": 0.1515777399,
+        "bonus": 0.2022975744
+      }
+    },
+    {
+      "id": "bug",
+      "kind": "cherry",
+      "displayYakuId": "bug",
+      "rate": {
+        "default": 0.0661845265,
+        "rescue": 0.080841457,
+        "bonus": 0.0708041463
+      }
+    },
+    {
+      "id": "reg",
+      "kind": "reg",
+      "displayYakuId": "reg",
+      "rate": {
+        "default": 0.0043709717,
+        "rescue": 0.0086784531,
+        "bonus": 0.0021631001
+      }
+    },
+    {
+      "id": "code",
+      "kind": "big",
+      "displayYakuId": "code",
+      "rate": {
+        "default": 0.0009106189,
+        "rescue": 0.0017356891,
+        "bonus": 0.0002523602
+      }
+    },
+    {
+      "id": "shell",
+      "kind": "big",
+      "displayYakuId": "shell",
+      "rate": {
+        "default": 0.0009106189,
+        "rescue": 0.0017356891,
+        "bonus": 0.0002523602
+      }
+    }
+  ],
+  "singleYaku": [
+    {
+      "id": "single_a",
+      "name": "メッグ",
+      "symbols": [
+        "メ",
+        "ッ",
+        "グ"
+      ],
+      "category": "single",
+      "noArt": true
+    },
+    {
+      "id": "single_b",
+      "name": "ハパド",
+      "symbols": [
+        "ハ",
+        "パ",
+        "ド"
+      ],
+      "category": "single",
+      "noArt": true
+    },
+    {
+      "id": "single_c",
+      "name": "スック",
+      "symbols": [
+        "ス",
+        "ッ",
+        "ク"
+      ],
+      "category": "single",
+      "noArt": true
+    }
   ]
 }

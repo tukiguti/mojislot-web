@@ -16,19 +16,25 @@ export type ReelStrip = z.infer<typeof ReelStripSchema>;
 export type ReelConfig = z.infer<typeof ReelConfigSchema>;
 
 // core=小役 / premium=BIG(7・バー揃い) / bonus=RB / cherry=チェリー(2文字役)
-export const YakuCategorySchema = z.enum(['core', 'premium', 'bonus', 'cherry']);
+// single=1枚役（実機の制御用1枚役。既存文字の無意味な並び＝「単語にならなかった」出目）
+export const YakuCategorySchema = z.enum([
+  'core',
+  'premium',
+  'bonus',
+  'cherry',
+  'single',
+]);
 
-/** レバーONで抽選する内部役。miss以外は具体的な役IDを伴う。 */
+/**
+ * レバーONで抽選する内部役の種別（実機のフラグに相当）。
+ * - miss   : ハズレ。何も揃わない出目に着地させる＝0枚
+ * - single : 1枚役。singleYaku のどれかを自動引き込みで揃える＝1枚。
+ *            押し順を外した時のこぼし先もこのグループ（実機の押し順ベルこぼし）
+ * - core/cherry/reg/big : 表示役に対応するフラグ
+ */
 export const InternalRoleKindSchema = z.enum([
   'miss',
-  'replay',
-  'core',
-  'cherry',
-  'reg',
-  'big',
-]);
-export const YakuInternalRoleKindSchema = z.enum([
-  'replay',
+  'single',
   'core',
   'cherry',
   'reg',
@@ -41,16 +47,26 @@ export const InternalRoleRateSchema = z.object({
   bonus: z.number().min(0).max(1),
 });
 
+/**
+ * 内部役テーブル1件。**表示役（displayYakuId）と内部役を分離**する。
+ * 押し順は「役の種類」ではなく**停止制御の入力**なので、ここには持たない
+ * （停止位置は 内部役 × 押し順 × 押下位置 の制御で決まる）。
+ */
+export const InternalRoleSchema = z.object({
+  id: z.string(),
+  kind: InternalRoleKindSchema,
+  /** 揃えさせたい表示役。miss / single は null。 */
+  displayYakuId: z.string().nullable().default(null),
+  /** 抽選確率（通常／救済／ボーナス中）。全内部役の合計＝1。 */
+  rate: InternalRoleRateSchema,
+});
+
 export const YakuSchema = z.object({
   id: z.string(),
   name: z.string(),
   // 通常は3文字。チェリー(2文字役=左+中)のみ2文字を許容
   symbols: z.array(z.string()).min(2).max(3),
   category: YakuCategorySchema,
-  /** 配当・演出で使う内部役種別。抽選自体は下の役別確率で行う。 */
-  internalRoleKind: YakuInternalRoleKindSchema,
-  /** この具体役をレバーONで直接抽選する確率（通常／救済／ボーナス中）。 */
-  internalRoleRate: InternalRoleRateSchema,
   // 図柄画像(webp)を持たない役。true なら画像読込をスキップし色タイル＋文字で描く
   noArt: z.boolean().optional(),
 });
@@ -58,41 +74,90 @@ export const YakuSchema = z.object({
 export const YakuListSchema = z
   .object({
     mode: z.string(),
-    /** ハズレも状態別に章データへ置き、全役との合計を同じファイルで検証する。 */
-    internalRoleMissRate: InternalRoleRateSchema,
     coreYaku: z.array(YakuSchema),
     premiumYaku: z.array(YakuSchema),
     bonusYaku: z.array(YakuSchema).default([]),
     // チェリー（2文字役・左+中の2リールで成立）。ジャグラー型のみ使用
     cherryYaku: z.array(YakuSchema).default([]),
+    /**
+     * 1枚役（実機の制御用1枚役）。既存リール文字の無意味な並びで、単語役と被らない。
+     * single フラグ時はこのグループの**どれか**を自動引き込みで揃える（中段のみ）。
+     * 押し順ミスのこぼし先・停止制御の受け皿を兼ねる。複数種で引き込みカバー率を稼ぐ。
+     */
+    singleYaku: z.array(YakuSchema).default([]),
+    /** 内部役テーブル（表示役と分離。押し順役・1枚役を含む）。 */
+    internalRoles: z.array(InternalRoleSchema).min(1),
   })
   .superRefine((list, ctx) => {
-    const yakus = [
-      ...list.coreYaku,
-      ...list.cherryYaku,
-      ...list.bonusYaku,
-      ...list.premiumYaku,
-    ];
+    const yakuIds = new Set(
+      [
+        ...list.coreYaku,
+        ...list.cherryYaku,
+        ...list.bonusYaku,
+        ...list.premiumYaku,
+      ].map((y) => y.id),
+    );
+    list.singleYaku.forEach((y, i) => {
+      if (y.category !== 'single') {
+        ctx.addIssue({
+          code: 'custom',
+          path: ['singleYaku', i, 'category'],
+          message: `singleYaku「${y.id}」の category は single にしてください`,
+        });
+      }
+      if (y.symbols.length !== 3) {
+        ctx.addIssue({
+          code: 'custom',
+          path: ['singleYaku', i, 'symbols'],
+          message: `singleYaku「${y.id}」は3文字（中段一直線で揃える）にしてください`,
+        });
+      }
+    });
     for (const state of InternalRoleStateSchema.options) {
-      const total = yakus.reduce(
-        (sum, yaku) => sum + yaku.internalRoleRate[state],
-        list.internalRoleMissRate[state],
+      const total = list.internalRoles.reduce(
+        (sum, role) => sum + role.rate[state],
+        0,
       );
       if (Math.abs(total - 1) >= 1e-9) {
         ctx.addIssue({
           code: 'custom',
-          path: ['internalRoleMissRate', state],
-          message: `内部役の${state}確率はmissと全役の合計を1にしてください（現在${total}）`,
+          path: ['internalRoles'],
+          message: `内部役の${state}確率は合計を1にしてください（現在${total}）`,
         });
       }
     }
+    list.internalRoles.forEach((role, i) => {
+      const needsDisplay =
+        role.kind !== 'miss' && role.kind !== 'single';
+      if (needsDisplay && !role.displayYakuId) {
+        ctx.addIssue({
+          code: 'custom',
+          path: ['internalRoles', i, 'displayYakuId'],
+          message: `内部役 ${role.id}（${role.kind}）には displayYakuId が必要です`,
+        });
+      }
+      if (!needsDisplay && role.displayYakuId) {
+        ctx.addIssue({
+          code: 'custom',
+          path: ['internalRoles', i, 'displayYakuId'],
+          message: `内部役 ${role.id}（${role.kind}）は displayYakuId を持てません`,
+        });
+      }
+      if (role.displayYakuId && !yakuIds.has(role.displayYakuId)) {
+        ctx.addIssue({
+          code: 'custom',
+          path: ['internalRoles', i, 'displayYakuId'],
+          message: `内部役 ${role.id} の displayYakuId「${role.displayYakuId}」が役に存在しません`,
+        });
+      }
+    });
   });
 
 export type YakuCategory = z.infer<typeof YakuCategorySchema>;
 export type InternalRoleKind = z.infer<typeof InternalRoleKindSchema>;
-export type YakuInternalRoleKind = z.infer<typeof YakuInternalRoleKindSchema>;
 export type InternalRoleState = z.infer<typeof InternalRoleStateSchema>;
 export type InternalRoleRate = z.infer<typeof InternalRoleRateSchema>;
+export type InternalRole = z.infer<typeof InternalRoleSchema>;
 export type Yaku = z.infer<typeof YakuSchema>;
 export type YakuList = z.infer<typeof YakuListSchema>;
 
@@ -106,6 +171,8 @@ export const PayoutSchema = z.object({
     premium: z.number(),
     bonus: z.number(),
     cherry: z.number().default(2),
+    /** 1枚役（2個テンパイ＝惜しい出目）の払い出し。全ハズレは0枚。 */
+    single: z.number().default(1),
   }),
   // ボーナス中の素点倍率。実運用値は data/payouts/default.json が正（現行2.0）。
   bonusZoneMultiplier: z.number(),
@@ -151,6 +218,38 @@ export const QuizListSchema = z.object({
   quizzes: z.array(QuizSchema).min(1),
 });
 
+/**
+ * 停止テーブル（第1停止）。実機のリール制御表に相当する。
+ * `firstStop[内部役ID][リールindex][押下位置] = スベリコマ数(0〜4)`。
+ *
+ * 第1停止は**まだどの役もロックし得ない**（3文字役は3リール、チェリーは2リール必要）ので
+ * 蹴りが発火せず、停止位置は完全に自由＝ここが出目（リーチ目・入り目）の設計点になる。
+ * 第2・第3停止は「当選役を揃える／非当選役を避ける」の制約でほぼ一意に決まるため、
+ * 表は持たずアルゴリズムに委ねる（[26_reel-guarantee] の②ゼロ保証もそちらで担保）。
+ *
+ * このファイルは生成できるが**手で書き換えてよい**。書き換えても②ゼロ保証は
+ * 第2・第3停止の蹴りが守るので崩れない（監査テストが全押下位置で検証する）。
+ */
+export const StopTableSchema = z.object({
+  mode: z.string(),
+  firstStop: z.record(
+    z.string(),
+    z.array(z.array(z.number().int().min(0).max(4)).length(21)).length(3),
+  ),
+});
+export type StopTable = z.infer<typeof StopTableSchema>;
+
+/**
+ * リーチ目表。出目キー（`左上中下|中…|右…`）→ 確定するボーナス種別。
+ * 停止制御を全数実行して「ボーナスフラグでしか出ない出目」を抽出したもので、
+ * 手で描いた絵ではなく制御の副産物。生成は tests/tools/find-reach-eyes.test.ts。
+ */
+export const ReachEyeTableSchema = z.object({
+  mode: z.string(),
+  eyes: z.record(z.string(), z.enum(['reg', 'big', 'both'])),
+});
+export type ReachEyeTable = z.infer<typeof ReachEyeTableSchema>;
+
 export type Quiz = z.infer<typeof QuizSchema>;
 export type QuizList = z.infer<typeof QuizListSchema>;
 
@@ -172,55 +271,31 @@ export const EffectRatesSchema = z
     { message: '演出レート none/shisa/quiz/aim の合計は 1 にしてください' },
   );
 
-/** 示唆の期待度ランク色（青<黄<緑<赤<金）。tint・ステータス・ジン台詞に使う。 */
-export const ShisaTierColorSchema = z.enum(['blue', 'yellow', 'green', 'red', 'gold']);
+/**
+ * 示唆のランク色（青<赤<金）。tint・ステータス・ジン台詞に使う。
+ * 停止制御は**内部役だけで決まる**ようになった（実機準拠）ので、色は
+ * 「どのカテゴリの当選か」という**情報だけ**を表す。引き込みの強さは色で変わらない。
+ * 旧・黄と緑は青と同じ意味（小役確定）になるため廃止（2026-07-25）。
+ */
+export const ShisaTierColorSchema = z.enum(['blue', 'red', 'gold']);
 export type ShisaTierColor = z.infer<typeof ShisaTierColorSchema>;
 
-/**
- * 示唆の1段階（期待度tier）。色が上がるほど引き込みが強く・対象が広がる。
- *  - 青→黄→緑: 小役(core/cherry)の最終リール引き込みを 2→3→4コマ に段階強化（bonus/premiumは対象外）
- *  - 赤: 小役引き込みを切り、RB(bonus)を引き込み対象に追加（第1・第2停止も中段引き込み）
- *  - 金: さらに BB(premium=7揃い/バー揃いの2役)も引き込み対象に追加
- */
+/** 示唆の1段階。`targets` に含まれるカテゴリの内部役が当選した時だけこの色が出る。 */
 const ShisaTierSchema = z.object({
   color: ShisaTierColorSchema,
-  /** この tier の抽選ウェイト（配列内の総和で正規化。合計≈1 を想定）。 */
+  /** 同じ内部役に複数tierが該当する時の抽選ウェイト。 */
   weight: z.number().min(0),
-  /** 小役(core/cherry)の最終リール引き込み窓（コマ）。0=引き込まない（赤/金）。 */
-  coreCells: z.number().int().nonnegative(),
-  /** RB(bonus)の最終リール引き込み窓（コマ）。0=対象外。 */
-  bonusCells: z.number().int().nonnegative(),
-  /** BB(premium=7揃い/バー揃い)の最終リール引き込み窓（コマ）。0=対象外。 */
-  premiumCells: z.number().int().nonnegative(),
-  /** bonus/premium の第1・第2停止の中段引き込み窓（コマ・aim相当）。0=第1/2は自力。 */
-  noticeHintCells: z.number().int().nonnegative(),
+  /** この色が示すカテゴリ（＝当たりうる役の範囲）。 */
+  targets: z.array(YakuCategorySchema).min(1),
 });
 export type ShisaTier = z.infer<typeof ShisaTierSchema>;
 
-/** 示唆tierの既定（青55/黄25/緑12/赤6/金2%）。data/tuning が正、ここはフォールバック。 */
+/** 示唆tierの既定。data/tuning が正、ここはフォールバック。 */
 const DEFAULT_SHISA_TIERS: ShisaTier[] = [
-  { color: 'blue', weight: 0.55, coreCells: 2, bonusCells: 0, premiumCells: 0, noticeHintCells: 0 },
-  { color: 'yellow', weight: 0.25, coreCells: 3, bonusCells: 0, premiumCells: 0, noticeHintCells: 0 },
-  { color: 'green', weight: 0.12, coreCells: 4, bonusCells: 0, premiumCells: 0, noticeHintCells: 0 },
-  { color: 'red', weight: 0.06, coreCells: 0, bonusCells: 8, premiumCells: 0, noticeHintCells: 4 },
-  { color: 'gold', weight: 0.02, coreCells: 0, bonusCells: 8, premiumCells: 8, noticeHintCells: 4 },
+  { color: 'blue', weight: 1, targets: ['core', 'cherry'] },
+  { color: 'red', weight: 1, targets: ['bonus'] },
+  { color: 'gold', weight: 1, targets: ['premium'] },
 ];
-
-/**
- * 演出なし時の小役蹴り。
- * 「演出中に目押しできれば獲れる」技術介入機にするため、**演出が無いスピンは小役も揃わない**
- * （＝実機の小役非当選に相当）。これが無いと目押しの上手いプレイヤーが通常時に無限に増やせる。
- * ボーナス中と確定告知ランプ点灯中は適用しない。
- */
-const KickCoreSchema = z
-  .object({
-    enabled: z.boolean().default(true),
-    /** 蹴りの発動確率（0..1）。 */
-    probability: z.number().min(0).max(1).default(0.8),
-    /** 「揃わない位置」を探す最大コマ数。窓内に無ければ蹴らない＝たまに揃う。 */
-    maxCells: z.number().int().nonnegative().default(4),
-  })
-  .default({ enabled: true, probability: 0.8, maxCells: 4 });
 
 export const TuningSchema = z.object({
   /** ベット毎の演出抽選レート（通常／ハマり救済／ボーナス中）。各合計は1.0必須。 */
@@ -244,33 +319,18 @@ export const TuningSchema = z.object({
       shisaTiers: z.array(ShisaTierSchema).min(1).optional(),
     })
     .default({ spinsPerBig: 10, spinsPerReg: 5 }),
-  /** 引き込み/蹴り（目押し補助）の強さ。コマ数が大きいほど揃いやすい。 */
+  /**
+   * 引き込み（目押し補助）。実機同様、**引き込み窓は内部役だけで決まり演出では変わらない**。
+   * 難易度はリール配列（図柄の間隔）が担う＝4コマ内に図柄が無ければ取りこぼす。
+   */
   assist: z
     .object({
-      /** 通常テンパイ（示唆など）の最終リール引き込み最大コマ数（実機準拠＝4）。 */
-      assistMaxCells: z.number().int().nonnegative().default(4),
-      /** 予告役(狙え/クイズ)の最終リール引き込み最大コマ数（拡大＝狙えば獲れる・既定8）。 */
-      noticeAssistMaxCells: z.number().int().nonnegative().default(8),
-      /** 予告役の第1・第2停止の中段引き込み最大コマ数（最終リール以外も引き込む・既定4）。 */
-      aimHintMaxCells: z.number().int().nonnegative().default(4),
-      /** 偶然の bonus/premium 揃いを蹴る最大コマ数。 */
-      kickMaxCells: z.number().int().nonnegative().default(2),
-      /** 蹴りの発動確率（0..1）。 */
-      kickProbability: z.number().min(0).max(1).default(0.5),
-      /** 示唆の期待度tier（青<黄<緑<赤<金）。引いた示唆はこの配列から重み抽選される。 */
+      /** 当選役を引き込む最大コマ数（実機準拠＝最大スベリ4コマ）。 */
+      pullInCells: z.number().int().nonnegative().default(4),
+      /** 示唆tier（色＝当選カテゴリの情報。引き込みには影響しない）。 */
       shisaTiers: z.array(ShisaTierSchema).min(1).default(DEFAULT_SHISA_TIERS),
-      /** 演出なしスピンで小役(core/cherry)も蹴るか（技術介入機の前提＝演出中だけ獲れる）。 */
-      kickCore: KickCoreSchema,
     })
-    .default({
-      assistMaxCells: 4,
-      noticeAssistMaxCells: 8,
-      aimHintMaxCells: 4,
-      kickMaxCells: 2,
-      kickProbability: 0.5,
-      shisaTiers: DEFAULT_SHISA_TIERS,
-      kickCore: { enabled: true, probability: 0.8, maxCells: 4 },
-    }),
+    .default({ pullInCells: 4, shisaTiers: DEFAULT_SHISA_TIERS }),
   /** フリーズ演出。 */
   freeze: z
     .object({
@@ -287,10 +347,24 @@ export const TuningSchema = z.object({
       rate: z.number().min(0).max(1).default(0.0033),
       /** 確定種別がBIGになる割合（残りはREG）。 */
       bigRatio: z.number().min(0).max(1).default(0.3),
-      /** 点灯中、確定役の図柄へ引き込む最大コマ数（強め＝揃えに行きやすい）。 */
-      assistMaxCells: z.number().int().nonnegative().default(8),
     })
-    .default({ rate: 0.0033, bigRatio: 0.3, assistMaxCells: 8 }),
+    .default({ rate: 0.0033, bigRatio: 0.3 }),
+  /**
+   * チェリー重複（実機のレア役＋ボーナス同時当選）。
+   * チェリーが**実際に揃った**時だけ抽選し、当たれば確定告知ランプを点灯させて
+   * 次ゲーム以降をボーナス確定にする。チェリーは2文字役で他の小役と質が違うので、
+   * 「引けたら次に期待できる」レア役としての意味づけを与える。
+   */
+  cherryBonus: z
+    .object({
+      /** チェリー成立1回あたりの当籤率。 */
+      rate: z.number().min(0).max(1).default(0.05),
+      /** 確定種別がBIGになる割合（残りはREG）。 */
+      bigRatio: z.number().min(0).max(1).default(0.3),
+      /** 成立表示の余韻を残してから告知するまでの待ち（ms）。 */
+      delayMs: z.number().int().nonnegative().default(900),
+    })
+    .default({ rate: 0.05, bigRatio: 0.3, delayMs: 900 }),
   /**
    * リール速度（コマ/秒）。実機（ジャグラー等）は約28コマ/秒＝0.75秒/周。
    * モーションブラー（ReelView）実装前は残像が無く、実機速度だと図柄が追えずカクついて見えたため

@@ -1,20 +1,227 @@
 {
   "mode": "katakana_animal",
-  "internalRoleMissRate": { "default": 0.5, "rescue": 0.3, "bonus": 0.0 },
   "coreYaku": [
-    { "id": "usagi", "name": "ウサギ", "symbols": ["ウ", "サ", "ギ"], "category": "core", "internalRoleKind": "core", "internalRoleRate": { "default": 0.10333333333333333, "rescue": 0.14, "bonus": 0.24 } },
-    { "id": "kirin", "name": "キリン", "symbols": ["キ", "リ", "ン"], "category": "core", "internalRoleKind": "replay", "internalRoleRate": { "default": 0.1, "rescue": 0.12, "bonus": 0.2 } },
-    { "id": "tanuki", "name": "タヌキ", "symbols": ["タ", "ヌ", "キ"], "category": "core", "internalRoleKind": "core", "internalRoleRate": { "default": 0.10333333333333333, "rescue": 0.14, "bonus": 0.24 } },
-    { "id": "tokage", "name": "トカゲ", "symbols": ["ト", "カ", "ゲ"], "category": "core", "internalRoleKind": "core", "internalRoleRate": { "default": 0.10333333333333333, "rescue": 0.14, "bonus": 0.24 } }
-  ],
-  "cherryYaku": [
-    { "id": "sai", "name": "サイ", "symbols": ["サ", "イ"], "category": "cherry", "internalRoleKind": "cherry", "internalRoleRate": { "default": 0.05, "rescue": 0.07, "bonus": 0.07 } }
+    {
+      "id": "usagi",
+      "name": "ウサギ",
+      "symbols": [
+        "ウ",
+        "サ",
+        "ギ"
+      ],
+      "category": "core"
+    },
+    {
+      "id": "kirin",
+      "name": "キリン",
+      "symbols": [
+        "キ",
+        "リ",
+        "ン"
+      ],
+      "category": "core"
+    },
+    {
+      "id": "tanuki",
+      "name": "タヌキ",
+      "symbols": [
+        "タ",
+        "ヌ",
+        "キ"
+      ],
+      "category": "core"
+    },
+    {
+      "id": "tokage",
+      "name": "トカゲ",
+      "symbols": [
+        "ト",
+        "カ",
+        "ゲ"
+      ],
+      "category": "core"
+    }
   ],
   "premiumYaku": [
-    { "id": "dragon", "name": "ドラゴン", "symbols": ["ド", "ラ", "ゴ"], "category": "premium", "internalRoleKind": "big", "internalRoleRate": { "default": 0.005, "rescue": 0.015, "bonus": 0.001 } },
-    { "id": "inko", "name": "インコ", "symbols": ["イ", "ン", "コ"], "category": "premium", "internalRoleKind": "big", "internalRoleRate": { "default": 0.005, "rescue": 0.015, "bonus": 0.001 } }
+    {
+      "id": "dragon",
+      "name": "ドラゴン",
+      "symbols": [
+        "ド",
+        "ラ",
+        "ゴ"
+      ],
+      "category": "premium"
+    },
+    {
+      "id": "inko",
+      "name": "インコ",
+      "symbols": [
+        "イ",
+        "ン",
+        "コ"
+      ],
+      "category": "premium"
+    }
   ],
   "bonusYaku": [
-    { "id": "reg", "name": "ドラコ", "symbols": ["ド", "ラ", "コ"], "category": "bonus", "internalRoleKind": "reg", "internalRoleRate": { "default": 0.03, "rescue": 0.06, "bonus": 0.008 } }
+    {
+      "id": "reg",
+      "name": "ドラコ",
+      "symbols": [
+        "ド",
+        "ラ",
+        "コ"
+      ],
+      "category": "bonus"
+    }
+  ],
+  "cherryYaku": [
+    {
+      "id": "sai",
+      "name": "サイ",
+      "symbols": [
+        "サ",
+        "イ"
+      ],
+      "category": "cherry"
+    }
+  ],
+  "internalRoles": [
+    {
+      "id": "miss",
+      "kind": "miss",
+      "displayYakuId": null,
+      "rate": {
+        "default": 0.2253501952,
+        "rescue": 0.1429426854,
+        "bonus": 0.0
+      }
+    },
+    {
+      "id": "single",
+      "kind": "single",
+      "displayYakuId": null,
+      "rate": {
+        "default": 0.2058890634,
+        "rescue": 0.1880706104,
+        "bonus": 0.0566484641
+      }
+    },
+    {
+      "id": "usagi",
+      "kind": "core",
+      "displayYakuId": "usagi",
+      "rate": {
+        "default": 0.1323690643,
+        "rescue": 0.1515777399,
+        "bonus": 0.2427570854
+      }
+    },
+    {
+      "id": "tanuki",
+      "kind": "core",
+      "displayYakuId": "tanuki",
+      "rate": {
+        "default": 0.1323690758,
+        "rescue": 0.1515777399,
+        "bonus": 0.2427570955
+      }
+    },
+    {
+      "id": "tokage",
+      "kind": "core",
+      "displayYakuId": "tokage",
+      "rate": {
+        "default": 0.099276801,
+        "rescue": 0.1212621962,
+        "bonus": 0.1820678138
+      }
+    },
+    {
+      "id": "kirin",
+      "kind": "core",
+      "displayYakuId": "kirin",
+      "rate": {
+        "default": 0.1323690643,
+        "rescue": 0.1515777399,
+        "bonus": 0.2022975744
+      }
+    },
+    {
+      "id": "sai",
+      "kind": "cherry",
+      "displayYakuId": "sai",
+      "rate": {
+        "default": 0.0661845265,
+        "rescue": 0.080841457,
+        "bonus": 0.0708041463
+      }
+    },
+    {
+      "id": "reg",
+      "kind": "reg",
+      "displayYakuId": "reg",
+      "rate": {
+        "default": 0.0043709717,
+        "rescue": 0.0086784531,
+        "bonus": 0.0021631001
+      }
+    },
+    {
+      "id": "dragon",
+      "kind": "big",
+      "displayYakuId": "dragon",
+      "rate": {
+        "default": 0.0009106189,
+        "rescue": 0.0017356891,
+        "bonus": 0.0002523602
+      }
+    },
+    {
+      "id": "inko",
+      "kind": "big",
+      "displayYakuId": "inko",
+      "rate": {
+        "default": 0.0009106189,
+        "rescue": 0.0017356891,
+        "bonus": 0.0002523602
+      }
+    }
+  ],
+  "singleYaku": [
+    {
+      "id": "single_a",
+      "name": "イヌキ",
+      "symbols": [
+        "イ",
+        "ヌ",
+        "キ"
+      ],
+      "category": "single",
+      "noArt": true
+    },
+    {
+      "id": "single_b",
+      "name": "イリン",
+      "symbols": [
+        "イ",
+        "リ",
+        "ン"
+      ],
+      "category": "single",
+      "noArt": true
+    },
+    {
+      "id": "single_c",
+      "name": "ウンゴ",
+      "symbols": [
+        "ウ",
+        "ン",
+        "ゴ"
+      ],
+      "category": "single",
+      "noArt": true
+    }
   ]
 }
