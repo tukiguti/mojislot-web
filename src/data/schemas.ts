@@ -354,6 +354,22 @@ export const TuningSchema = z.object({
     })
     .default({ rate: 0.0033, bigRatio: 0.3, assistMaxCells: 8 }),
   /**
+   * チェリー重複（実機のレア役＋ボーナス同時当選）。
+   * チェリーが**実際に揃った**時だけ抽選し、当たれば確定告知ランプを点灯させて
+   * 次ゲーム以降をボーナス確定にする。チェリーは2文字役で他の小役と質が違うので、
+   * 「引けたら次に期待できる」レア役としての意味づけを与える。
+   */
+  cherryBonus: z
+    .object({
+      /** チェリー成立1回あたりの当籤率。 */
+      rate: z.number().min(0).max(1).default(0.05),
+      /** 確定種別がBIGになる割合（残りはREG）。 */
+      bigRatio: z.number().min(0).max(1).default(0.3),
+      /** 成立表示の余韻を残してから告知するまでの待ち（ms）。 */
+      delayMs: z.number().int().nonnegative().default(900),
+    })
+    .default({ rate: 0.05, bigRatio: 0.3, delayMs: 900 }),
+  /**
    * リール速度（コマ/秒）。実機（ジャグラー等）は約28コマ/秒＝0.75秒/周。
    * モーションブラー（ReelView）実装前は残像が無く、実機速度だと図柄が追えずカクついて見えたため
    * 20（1.05秒/周）に落としていた。ブラー実装後は実機速度が使える。

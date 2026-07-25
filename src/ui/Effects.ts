@@ -263,8 +263,10 @@ export function showAimNotice(opts: AimNoticeOptions): void {
   // 狙う図柄は**各リールの上**に1文字ずつ置く（どのリールで何を狙うかを直結させる）。
   // 中央にまとめて並べる旧方式は廃止（リール上の表示と二重になるため）。
   const reelTopFrac = opts.reelTopYFrac ?? 260 / 600;
-  const reelTopY = rect.top + rect.height * reelTopFrac - 8;
-  const symbolY = rect.top + rect.height * reelTopFrac - 66;
+  // 矢印は高さ28pxの三角。先端がリール上端の少し**上**で止まるよう -38 に置く
+  // （-8 だとリールに20px食い込んで図柄が隠れていた）。図柄タイルはさらに上。
+  const reelTopY = rect.top + rect.height * reelTopFrac - 38;
+  const symbolY = rect.top + rect.height * reelTopFrac - 96;
   for (let i = 0; i < 3; i++) {
     if (opts.arrowReels && !opts.arrowReels[i]) continue;
     const sym = opts.symbols[i];

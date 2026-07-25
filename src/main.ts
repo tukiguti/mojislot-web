@@ -1763,6 +1763,24 @@ export async function bootstrap() {
       const isRegular = !isPremium && bonusHit !== null;
       // 確定告知ランプ点灯中にボーナス（BIG/REG）が揃ったら回収完了＝消灯。
       if (announcedBonus && (isPremium || isRegular)) clearAnnounceLamp();
+      // チェリー重複（実機のレア役＋ボーナス同時当選）。
+      // チェリーが**実際に揃った**時だけ抽選し、当たれば確定告知ランプを点灯＝次ゲーム以降ボーナス確定。
+      // 成立表示の余韻を残してから点灯させ、「チェリーが呼んだ」と読める間を作る。
+      const cherryHit = hits.some((h) => h.yaku.category === 'cherry');
+      if (
+        cherryHit &&
+        !announcedBonus &&
+        !bonusZone.isActive() &&
+        !freezeActive &&
+        Math.random() < tuning.cherryBonus.rate
+      ) {
+        window.setTimeout(() => {
+          // 待っている間に他経路で点灯／ボーナス突入していたら何もしない。
+          if (announcedBonus || bonusZone.isActive()) return;
+          announceBonus(tuning.cherryBonus.bigRatio);
+          showResult('チェリー重複！ ボーナス確定', 'premium');
+        }, tuning.cherryBonus.delayMs);
+      }
       // 成立後の連チャン数で配当倍率を評価（3連達成スピンから恩恵が乗る）
       const streakAfter = willHit ? playStats.stats.get().streak + 1 : 0;
       const streakMult = calc.streakMult(streakAfter);
@@ -2064,8 +2082,8 @@ export async function bootstrap() {
 
   // === 確定告知ランプ ===
   /** ランプ点灯（ボーナス確定）。種別を内部確定（伏せる）し、UI を点灯。 */
-  const announceBonus = () => {
-    announcedBonus = Math.random() < tuning.announceLamp.bigRatio ? 'big' : 'reg';
+  const announceBonus = (bigRatio = tuning.announceLamp.bigRatio) => {
+    announcedBonus = Math.random() < bigRatio ? 'big' : 'reg';
     // 狙う役を固定（[0]＝確定ランプ用の共通プレフィックス役）。全リールがこの1役へ引き込まれて確実に揃い、
     // 最終リールで種別(BIG/REG)が判明する＝祈りの瞬間の演出を保つ。
     announcedRole =
