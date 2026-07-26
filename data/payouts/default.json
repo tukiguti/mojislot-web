@@ -40,5 +40,6 @@
     }
   ],
   "aimBonusMultiplier": 1.5,
-  "maxComboMultiplier": 4.5
+  "maxComboMultiplier": 4.5,
+  "bitaMultiplier": 1.15
 }

@@ -1,4 +1,4 @@
-import type { Grid3x3 } from './Paylines';
+import { PAYLINES, type Grid3x3 } from './Paylines';
 import type { PayoutCalc } from './PayoutCalc';
 import type { ReachEyes, ReachKind } from './ReachEyes';
 import { resolveInternalRoleHits } from './RoleResolver';
@@ -15,6 +15,8 @@ import type { PaylineHit, YakuJudge } from './YakuJudge';
  *    「こぼしたのに美味しい」ことになり、連を狙う動機が薄れる
  *  - **1枚役は何ライン揃っても1枚**（1Gあたり最大1枚）
  *  - **予告役の達成ボーナスは通常配当に上乗せ**（置き換えではない）
+ *  - **ビタ押しボーナスは「完全自力」の時だけ**。役に必要なリールを1本でも
+ *    引き込み／蹴りに助けられたら付かない
  *
  * 設計: zikken/playground/mojislot-plan/24_internal-role-lottery.md
  */
@@ -30,6 +32,11 @@ export interface RoundInput {
   streakBefore: number;
   /** 予告役（狙え＝予告役／クイズ＝答えの役）。無ければ null。 */
   noticeYakuId: string | null;
+  /**
+   * 各リールの停止時スベリコマ数。0＝引き込みも蹴りも働かず自力で止めた。
+   * 役に必要なリールが全部0なら「ビタ押し」＝配当にボーナスが付く。
+   */
+  slipCells: readonly number[];
 }
 
 export interface RoundOutcome {
@@ -52,7 +59,7 @@ export interface RoundOutcome {
   /** このゲームを含めた連チャン数（ハズレなら0）。 */
   streakAfter: number;
   streakMult: number;
-  /** 払い出し合計（= base + singleWin + noticeBonus）。 */
+  /** 払い出し合計（= base + singleWin + noticeBonus + bitaBonus）。 */
   win: number;
   /** 内訳：成立ラインの通常配当。 */
   base: number;
@@ -60,6 +67,14 @@ export interface RoundOutcome {
   singleWin: number;
   /** 内訳：予告役の達成ボーナス（上乗せ分のみ）。 */
   noticeBonus: number;
+  /** 内訳：ビタ押しボーナス（上乗せ分のみ）。 */
+  bitaBonus: number;
+  /** 役に必要なリールを**全部**自力で止めたか（＝ビタ押し成立）。 */
+  bitaPerfect: boolean;
+  /** 役に必要なリールのうち自力で止めた本数（演出・統計用）。 */
+  selfStoppedReels: number;
+  /** 役に必要なリールの本数（3文字役=3／チェリー=2）。 */
+  requiredReels: number;
 }
 
 export interface RoundResolverDeps {
@@ -68,6 +83,8 @@ export interface RoundResolverDeps {
   reachEyes: ReachEyes;
   /** 1枚役の払い出し枚数（payout.baseMultiplier.single）。 */
   singlePayout: number;
+  /** ビタ押し（完全自力）成立時の配当倍率（payout.bitaMultiplier）。 */
+  bitaMultiplier: number;
 }
 
 export class RoundResolver {
@@ -109,6 +126,17 @@ export class RoundResolver {
         )
       : 0;
 
+    // ビタ押し：役に必要なリールを1本残らず自力で止めた時だけ。
+    // チェリー（2文字役）は右リールが不問なので、その本数は要求しない。
+    const required = requiredReels(hits);
+    const selfStopped = [...required].filter(
+      (r) => (input.slipCells[r] ?? 0) === 0,
+    ).length;
+    const bitaPerfect = required.size > 0 && selfStopped === required.size;
+    const bitaBonus = bitaPerfect
+      ? Math.floor(base * (this.deps.bitaMultiplier - 1))
+      : 0;
+
     return {
       hits,
       singleHits,
@@ -121,10 +149,32 @@ export class RoundResolver {
       reachKind,
       streakAfter,
       streakMult,
-      win: base + singleWin + noticeBonus,
+      win: base + singleWin + noticeBonus + bitaBonus,
       base,
       singleWin,
       noticeBonus,
+      bitaBonus,
+      bitaPerfect,
+      selfStoppedReels: selfStopped,
+      requiredReels: required.size,
     };
   }
+}
+
+/**
+ * 成立ラインを揃えるのに**実際に必要だった**リールの集合。
+ * ペイラインは常に3セルだが、チェリーのような2文字役は左＋中で成立し
+ * 右リールは何が止まっていてもよい。ビタ押し判定でそこまで要求すると
+ * 「関係ないリールを外したせいで付かない」という理不尽になる。
+ */
+function requiredReels(hits: readonly PaylineHit[]): Set<number> {
+  const reels = new Set<number>();
+  for (const h of hits) {
+    const line = PAYLINES.find((p) => p.id === h.paylineId);
+    if (!line) continue;
+    for (const [, col] of line.cells.slice(0, h.yaku.symbols.length)) {
+      reels.add(col);
+    }
+  }
+  return reels;
 }

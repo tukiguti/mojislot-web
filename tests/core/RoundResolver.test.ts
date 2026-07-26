@@ -47,6 +47,7 @@ const PAYOUT: Payout = {
   ],
   maxComboMultiplier: 4.5,
   aimBonusMultiplier: 1.5,
+  bitaMultiplier: 2,
 } as unknown as Payout;
 
 const resolver = new RoundResolver({
@@ -54,6 +55,7 @@ const resolver = new RoundResolver({
   calc: new PayoutCalc(PAYOUT),
   reachEyes: new ReachEyes(null, YAKU),
   singlePayout: PAYOUT.baseMultiplier.single,
+  bitaMultiplier: PAYOUT.bitaMultiplier,
 });
 
 /** 中段だけに役を並べ、上下はどの役にもならない文字で埋めたグリッド。 */
@@ -63,10 +65,12 @@ const middleOnly = (a: string, b: string, c: string): Grid3x3 => [
   ['ぬ', 'ぬ', 'ぬ'],
 ];
 
+/** 既定は「引き込みに助けられた」状態。ビタ押しの検証は slipCells を明示する。 */
 const resolve = (grid: Grid3x3, flags: string[], opts: Partial<{
   bonusActive: boolean;
   streakBefore: number;
   noticeYakuId: string | null;
+  slipCells: number[];
 }> = {}) =>
   resolver.resolve({
     grid,
@@ -74,6 +78,7 @@ const resolve = (grid: Grid3x3, flags: string[], opts: Partial<{
     bonusActive: opts.bonusActive ?? false,
     streakBefore: opts.streakBefore ?? 0,
     noticeYakuId: opts.noticeYakuId ?? null,
+    slipCells: opts.slipCells ?? [1, 1, 1],
   });
 
 describe('RoundResolver', () => {
@@ -157,5 +162,64 @@ describe('RoundResolver', () => {
   it('何か揃っている時はリーチ目を判定しない', () => {
     const r = resolve(middleOnly('あ', 'い', 'う'), ['core_a']);
     expect(r.reachKind).toBeNull();
+  });
+
+  describe('ビタ押し（引き込みなし＝完全自力）', () => {
+    it('必要なリールを全部自力で止めたらボーナスが付く', () => {
+      const r = resolve(middleOnly('あ', 'い', 'う'), ['core_a'], {
+        slipCells: [0, 0, 0],
+      });
+      expect(r.bitaPerfect).toBe(true);
+      expect(r).toMatchObject({ base: 5, bitaBonus: 5, win: 10 }); // ×2 の上乗せ分
+    });
+
+    it('1本でも助けられたら付かない', () => {
+      const r = resolve(middleOnly('あ', 'い', 'う'), ['core_a'], {
+        slipCells: [0, 1, 0],
+      });
+      expect(r).toMatchObject({
+        bitaPerfect: false,
+        bitaBonus: 0,
+        win: 5,
+        selfStoppedReels: 2,
+        requiredReels: 3,
+      });
+    });
+
+    it('チェリー（2文字役）は右リールを要求しない', () => {
+      // 右が滑っていてもチェリーの成立には無関係なのでビタ成立
+      const r = resolve(middleOnly('も', 'も', 'ぬ'), ['cherry'], {
+        slipCells: [0, 0, 3],
+      });
+      expect(r).toMatchObject({
+        requiredReels: 2,
+        selfStoppedReels: 2,
+        bitaPerfect: true,
+      });
+      expect(r.bitaBonus).toBe(4); // base 4 の×2上乗せ分
+    });
+
+    it('ハズレではビタ押しにならない', () => {
+      const r = resolve(middleOnly('あ', 'い', 'う'), [], {
+        slipCells: [0, 0, 0],
+      });
+      expect(r).toMatchObject({
+        bitaPerfect: false,
+        bitaBonus: 0,
+        requiredReels: 0,
+      });
+    });
+
+    it('ボーナス倍率・連チャン倍率が乗った配当に対して上乗せされる', () => {
+      const r = resolve(middleOnly('あ', 'い', 'う'), ['core_a'], {
+        slipCells: [0, 0, 0],
+        bonusActive: true,
+        streakBefore: 2, // 3連 → 1.5倍
+      });
+      const base = Math.floor(5 * 2.2 * 1.5); // 16
+      expect(r.base).toBe(base);
+      expect(r.bitaBonus).toBe(base); // ×2 の上乗せ分
+      expect(r.win).toBe(base * 2);
+    });
   });
 });

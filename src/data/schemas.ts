@@ -203,6 +203,12 @@ export const PayoutSchema = z.object({
   // ボーナス倍率×コンボ倍率の積算上限。combined をここで頭打ちにする（コンボ天井）。
   // 現行 data/payouts では 10.0。省略時フォールバックは 3.0。
   maxComboMultiplier: z.number().positive().default(3),
+  /**
+   * ビタ押し（＝引き込みも蹴りも使わず、役に必要なリールを**全部**自力で止めた）時の
+   * 配当倍率。上乗せ分のみを加算する（aimBonusMultiplier と同じ扱い）。
+   * 到達率は腕で大きく開く（実測: 初心者3.9% / 中級9.8% / 上級26.6% / 神68.9%）。
+   */
+  bitaMultiplier: z.number().positive().default(1.5),
 });
 
 export type Payout = z.infer<typeof PayoutSchema>;

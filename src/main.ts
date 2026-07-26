@@ -203,6 +203,7 @@ export async function bootstrap() {
     calc,
     reachEyes,
     singlePayout: payout.baseMultiplier.single,
+    bitaMultiplier: payout.bitaMultiplier,
   });
   const wallet = new CoinWallet(payout.initialCoins);
   const scheduler = new EffectScheduler(tuning.effectRates.default);
@@ -1488,6 +1489,7 @@ export async function bootstrap() {
         bonusActive: bonusSession.spinActive,
         streakBefore: playStats.stats.get().streak,
         noticeYakuId: currentTargetYakuId(),
+        slipCells: lastSlipCells,
       });
       const { hits, willHit, premiumHit, bonusHit, isPremium, isRegular } =
         outcome;
@@ -1560,23 +1562,10 @@ export async function bootstrap() {
       if (isPremium) runPremiumCount += 1;
       if (isRegular) runBonusCount += 1;
 
-      // ビタ押し集計：役成立時のみ、貢献したリールごとに
-      //   1) 押下精度 ≤ BITA_MS
-      //   2) 滑り（蹴り）も引き込みも無く自力停止（slipCells == 0）
-      // の両方を満たす時に +1。最大 +3。引き込みで揃えた分はビタ非カウント。
-      if (willHit) {
-        const contributingReels = new Set<number>();
-        for (const h of hits) {
-          const line = PAYLINES.find((p) => p.id === h.paylineId);
-          if (!line) continue;
-          for (const [, col] of line.cells) contributingReels.add(col);
-        }
-        for (const r of contributingReels) {
-          if (lastPressErrorMs[r] <= BITA_MS && lastSlipCells[r] === 0) {
-            zukanState.recordBita();
-          }
-        }
-      }
+      // ビタ押し：役に必要なリールを1本残らず自力で止めた時だけ1カウント
+      // （判定は RoundResolver）。押下精度 ±BITA_MS は出目に影響しないので、
+      // 押し味のSE・波紋にだけ使い、スコアには関与させない。
+      if (outcome.bitaPerfect) zukanState.recordBita();
 
       // ミッションは達成状況だけを永続化し、結果表示と重ならないよう通知を遅らせる。
       // コインや戦の totalWin には加算しない。
@@ -1604,9 +1593,15 @@ export async function bootstrap() {
         const lineTag = hits.length > 1 ? ` (${hits.length}ライン)` : '';
         const noticeLabel = currentEffect === 'quiz' ? 'クイズ的中' : '狙え的中';
         const noticeTag = noticeBonus > 0 ? ` ★${noticeLabel}+${noticeBonus}` : '';
+        // ビタ押し＝ゲームに一切助けられず揃えた。上乗せ額と一緒に明示する。
+        const bitaTag =
+          outcome.bitaBonus > 0 ? ` ⚡ビタ押し+${outcome.bitaBonus}` : '';
         // 役名は重複なしで「みかん×2 ＋ すしや」のように要約
         const yakuLabel = summarizeHits(hits);
-        showResult(`${yakuLabel}！ +${win}${bonusTag}${streakTag}${lineTag}${noticeTag}`, cls);
+        showResult(
+          `${yakuLabel}！ +${win}${bonusTag}${streakTag}${lineTag}${noticeTag}${bitaTag}`,
+          cls,
+        );
         jinState.set('cheer');
         // 図鑑には揃ったユニーク役を全部記録
         const recorded = new Set<string>();
@@ -1659,6 +1654,11 @@ export async function bootstrap() {
         else if (win >= 24) showCoinBurst(5);
         // 予告役的中（狙え／クイズ正解）は配当の大小に関わらず、達成感のコインバーストを別途出す
         if (noticeBonus > 0) showCoinBurst(10);
+        // ビタ押し成立は配当の大小に関わらず祝う（技術が報われた瞬間）
+        if (outcome.bitaBonus > 0) {
+          showCoinBurst(12);
+          sfx.bita();
+        }
         // プレミアム成立でビッグボーナス突入＋全画面演出
         if (isPremium && premiumHit) {
           const entry = bonusSession.enter('big');

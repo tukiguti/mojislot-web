@@ -175,6 +175,7 @@ function runChapter(chapter: string, skill: Skill, spins: number, seed: number):
     calc,
     reachEyes,
     singlePayout: payout.baseMultiplier.single,
+    bitaMultiplier: payout.bitaMultiplier,
   });
 
   const reels = reelCfg.reels.map((r) => r.cells);
@@ -387,6 +388,7 @@ function runChapter(chapter: string, skill: Skill, spins: number, seed: number):
       streakBefore: streak,
       noticeYakuId:
         (effect === 'aim' || effect === 'quiz') && flagId ? flagId : null,
+      slipCells: slipPerReel,
     });
     const { hits, willHit, streakAfter, win } = outcome;
     if (outcome.singleHits.length > 0) res.singleWins++;
@@ -394,18 +396,8 @@ function runChapter(chapter: string, skill: Skill, spins: number, seed: number):
     // 「引き込みなし＝ビタ押し」の実測。成立に貢献したリールのうち自力停止の本数を数える。
     if (outcome.willHit) {
       res.hitSpins++;
-      const contributing = new Set<number>();
-      for (const h of outcome.hits) {
-        const line = PAYLINES.find((p) => p.id === h.paylineId);
-        if (!line) continue;
-        for (const [, col] of line.cells) contributing.add(col);
-      }
-      let selfStopped = 0;
-      for (const c of contributing) if (slipPerReel[c] === 0) selfStopped++;
-      res.bitaReels[Math.min(3, selfStopped)]++;
-      if (contributing.size > 0 && selfStopped === contributing.size) {
-        res.bitaPerfect++;
-      }
+      res.bitaReels[Math.min(3, outcome.selfStoppedReels)]++;
+      if (outcome.bitaPerfect) res.bitaPerfect++;
     }
 
     // 誤告知の計測：ボーナスフラグでないのに中段へ専用図柄が出たか
