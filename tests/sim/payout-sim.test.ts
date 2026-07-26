@@ -127,6 +127,16 @@ interface Result {
   lampBonus: number;
   /** チェリー重複で確定したボーナス数 */
   cherryBonus: number;
+  /** 役が成立したゲーム数（1枚役を除く） */
+  hitSpins: number;
+  /**
+   * 役の成立に貢献したリールのうち、引き込みも蹴りも働かず**自力で止めた**本数の分布。
+   * 「引き込みなし＝ビタ押し」判定を出玉へ反映するかの検討材料。
+   * index 0..3 が本数（0本＝全部ゲームに助けられた／3本＝完全自力）。
+   */
+  bitaReels: [number, number, number, number];
+  /** 貢献リールが全部 slip=0 だったゲーム数（＝完全自力の成立）。 */
+  bitaPerfect: number;
 }
 
 function runChapter(chapter: string, skill: Skill, spins: number, seed: number): Result {
@@ -208,6 +218,9 @@ function runChapter(chapter: string, skill: Skill, spins: number, seed: number):
     spins: 0, totalBet: 0, totalWin: 0, normalBet: 0, normalWin: 0,
     big: 0, reg: 0, bonusSpins: 0, bigPayout: 0, regPayout: 0,
     singleWins: 0,
+    hitSpins: 0,
+    bitaReels: [0, 0, 0, 0],
+    bitaPerfect: 0,
     shisaSpins: 0, shisaEscalated: 0, lampBonus: 0, cherryBonus: 0,
     carriedSpins: 0, carriedReach: 0, carriedMiddleTell: 0,
     falseTellSpins: 0, falseTellFirst: 0, nonBonusSpins: 0,
@@ -287,6 +300,7 @@ function runChapter(chapter: string, skill: Skill, spins: number, seed: number):
     const seq = (process.env.SEQ ?? '0,1,2').split(',').map(Number);
 
     const stopped: (VisibleColumn | null)[] = [null, null, null];
+    const slipPerReel: number[] = [0, 0, 0];
     const stopOrder: number[] = [];
     const isAimLike = effect === 'aim' || effect === 'quiz';
     const singleIds = yakuList.singleYaku.map((y) => y.id);
@@ -339,7 +353,7 @@ function runChapter(chapter: string, skill: Skill, spins: number, seed: number):
 
       // --- 停止制御（ゲーム本体と同じ StopController を使う）---
       const flagIds = flagIdsNow();
-      const slipCells = stopController.resolveSlip({
+      const slipCellsRaw = stopController.resolveSlip({
         reelIndex: idx,
         basePosition: basePos,
         strip: { id: `r${idx}`, cells },
@@ -347,6 +361,8 @@ function runChapter(chapter: string, skill: Skill, spins: number, seed: number):
         flagYakuIds: flagIds,
         flagKey: heldYaku ? heldRoleId : role.roleId,
       });
+      const slipCells = slipCellsRaw;
+      slipPerReel[idx] = slipCells;
       stopped[idx] = visCol(cells, (basePos + slipCells) % N);
       stopN++;
       // 示唆→「狙え！」への発展：最終停止より前に内部役の図柄が中段へ来たか。
@@ -374,6 +390,23 @@ function runChapter(chapter: string, skill: Skill, spins: number, seed: number):
     });
     const { hits, willHit, streakAfter, win } = outcome;
     if (outcome.singleHits.length > 0) res.singleWins++;
+
+    // 「引き込みなし＝ビタ押し」の実測。成立に貢献したリールのうち自力停止の本数を数える。
+    if (outcome.willHit) {
+      res.hitSpins++;
+      const contributing = new Set<number>();
+      for (const h of outcome.hits) {
+        const line = PAYLINES.find((p) => p.id === h.paylineId);
+        if (!line) continue;
+        for (const [, col] of line.cells) contributing.add(col);
+      }
+      let selfStopped = 0;
+      for (const c of contributing) if (slipPerReel[c] === 0) selfStopped++;
+      res.bitaReels[Math.min(3, selfStopped)]++;
+      if (contributing.size > 0 && selfStopped === contributing.size) {
+        res.bitaPerfect++;
+      }
+    }
 
     // 誤告知の計測：ボーナスフラグでないのに中段へ専用図柄が出たか
     const isBonusFlag =
@@ -486,6 +519,25 @@ describe.skipIf(!RUN)('出玉シミュレーション（新モデル）', () => 
       );
     }
     console.log('\n===== 出玉シミュレーション（' + SPINS + 'G/腕・全5章）=====\n' + lines.join('\n'));
+
+    // 「引き込みなし＝ビタ押し」の到達度。成立ゲームのうち貢献リールを何本自力で止めたか。
+    const bita: string[] = [];
+    bita.push('腕      成立G     0本     1本     2本     3本   完全自力');
+    for (const skill of SKILLS) {
+      const acc = [0, 0, 0, 0];
+      let hit = 0, perfect = 0;
+      CHAPTERS.forEach((ch, i) => {
+        const r = runChapter(ch, skill, SPINS / CHAPTERS.length, 12345 + i * 977);
+        hit += r.hitSpins; perfect += r.bitaPerfect;
+        r.bitaReels.forEach((n, k) => { acc[k] += n; });
+      });
+      const pct = (n: number) => ((n / Math.max(1, hit)) * 100).toFixed(1).padStart(6) + '%';
+      bita.push(
+        `${skill.name.padEnd(5)} ${hit.toString().padStart(6)} ` +
+        acc.map(pct).join(' ') + ' ' + pct(perfect),
+      );
+    }
+    console.log('\n===== 引き込みなし（自力停止）の到達度 =====\n' + bita.join('\n'));
     expect(lines.length).toBeGreaterThan(1);
   }, 600000);
 });
