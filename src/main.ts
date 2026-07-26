@@ -20,6 +20,8 @@ import {
 } from './productions/EffectScheduler';
 import { BonusZone } from './productions/BonusZone';
 import { BonusSession } from './productions/BonusSession';
+import { applySetting, settingFor } from './productions/MachineSetting';
+import { recordSpin as recordMachineSpin } from './productions/MachineData';
 import { EffectEligibility } from './productions/EffectEligibility';
 import { SfxEngine } from './audio/SfxEngine';
 import { BgmEngine } from './audio/BgmEngine';
@@ -164,7 +166,13 @@ export async function bootstrap() {
   const chapterCutinUrl = `${ART_BASE}cutin_${chapterId}.webp`;
 
   const reelConfig = ReelConfigSchema.parse(chapter.reelData);
-  const yakuList = YakuListSchema.parse(chapter.yakuData);
+  // 設定（1〜6）はその日その台で決まる。プレイヤーには見せず、
+  // データと示唆演出から推測させる（設計: MachineSetting）。
+  const machineSetting = settingFor(chapterId, new Date());
+  const yakuList = applySetting(
+    YakuListSchema.parse(chapter.yakuData),
+    machineSetting,
+  );
   // カットイン背景は役ごとに出し分け: 主役(7=premiumYaku[0])は章一枚絵、バー揃い(premiumYaku[1])は
   // 専用バー絵(cutin_{id}_bar.webp)。RB(別役)はアート無し＝演出のみ。「別役なのに主役の絵」を防ぐ。
   const headlineYakuId = yakuList.premiumYaku[0]?.id;
@@ -1556,6 +1564,12 @@ export async function bootstrap() {
         hit: willHit,
         premium: isPremium,
         bonusTriggered: isPremium || isRegular,
+      });
+      // 台のデータカウンター（設定推測の材料）。ハマりはボーナスで0に戻る。
+      recordMachineSpin(chapterId, new Date(), {
+        bet: calc.bet,
+        win,
+        bonus: isPremium ? 'big' : isRegular ? 'reg' : null,
       });
 
       // 戦専用カウンタも同じ確定点で増分（計数で RunRecord に確定する）

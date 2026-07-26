@@ -12,6 +12,7 @@ import { YakuJudge } from '../../src/core/YakuJudge';
 import { PayoutCalc } from '../../src/core/PayoutCalc';
 import { RoundResolver } from '../../src/core/RoundResolver';
 import { EffectEligibility } from '../../src/productions/EffectEligibility';
+import { applySetting, SETTINGS, type Setting } from '../../src/productions/MachineSetting';
 import { StopTableLookup } from '../../src/core/StopTable';
 import { StopController } from '../../src/core/StopController';
 import { ReachEyes } from '../../src/core/ReachEyes';
@@ -144,8 +145,17 @@ interface Result {
   perYaku: Map<string, [number, number]>;
 }
 
-function runChapter(chapter: string, skill: Skill, spins: number, seed: number): Result {
-  const yakuList: YakuList = YakuListSchema.parse(readJson(`${DATA}/yaku/${chapter}.json`));
+function runChapter(
+  chapter: string,
+  skill: Skill,
+  spins: number,
+  seed: number,
+  setting?: Setting,
+): Result {
+  const baseYaku: YakuList = YakuListSchema.parse(
+    readJson(`${DATA}/yaku/${chapter}.json`),
+  );
+  const yakuList: YakuList = setting ? applySetting(baseYaku, setting) : baseYaku;
   const reelCfg = ReelConfigSchema.parse(readJson(`${DATA}/reels/${chapter}.json`));
   const payout: Payout = PayoutSchema.parse(readJson(`${DATA}/payouts/default.json`));
   const tuning: Tuning = TuningSchema.parse(readJson(`${DATA}/tuning/default.json`));
@@ -568,6 +578,31 @@ describe.skipIf(!RUN)('出玉シミュレーション（新モデル）', () => 
       }
     }
     console.log('\n===== 役ごとのビタ到達率（上級・章別） =====\n' + per.join('\n'));
+
+    // 設定差。プレイヤーはこれを推測して台を選ぶので、
+    // 「差はあるが数百ゲームでは見抜けない」くらいが狙い。
+    const setLines: string[] = [];
+    setLines.push('設定  初心者   中級    上級     神   |  突入(中級)');
+    for (const st of SETTINGS) {
+      const cells: string[] = [];
+      let entrySpins = 0;
+      let entryCount = 0;
+      for (const sk of SKILLS) {
+        let bet = 0, win = 0, spins = 0, big = 0, reg = 0;
+        CHAPTERS.forEach((ch, i) => {
+          const r = runChapter(ch, sk, SPINS / CHAPTERS.length, 12345 + i * 977, st);
+          bet += r.totalBet; win += r.totalWin; spins += r.spins;
+          big += r.big; reg += r.reg;
+        });
+        cells.push(((win / bet) * 100).toFixed(1).padStart(6) + '%');
+        if (sk.name === '中級') { entrySpins = spins; entryCount = big + reg; }
+      }
+      setLines.push(
+        `  ${st}  ${cells.join(' ')}  |  ` +
+        ('1/' + (entrySpins / Math.max(1, entryCount)).toFixed(0)).padStart(8),
+      );
+    }
+    console.log('\n===== 設定差（1〜6） =====\n' + setLines.join('\n'));
     expect(lines.length).toBeGreaterThan(1);
   }, 600000);
 });

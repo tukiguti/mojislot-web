@@ -52,7 +52,7 @@ export const CHAPTERS: readonly ChapterBundle[] = [
   {
     id: 'hiragana_food',
     name: 'ひらがな食べ物',
-    description: 'いちご・みかん・お寿司など。プレミアムは「すしや」',
+    description: 'ぶどう・とうふ・だんごなど。チェリーは「もも」、REGは「寿司酢」、BIGは「寿司屋」「ナマズ」',
     reelData: hiraganaFoodReel,
     yakuData: hiraganaFoodYaku,
     quizData: hiraganaFoodQuiz,
@@ -62,7 +62,7 @@ export const CHAPTERS: readonly ChapterBundle[] = [
   {
     id: 'katakana_animal',
     name: 'カタカナ動物',
-    description: 'コアラ・キリン・パンダなど。プレミアムは「ドラゴン」',
+    description: 'ウサギ・キリン・タヌキなど。チェリーは「サイ」、REGは「ドラコ」、BIGは「ドラゴン」「インコ」',
     reelData: katakanaAnimalReel,
     yakuData: katakanaAnimalYaku,
     quizData: katakanaAnimalQuiz,
@@ -72,7 +72,7 @@ export const CHAPTERS: readonly ChapterBundle[] = [
   {
     id: 'hiragana_verb',
     name: 'ひらがな動詞',
-    description: 'たべる・はしる・あそぶなど3文字動詞。プレミアムは「いきる」',
+    description: 'うたう・あそぶ・およぐなど。チェリーは「ねる」、REGは「いきむ」、BIGは「いきる」「やすむ」',
     reelData: hiraganaVerbReel,
     yakuData: hiraganaVerbYaku,
     quizData: hiraganaVerbQuiz,
@@ -82,7 +82,7 @@ export const CHAPTERS: readonly ChapterBundle[] = [
   {
     id: 'yasai',
     name: 'カタカナ野菜',
-    description: 'トマト・オクラ・ナスビなど3文字野菜。プレミアムは「ゴーヤ」',
+    description: 'オクラ・モヤシ・セロリなど。チェリーは「ナス」、REGは「ポテト」、BIGは「ポテチ」「トマト」',
     reelData: yasaiReel,
     yakuData: yasaiYaku,
     quizData: yasaiQuiz,
@@ -92,7 +92,7 @@ export const CHAPTERS: readonly ChapterBundle[] = [
   {
     id: 'security',
     name: 'セキュリティ',
-    description: 'ハック・パッチ・ワームなどセキュリティ用語。プレミアムは「シェル」',
+    description: 'ハック・メモリ・スパムなど。チェリーは「バグ」、REGは「コール」、BIGは「コード」「シェル」',
     reelData: securityReel,
     yakuData: securityYaku,
     quizData: securityQuiz,
