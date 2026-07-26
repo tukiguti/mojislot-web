@@ -39,6 +39,11 @@ export interface RunRecord {
   bonusCount: number;
   /** 記録時のアプリ版。旧履歴には存在しない。 */
   appVersion?: string;
+  /**
+   * 記録時のビルドID（コミットSHA／未コミットなら `+dirty`）。旧履歴には存在しない。
+   * appVersion は手で上げない限り変わらないので、ビルドの識別はこちらで行う。
+   */
+  buildId?: string;
   /** 出玉・停止ルールの版。旧履歴には存在しない。 */
   rulesetVersion?: number;
   /** 戦内で実際に使った最小／最大リール速度（途中変更を含む）。 */

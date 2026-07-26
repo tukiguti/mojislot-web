@@ -505,6 +505,8 @@ export async function bootstrap() {
   let resultTimer: number | null = null;
   let pendingDebugEffect: ForcedEffect | null = null;
   let autoMode = false;
+  /** AUTOをOFFにした後、現在ゲームを全停止まで消化している最中か。 */
+  let autoFinishing = false;
 
   const internalRoleLottery = new InternalRoleLottery(yakuList, Math.random);
 
@@ -789,6 +791,7 @@ export async function bootstrap() {
         premiumCount: runPremiumCount,
         bonusCount: runBonusCount,
         appVersion: packageMeta.version,
+        buildId: __BUILD_ID__,
         rulesetVersion: RUN_RULESET_VERSION,
         reelSpeedMin: Number.isFinite(runReelSpeedMin) ? runReelSpeedMin : reelSpeed(),
         reelSpeedMax: Number.isFinite(runReelSpeedMax) ? runReelSpeedMax : reelSpeed(),
@@ -1911,13 +1914,13 @@ export async function bootstrap() {
   };
 
   const stepAuto = () => {
-    if (!autoMode) return;
+    if (!autoMode && !autoFinishing) return;
     // フリーズ演出中はAUTOの操作を止め、ループだけ維持して終了後に再開する
     if (freezeActive) {
       autoTimer = window.setTimeout(stepAuto, 350);
       return;
     }
-    if (!wallet.canBet(calc.bet) && !betPlaced) {
+    if (autoMode && !wallet.canBet(calc.bet) && !betPlaced) {
       stopAuto();
       return;
     }
@@ -1925,6 +1928,21 @@ export async function bootstrap() {
     const states = engines.map((e) => e.state.get());
     const anySpinning = states.includes('spinning');
     const allIdle = states.every((s) => s === 'idle');
+
+    // OFFにした後の消化中：残ったリールを止めるだけ。新しいゲームは始めない。
+    if (autoFinishing) {
+      if (!anySpinning) {
+        finishAuto();
+        return;
+      }
+      const nextIdx = autoStopSequence().find((r) => states[r] === 'spinning');
+      if (nextIdx !== undefined && !aimPending.has(nextIdx)) {
+        if (autoTargetYaku) scheduleAimedStop(nextIdx);
+        else stopReel(nextIdx, performance.now());
+      }
+      autoTimer = window.setTimeout(stepAuto, 350);
+      return;
+    }
 
     if (!betPlaced && allIdle) {
       placeBet();
@@ -1947,6 +1965,8 @@ export async function bootstrap() {
 
   const startAuto = () => {
     autoMode = true;
+    autoFinishing = false;
+    autoBtn.classList.remove('finishing');
     // AUTOを途中から有効にした戦も、手動記録とは区別する。
     runAutoUsed = true;
     autoBtn.textContent = 'AUTO ON';
@@ -1955,15 +1975,37 @@ export async function bootstrap() {
     stepAuto();
   };
 
+  /**
+   * AUTOを止める。回転中なら**現在のゲームだけは全停止まで消化**してから終了する。
+   * 途中で切ると回りっぱなしのリールが残り、手で止めるまで結果が確定しないため。
+   * 消化中にもう一度押せばAUTOへ復帰する。
+   */
   const stopAuto = () => {
     autoMode = false;
+    const spinning = engines.some((e) => e.state.get() === 'spinning');
+    if (spinning) {
+      autoFinishing = true;
+      autoBtn.textContent = 'AUTO 消化中';
+      autoBtn.classList.remove('on');
+      autoBtn.classList.add('finishing');
+      clearAutoTimer();
+      autoTimer = window.setTimeout(stepAuto, 350);
+      return;
+    }
+    finishAuto();
+  };
+
+  /** 消化しきった（または最初から回っていなかった）ので完全に終了する。 */
+  const finishAuto = () => {
+    autoFinishing = false;
     autoBtn.textContent = 'AUTO';
-    autoBtn.classList.remove('on');
+    autoBtn.classList.remove('on', 'finishing');
     clearAutoTimer();
   };
 
   autoBtn.addEventListener('click', () => {
     if (!autoAvailable) return;
+    // 消化中にもう一度押したらAUTOへ復帰する（誤操作の取り消し）。
     if (autoMode) stopAuto();
     else startAuto();
   });

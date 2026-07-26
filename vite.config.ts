@@ -1,5 +1,32 @@
 /// <reference types="vitest/config" />
+import { execSync } from 'node:child_process';
 import { defineConfig } from 'vite';
+
+/**
+ * ビルドを一意に識別するID。package.json の version は手で上げない限り変わらず、
+ * 「どのビルドで出した記録か」を戦績から追えないため、コミットSHAを埋め込む。
+ * 未コミットの変更がある状態でビルドしたら `+dirty` を付けて区別する
+ * （手元ビルドの記録が本番の記録に混ざっても見分けられるように）。
+ * Git が無い環境（配布物からの再ビルド等）では 'unknown' になる。
+ */
+function resolveBuildId(): string {
+  try {
+    const sha = execSync('git rev-parse --short HEAD', {
+      stdio: ['ignore', 'pipe', 'ignore'],
+    })
+      .toString()
+      .trim();
+    const dirty =
+      execSync('git status --porcelain', {
+        stdio: ['ignore', 'pipe', 'ignore'],
+      })
+        .toString()
+        .trim().length > 0;
+    return dirty ? `${sha}+dirty` : sha;
+  } catch {
+    return 'unknown';
+  }
+}
 
 /**
  * 公開先が2系統あるため base を環境で切り替える:
@@ -14,6 +41,9 @@ import { defineConfig } from 'vite';
  */
 export default defineConfig({
   base: process.env.CF_PAGES ? '/' : '/mojislot-web/',
+  define: {
+    __BUILD_ID__: JSON.stringify(resolveBuildId()),
+  },
   test: {
     environment: 'node',
     include: ['tests/**/*.test.ts'],

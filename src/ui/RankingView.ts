@@ -1,4 +1,4 @@
-import { loadRunHistory } from '../productions/RunHistory';
+import { loadRunHistory, RUN_RULESET_VERSION } from '../productions/RunHistory';
 import type { RunRecord } from '../productions/RunHistory';
 import { CHAPTERS } from '../data/chapters';
 import { getMemberId } from '../productions/Member';
@@ -29,9 +29,62 @@ const SORTS: { key: SortKey; label: string }[] = [
 // 章ID → 表示名（隠し章含む全台から引く）
 const CHAPTER_NAME = new Map(CHAPTERS.map((c) => [c.id, c.name]));
 
+/**
+ * 比較条件の絞り込み。差枚ランキングは条件が揃って初めて意味を持つので、
+ * **既定を「公平に比べられる記録だけ」に寄せる**。
+ * - 出玉規則が違う記録は数字の意味が違う → 最新規則のみ
+ * - DEBUG操作が使えた記録は自己ベストとして扱えない → 除外
+ * AUTO・ミッションは有利不利が小さいので既定では絞らない（見たい人だけ絞る）。
+ */
+interface Conditions {
+  latestRulesetOnly: boolean;
+  excludeDebug: boolean;
+  manualOnly: boolean;
+  missionsOnly: boolean;
+  /** 'all' または「その速度で通しでプレイした記録だけ」を示すコマ/秒。 */
+  speed: number | 'all';
+}
+
+const DEFAULT_CONDITIONS: Conditions = {
+  latestRulesetOnly: true,
+  excludeDebug: true,
+  manualOnly: false,
+  missionsOnly: false,
+  speed: 'all',
+};
+
+/** 条件に合う記録だけを残す。旧記録（項目が無い）は条件不明として絞り込み時に落とす。 */
+function applyConditions(runs: RunRecord[], c: Conditions): RunRecord[] {
+  return runs.filter((r) => {
+    if (c.latestRulesetOnly && r.rulesetVersion !== RUN_RULESET_VERSION) {
+      return false;
+    }
+    if (c.excludeDebug && r.debugEnabled) return false;
+    if (c.manualOnly && r.autoUsed !== false) return false;
+    if (c.missionsOnly && r.missionsEnabled !== true) return false;
+    if (c.speed !== 'all') {
+      // 途中で速度を変えた記録は「その速度でやり切った」とは言えないので外す。
+      if (r.reelSpeedMin !== c.speed || r.reelSpeedMax !== c.speed) return false;
+    }
+    return true;
+  });
+}
+
+/** 履歴に登場する「通しで同じ速度だった」速度値（昇順）。 */
+function presentSpeeds(runs: RunRecord[]): number[] {
+  const set = new Set<number>();
+  for (const r of runs) {
+    if (r.reelSpeedMin !== undefined && r.reelSpeedMin === r.reelSpeedMax) {
+      set.add(r.reelSpeedMin);
+    }
+  }
+  return [...set].sort((a, b) => a - b);
+}
+
 // セッション内状態（reload で初期化）
 let chapterFilter = 'all';
 let sortKey: SortKey = 'sahmai';
+let conditions: Conditions = { ...DEFAULT_CONDITIONS };
 // 読み込んだ会員カードの履歴（閲覧専用。localStorage には書かない）
 let externalRecords: RunRecord[] = [];
 let loadedCards: { name: string; count: number }[] = [];
@@ -71,7 +124,7 @@ const runConditions = (r: RunRecord): string => {
         : `${min}–${max}コマ/秒`;
   const tags = [
     `規則v${r.rulesetVersion}`,
-    r.appVersion ? `app ${r.appVersion}` : 'app版不明',
+    r.buildId ? `build ${r.buildId}` : r.appVersion ? `app ${r.appVersion}` : 'app版不明',
     speed,
     r.autoUsed ? 'AUTO使用' : '手動',
     r.missionsEnabled ? 'ミッションON' : 'ミッションOFF',
@@ -200,10 +253,16 @@ export function renderRankingView(cb: RankingViewCallbacks): void {
     chapterFilter = 'all';
   }
 
-  const filtered =
+  const byChapter =
     chapterFilter === 'all'
       ? combined
       : combined.filter((r) => r.chapterId === chapterFilter);
+  const speeds = presentSpeeds(byChapter);
+  if (conditions.speed !== 'all' && !speeds.includes(conditions.speed)) {
+    conditions.speed = 'all';
+  }
+  const filtered = applyConditions(byChapter, conditions);
+  const hiddenCount = byChapter.length - filtered.length;
   const runs = sortRuns(filtered, sortKey);
   const s = summarize(filtered);
 
@@ -218,6 +277,37 @@ export function renderRankingView(cb: RankingViewCallbacks): void {
     (o) =>
       `<button class="ranking-sort-btn${o.key === sortKey ? ' active' : ''}" data-sort="${o.key}" type="button">${o.label}</button>`,
   ).join('');
+
+  const toggle = (
+    key: 'latestRulesetOnly' | 'excludeDebug' | 'manualOnly' | 'missionsOnly',
+    label: string,
+  ): string =>
+    `<button class="ranking-cond-btn${conditions[key] ? ' active' : ''}" data-cond="${key}" type="button">${label}</button>`;
+
+  const speedHtml = speeds.length
+    ? `<select class="ranking-cond-speed" data-cond="speed">` +
+      `<option value="all"${conditions.speed === 'all' ? ' selected' : ''}>速度すべて</option>` +
+      speeds
+        .map(
+          (v) =>
+            `<option value="${v}"${conditions.speed === v ? ' selected' : ''}>${v}コマ/秒</option>`,
+        )
+        .join('') +
+      `</select>`
+    : '';
+
+  const condHtml =
+    `<div class="ranking-conditions">` +
+    `<span class="ranking-sort-label">比較条件</span>` +
+    toggle('latestRulesetOnly', `最新規則のみ(v${RUN_RULESET_VERSION})`) +
+    toggle('excludeDebug', 'DEBUG除外') +
+    toggle('manualOnly', '手動のみ') +
+    toggle('missionsOnly', 'ミッションONのみ') +
+    speedHtml +
+    (hiddenCount > 0
+      ? `<span class="ranking-cond-hidden">${hiddenCount}件を非表示</span>`
+      : '') +
+    `</div>`;
 
   const card = (label: string, value: string, cls = ''): string =>
     `<div class="ranking-card"><span class="ranking-card-label">${label}</span><span class="ranking-card-value ${cls}">${value}</span></div>`;
@@ -264,6 +354,7 @@ export function renderRankingView(cb: RankingViewCallbacks): void {
       <div class="ranking-controls">
         <div class="ranking-tabs">${tabsHtml}</div>
         <div class="ranking-sort"><span class="ranking-sort-label">並べ替え</span>${sortsHtml}</div>
+        ${condHtml}
       </div>
       <div class="ranking-table-wrap">
         <table class="ranking-table">
@@ -292,6 +383,20 @@ export function renderRankingView(cb: RankingViewCallbacks): void {
       renderRankingView(cb);
     });
   });
+  root.querySelectorAll<HTMLButtonElement>('.ranking-cond-btn').forEach((btn) => {
+    btn.addEventListener('click', () => {
+      const key = btn.dataset.cond as keyof Conditions;
+      if (key && key !== 'speed') conditions[key] = !conditions[key];
+      renderRankingView(cb);
+    });
+  });
+  root
+    .querySelector<HTMLSelectElement>('.ranking-cond-speed')
+    ?.addEventListener('change', (e) => {
+      const v = (e.target as HTMLSelectElement).value;
+      conditions.speed = v === 'all' ? 'all' : Number(v);
+      renderRankingView(cb);
+    });
 }
 
 /** 戻る・遊ぶ・カード読込/クリアの配線（空状態/通常で共通）。 */

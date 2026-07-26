@@ -380,7 +380,8 @@ body {
   gap: 10px;
 }
 .ranking-tabs,
-.ranking-sort {
+.ranking-sort,
+.ranking-conditions {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
@@ -391,8 +392,27 @@ body {
   color: #9a86b8;
   margin-right: 2px;
 }
+.ranking-conditions {
+  /* 条件は横一列で全部見せる（何で絞っているか常に見えるように） */
+  flex-basis: 100%;
+}
+.ranking-cond-hidden {
+  font-size: 11px;
+  color: #9a86b8;
+}
+.ranking-cond-speed {
+  padding: 6px 10px;
+  cursor: pointer;
+  font-family: inherit;
+  font-size: 12px;
+  color: var(--ivory);
+  background: rgba(92, 46, 142, 0.18);
+  border: 1px solid var(--chrome-dk);
+  border-radius: 999px;
+}
 .ranking-tab,
-.ranking-sort-btn {
+.ranking-sort-btn,
+.ranking-cond-btn {
   padding: 6px 12px;
   cursor: pointer;
   font-family: inherit;
@@ -404,11 +424,13 @@ body {
   transition: background 0.12s ease, border-color 0.12s ease;
 }
 .ranking-tab:hover,
-.ranking-sort-btn:hover {
+.ranking-sort-btn:hover,
+.ranking-cond-btn:hover {
   border-color: rgba(242, 179, 60, 0.55);
 }
 .ranking-tab.active,
-.ranking-sort-btn.active {
+.ranking-sort-btn.active,
+.ranking-cond-btn.active {
   color: #1b0f0a;
   background: linear-gradient(180deg, var(--gold-hi) 0%, var(--gold) 100%);
   border-color: var(--gold);
@@ -1241,6 +1263,13 @@ body.has-chapter-bg {
   color: #1a1100;
   background: linear-gradient(180deg, #ffe566 0%, var(--gold) 100%);
   box-shadow: 0 0 10px rgba(255, 215, 0, 0.8);
+}
+
+/* OFFにした後、現在ゲームだけ消化している最中。ONとは別の色で「もう終わる」と示す。 */
+#auto-btn.finishing {
+  color: #1a1100;
+  background: linear-gradient(180deg, #cdd6e0 0%, #9aa7b5 100%);
+  box-shadow: 0 0 8px rgba(205, 214, 224, 0.6);
 }
 
 #mute-btn {
