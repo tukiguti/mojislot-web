@@ -133,8 +133,11 @@ export class RoundResolver {
       (r) => (input.slipCells[r] ?? 0) === 0,
     ).length;
     const bitaPerfect = required.size > 0 && selfStopped === required.size;
+    // 切り上げ。倍率が小さいと小役（base 5）で floor が0枚になり、
+    // 「ビタ押し成功」と出ているのに1枚も増えない＝バグにしか見えない。
+    // 技術の報酬は少なくとも1枚は出す。
     const bitaBonus = bitaPerfect
-      ? Math.floor(base * (this.deps.bitaMultiplier - 1))
+      ? Math.ceil(base * (this.deps.bitaMultiplier - 1))
       : 0;
 
     return {
