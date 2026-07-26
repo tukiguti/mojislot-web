@@ -137,6 +137,11 @@ interface Result {
   bitaReels: [number, number, number, number];
   /** 貢献リールが全部 slip=0 だったゲーム数（＝完全自力の成立）。 */
   bitaPerfect: number;
+  /**
+   * 役ID → [成立数, そのうちビタ押しだった数]。
+   * 「どの役も同じくらい狙いやすい」を配列で作るための計測（設計: 28章）。
+   */
+  perYaku: Map<string, [number, number]>;
 }
 
 function runChapter(chapter: string, skill: Skill, spins: number, seed: number): Result {
@@ -222,6 +227,7 @@ function runChapter(chapter: string, skill: Skill, spins: number, seed: number):
     hitSpins: 0,
     bitaReels: [0, 0, 0, 0],
     bitaPerfect: 0,
+    perYaku: new Map<string, [number, number]>(),
     shisaSpins: 0, shisaEscalated: 0, lampBonus: 0, cherryBonus: 0,
     carriedSpins: 0, carriedReach: 0, carriedMiddleTell: 0,
     falseTellSpins: 0, falseTellFirst: 0, nonBonusSpins: 0,
@@ -302,6 +308,8 @@ function runChapter(chapter: string, skill: Skill, spins: number, seed: number):
 
     const stopped: (VisibleColumn | null)[] = [null, null, null];
     const slipPerReel: number[] = [0, 0, 0];
+    /** このゲームで実際に役を狙えたか（演出で狙う役が分かっていたか）。 */
+    let aimedThisSpin = false;
     const stopOrder: number[] = [];
     const isAimLike = effect === 'aim' || effect === 'quiz';
     const singleIds = yakuList.singleYaku.map((y) => y.id);
@@ -338,6 +346,7 @@ function runChapter(chapter: string, skill: Skill, spins: number, seed: number):
       const aimYaku =
         effect === 'shisa' && !escalated ? shisaGuess : carriedNoticed ? target : target;
       const canAim = effect !== 'none' || (carried !== null && carriedNoticed) || heldYaku !== null;
+      if (canAim && aimYaku) aimedThisSpin = true;
       const sym = canAim && aimYaku ? aimYaku.symbols[idx] : undefined;
       if (sym === undefined) {
         basePos = Math.floor(rng() * N);
@@ -398,6 +407,15 @@ function runChapter(chapter: string, skill: Skill, spins: number, seed: number):
       res.hitSpins++;
       res.bitaReels[Math.min(3, outcome.selfStoppedReels)]++;
       if (outcome.bitaPerfect) res.bitaPerfect++;
+      // 役ごとの到達度（同一ゲームで複数役が揃うことはほぼ無いので先頭で代表させる）
+      // 狙っていないゲーム（演出なし＝何を狙うか分からない）は難易度の比較にならないので除く。
+      if (aimedThisSpin) {
+        const yid = outcome.hits[0].yaku.id;
+        const cur = res.perYaku.get(yid) ?? [0, 0];
+        cur[0]++;
+        if (outcome.bitaPerfect) cur[1]++;
+        res.perYaku.set(yid, cur);
+      }
     }
 
     // 誤告知の計測：ボーナスフラグでないのに中段へ専用図柄が出たか
@@ -530,6 +548,26 @@ describe.skipIf(!RUN)('出玉シミュレーション（新モデル）', () => 
       );
     }
     console.log('\n===== 引き込みなし（自力停止）の到達度 =====\n' + bita.join('\n'));
+
+    // 役ごとの狙いやすさ（上級で固定）。「どの役も同じくらい」を目指す指標。
+    const skill = SKILLS.find((s) => s.name === '上級')!;
+    const per: string[] = [];
+    per.push('章 / 役          狙えた   ビタ    到達率   ※狙えたゲームのみ（演出で役が分かった時）');
+    for (const ch of CHAPTERS) {
+      const r = runChapter(ch, skill, SPINS / CHAPTERS.length, 12345);
+      const rows = [...r.perYaku.entries()].sort((a, b) => b[1][0] - a[1][0]);
+      const rates = rows.map(([, v]) => (v[1] / Math.max(1, v[0])) * 100);
+      const lo = Math.min(...rates);
+      const hi = Math.max(...rates);
+      per.push(`-- ${ch}  （最小${lo.toFixed(1)}% 〜 最大${hi.toFixed(1)}% ＝ ${(hi / Math.max(0.01, lo)).toFixed(1)}倍）`);
+      for (const [id, v] of rows) {
+        per.push(
+          `   ${id.padEnd(14)}${v[0].toString().padStart(6)}${v[1].toString().padStart(7)}` +
+          `${((v[1] / Math.max(1, v[0])) * 100).toFixed(1).padStart(8)}%`,
+        );
+      }
+    }
+    console.log('\n===== 役ごとのビタ到達率（上級・章別） =====\n' + per.join('\n'));
     expect(lines.length).toBeGreaterThan(1);
   }, 600000);
 });
