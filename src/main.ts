@@ -22,6 +22,7 @@ import { BonusZone } from './productions/BonusZone';
 import { BonusSession } from './productions/BonusSession';
 import { applySetting, settingFor } from './productions/MachineSetting';
 import { recordSpin as recordMachineSpin } from './productions/MachineData';
+import { drawEndScreen } from './productions/SettingHint';
 import { EffectEligibility } from './productions/EffectEligibility';
 import { SfxEngine } from './audio/SfxEngine';
 import { BgmEngine } from './audio/BgmEngine';
@@ -1123,10 +1124,32 @@ export async function bootstrap() {
   // 区間の集計そのものは BonusSession が持つ。ここは締めの演出だけ。
   const showBonusResult = (payout: number, kind: 'big' | 'reg') => {
     const label = kind === 'reg' ? 'REG BONUS' : 'BIG BONUS';
-    showResult(`${label} 終了  獲得 +${payout}枚`, 'premium');
+    // 終了画面で設定を示唆する（実機でいちばん定番の示唆手法）。
+    // データは「引けたか」しか映さないので短時間だと運に埋もれる。
+    // ここは別経路の情報で、1回のボーナスで一気に確度が上がることがある。
+    const endScreen = drawEndScreen(machineSetting, Math.random);
+    const hint = endScreen.label ? `　${endScreen.label}` : '';
+    showResult(`${label} 終了  獲得 +${payout}枚${hint}`, 'premium');
     sfx.winMulti(kind === 'reg' ? 2 : 4); // 既存ファンファーレを締めに流用
-    flashScreen({ color: kind === 'reg' ? '#cdd6e0' : '#ffd700', alpha: 0.6, durMs: 380 });
+    // 示唆が出た時だけ画面の色を変える＝「何か出た」と気づける
+    const flashColor =
+      endScreen.kind === 'max'
+        ? '#b06bff'
+        : endScreen.kind === 'high'
+          ? '#ffd700'
+          : endScreen.kind === 'even'
+            ? '#6ee0d0'
+            : kind === 'reg'
+              ? '#cdd6e0'
+              : '#ffd700';
+    flashScreen({ color: flashColor, alpha: 0.6, durMs: 380 });
     spawnConfetti(kind === 'reg' ? 40 : 80);
+    if (endScreen.kind !== 'normal') {
+      // 示唆つきは余韻を足す。強いほど派手に。
+      const extra = endScreen.kind === 'max' ? 90 : endScreen.kind === 'high' ? 50 : 30;
+      window.setTimeout(() => spawnConfetti(extra), 260);
+      shakeBody(endScreen.kind === 'max' ? 520 : 260);
+    }
     jinSpeech.say('premium');
   };
 
