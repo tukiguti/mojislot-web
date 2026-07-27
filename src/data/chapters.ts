@@ -52,7 +52,7 @@ export const CHAPTERS: readonly ChapterBundle[] = [
   {
     id: 'hiragana_food',
     name: 'ひらがな食べ物',
-    description: 'ぶどう・とうふ・だんごなど。チェリーは「もも」、REGは「寿司酢」、BIGは「寿司屋」「ナマズ」',
+    description: 'ぶどう・とうふ・だんごなど。チェリーは「もも」、REGは「いなご」、BIGは「いなり」「まぐろ」',
     reelData: hiraganaFoodReel,
     yakuData: hiraganaFoodYaku,
     quizData: hiraganaFoodQuiz,
@@ -62,7 +62,7 @@ export const CHAPTERS: readonly ChapterBundle[] = [
   {
     id: 'katakana_animal',
     name: 'カタカナ動物',
-    description: 'ウサギ・キリン・タヌキなど。チェリーは「サイ」、REGは「ドラコ」、BIGは「ドラゴン」「インコ」',
+    description: 'ウサギ・キリン・タヌキなど。チェリーは「サイ」、REGは「ナマコ」、BIGは「ナマズ」「インコ」',
     reelData: katakanaAnimalReel,
     yakuData: katakanaAnimalYaku,
     quizData: katakanaAnimalQuiz,
@@ -81,8 +81,8 @@ export const CHAPTERS: readonly ChapterBundle[] = [
   },
   {
     id: 'yasai',
-    name: 'カタカナ野菜',
-    description: 'オクラ・モヤシ・セロリなど。チェリーは「ナス」、REGは「ポテト」、BIGは「ポテチ」「トマト」',
+    name: 'カタカナ八百屋',
+    description: 'オクラ・モヤシ・セロリなど。チェリーは「ナス」、REGは「ライム」、BIGは「ライチ」「プラム」',
     reelData: yasaiReel,
     yakuData: yasaiYaku,
     quizData: yasaiQuiz,
@@ -92,7 +92,7 @@ export const CHAPTERS: readonly ChapterBundle[] = [
   {
     id: 'security',
     name: 'セキュリティ',
-    description: 'ハック・メモリ・スパムなど。チェリーは「バグ」、REGは「コール」、BIGは「コード」「シェル」',
+    description: 'ハック・ソルト・ダンプなど。チェリーは「バグ」、REGは「スパム」、BIGは「スパイ」「ワーム」',
     reelData: securityReel,
     yakuData: securityYaku,
     quizData: securityQuiz,

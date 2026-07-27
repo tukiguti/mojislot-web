@@ -44,41 +44,44 @@
   ],
   "premiumYaku": [
     {
-      "id": "potechi",
-      "name": "ポテチ",
+      "id": "raichi",
+      "name": "ライチ",
       "symbols": [
-        "ポ",
-        "テ",
+        "ラ",
+        "イ",
         "チ"
       ],
-      "category": "premium"
+      "category": "premium",
+      "noArt": true
     },
     {
-      "id": "tomato",
-      "name": "トマト",
+      "id": "puramu",
+      "name": "プラム",
       "symbols": [
-        "ト",
-        "マ",
-        "ト"
+        "プ",
+        "ラ",
+        "ム"
       ],
-      "category": "premium"
+      "category": "premium",
+      "noArt": true
     }
   ],
   "bonusYaku": [
     {
       "id": "reg",
-      "name": "ポテト",
+      "name": "ライム",
       "symbols": [
-        "ポ",
-        "テ",
-        "ト"
+        "ラ",
+        "イ",
+        "ム"
       ],
-      "category": "bonus"
+      "category": "bonus",
+      "noArt": true
     }
   ],
   "cherryYaku": [
     {
-      "id": "nasubi",
+      "id": "nasu",
       "name": "ナス",
       "symbols": [
         "ナ",
@@ -149,9 +152,9 @@
       }
     },
     {
-      "id": "nasubi",
+      "id": "nasu",
       "kind": "cherry",
-      "displayYakuId": "nasubi",
+      "displayYakuId": "nasu",
       "rate": {
         "default": 0.0661845265,
         "rescue": 0.080841457,
@@ -169,9 +172,9 @@
       }
     },
     {
-      "id": "potechi",
+      "id": "raichi",
       "kind": "big",
-      "displayYakuId": "potechi",
+      "displayYakuId": "raichi",
       "rate": {
         "default": 0.0009106189,
         "rescue": 0.0017356891,
@@ -179,9 +182,9 @@
       }
     },
     {
-      "id": "potechi_freeze",
+      "id": "raichi_freeze",
       "kind": "big",
-      "displayYakuId": "potechi",
+      "displayYakuId": "raichi",
       "rate": {
         "default": 0.0005,
         "rescue": 0.0005,
@@ -190,9 +193,9 @@
       "freeze": true
     },
     {
-      "id": "tomato",
+      "id": "puramu",
       "kind": "big",
-      "displayYakuId": "tomato",
+      "displayYakuId": "puramu",
       "rate": {
         "default": 0.0009106189,
         "rescue": 0.0017356891,
@@ -203,25 +206,33 @@
   "singleYaku": [
     {
       "id": "single_a",
-      "name": "モクチ",
+      "name": "モロシ",
       "symbols": [
         "モ",
-        "ク",
-        "チ"
+        "ロ",
+        "シ"
       ],
-      "category": "single",
-      "noArt": true
+      "category": "single"
     },
     {
       "id": "single_b",
-      "name": "ナマチ",
+      "name": "オイチ",
       "symbols": [
-        "ナ",
-        "マ",
+        "オ",
+        "イ",
         "チ"
       ],
-      "category": "single",
-      "noArt": true
+      "category": "single"
+    },
+    {
+      "id": "single_c",
+      "name": "プクム",
+      "symbols": [
+        "プ",
+        "ク",
+        "ム"
+      ],
+      "category": "single"
     }
   ]
 }

@@ -69,7 +69,12 @@ describe('停止テーブル（第1停止）', () => {
     const lookup = new StopTableLookup(table);
     expect(lookup.firstStopSlip('存在しない役', 0, 0)).toBeNull();
     expect(lookup.firstStopSlip('miss', 0, 999)).toBeNull();
-    expect(lookup.firstStopSlip('miss', 0, 0)).toBe(0);
+    // 表にある内部役はスベリ数を返す。値そのものは配列依存で、ハズレでも押下位置が
+    // ボーナス専用図柄なら中段に残さないよう滑る。ここは範囲だけ見る。
+    const slip = lookup.firstStopSlip('miss', 0, 0);
+    expect(slip).not.toBeNull();
+    expect(slip).toBeGreaterThanOrEqual(0);
+    expect(slip).toBeLessThanOrEqual(tuning.assist.pullInCells);
     expect(new StopTableLookup(null).firstStopSlip('miss', 0, 0)).toBeNull();
   });
 });

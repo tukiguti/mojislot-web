@@ -44,36 +44,39 @@
   ],
   "premiumYaku": [
     {
-      "id": "sushiya",
-      "name": "寿司屋",
+      "id": "inari",
+      "name": "いなり",
       "symbols": [
-        "す",
-        "し",
-        "や"
+        "い",
+        "な",
+        "り"
       ],
-      "category": "premium"
+      "category": "premium",
+      "noArt": true
     },
     {
-      "id": "namazu",
-      "name": "ナマズ",
+      "id": "maguro",
+      "name": "まぐろ",
       "symbols": [
-        "な",
         "ま",
-        "ず"
+        "ぐ",
+        "ろ"
       ],
-      "category": "premium"
+      "category": "premium",
+      "noArt": true
     }
   ],
   "bonusYaku": [
     {
       "id": "reg",
-      "name": "寿司酢",
+      "name": "いなご",
       "symbols": [
-        "す",
-        "し",
-        "ず"
+        "い",
+        "な",
+        "ご"
       ],
-      "category": "bonus"
+      "category": "bonus",
+      "noArt": true
     }
   ],
   "cherryYaku": [
@@ -169,9 +172,9 @@
       }
     },
     {
-      "id": "sushiya",
+      "id": "inari",
       "kind": "big",
-      "displayYakuId": "sushiya",
+      "displayYakuId": "inari",
       "rate": {
         "default": 0.0009106189,
         "rescue": 0.0017356891,
@@ -179,9 +182,9 @@
       }
     },
     {
-      "id": "sushiya_freeze",
+      "id": "inari_freeze",
       "kind": "big",
-      "displayYakuId": "sushiya",
+      "displayYakuId": "inari",
       "rate": {
         "default": 0.0005,
         "rescue": 0.0005,
@@ -190,9 +193,9 @@
       "freeze": true
     },
     {
-      "id": "namazu",
+      "id": "maguro",
       "kind": "big",
-      "displayYakuId": "namazu",
+      "displayYakuId": "maguro",
       "rate": {
         "default": 0.0009106189,
         "rescue": 0.0017356891,
@@ -203,36 +206,33 @@
   "singleYaku": [
     {
       "id": "single_a",
-      "name": "なしん",
+      "name": "まどふ",
       "symbols": [
-        "な",
-        "し",
-        "ん"
+        "ま",
+        "ど",
+        "ふ"
       ],
-      "category": "single",
-      "noArt": true
+      "category": "single"
     },
     {
       "id": "single_b",
-      "name": "みしご",
+      "name": "だぐり",
       "symbols": [
-        "み",
-        "し",
-        "ご"
+        "だ",
+        "ぐ",
+        "り"
       ],
-      "category": "single",
-      "noArt": true
+      "category": "single"
     },
     {
       "id": "single_c",
-      "name": "もしん",
+      "name": "ともう",
       "symbols": [
+        "と",
         "も",
-        "し",
-        "ん"
+        "う"
       ],
-      "category": "single",
-      "noArt": true
+      "category": "single"
     }
   ]
 }

@@ -44,14 +44,15 @@
   ],
   "premiumYaku": [
     {
-      "id": "dragon",
-      "name": "ドラゴン",
+      "id": "namazu",
+      "name": "ナマズ",
       "symbols": [
-        "ド",
-        "ラ",
-        "ゴ"
+        "ナ",
+        "マ",
+        "ズ"
       ],
-      "category": "premium"
+      "category": "premium",
+      "noArt": true
     },
     {
       "id": "inko",
@@ -67,13 +68,14 @@
   "bonusYaku": [
     {
       "id": "reg",
-      "name": "ドラコ",
+      "name": "ナマコ",
       "symbols": [
-        "ド",
-        "ラ",
+        "ナ",
+        "マ",
         "コ"
       ],
-      "category": "bonus"
+      "category": "bonus",
+      "noArt": true
     }
   ],
   "cherryYaku": [
@@ -169,9 +171,9 @@
       }
     },
     {
-      "id": "dragon",
+      "id": "namazu",
       "kind": "big",
-      "displayYakuId": "dragon",
+      "displayYakuId": "namazu",
       "rate": {
         "default": 0.0009106189,
         "rescue": 0.0017356891,
@@ -179,9 +181,9 @@
       }
     },
     {
-      "id": "dragon_freeze",
+      "id": "namazu_freeze",
       "kind": "big",
-      "displayYakuId": "dragon",
+      "displayYakuId": "namazu",
       "rate": {
         "default": 0.0005,
         "rescue": 0.0005,
@@ -209,8 +211,7 @@
         "ヌ",
         "キ"
       ],
-      "category": "single",
-      "noArt": true
+      "category": "single"
     },
     {
       "id": "single_b",
@@ -220,19 +221,17 @@
         "リ",
         "ン"
       ],
-      "category": "single",
-      "noArt": true
+      "category": "single"
     },
     {
       "id": "single_c",
-      "name": "ウンゴ",
+      "name": "ウンズ",
       "symbols": [
         "ウ",
         "ン",
-        "ゴ"
+        "ズ"
       ],
-      "category": "single",
-      "noArt": true
+      "category": "single"
     }
   ]
 }

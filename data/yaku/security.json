@@ -12,46 +12,26 @@
       "category": "core"
     },
     {
-      "id": "memori",
-      "name": "メモリ",
+      "id": "salt",
+      "name": "ソルト",
       "symbols": [
-        "メ",
-        "モ",
-        "リ"
+        "ソ",
+        "ル",
+        "ト"
       ],
-      "category": "core"
+      "category": "core",
+      "noArt": true
     },
     {
-      "id": "spam",
-      "name": "スパム",
+      "id": "dump",
+      "name": "ダンプ",
       "symbols": [
-        "ス",
-        "パ",
-        "ム"
+        "ダ",
+        "ン",
+        "プ"
       ],
-      "category": "core"
-    },
-    {
-      "id": "flag",
-      "name": "フラグ",
-      "symbols": [
-        "フ",
-        "ラ",
-        "グ"
-      ],
-      "category": "core"
-    }
-  ],
-  "premiumYaku": [
-    {
-      "id": "code",
-      "name": "コード",
-      "symbols": [
-        "コ",
-        "ー",
-        "ド"
-      ],
-      "category": "premium"
+      "category": "core",
+      "noArt": true
     },
     {
       "id": "shell",
@@ -61,19 +41,44 @@
         "ェ",
         "ル"
       ],
-      "category": "premium"
+      "category": "core"
+    }
+  ],
+  "premiumYaku": [
+    {
+      "id": "spy",
+      "name": "スパイ",
+      "symbols": [
+        "ス",
+        "パ",
+        "イ"
+      ],
+      "category": "premium",
+      "noArt": true
+    },
+    {
+      "id": "worm",
+      "name": "ワーム",
+      "symbols": [
+        "ワ",
+        "ー",
+        "ム"
+      ],
+      "category": "premium",
+      "noArt": true
     }
   ],
   "bonusYaku": [
     {
       "id": "reg",
-      "name": "コール",
+      "name": "スパム",
       "symbols": [
-        "コ",
-        "ー",
-        "ル"
+        "ス",
+        "パ",
+        "ム"
       ],
-      "category": "bonus"
+      "category": "bonus",
+      "noArt": true
     }
   ],
   "cherryYaku": [
@@ -119,9 +124,9 @@
       }
     },
     {
-      "id": "spam",
+      "id": "dump",
       "kind": "core",
-      "displayYakuId": "spam",
+      "displayYakuId": "dump",
       "rate": {
         "default": 0.1323690758,
         "rescue": 0.1515777399,
@@ -129,9 +134,9 @@
       }
     },
     {
-      "id": "flag",
+      "id": "shell",
       "kind": "core",
-      "displayYakuId": "flag",
+      "displayYakuId": "shell",
       "rate": {
         "default": 0.099276801,
         "rescue": 0.1212621962,
@@ -139,9 +144,9 @@
       }
     },
     {
-      "id": "memori",
+      "id": "salt",
       "kind": "core",
-      "displayYakuId": "memori",
+      "displayYakuId": "salt",
       "rate": {
         "default": 0.1323690643,
         "rescue": 0.1515777399,
@@ -169,9 +174,9 @@
       }
     },
     {
-      "id": "code",
+      "id": "spy",
       "kind": "big",
-      "displayYakuId": "code",
+      "displayYakuId": "spy",
       "rate": {
         "default": 0.0009106189,
         "rescue": 0.0017356891,
@@ -179,9 +184,9 @@
       }
     },
     {
-      "id": "code_freeze",
+      "id": "spy_freeze",
       "kind": "big",
-      "displayYakuId": "code",
+      "displayYakuId": "spy",
       "rate": {
         "default": 0.0005,
         "rescue": 0.0005,
@@ -190,9 +195,9 @@
       "freeze": true
     },
     {
-      "id": "shell",
+      "id": "worm",
       "kind": "big",
-      "displayYakuId": "shell",
+      "displayYakuId": "worm",
       "rate": {
         "default": 0.0009106189,
         "rescue": 0.0017356891,
@@ -203,36 +208,33 @@
   "singleYaku": [
     {
       "id": "single_a",
-      "name": "メッグ",
+      "name": "ワンプ",
       "symbols": [
-        "メ",
-        "ッ",
-        "グ"
+        "ワ",
+        "ン",
+        "プ"
       ],
-      "category": "single",
-      "noArt": true
+      "category": "single"
     },
     {
       "id": "single_b",
-      "name": "ハパド",
+      "name": "スーク",
       "symbols": [
-        "ハ",
-        "パ",
-        "ド"
+        "ス",
+        "ー",
+        "ク"
       ],
-      "category": "single",
-      "noArt": true
+      "category": "single"
     },
     {
       "id": "single_c",
-      "name": "スック",
+      "name": "ダェル",
       "symbols": [
-        "ス",
-        "ッ",
-        "ク"
+        "ダ",
+        "ェ",
+        "ル"
       ],
-      "category": "single",
-      "noArt": true
+      "category": "single"
     }
   ]
 }
