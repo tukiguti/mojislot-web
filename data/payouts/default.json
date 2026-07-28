@@ -1,7 +1,7 @@
 {
   "betPerSpin": 3,
   "baseMultiplier": {
-    "core": 4,
+    "core": 7,
     "premium": 15,
     "bonus": 10,
     "cherry": 4,
@@ -40,6 +40,6 @@
     }
   ],
   "aimBonusMultiplier": 1.5,
-  "maxComboMultiplier": 4.5,
+  "maxComboMultiplier": 3.0,
   "bitaMultiplier": 1.15
 }

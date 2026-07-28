@@ -10,7 +10,7 @@
         "ク"
       ],
       "category": "core",
-      "payout": 2
+      "payout": 4
     },
     {
       "id": "salt",
@@ -21,7 +21,7 @@
         "ト"
       ],
       "category": "core",
-      "payout": 4,
+      "payout": 6,
       "noArt": true
     },
     {
@@ -33,7 +33,7 @@
         "プ"
       ],
       "category": "core",
-      "payout": 6,
+      "payout": 8,
       "noArt": true
     },
     {
@@ -45,7 +45,7 @@
         "ル"
       ],
       "category": "core",
-      "payout": 8
+      "payout": 10
     }
   ],
   "premiumYaku": [

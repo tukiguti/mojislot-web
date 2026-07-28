@@ -76,7 +76,7 @@ export const YakuSchema = z.object({
   /**
    * この役の払い出し枚数。書かなければ category ごとの baseMultiplier を使う。
    *
-   * 小役4種を 2/4/6/8 と散らして**枚数を役の名札にする**ために入れた。全部同じ枚数だと
+   * 小役4種を 4/6/8/10 と散らして**枚数を役の名札にする**ために入れた。全部同じ枚数だと
    * 「何が揃ったか」を出目からしか読めないが、枚数が違えば「6枚＝あの役＝あの位置」と
    * 結びつく。リミックス島は文字がステージごとに変わるので、位置と枚数の対応だけが
    * ステージをまたいで残る共通言語になる。
@@ -192,7 +192,7 @@ export const PayoutSchema = z.object({
   // 役カテゴリ別の「コンボなしの払い出し枚数」そのもの（旧称 multiplier だが bet には掛けない）。
   // 役が payout を持っていればそちらが優先で、ここはカテゴリ既定値。
   baseMultiplier: z.object({
-    /** 小役の既定。実データの小役は payout で 2/4/6/8 に散らしてある（[31章]）。 */
+    /** 小役の既定。実データの小役は payout で 4/6/8/10 に散らしてある（[31章]）。 */
     core: z.number(),
     premium: z.number(),
     bonus: z.number(),
@@ -200,12 +200,12 @@ export const PayoutSchema = z.object({
     /** 1枚役（2個テンパイ＝惜しい出目）の払い出し。全ハズレは0枚。 */
     single: z.number().default(1),
   }),
-  // ボーナス中の素点倍率。実運用値は data/payouts/default.json が正（現行2.0）。
+  // ボーナス中の素点倍率。実運用値は data/payouts/default.json が正（現行2.2）。
   bonusZoneMultiplier: z.number(),
   initialCoins: z.number().int().nonnegative(),
   // 連チャン（コンボ）数→配当倍率。しきい値で評価（順不同・最大一致を採用）。
   // 出玉設計の主役＝コンボ（通常時はほぼ増えず、連を伸ばすほど枚数が伸びる）。
-  // 実運用カーブは data/payouts が正（現行 2連1.5〜20連7.0）。省略時は下記フォールバック。
+  // 実運用カーブは data/payouts が正（現行 2連1.25〜20連3.6）。省略時は下記フォールバック。
   streakTiers: z
     .array(
       z.object({
@@ -221,7 +221,8 @@ export const PayoutSchema = z.object({
   // 「狙え！」予告役が実際に成立した時の達成ボーナス倍率（その役ライン分の配当に上乗せ）。
   aimBonusMultiplier: z.number().positive().default(1.5),
   // ボーナス倍率×コンボ倍率の積算上限。combined をここで頭打ちにする（コンボ天井）。
-  // 現行 data/payouts では 10.0。省略時フォールバックは 3.0。
+  // 腕による機械割の開きを抑える主要な調整点で、10.0→4.5→3.0 と下げてきた。
+  // 現行 data/payouts では 3.0。省略時フォールバックも 3.0。
   maxComboMultiplier: z.number().positive().default(3),
   /**
    * ビタ押し（＝引き込みも蹴りも使わず、役に必要なリールを**全部**自力で止めた）時の

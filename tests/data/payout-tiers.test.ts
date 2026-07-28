@@ -28,7 +28,7 @@ const CHAPTERS = [
 ] as const;
 
 /** 小役の払い出し。位置（coreYaku の並び）と対応する。 */
-const CORE_TIERS = [2, 4, 6, 8];
+const CORE_TIERS = [4, 6, 8, 10];
 
 describe('小役の枚数配分', () => {
   for (const chapter of CHAPTERS) {
