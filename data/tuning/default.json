@@ -87,8 +87,8 @@
   "delay": {
     "ms": 320,
     "rate": {
-      "core": 0.002,
-      "cherry": 0.005,
+      "core": 0.0,
+      "cherry": 0.02,
       "reg": 0.45,
       "big": 0.6
     }
