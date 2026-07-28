@@ -71,10 +71,24 @@ export function shakeBody(durMs = 500): void {
  * 暗転 → 役名がデカく登場 → 放射状光線 → フェードアウト。
  * 完全に視覚演出なのでゲーム進行はブロックしない（pointer-events: none）。
  */
+/**
+ * カットインの背景。**一枚絵は任意**で、無ければ `accent` から手続き生成する。
+ *
+ * 絵を役の位置（premiumYaku[0] なら章の一枚絵）で暗黙に決めていた頃は、役を
+ * 差し替えるたびに「いなり成立で握り寿司の絵」のような食い違いが残った。役が
+ * 自分の絵を明示し、持たない役は色から組み立てる形にすると、これが起きない。
+ */
+export interface CutinBackdrop {
+  /** 役色。光線とグローの基色になる（絵の有無にかかわらず使う）。 */
+  accent: string;
+  /** 一枚絵の URL。無ければ accent から背景を生成する。 */
+  imageUrl?: string;
+}
+
 export function showPremiumCutin(
   yakuName: string,
   symbols: string[],
-  bgImageUrl?: string,
+  backdrop: CutinBackdrop,
   variant: 'big' | 'reg' = 'big',
 ): void {
   // 既存のカットインがあれば消す（連発でも崩れない）
@@ -82,6 +96,8 @@ export function showPremiumCutin(
 
   const root = document.createElement('div');
   root.className = variant === 'reg' ? 'premium-cutin reg' : 'premium-cutin';
+  // 役色は CSS 変数で流す。光線・グロー・背景文字がこれを見る。
+  root.style.setProperty('--cutin-accent', backdrop.accent);
 
   // 8 本の光線を放射
   const raysHtml = Array.from({ length: 12 })
@@ -98,10 +114,13 @@ export function showPremiumCutin(
     )
     .join('');
 
-  // 章ごとの一枚絵（演出液晶 600:432 に合わせた横長）。未指定/404 なら CSS のみ。
-  const artHtml = bgImageUrl
-    ? `<div class="premium-cutin-art" style="background-image:url('${encodeURI(bgImageUrl)}')"></div>`
-    : '';
+  // 一枚絵がある役はそれを敷き、無い役は役色のグロー＋奥に沈んだ巨大な役名で組む。
+  // 文字を揃えるゲームなので、絵が無い側も「文字が主役」の見た目になるようにしている。
+  const artHtml = backdrop.imageUrl
+    ? `<div class="premium-cutin-art" style="background-image:url('${encodeURI(backdrop.imageUrl)}')"></div>`
+    : `<div class="premium-cutin-backdrop">
+         <div class="premium-cutin-ghost" aria-hidden="true">${escape(yakuName)}</div>
+       </div>`;
 
   root.innerHTML = `
     <div class="premium-cutin-veil"></div>

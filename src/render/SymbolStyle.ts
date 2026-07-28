@@ -116,4 +116,13 @@ export class SymbolColorResolver {
   colorForYakuId(yakuId: string): number | null {
     return this.yakuColor.get(yakuId) ?? null;
   }
+
+  /**
+   * 役 id の色を '#rrggbb' で返す（CSS 用）。役に色が無ければ fallback。
+   * カットインの手続き生成は、この色から放射グローと光線を組み立てる。
+   */
+  cssForYakuId(yakuId: string, fallback = '#ffd700'): string {
+    const n = this.colorForYakuId(yakuId);
+    return n === null ? fallback : '#' + n.toString(16).padStart(6, '0');
+  }
 }

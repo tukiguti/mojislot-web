@@ -75,6 +75,15 @@ export const YakuSchema = z.object({
   category: YakuCategorySchema,
   // 図柄画像(webp)を持たない役。true なら画像読込をスキップし色タイル＋文字で描く
   noArt: z.boolean().optional(),
+  /**
+   * カットインの一枚絵（`public/art/` 配下のファイル名）。
+   *
+   * **書かなければ役色から手続き生成する。** 絵を用意した役だけここに1行足せばよく、
+   * 役を差し替えても「前の役の絵が出る」が構造的に起きない。以前は章＋役の位置
+   * （premiumYaku[0] なら章の一枚絵）で暗黙に決めていたため、役を入れ替えた時に
+   * いなり成立で握り寿司の絵が出る、という食い違いが残った。
+   */
+  cutinArt: z.string().optional(),
 });
 
 export const YakuListSchema = z

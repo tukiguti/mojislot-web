@@ -40,6 +40,7 @@ import {
   spawnConfetti,
   shakeBody,
   showPremiumCutin,
+  type CutinBackdrop,
   showMultiHitBadge,
   startBonusSparkle,
   stopBonusSparkle,
@@ -161,10 +162,9 @@ export async function bootstrap() {
   const chapter = getCurrentChapter();
   const chapterId = getCurrentChapterId();
 
-  // 章ごとのアート（public/art/）。画像が無い章はURLが404になり、カットインは画像なし（CSSのみ）。
-  // ※ body の章背景パネルは一旦オフ（必要になったら has-chapter-bg を復活させる）。
+  // 島ごとのアート（public/art/）。
+  // ※ body の島背景パネルは一旦オフ（必要になったら has-chapter-bg を復活させる）。
   const ART_BASE = `${import.meta.env.BASE_URL}art/`;
-  const chapterCutinUrl = `${ART_BASE}cutin_${chapterId}.webp`;
 
   const reelConfig = ReelConfigSchema.parse(chapter.reelData);
   // 設定（1〜6）はその日その台で決まる。プレイヤーには見せず、
@@ -174,15 +174,6 @@ export async function bootstrap() {
     YakuListSchema.parse(chapter.yakuData),
     machineSetting,
   );
-  // カットイン背景は役ごとに出し分け: 主役(7=premiumYaku[0])は章一枚絵、バー揃い(premiumYaku[1])は
-  // 専用バー絵(cutin_{id}_bar.webp)。RB(別役)はアート無し＝演出のみ。「別役なのに主役の絵」を防ぐ。
-  const headlineYakuId = yakuList.premiumYaku[0]?.id;
-  const barYakuId = yakuList.premiumYaku[1]?.id;
-  const cutinArtFor = (yakuId: string): string | undefined => {
-    if (yakuId === headlineYakuId) return chapterCutinUrl;
-    if (yakuId === barYakuId) return `${ART_BASE}cutin_${chapterId}_bar.webp`;
-    return undefined;
-  };
   const payout = PayoutSchema.parse(payoutDataRaw);
   const quizList = QuizListSchema.parse(chapter.quizData);
   // 停止テーブル（第1停止＝実機のリール制御表）。手編集可・無ければ既定制御へフォールバック。
@@ -410,6 +401,19 @@ export async function bootstrap() {
 
   // 役単位のカラー解決：同じ役の3文字（左/中/右）が同じ色になる
   const colorResolver = new SymbolColorResolver(yakuList);
+
+  /**
+   * カットインの背景。役が `cutinArt` を持っていればその一枚絵、無ければ役色から
+   * 手続き生成する（放射グロー＋奥に沈めた役名）。
+   *
+   * 以前は「主役＝島の一枚絵、バー役＝専用絵」と**役の位置**で暗黙に決めていた。
+   * これだと役を差し替えた時に絵だけ前の役のまま残る（いなり成立で握り寿司が出る）。
+   * 役が自分の絵を名指しする形にすると、書かなかった役は自動で生成側へ落ちる。
+   */
+  const cutinBackdropFor = (yaku: Yaku): CutinBackdrop => ({
+    accent: colorResolver.cssForYakuId(yaku.id),
+    imageUrl: yaku.cutinArt ? `${ART_BASE}${yaku.cutinArt}` : undefined,
+  });
 
   // 章ごとの図柄画像（あれば）を読み込む。画像が無い章・plain設定・読込失敗時は空マップが返り、
   // ReelView も右の配列表も従来の色タイル＋文字にフォールバックする（詳細は render/ReelArt.ts）。
@@ -969,7 +973,7 @@ export async function bootstrap() {
    */
   const showBonusEntryFx = (yaku: Yaku, kind: 'big' | 'reg') => {
     sfx.bonusEnter();
-    showPremiumCutin(yaku.name, yaku.symbols, cutinArtFor(yaku.id), kind);
+    showPremiumCutin(yaku.name, yaku.symbols, cutinBackdropFor(yaku), kind);
     flashScreen({
       color: kind === 'reg' ? '#cdd6e0' : '#ffd700',
       alpha: kind === 'reg' ? 0.75 : 0.85,
@@ -1009,7 +1013,7 @@ export async function bootstrap() {
       // 現在の章のプレミアム役＋章カットイン画像でカットインを確認
       const premium = yakuList.premiumYaku[0] ?? yakuList.coreYaku[0];
       if (premium) {
-        showPremiumCutin(premium.name, premium.symbols, cutinArtFor(premium.id));
+        showPremiumCutin(premium.name, premium.symbols, cutinBackdropFor(premium));
         flashScreen({ color: '#ffd700', alpha: 0.7, durMs: 320 });
         sfx.winCore();
       }

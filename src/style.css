@@ -3034,6 +3034,9 @@ body.shake {
   overflow: hidden;
   opacity: 0;
   transition: opacity 220ms ease-out;
+  /* 役色。showPremiumCutin が役ごとに差し替える（BIG1=金 / BIG2=青 / REG=銀）。
+     光線・グロー・縁・背景文字がすべてこれを見るので、何が当たったかが色でわかる。 */
+  --cutin-accent: var(--gold);
 }
 
 .premium-cutin.show {
@@ -3050,9 +3053,63 @@ body.shake {
   inset: 0;
   background: radial-gradient(
     circle at center,
-    rgba(80, 30, 0, 0.55) 0%,
+    color-mix(in srgb, var(--cutin-accent) 16%, rgba(0, 0, 0, 0.62)) 0%,
     rgba(0, 0, 0, 0.92) 70%
   );
+}
+
+/* 一枚絵を持たない役の背景。役色の放射グローと、斜めに流れる細いストライプで
+   奥行きを作る。絵の代わりではなく「文字を見せるための地」として組んでいる。
+   絵を用意した役ではこの要素は生成されず、.premium-cutin-art が敷かれる。 */
+.premium-cutin-backdrop {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  opacity: 0;
+  transform: scale(1.08);
+  transition:
+    opacity 300ms ease-out,
+    transform 800ms ease-out;
+  background:
+    repeating-linear-gradient(
+      118deg,
+      transparent 0 20px,
+      color-mix(in srgb, var(--cutin-accent) 8%, transparent) 20px 24px
+    ),
+    radial-gradient(
+      ellipse 78% 62% at 50% 46%,
+      color-mix(in srgb, var(--cutin-accent) 46%, transparent) 0%,
+      color-mix(in srgb, var(--cutin-accent) 14%, transparent) 46%,
+      transparent 74%
+    );
+}
+
+.premium-cutin.show .premium-cutin-backdrop {
+  opacity: 1;
+  transform: scale(1);
+}
+
+/* 奥に沈めた役名。輪郭だけにして前面の3文字の可読性を落とさない。
+   文字を揃えるゲームなので、絵の代わりに立つのは文字そのものにしている。 */
+.premium-cutin-ghost {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  font-family: 'Yu Gothic', 'Hiragino Sans', system-ui, sans-serif;
+  font-size: clamp(88px, 38cqw, 300px);
+  font-weight: 900;
+  letter-spacing: -0.06em;
+  white-space: nowrap;
+  color: transparent;
+  -webkit-text-stroke: 2px
+    color-mix(in srgb, var(--cutin-accent) 30%, transparent);
+  transform: scale(1.18);
+  transition: transform 900ms cubic-bezier(0.16, 0.9, 0.3, 1);
+}
+
+.premium-cutin.show .premium-cutin-ghost {
+  transform: scale(1);
 }
 
 /* 章ごとの一枚絵（演出液晶 600:432 横長にフィット）。veil の上・rays/text の下に敷く。
@@ -3101,9 +3158,9 @@ body.shake {
   background: linear-gradient(
     180deg,
     transparent 0%,
-    rgba(255, 215, 0, 0.85) 30%,
-    rgba(255, 220, 100, 0.95) 50%,
-    rgba(255, 215, 0, 0.85) 70%,
+    color-mix(in srgb, var(--cutin-accent) 85%, transparent) 30%,
+    color-mix(in srgb, var(--cutin-accent) 65%, #fff) 50%,
+    color-mix(in srgb, var(--cutin-accent) 85%, transparent) 70%,
     transparent 100%
   );
   opacity: 0.75;
@@ -3142,11 +3199,17 @@ body.shake {
   font-size: clamp(20px, 10cqw, 56px);
   font-weight: 900;
   letter-spacing: 6px;
-  background: linear-gradient(180deg, #fff7c4 0%, var(--gold) 45%, #ff8a00 100%);
+  background: linear-gradient(
+    180deg,
+    color-mix(in srgb, var(--cutin-accent) 20%, #fff) 0%,
+    var(--cutin-accent) 45%,
+    color-mix(in srgb, var(--cutin-accent) 55%, #7a2b00) 100%
+  );
   -webkit-background-clip: text;
   background-clip: text;
   color: transparent;
-  text-shadow: 0 0 18px rgba(255, 200, 50, 0.55);
+  text-shadow: 0 0 18px
+    color-mix(in srgb, var(--cutin-accent) 55%, transparent);
   filter: drop-shadow(0 4px 8px rgba(0, 0, 0, 0.5));
   animation: premium-label-shake 280ms ease-in-out 3;
 }
@@ -3176,7 +3239,7 @@ body.shake {
   font-family: 'Yu Gothic', 'Hiragino Sans', system-ui, sans-serif;
   color: #fff;
   text-shadow:
-    0 0 18px rgba(255, 215, 0, 1),
+    0 0 18px var(--cutin-accent),
     0 0 4px rgba(0, 0, 0, 0.9),
     0 6px 14px rgba(0, 0, 0, 0.6);
   transform: translateY(40px) scale(0.5);
@@ -3205,46 +3268,17 @@ body.shake {
   letter-spacing: 4px;
   color: #fff;
   text-shadow:
-    0 0 10px rgba(255, 215, 0, 0.9),
+    0 0 10px color-mix(in srgb, var(--cutin-accent) 90%, transparent),
     0 4px 8px rgba(0, 0, 0, 0.7);
   padding: 6px 28px;
-  border: 2px solid var(--gold);
+  border: 2px solid var(--cutin-accent);
   border-radius: 999px;
   background: rgba(0, 0, 0, 0.5);
 }
 
-/* ===== レギュラーボーナス（REG）= シルバー基調 ===== */
-.premium-cutin.reg .premium-cutin-ray {
-  background: linear-gradient(
-    180deg,
-    transparent 0%,
-    rgba(200, 220, 240, 0.85) 30%,
-    rgba(235, 245, 255, 0.95) 50%,
-    rgba(200, 220, 240, 0.85) 70%,
-    transparent 100%
-  );
-}
-
-.premium-cutin.reg .premium-cutin-label {
-  background: linear-gradient(180deg, #ffffff 0%, #cdd6e0 45%, #8a97a6 100%);
-  -webkit-background-clip: text;
-  background-clip: text;
-  text-shadow: 0 0 18px rgba(200, 220, 240, 0.55);
-}
-
-.premium-cutin.reg .premium-cutin-symbol {
-  text-shadow:
-    0 0 18px rgba(210, 230, 245, 1),
-    0 0 4px rgba(0, 0, 0, 0.9),
-    0 6px 14px rgba(0, 0, 0, 0.6);
-}
-
-.premium-cutin.reg .premium-cutin-yaku {
-  border-color: #c8d6e2;
-  text-shadow:
-    0 0 10px rgba(200, 220, 240, 0.9),
-    0 4px 8px rgba(0, 0, 0, 0.7);
-}
+/* REG は役色が銀なので、`--cutin-accent` を通してそのまま銀基調になる。
+   以前あった `.premium-cutin.reg` の色上書きは役色に一本化して廃止した
+   （BIG2 も金のままだったが、役色を通すことで青と金で見分けが付く）。 */
 
 /* ===== 「狙え！」演出（テンパイ時の煽り） ===== */
 /* 押し順ナビ（押し順役） */
