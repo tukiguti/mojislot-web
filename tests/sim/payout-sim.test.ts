@@ -132,6 +132,12 @@ interface Result {
   hitSpins: number;
   /** ボーナス中に当選役を揃えられなかったゲーム数（＝こぼし） */
   bonusMissSpins: number;
+  /**
+   * ボーナス中の演出別 [ゲーム数, 揃えられなかった数]。
+   * 「どの演出で取りこぼしているか」を見る。示唆は色しか出さず候補から選ばせるので、
+   * 発展しなかった時の外しがここに集まる（＝演出設計の判断材料）。
+   */
+  bonusByEffect: Map<string, [number, number]>;
   /** そのうち1枚役へ落ちたゲーム数。ボーナス中の1枚役は抽選されないのでこれが全部 */
   bonusSpillWins: number;
   /**
@@ -241,6 +247,7 @@ function runChapter(
     hitSpins: 0,
     bonusMissSpins: 0,
     bonusSpillWins: 0,
+    bonusByEffect: new Map<string, [number, number]>(),
     bitaReels: [0, 0, 0, 0],
     bitaPerfect: 0,
     perYaku: new Map<string, [number, number]>(),
@@ -425,9 +432,17 @@ function runChapter(
     const { hits, willHit, streakAfter, win } = outcome;
     if (outcome.singleHits.length > 0) res.singleWins++;
     // ボーナス中は1枚役を抽選しない。1枚役が出たなら当選役を外した結果（こぼし）。
-    if (bonusActive && !willHit) {
-      res.bonusMissSpins++;
-      if (outcome.singleHits.length > 0) res.bonusSpillWins++;
+    if (bonusActive) {
+      // 示唆は発展したかどうかで狙えたかが変わるので、別の演出として数える。
+      const key = effect === 'shisa' ? (escalated ? 'shisa+発展' : 'shisa') : effect;
+      const cur = res.bonusByEffect.get(key) ?? [0, 0];
+      cur[0]++;
+      if (!willHit) cur[1]++;
+      res.bonusByEffect.set(key, cur);
+      if (!willHit) {
+        res.bonusMissSpins++;
+        if (outcome.singleHits.length > 0) res.bonusSpillWins++;
+      }
     }
 
     // 「引き込みなし＝ビタ押し」の実測。成立に貢献したリールのうち自力停止の本数を数える。
@@ -580,6 +595,31 @@ describe.skipIf(!RUN)('出玉シミュレーション（新モデル）', () => 
       );
     }
     console.log('\n===== 引き込みなし（自力停止）の到達度 =====\n' + bita.join('\n'));
+
+    // ボーナス中はどの演出でも狙う役は分かっているはずなのに取りこぼしが残る。
+    // その内訳＝演出設計（どこまで役を明かすか）の判断材料。
+    const byEffect: string[] = [];
+    byEffect.push('腕     演出          ボ中G    取りこぼし  ※ボーナス中のみ');
+    for (const skill of SKILLS) {
+      const acc = new Map<string, [number, number]>();
+      CHAPTERS.forEach((ch, i) => {
+        const r = runChapter(ch, skill, SPINS / CHAPTERS.length, 12345 + i * 977);
+        for (const [k, v] of r.bonusByEffect) {
+          const cur = acc.get(k) ?? [0, 0];
+          cur[0] += v[0];
+          cur[1] += v[1];
+          acc.set(k, cur);
+        }
+      });
+      const rows = [...acc.entries()].sort((a, b) => b[1][0] - a[1][0]);
+      for (const [k, v] of rows) {
+        byEffect.push(
+          `${skill.name.padEnd(5)} ${k.padEnd(12)}${v[0].toString().padStart(7)}` +
+          `${((v[1] / Math.max(1, v[0])) * 100).toFixed(1).padStart(10)}%`,
+        );
+      }
+    }
+    console.log('\n===== ボーナス中の演出別 取りこぼし =====\n' + byEffect.join('\n'));
 
     // 役ごとの狙いやすさ（上級で固定）。「どの役も同じくらい」を目指す指標。
     const skill = SKILLS.find((s) => s.name === '上級')!;
