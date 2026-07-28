@@ -9,7 +9,8 @@
         "ク",
         "ラ"
       ],
-      "category": "core"
+      "category": "core",
+      "payout": 2
     },
     {
       "id": "moyashi",
@@ -19,7 +20,8 @@
         "ヤ",
         "シ"
       ],
-      "category": "core"
+      "category": "core",
+      "payout": 4
     },
     {
       "id": "serori",
@@ -29,7 +31,8 @@
         "ロ",
         "リ"
       ],
-      "category": "core"
+      "category": "core",
+      "payout": 6
     },
     {
       "id": "retasu",
@@ -39,7 +42,8 @@
         "タ",
         "ス"
       ],
-      "category": "core"
+      "category": "core",
+      "payout": 8
     }
   ],
   "premiumYaku": [

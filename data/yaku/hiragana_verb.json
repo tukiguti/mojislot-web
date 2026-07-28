@@ -9,7 +9,8 @@
         "た",
         "う"
       ],
-      "category": "core"
+      "category": "core",
+      "payout": 2
     },
     {
       "id": "asobu",
@@ -19,7 +20,8 @@
         "そ",
         "ぶ"
       ],
-      "category": "core"
+      "category": "core",
+      "payout": 4
     },
     {
       "id": "oyogu",
@@ -29,7 +31,8 @@
         "よ",
         "ぐ"
       ],
-      "category": "core"
+      "category": "core",
+      "payout": 6
     },
     {
       "id": "hanasu",
@@ -39,7 +42,8 @@
         "な",
         "す"
       ],
-      "category": "core"
+      "category": "core",
+      "payout": 8
     }
   ],
   "premiumYaku": [

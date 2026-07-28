@@ -1,9 +1,9 @@
 {
   "betPerSpin": 3,
   "baseMultiplier": {
-    "core": 5,
-    "premium": 34,
-    "bonus": 14,
+    "core": 4,
+    "premium": 15,
+    "bonus": 10,
     "cherry": 4,
     "single": 1
   },

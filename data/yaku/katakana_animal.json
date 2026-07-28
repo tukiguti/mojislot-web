@@ -9,7 +9,8 @@
         "サ",
         "ギ"
       ],
-      "category": "core"
+      "category": "core",
+      "payout": 2
     },
     {
       "id": "kirin",
@@ -19,7 +20,8 @@
         "リ",
         "ン"
       ],
-      "category": "core"
+      "category": "core",
+      "payout": 4
     },
     {
       "id": "tanuki",
@@ -29,7 +31,8 @@
         "ヌ",
         "キ"
       ],
-      "category": "core"
+      "category": "core",
+      "payout": 6
     },
     {
       "id": "tokage",
@@ -39,7 +42,8 @@
         "カ",
         "ゲ"
       ],
-      "category": "core"
+      "category": "core",
+      "payout": 8
     }
   ],
   "premiumYaku": [

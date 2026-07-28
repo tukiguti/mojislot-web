@@ -9,7 +9,8 @@
         "ど",
         "う"
       ],
-      "category": "core"
+      "category": "core",
+      "payout": 2
     },
     {
       "id": "tofu",
@@ -19,7 +20,8 @@
         "う",
         "ふ"
       ],
-      "category": "core"
+      "category": "core",
+      "payout": 4
     },
     {
       "id": "dango",
@@ -29,7 +31,8 @@
         "ん",
         "ご"
       ],
-      "category": "core"
+      "category": "core",
+      "payout": 6
     },
     {
       "id": "mikan",
@@ -39,7 +42,8 @@
         "か",
         "ん"
       ],
-      "category": "core"
+      "category": "core",
+      "payout": 8
     }
   ],
   "premiumYaku": [

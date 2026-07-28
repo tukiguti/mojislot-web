@@ -1284,7 +1284,8 @@ export async function bootstrap() {
       const yaku = internalRoleLottery.yakuFor(role);
       // フリーズ役を引いた＝その場でBIG確定。演出は出さずフリーズシーケンスへ渡す。
       doFreeze = role.freeze;
-      // miss / 1枚役（表示役なし）は none。それ以外は表現できる演出からレート抽選。
+      // miss / 1枚役（表示役なし）は none。それ以外は「表現できる演出＋無演出」から
+      // レート抽選する。当たっているのに演出が出ない（＝狙えない）ゲームがここで生まれる。
       const effect: EffectType = doFreeze
         ? 'none'
         : yaku

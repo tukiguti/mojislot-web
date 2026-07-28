@@ -73,6 +73,15 @@ export const YakuSchema = z.object({
   // 通常は3文字。チェリー(2文字役=左+中)のみ2文字を許容
   symbols: z.array(z.string()).min(2).max(3),
   category: YakuCategorySchema,
+  /**
+   * この役の払い出し枚数。書かなければ category ごとの baseMultiplier を使う。
+   *
+   * 小役4種を 2/4/6/8 と散らして**枚数を役の名札にする**ために入れた。全部同じ枚数だと
+   * 「何が揃ったか」を出目からしか読めないが、枚数が違えば「6枚＝あの役＝あの位置」と
+   * 結びつく。リミックス島は文字がステージごとに変わるので、位置と枚数の対応だけが
+   * ステージをまたいで残る共通言語になる。
+   */
+  payout: z.number().int().positive().optional(),
   // 図柄画像(webp)を持たない役。true なら画像読込をスキップし色タイル＋文字で描く
   noArt: z.boolean().optional(),
   /**
@@ -181,7 +190,9 @@ export const PayoutSchema = z.object({
   // 払い出しには掛けない（払い出し＝役 base × コンボ倍率）。
   betPerSpin: z.number().int().positive(),
   // 役カテゴリ別の「コンボなしの払い出し枚数」そのもの（旧称 multiplier だが bet には掛けない）。
+  // 役が payout を持っていればそちらが優先で、ここはカテゴリ既定値。
   baseMultiplier: z.object({
+    /** 小役の既定。実データの小役は payout で 2/4/6/8 に散らしてある（[31章]）。 */
     core: z.number(),
     premium: z.number(),
     bonus: z.number(),

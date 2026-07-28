@@ -1,5 +1,5 @@
-// none/shisa/quiz/aim はレート抽選で選ぶ。push（押し順ナビ）は押し順役に対して強制付与され、
-// レート抽選（roll / rollAvailable）の対象には入らない。
+// none/shisa/quiz/aim はレート抽選（rollAvailable）で選ぶ。push（押し順ナビ）は押し順役に
+// 対して強制付与され、レート抽選の対象には入らない。
 export type EffectType = 'none' | 'shisa' | 'quiz' | 'aim';
 
 export interface EffectRates {
@@ -30,21 +30,20 @@ export class EffectScheduler {
     this.rates = rates;
   }
 
-  roll(): EffectType {
-    const r = Math.random();
-    if (r < this.rates.none) return 'none';
-    if (r < this.rates.none + this.rates.shisa) return 'shisa';
-    if (r < this.rates.none + this.rates.shisa + this.rates.quiz) return 'quiz';
-    return 'aim';
-  }
-
   /**
-   * 内部役を表現できる演出候補だけから、現在レートを重みとして再抽選する。
+   * 内部役を表現できる演出候補に **none（無演出）を足して**、現在レートを重みに抽選する。
    * 内部役missは呼び出し側でnone固定にするため、通常はshisa/quiz/aimを渡す。
    * push（押し順ナビ）はレート抽選の対象外なので、レートを持つ演出だけを受け取る。
+   *
+   * none を候補に入れるのは「当たっていれば必ず演出が出る＝必ず狙える」を避けるため。
+   * ボーナス中は rates.bonus.none = 0 なので重み0で落ち、自動的に無演出は出ない。
+   * 以前は候補が表現できる演出だけで、rates.none がどこからも読まれない死んだ値だった。
+   *
+   * 正規化は渡された候補の中だけで行う。3文字役は shisa/quiz/aim が揃うので none は
+   * レートどおりだが、aim を使えないチェリー（2文字役）だけ none がわずかに厚くなる。
    */
   rollAvailable(available: readonly (keyof EffectRates)[]): EffectType {
-    const unique = [...new Set(available)];
+    const unique = [...new Set<keyof EffectRates>(['none', ...available])];
     const weighted = unique
       .map((effect) => ({ effect, weight: this.rates[effect] }))
       .filter((entry) => entry.weight > 0);

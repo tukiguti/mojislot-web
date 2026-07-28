@@ -302,8 +302,13 @@ function runChapter(
     if (heldYaku || carried) {
       effect = 'none'; // 持ち越し中は無告知（出目＝リーチ目で察知する）
     } else if (yaku) {
-      const cands = eligibility.eligibleEffects(yaku);
-      effect = cands.length ? pickWeighted(cands, (e) => rates[e]) : 'none';
+      // EffectScheduler.rollAvailable と同じ抽選（候補に none を足して重み付き）。
+      // 乱数だけ再現性のある rng に差し替えている。
+      const cands: ('none' | 'shisa' | 'quiz' | 'aim')[] = [
+        'none',
+        ...eligibility.eligibleEffects(yaku),
+      ];
+      effect = pickWeighted(cands, (e) => rates[e]);
     } else {
       effect = 'none';
     }
