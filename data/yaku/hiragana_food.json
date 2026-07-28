@@ -2,61 +2,37 @@
   "mode": "hiragana_food",
   "coreYaku": [
     {
-      "id": "budou",
-      "name": "ぶどう",
+      "id": "iwashi",
+      "name": "いわし",
       "symbols": [
-        "ぶ",
-        "ど",
-        "う"
+        "い",
+        "わ",
+        "し"
       ],
       "category": "core",
       "payout": 4
     },
     {
-      "id": "tofu",
-      "name": "とうふ",
+      "id": "sanma",
+      "name": "さんま",
       "symbols": [
-        "と",
-        "う",
-        "ふ"
+        "さ",
+        "ん",
+        "ま"
       ],
       "category": "core",
       "payout": 6
     },
     {
-      "id": "dango",
-      "name": "だんご",
+      "id": "katsuo",
+      "name": "かつお",
       "symbols": [
-        "だ",
-        "ん",
-        "ご"
+        "か",
+        "つ",
+        "お"
       ],
       "category": "core",
       "payout": 8
-    },
-    {
-      "id": "mikan",
-      "name": "みかん",
-      "symbols": [
-        "み",
-        "か",
-        "ん"
-      ],
-      "category": "core",
-      "payout": 10
-    }
-  ],
-  "premiumYaku": [
-    {
-      "id": "inari",
-      "name": "いなり",
-      "symbols": [
-        "い",
-        "な",
-        "り"
-      ],
-      "category": "premium",
-      "noArt": true
     },
     {
       "id": "maguro",
@@ -66,6 +42,30 @@
         "ぐ",
         "ろ"
       ],
+      "category": "core",
+      "payout": 10
+    }
+  ],
+  "premiumYaku": [
+    {
+      "id": "shake",
+      "name": "しゃけ",
+      "symbols": [
+        "し",
+        "ゃ",
+        "け"
+      ],
+      "category": "premium",
+      "noArt": true
+    },
+    {
+      "id": "tarako",
+      "name": "たらこ",
+      "symbols": [
+        "た",
+        "ら",
+        "こ"
+      ],
       "category": "premium",
       "noArt": true
     }
@@ -73,11 +73,11 @@
   "bonusYaku": [
     {
       "id": "reg",
-      "name": "いなご",
+      "name": "しゃこ",
       "symbols": [
-        "い",
-        "な",
-        "ご"
+        "し",
+        "ゃ",
+        "こ"
       ],
       "category": "bonus",
       "noArt": true
@@ -85,11 +85,11 @@
   ],
   "cherryYaku": [
     {
-      "id": "momo",
-      "name": "もも",
+      "id": "ebi",
+      "name": "えび",
       "symbols": [
-        "も",
-        "も"
+        "え",
+        "び"
       ],
       "category": "cherry"
     }
@@ -116,9 +116,9 @@
       }
     },
     {
-      "id": "budou",
+      "id": "iwashi",
       "kind": "core",
-      "displayYakuId": "budou",
+      "displayYakuId": "iwashi",
       "rate": {
         "default": 0.1323690643,
         "rescue": 0.1515777399,
@@ -126,9 +126,9 @@
       }
     },
     {
-      "id": "dango",
+      "id": "katsuo",
       "kind": "core",
-      "displayYakuId": "dango",
+      "displayYakuId": "katsuo",
       "rate": {
         "default": 0.1323690758,
         "rescue": 0.1515777399,
@@ -136,9 +136,9 @@
       }
     },
     {
-      "id": "mikan",
+      "id": "maguro",
       "kind": "core",
-      "displayYakuId": "mikan",
+      "displayYakuId": "maguro",
       "rate": {
         "default": 0.099276801,
         "rescue": 0.1212621962,
@@ -146,9 +146,9 @@
       }
     },
     {
-      "id": "tofu",
+      "id": "sanma",
       "kind": "core",
-      "displayYakuId": "tofu",
+      "displayYakuId": "sanma",
       "rate": {
         "default": 0.1323690643,
         "rescue": 0.1515777399,
@@ -156,9 +156,9 @@
       }
     },
     {
-      "id": "momo",
+      "id": "ebi",
       "kind": "cherry",
-      "displayYakuId": "momo",
+      "displayYakuId": "ebi",
       "rate": {
         "default": 0.0661845265,
         "rescue": 0.080841457,
@@ -176,9 +176,9 @@
       }
     },
     {
-      "id": "inari",
+      "id": "shake",
       "kind": "big",
-      "displayYakuId": "inari",
+      "displayYakuId": "shake",
       "rate": {
         "default": 0.0009106189,
         "rescue": 0.0017356891,
@@ -186,9 +186,9 @@
       }
     },
     {
-      "id": "inari_freeze",
+      "id": "shake_freeze",
       "kind": "big",
-      "displayYakuId": "inari",
+      "displayYakuId": "shake",
       "rate": {
         "default": 0.0005,
         "rescue": 0.0005,
@@ -197,9 +197,9 @@
       "freeze": true
     },
     {
-      "id": "maguro",
+      "id": "tarako",
       "kind": "big",
-      "displayYakuId": "maguro",
+      "displayYakuId": "tarako",
       "rate": {
         "default": 0.0009106189,
         "rescue": 0.0017356891,
@@ -210,31 +210,31 @@
   "singleYaku": [
     {
       "id": "single_a",
-      "name": "まどふ",
+      "name": "たつま",
       "symbols": [
-        "ま",
-        "ど",
-        "ふ"
+        "た",
+        "つ",
+        "ま"
       ],
       "category": "single"
     },
     {
       "id": "single_b",
-      "name": "だぐり",
+      "name": "さゃろ",
       "symbols": [
-        "だ",
-        "ぐ",
-        "り"
+        "さ",
+        "ゃ",
+        "ろ"
       ],
       "category": "single"
     },
     {
       "id": "single_c",
-      "name": "ともう",
+      "name": "たゃし",
       "symbols": [
-        "と",
-        "も",
-        "う"
+        "た",
+        "ゃ",
+        "し"
       ],
       "category": "single"
     }

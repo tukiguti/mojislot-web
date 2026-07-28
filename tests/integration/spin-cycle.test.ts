@@ -179,12 +179,18 @@ const spinAiming = (g: Game, yakuId: string, flagKey: string) => {
   });
 };
 
+/**
+ * 通しの検証に使う代表の小役。役IDを直書きすると章を作り直すたびにテストが落ちるので
+ * 「1番目の小役」で参照する（寿司島への差し替えで budou が消えて実際に落ちた）。
+ */
+const CORE = yakuList.coreYaku[0].id;
+
 describe('1ゲームの通し（BET→停止→配当→ボーナス）', () => {
   it('BETでコインが減り、成立した分だけ増える', () => {
     const g = newGame();
     const before = g.wallet.coins.get();
-    const { outcome } = spinAiming(g, 'budou', 'budou');
-    expect(outcome.willHit, 'ぶどうを狙って揃う').toBe(true);
+    const { outcome } = spinAiming(g, CORE, CORE);
+    expect(outcome.willHit, '小役を狙って揃う').toBe(true);
     expect(g.wallet.coins.get()).toBe(before - g.calc.bet + outcome.win);
   });
 
@@ -221,7 +227,7 @@ describe('1ゲームの通し（BET→停止→配当→ボーナス）', () => 
     let bonusWin = 0;
     for (let i = 0; i < tuning.bonus.spinsPerBig; i++) {
       expect(end, `${i}G目でまだ終わっていない`).toBeNull();
-      const r = spinAiming(g, 'budou', 'budou');
+      const r = spinAiming(g, CORE, CORE);
       bonusWin += r.outcome.win;
       end = r.runEnd;
     }
@@ -234,7 +240,7 @@ describe('1ゲームの通し（BET→停止→配当→ボーナス）', () => 
 
   it('ボーナス中は最終ゲームまで配当倍率が乗る', () => {
     const g = newGame();
-    const normal = spinAiming(g, 'budou', 'budou').outcome.win;
+    const normal = spinAiming(g, CORE, CORE).outcome.win;
 
     const big = yakuList.premiumYaku[0];
     const bigRole = yakuList.internalRoles.find(
@@ -244,7 +250,7 @@ describe('1ゲームの通し（BET→停止→配当→ボーナス）', () => 
 
     const wins: number[] = [];
     for (let i = 0; i < tuning.bonus.spinsPerBig; i++) {
-      wins.push(spinAiming(g, 'budou', 'budou').outcome.win);
+      wins.push(spinAiming(g, CORE, CORE).outcome.win);
     }
     // 残り1Gになる最終ゲームも含め、全ゲームが通常時より多い
     expect(wins).toHaveLength(tuning.bonus.spinsPerBig);
@@ -270,7 +276,7 @@ describe('1ゲームの通し（BET→停止→配当→ボーナス）', () => 
     let end = null;
     let rest = 0;
     while (end === null) {
-      const r = spinAiming(g, 'budou', 'budou');
+      const r = spinAiming(g, CORE, CORE);
       rest += r.outcome.win;
       end = r.runEnd;
     }
@@ -279,7 +285,7 @@ describe('1ゲームの通し（BET→停止→配当→ボーナス）', () => 
 
   it('ビタ押し（引き込みなし）で狙うと上乗せが付く', () => {
     const g = newGame();
-    const r = spinAiming(g, 'budou', 'budou');
+    const r = spinAiming(g, CORE, CORE);
     // 中段をピタリと狙っているので引き込みは不要
     expect(r.slipCells).toEqual([0, 0, 0]);
     expect(r.outcome.bitaPerfect).toBe(true);
@@ -289,12 +295,12 @@ describe('1ゲームの通し（BET→停止→配当→ボーナス）', () => 
 
   it('狙いを外すと引き込みで揃うが、ビタ押しは付かない', () => {
     const g = newGame();
-    const y = findYaku('budou');
+    const y = findYaku(CORE);
     // 各リールを狙いの2コマ手前で押す＝引き込みに助けてもらう
     const press = y.symbols.map(
       (s, i) => (posForMiddle(i, s) - 2 + CELLS) % CELLS,
     );
-    const r = playSpin(g, { flagYakuIds: ['budou'], flagKey: 'budou', press });
+    const r = playSpin(g, { flagYakuIds: [CORE], flagKey: CORE, press });
     expect(r.outcome.willHit, '引き込みで揃う').toBe(true);
     expect(r.slipCells.some((n) => n > 0), '引き込みが働いた').toBe(true);
     expect(r.outcome.bitaPerfect).toBe(false);

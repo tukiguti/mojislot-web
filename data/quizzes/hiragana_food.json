@@ -2,214 +2,130 @@
   "mode": "hiragana_food",
   "quizzes": [
     {
-      "id": "q_budou_1",
-      "question": "小さな粒がたくさん房のようにつながって実る、紫色の果物は？",
-      "answerYakuId": "budou",
-      "decoyYakuIds": [
-        "mikan",
-        "dango",
-        "tofu"
-      ]
+      "id": "q_iwashi_1",
+      "question": "群れで泳ぐ小型の青魚で、干せば目刺しや煮干しになる、漢字で「弱い魚」と書く魚は？",
+      "answerYakuId": "iwashi",
+      "decoyYakuIds": ["sanma", "katsuo", "maguro"]
     },
     {
-      "id": "q_budou_2",
-      "question": "ワインやレーズンの原料になる、つるにぶら下がって実る果物は？",
-      "answerYakuId": "budou",
-      "decoyYakuIds": [
-        "momo",
-        "mikan",
-        "inari"
-      ]
+      "id": "q_iwashi_2",
+      "question": "節分に柊の枝と一緒に玄関へ飾り、鬼を追い払うのに使われる魚は？",
+      "answerYakuId": "iwashi",
+      "decoyYakuIds": ["sanma", "shake", "ebi"]
     },
     {
-      "id": "q_budou_3",
-      "question": "イソップ物語で、キツネが届かない実をすっぱいと負け惜しみした果物は？",
-      "answerYakuId": "budou",
-      "decoyYakuIds": [
-        "momo",
-        "tofu",
-        "maguro"
-      ]
+      "id": "q_iwashi_3",
+      "question": "稚魚を釜揚げにすると「しらす」になる、背が青く腹が銀色の小魚は？",
+      "answerYakuId": "iwashi",
+      "decoyYakuIds": ["katsuo", "maguro", "tarako"]
     },
     {
-      "id": "q_budou_4",
-      "question": "巨峰やマスカットという品種で知られる、秋が旬の果物は？",
-      "answerYakuId": "budou",
-      "decoyYakuIds": [
-        "mikan",
-        "momo",
-        "dango"
-      ]
+      "id": "q_iwashi_4",
+      "question": "大群で泳ぎ、多くの魚や鳥や鯨に食べられて海の食物連鎖を支えている小魚は？",
+      "answerYakuId": "iwashi",
+      "decoyYakuIds": ["sanma", "ebi", "reg"]
     },
     {
-      "id": "q_tofu_1",
-      "question": "大豆をしぼった汁に、にがりを加えて固めた白い食べ物は？",
-      "answerYakuId": "tofu",
-      "decoyYakuIds": [
-        "dango",
-        "budou",
-        "reg"
-      ]
+      "id": "q_sanma_1",
+      "question": "秋に脂がのり、塩焼きに大根おろしを添えて食べる細長い青魚は？",
+      "answerYakuId": "sanma",
+      "decoyYakuIds": ["iwashi", "katsuo", "shake"]
     },
     {
-      "id": "q_tofu_2",
-      "question": "木綿と絹ごしの二種類があり、みそ汁の具にもよく使われる食品は？",
-      "answerYakuId": "tofu",
-      "decoyYakuIds": [
-        "dango",
-        "maguro",
-        "mikan"
-      ]
+      "id": "q_sanma_2",
+      "question": "漢字で「秋」「刀」「魚」と書く、秋の味覚を代表する魚は？",
+      "answerYakuId": "sanma",
+      "decoyYakuIds": ["iwashi", "maguro", "tarako"]
     },
     {
-      "id": "q_tofu_3",
-      "question": "かすがいを打っても効き目がない、と手ごたえのなさをたとえる白い食品は？",
-      "answerYakuId": "tofu",
-      "decoyYakuIds": [
-        "dango",
-        "budou",
-        "inari"
-      ]
+      "id": "q_sanma_3",
+      "question": "目黒を舞台にした落語で、殿様が炭火焼きの味を絶賛したことで知られる魚は？",
+      "answerYakuId": "sanma",
+      "decoyYakuIds": ["katsuo", "shake", "reg"]
     },
     {
-      "id": "q_tofu_4",
-      "question": "夏は冷ややっこ、冬は鍋で温めて食べる、四角く切った白い食品は？",
-      "answerYakuId": "tofu",
-      "decoyYakuIds": [
-        "maguro",
-        "dango",
-        "momo"
-      ]
+      "id": "q_sanma_4",
+      "question": "内臓のほろ苦さも味わいのうちとされる、体が細長く銀色に光る秋の魚は？",
+      "answerYakuId": "sanma",
+      "decoyYakuIds": ["iwashi", "maguro", "ebi"]
     },
     {
-      "id": "q_dango_1",
-      "question": "串にさして三つ四つ並べ、みたらしのタレをかけて食べる和菓子は？",
-      "answerYakuId": "dango",
-      "decoyYakuIds": [
-        "tofu",
-        "budou",
-        "momo"
-      ]
+      "id": "q_katsuo_1",
+      "question": "削って出汁をとる「節」に加工される、赤身の回遊魚は？",
+      "answerYakuId": "katsuo",
+      "decoyYakuIds": ["maguro", "iwashi", "shake"]
     },
     {
-      "id": "q_dango_2",
-      "question": "見た目より中身が大事という意味のことわざで、花と比べられる食べ物は？",
-      "answerYakuId": "dango",
-      "decoyYakuIds": [
-        "momo",
-        "mikan",
-        "tofu"
-      ]
+      "id": "q_katsuo_2",
+      "question": "藁で表面を炙った「たたき」が高知の名物になっている魚は？",
+      "answerYakuId": "katsuo",
+      "decoyYakuIds": ["maguro", "sanma", "tarako"]
     },
     {
-      "id": "q_dango_3",
-      "question": "十五夜の夜に、ススキとともに積み上げて月に供える丸い和菓子は？",
-      "answerYakuId": "dango",
-      "decoyYakuIds": [
-        "mikan",
-        "tofu",
-        "budou"
-      ]
+      "id": "q_katsuo_3",
+      "question": "初夏に黒潮にのって北上するものを「初〜」と呼んで珍重する魚は？",
+      "answerYakuId": "katsuo",
+      "decoyYakuIds": ["sanma", "shake", "ebi"]
     },
     {
-      "id": "q_dango_4",
-      "question": "米の粉をこねて小さく丸め、蒸してつくるもちに似た和菓子は？",
-      "answerYakuId": "dango",
-      "decoyYakuIds": [
-        "tofu",
-        "inari",
-        "budou"
-      ]
-    },
-    {
-      "id": "q_mikan_1",
-      "question": "冬にこたつの上のかごに盛られ、皮を手でむいて食べる果物は？",
-      "answerYakuId": "mikan",
-      "decoyYakuIds": [
-        "budou",
-        "momo",
-        "dango"
-      ]
-    },
-    {
-      "id": "q_mikan_2",
-      "question": "愛媛や和歌山が名産地で、実に白いすじがついている柑橘は？",
-      "answerYakuId": "mikan",
-      "decoyYakuIds": [
-        "budou",
-        "momo",
-        "tofu"
-      ]
-    },
-    {
-      "id": "q_mikan_3",
-      "question": "食べすぎると手のひらが黄色くなると言われる、冬の定番の果物は？",
-      "answerYakuId": "mikan",
-      "decoyYakuIds": [
-        "momo",
-        "budou",
-        "maguro"
-      ]
-    },
-    {
-      "id": "q_mikan_4",
-      "question": "うすい袋に分かれた実がぎっしり並ぶ、オレンジ色の皮をもつ果物は？",
-      "answerYakuId": "mikan",
-      "decoyYakuIds": [
-        "budou",
-        "dango",
-        "momo"
-      ]
-    },
-    {
-      "id": "q_momo_1",
-      "question": "川から流れてきた大きな実から男の子が生まれる昔話、その実は何の果物？",
-      "answerYakuId": "momo",
-      "decoyYakuIds": [
-        "budou",
-        "mikan",
-        "dango"
-      ]
-    },
-    {
-      "id": "q_momo_2",
-      "question": "うすい産毛におおわれ、やわらかくて汁気の多い夏の果物は？",
-      "answerYakuId": "momo",
-      "decoyYakuIds": [
-        "mikan",
-        "budou",
-        "tofu"
-      ]
-    },
-    {
-      "id": "q_inari_1",
-      "question": "甘辛く煮た油揚げにすし飯を詰めた、きつねの好物とされる食べ物は？",
-      "answerYakuId": "inari",
-      "decoyYakuIds": [
-        "maguro",
-        "reg",
-        "dango"
-      ]
+      "id": "q_katsuo_4",
+      "question": "背の縞模様が興奮すると浮き出る、たたきで知られる赤身の回遊魚は？",
+      "answerYakuId": "katsuo",
+      "decoyYakuIds": ["iwashi", "maguro", "reg"]
     },
     {
       "id": "q_maguro_1",
-      "question": "刺身や寿司のネタとして最も人気が高い、外洋を回遊する大型の魚は？",
+      "question": "寿司ネタで最も人気が高い、外洋を回遊する大型の赤身魚は？",
       "answerYakuId": "maguro",
-      "decoyYakuIds": [
-        "inari",
-        "reg",
-        "mikan"
-      ]
+      "decoyYakuIds": ["katsuo", "shake", "sanma"]
+    },
+    {
+      "id": "q_maguro_2",
+      "question": "腹の脂がのった部分を「とろ」と呼んで珍重する、大型の回遊魚は？",
+      "answerYakuId": "maguro",
+      "decoyYakuIds": ["katsuo", "shake", "tarako"]
+    },
+    {
+      "id": "q_maguro_3",
+      "question": "豊洲市場の初競りで一匹に億単位の値がつくことで知られる大型の魚は？",
+      "answerYakuId": "maguro",
+      "decoyYakuIds": ["katsuo", "iwashi", "ebi"]
+    },
+    {
+      "id": "q_maguro_4",
+      "question": "赤身・中とろ・大とろと部位で呼び分けて味わう、寿司屋の看板になる魚は？",
+      "answerYakuId": "maguro",
+      "decoyYakuIds": ["shake", "sanma", "reg"]
+    },
+    {
+      "id": "q_ebi_1",
+      "question": "曲がった背と長いひげを長寿に見立て、縁起物としておせちに入れる甲殻類は？",
+      "answerYakuId": "ebi",
+      "decoyYakuIds": ["reg", "iwashi", "katsuo"]
+    },
+    {
+      "id": "q_ebi_2",
+      "question": "天ぷらでも寿司でも定番で、加熱すると鮮やかな赤色に変わる甲殻類は？",
+      "answerYakuId": "ebi",
+      "decoyYakuIds": ["reg", "maguro", "tarako"]
+    },
+    {
+      "id": "q_shake_1",
+      "question": "川で生まれて海で育ち、産卵のため生まれた川へ戻ってくる、身が橙色の魚は？",
+      "answerYakuId": "shake",
+      "decoyYakuIds": ["maguro", "katsuo", "sanma"]
+    },
+    {
+      "id": "q_tarako_1",
+      "question": "すけとうだらの卵巣を塩漬けにした、おにぎりの具の定番は？",
+      "answerYakuId": "tarako",
+      "decoyYakuIds": ["ebi", "reg", "iwashi"]
     },
     {
       "id": "q_reg_1",
-      "question": "田んぼでとれるバッタの仲間を甘辛く煮た、長野などで食べられる佃煮は？",
+      "question": "江戸前寿司の種で、茹でると紫がかった色になる、海老に似た形の甲殻類は？",
       "answerYakuId": "reg",
-      "decoyYakuIds": [
-        "inari",
-        "maguro",
-        "tofu"
-      ]
+      "decoyYakuIds": ["ebi", "tarako", "shake"]
     }
   ]
 }

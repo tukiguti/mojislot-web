@@ -51,8 +51,8 @@ export interface ChapterBundle {
 export const CHAPTERS: readonly ChapterBundle[] = [
   {
     id: 'hiragana_food',
-    name: 'ひらがな食べ物',
-    description: 'ぶどう・とうふ・だんごなど。チェリーは「もも」、REGは「いなご」、BIGは「いなり」「まぐろ」',
+    name: 'ひらがな寿司',
+    description: 'いわし・さんま・かつお・まぐろ。チェリーは「えび」、REGは「しゃこ」、BIGは「しゃけ」「たらこ」',
     reelData: hiraganaFoodReel,
     yakuData: hiraganaFoodYaku,
     quizData: hiraganaFoodQuiz,
