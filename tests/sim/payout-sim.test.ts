@@ -130,6 +130,10 @@ interface Result {
   cherryBonus: number;
   /** 役が成立したゲーム数（1枚役を除く） */
   hitSpins: number;
+  /** ボーナス中に当選役を揃えられなかったゲーム数（＝こぼし） */
+  bonusMissSpins: number;
+  /** そのうち1枚役へ落ちたゲーム数。ボーナス中の1枚役は抽選されないのでこれが全部 */
+  bonusSpillWins: number;
   /**
    * 役の成立に貢献したリールのうち、引き込みも蹴りも働かず**自力で止めた**本数の分布。
    * 「引き込みなし＝ビタ押し」判定を出玉へ反映するかの検討材料。
@@ -235,6 +239,8 @@ function runChapter(
     big: 0, reg: 0, bonusSpins: 0, bigPayout: 0, regPayout: 0,
     singleWins: 0,
     hitSpins: 0,
+    bonusMissSpins: 0,
+    bonusSpillWins: 0,
     bitaReels: [0, 0, 0, 0],
     bitaPerfect: 0,
     perYaku: new Map<string, [number, number]>(),
@@ -328,11 +334,13 @@ function runChapter(
     const stopOrder: number[] = [];
     const isAimLike = effect === 'aim' || effect === 'quiz';
     const singleIds = yakuList.singleYaku.map((y) => y.id);
-    // main.ts activeFlagYakuIds と同じ: miss=[] / single・押し順ミス=1枚役グループ / 通常=[表示役]
+    // main.ts activeFlagYakuIds と同じ:
+    // miss=[] / 1枚役フラグ=1枚役グループ / 通常=[表示役] / ボーナス中=[表示役, ...1枚役]
     const flagIdsNow = (): string[] => {
       if (role.kind === 'miss') return [];
       if (role.kind === 'single') return singleIds;
-      return role.yakuId ? [role.yakuId] : [];
+      if (!role.yakuId) return [];
+      return bonusActive ? [role.yakuId, ...singleIds] : [role.yakuId];
     };
     const singleSpill = (): boolean => role.kind === 'single';
 
@@ -416,6 +424,11 @@ function runChapter(
     });
     const { hits, willHit, streakAfter, win } = outcome;
     if (outcome.singleHits.length > 0) res.singleWins++;
+    // ボーナス中は1枚役を抽選しない。1枚役が出たなら当選役を外した結果（こぼし）。
+    if (bonusActive && !willHit) {
+      res.bonusMissSpins++;
+      if (outcome.singleHits.length > 0) res.bonusSpillWins++;
+    }
 
     // 「引き込みなし＝ビタ押し」の実測。成立に貢献したリールのうち自力停止の本数を数える。
     if (outcome.willHit) {
@@ -507,14 +520,16 @@ describe.skipIf(!RUN)('出玉シミュレーション（新モデル）', () => 
   it('腕別の機械割・突入率・ボーナス平均を測る', () => {
     const SPINS = 200000;
     const lines: string[] = [];
-    lines.push('腕      機械割   通常時純増  ボ中純増  突入(1/G)  BIG平均  REG平均  示唆発展  ランプ  チェリー重複  持越G  中段告知  誤告知(全)  誤告知(第1)');
+    lines.push('腕      機械割   通常時純増  ボ中純増  突入(1/G)  BIG平均  REG平均  示唆発展  ランプ  チェリー重複  持越G  中段告知  誤告知(全)  誤告知(第1)  ボ中こぼし  →1枚');
     for (const skill of SKILLS) {
       let bet = 0, win = 0, nbet = 0, nwin = 0, big = 0, reg = 0;
       let bspins = 0, bigPay = 0, regPay = 0;
       let spins = 0;
       let shisaSpins = 0, shisaEsc = 0, lampB = 0, cherryB = 0, carS = 0, carR = 0, carM = 0, fT = 0, fT1 = 0, nb = 0;
+      let bMiss = 0, bSpill = 0;
       CHAPTERS.forEach((ch, i) => {
         const r = runChapter(ch, skill, SPINS / CHAPTERS.length, 12345 + i * 977);
+        bMiss += r.bonusMissSpins; bSpill += r.bonusSpillWins;
         bet += r.totalBet; win += r.totalWin;
         nbet += r.normalBet; nwin += r.normalWin;
         big += r.big; reg += r.reg;
@@ -540,7 +555,9 @@ describe.skipIf(!RUN)('出玉シミュレーション（新モデル）', () => 
         `${carS.toString().padStart(6)} ` +
         `${((carM / Math.max(1, carS)) * 100).toFixed(1).padStart(7)}% ` +
         `${((fT / Math.max(1, nb)) * 100).toFixed(1).padStart(9)}% ` +
-        `${((fT1 / Math.max(1, nb)) * 100).toFixed(2).padStart(10)}%`,
+        `${((fT1 / Math.max(1, nb)) * 100).toFixed(2).padStart(10)}% ` +
+        `${((bMiss / Math.max(1, bspins)) * 100).toFixed(1).padStart(9)}% ` +
+        `${((bSpill / Math.max(1, bMiss)) * 100).toFixed(1).padStart(5)}%`,
       );
     }
     console.log('\n===== 出玉シミュレーション（' + SPINS + 'G/腕・全5章）=====\n' + lines.join('\n'));

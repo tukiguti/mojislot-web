@@ -1327,15 +1327,27 @@ export async function bootstrap() {
   /**
    * この停止時点で「出目に出てよい役」のID群（払い出し・蹴り・引き込みガードの正）。
    * - miss: 空＝全役が蹴り対象
-   * - 1枚役フラグ／押し順ミス: singleYaku 全ID（こぼし先）
+   * - 1枚役フラグ: singleYaku 全ID（通常時のみ。演出は出ないので偶然拾う役）
    * - 通常: 表示役の単数
+   * - **ボーナス中**: 表示役＋singleYaku 全ID。1枚役をボーナス中だけ「こぼし先」にする
+   *
+   * ボーナス中の1枚役は内部役テーブルから抽選しない（bonus レート0）。代わりに、
+   * 当選役を引き込めなかった時の受け皿として置く。**自分が外した結果としてだけ1枚**に
+   * なるので、外した距離が枚数に出る（4コマ以内で拾えれば1枚・大きく外せば0枚）。
+   * 通常時は従来どおり抽選で降ってくる役のままにしてある。
+   *
+   * 引き込みは当選役を優先する（StopController の CAT_RANK）。1枚役が近いという理由で
+   * 本来取れる小役を取り逃がしては本末転倒なので、1枚役は常に最下位の受け皿にする。
    */
   const activeFlagYakuIds = (): string[] => {
     if (!currentRound) return [];
     const role = currentRound.internalRole;
     if (role.kind === 'miss') return [];
     if (role.kind === 'single') return singleYakuIds;
-    return role.yakuId ? [role.yakuId] : [];
+    if (!role.yakuId) return [];
+    return bonusZone.isActive()
+      ? [role.yakuId, ...singleYakuIds]
+      : [role.yakuId];
   };
 
   const currentInternalYaku = (): Yaku | null => {

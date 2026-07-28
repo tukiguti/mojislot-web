@@ -25,12 +25,18 @@ import type { StopTableLookup } from './StopTable';
  * 難易度はリール配列（図柄の間隔）が担う。
  */
 
-/** 引き込み先の優先カテゴリ序列（premium > bonus > core > cherry/single）。 */
+/**
+ * 引き込み先の優先カテゴリ序列（premium > bonus > core > cherry > single）。
+ *
+ * 1枚役を単独の最下位に置いているのは、ボーナス中に1枚役が**こぼし先として当選役と
+ * 同時に候補へ並ぶ**ため。1枚役の図柄がたまたま近いという理由で本来取れる小役を
+ * 取り逃がしたら本末転倒なので、当選役が届く限り必ずそちらを引き込む。
+ */
 const CAT_RANK: Record<Yaku['category'], number> = {
-  premium: 3,
-  bonus: 2,
-  core: 1,
-  cherry: 0,
+  premium: 4,
+  bonus: 3,
+  core: 2,
+  cherry: 1,
   single: 0,
 };
 
@@ -114,51 +120,93 @@ export class StopController {
       .map((id) => this.allYakus.find((y) => y.id === id))
       .filter((y): y is Yaku => y !== undefined);
 
-    let slipCells = 0;
-    if (targets.length > 0) {
-      // 最終リール：テンパイしているライン（斜め含む5ライン）へ引き込む。
-      const tp = this.tenpai.detect(req.stoppedVisibles);
-      if (tp && tp.missingReelIndex === req.reelIndex) {
-        slipCells = this.pickTenpaiSlip(tp.lines, req.reelIndex, ctx, req.flagYakuIds);
-      }
-      if (slipCells === 0) {
-        // 第1・第2停止（および最終でテンパイが無い時）：当選役の図柄を中段へ。
-        // 1枚役はグループなので、停止済みの中段と矛盾しないものだけを候補にする。
-        let best: number | null = null;
-        for (const y of targets) {
-          const sym = y.symbols[req.reelIndex];
-          if (sym === undefined) continue;
-          const consistent = req.stoppedVisibles.every(
-            (v, i) =>
-              v === null ||
-              i === req.reelIndex ||
-              y.symbols[i] === undefined ||
-              v.middle === y.symbols[i],
-          );
-          if (!consistent) continue;
-          const hint = this.slip.resolveAssist(ctx, sym, 'middle', this.pullInCells);
-          if (hint !== null && (best === null || hint < best)) best = hint;
-        }
-        if (best !== null) slipCells = best;
-      }
+    // ボーナス中は1枚役が「こぼし先」として当選役と一緒に許可リストへ入る（設計: 31章）。
+    // その場合、1枚役は**引き込みの対象ではない**。当選役より先に1枚役を引いてしまうと
+    // 本来取れる小役を捨てて1枚に落とすことになり、出玉が静かに削れる。
+    // 1枚役だけの許可リスト（通常時の1枚役フラグ）は、そのまま引き込み対象にする。
+    const hasWinTarget = targets.some((y) => y.category !== 'single');
+    const winTargets = hasWinTarget
+      ? targets.filter((y) => y.category !== 'single')
+      : targets;
+    const spillTargets = hasWinTarget
+      ? targets.filter((y) => y.category === 'single')
+      : [];
+
+    let slip = this.pullIn(winTargets, req, ctx);
+    // 当選役が届かない**最終停止**でだけ、1枚役を拾いに行く＝外した結果としての1枚。
+    // 途中のリールで拾いに行くと、まだ間に合う当選役の目を自分で潰すことになる。
+    if (slip === null && spillTargets.length > 0 && this.isFinalStop(req)) {
+      slip = this.pullIn(spillTargets, req, ctx);
     }
 
     // 引き込めなかった局面だけ、非当選役が揃わない位置へ決定的に蹴る。
-    if (slipCells === 0) slipCells = this.slip.resolveKick(ctx);
-    return slipCells;
+    return slip ?? this.slip.resolveKick(ctx);
+  }
+
+  /** 他の2リールが停止済み＝このリールで出目が決まる。 */
+  private isFinalStop(req: StopRequest): boolean {
+    return req.stoppedVisibles.filter((v) => v !== null).length === 2;
+  }
+
+  /**
+   * 対象役のどれかを引き込むスベリコマ数。**どれも届かなければ null**。
+   * 0（＝そのまま止めれば揃う）と「届かない」を区別する必要があるので、0 を返り値に
+   * 使わない。以前は両方0で表していたため、届かない時と揃う時が区別できなかった。
+   */
+  private pullIn(
+    targets: readonly Yaku[],
+    req: StopRequest,
+    ctx: SlipContext,
+  ): number | null {
+    if (targets.length === 0) return null;
+    const ids = targets.map((y) => y.id);
+
+    // 最終リール：テンパイしているライン（斜め含む5ライン）へ引き込む。
+    const tp = this.tenpai.detect(req.stoppedVisibles);
+    if (tp && tp.missingReelIndex === req.reelIndex) {
+      const tabled = this.pickTenpaiSlip(tp.lines, req.reelIndex, ctx, ids);
+      if (tabled !== null) return tabled;
+    }
+
+    // 第1・第2停止（および最終でテンパイが無い時）：当選役の図柄を中段へ。
+    // 1枚役はグループなので、停止済みの中段と矛盾しないものだけを候補にする。
+    // 候補が複数ある時はカテゴリの高い役が優先で、同カテゴリなら近い方を採る。
+    let best: number | null = null;
+    let bestRank = -1;
+    for (const y of targets) {
+      const sym = y.symbols[req.reelIndex];
+      if (sym === undefined) continue;
+      const consistent = req.stoppedVisibles.every(
+        (v, i) =>
+          v === null ||
+          i === req.reelIndex ||
+          y.symbols[i] === undefined ||
+          v.middle === y.symbols[i],
+      );
+      if (!consistent) continue;
+      const hint = this.slip.resolveAssist(ctx, sym, 'middle', this.pullInCells);
+      if (hint === null) continue;
+      const rank = CAT_RANK[y.category];
+      if (rank > bestRank || (rank === bestRank && (best === null || hint < best))) {
+        bestRank = rank;
+        best = hint;
+      }
+    }
+    return best;
   }
 
   /**
    * テンパイ成立ライン群から、当選役に合う最良の引き込みコマ数を返す。
-   * 優先順位: カテゴリ（premium>bonus>core>cherry）→ 引き込みが近い → 中段ライン。
+   * 優先順位: カテゴリ（premium>bonus>core>cherry>single）→ 引き込みが近い → 中段ライン。
+   * どのラインも届かなければ null（0＝そのまま揃う、と区別する）。
    */
   private pickTenpaiSlip(
     lines: readonly TenpaiLine[],
     finalIdx: number,
     ctx: SlipContext,
     flagYakuIds: readonly string[],
-  ): number {
-    let bestSlip = 0;
+  ): number | null {
+    let bestSlip: number | null = null;
     let bestScore = -1;
     for (const l of lines) {
       if (!flagYakuIds.includes(l.yaku.id)) continue;
