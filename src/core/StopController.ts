@@ -5,7 +5,11 @@ import {
   type VisibleColumn,
 } from '../productions/SlipResolver';
 import { TenpaiDetector, type TenpaiLine } from '../productions/TenpaiDetector';
+import { PAYLINES, type Vertical } from './Paylines';
 import type { StopTableLookup } from './StopTable';
+
+/** ペイラインの行 0/1/2 → 可視位置。 */
+const ROW_VERTICAL: readonly Vertical[] = ['top', 'middle', 'bottom'];
 
 /**
  * 停止制御（実機のリール制御）。1リール停止時のスベリコマ数を決める**唯一の実装**。
@@ -168,28 +172,56 @@ export class StopController {
       if (tabled !== null) return tabled;
     }
 
-    // 第1・第2停止（および最終でテンパイが無い時）：当選役の図柄を中段へ。
-    // 1枚役はグループなので、停止済みの中段と矛盾しないものだけを候補にする。
-    // 候補が複数ある時はカテゴリの高い役が優先で、同カテゴリなら近い方を採る。
+    // 第1・第2停止（および最終でテンパイが無い時）：当選役の図柄を有効ラインへ。
+    // **ライン単位で引き込む**。役×ラインごとに、そのラインが要求する行（上/中/下）へ
+    // 寄せられるかを見て、停止済みリールがそのラインと矛盾していれば候補から外す。
+    //
+    // **中段ラインが第一候補で、上下段・斜めは中段に届かない時だけの逃げ道**にする。
+    // 中段の優先を外すと中段が特別な位置でなくなり、示唆の発展（当選図柄が中段に
+    // 来たら役を明かす）と中段告知（持ち越し中の一発リーチ目）が両方壊れる。
+    return (
+      this.pickLine(targets, req, ctx, (l) => l.id === 'middle') ??
+      this.pickLine(targets, req, ctx, (l) => l.id !== 'middle')
+    );
+  }
+
+  /** 条件に合うペイラインだけを対象に引き込む。カテゴリ優先→近い順。 */
+  private pickLine(
+    targets: readonly Yaku[],
+    req: StopRequest,
+    ctx: SlipContext,
+    accept: (line: (typeof PAYLINES)[number]) => boolean,
+  ): number | null {
     let best: number | null = null;
     let bestRank = -1;
     for (const y of targets) {
-      const sym = y.symbols[req.reelIndex];
-      if (sym === undefined) continue;
-      const consistent = req.stoppedVisibles.every(
-        (v, i) =>
-          v === null ||
-          i === req.reelIndex ||
-          y.symbols[i] === undefined ||
-          v.middle === y.symbols[i],
-      );
-      if (!consistent) continue;
-      const hint = this.slip.resolveAssist(ctx, sym, 'middle', this.pullInCells);
-      if (hint === null) continue;
-      const rank = CAT_RANK[y.category];
-      if (rank > bestRank || (rank === bestRank && (best === null || hint < best))) {
-        bestRank = rank;
-        best = hint;
+      if (y.symbols[req.reelIndex] === undefined) continue;
+      for (const line of PAYLINES) {
+        if (!accept(line)) continue;
+        const rowOf = new Map(line.cells.map(([row, col]) => [col, row]));
+        const row = rowOf.get(req.reelIndex);
+        if (row === undefined) continue;
+        // 停止済みリールがこのラインでこの役と一致しているか
+        const consistent = req.stoppedVisibles.every((v, i) => {
+          if (v === null || i === req.reelIndex) return true;
+          const sym = y.symbols[i];
+          if (sym === undefined) return true; // チェリーの不問リール
+          const r = rowOf.get(i);
+          return r === undefined || v[ROW_VERTICAL[r]] === sym;
+        });
+        if (!consistent) continue;
+        const hint = this.slip.resolveAssist(
+          ctx,
+          y.symbols[req.reelIndex],
+          ROW_VERTICAL[row],
+          this.pullInCells,
+        );
+        if (hint === null) continue;
+        const rank = CAT_RANK[y.category];
+        if (rank > bestRank || (rank === bestRank && (best === null || hint < best))) {
+          bestRank = rank;
+          best = hint;
+        }
       }
     }
     return best;

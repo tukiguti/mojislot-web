@@ -3,6 +3,7 @@ import { readFileSync, writeFileSync, mkdirSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { dirname, resolve } from 'node:path';
 import { SlipResolver, type VisibleColumn } from '../../src/productions/SlipResolver';
+import type { Vertical } from '../../src/core/Paylines';
 import {
   YakuListSchema,
   ReelConfigSchema,
@@ -74,7 +75,17 @@ export function bonusOnlySymbols(yakuList: YakuList, reel: number): Set<string> 
   return bonusSide;
 }
 
-/** 第1停止（他リール未停止）のスベリコマ数を現行制御から計算する。 */
+/**
+ * 第1停止（他リール未停止）のスベリコマ数を現行制御から計算する。
+ *
+ * **中段が第一候補で、上下段は中段に届かない時だけの逃げ道**。第1停止ではまだ
+ * どのラインも確定していないので図柄が窓のどこかに入ればよく、上下段も使えば
+ * 引き込み窓が5コマから7コマに広がる。
+ *
+ * ただし中段の優先を外すと、中段が特別な位置でなくなって**示唆の発展**（当選図柄が
+ * 中段に来たら役を明かす）と**中段告知**（持ち越し中の一発リーチ目）が両方壊れる。
+ * 実測で発展68%→38%、中段告知46.5%→14.1%まで落ちた。だから中段が届く限り中段。
+ */
 export function computeFirstStopSlip(
   resolver: SlipResolver,
   targets: readonly Yaku[],
@@ -92,14 +103,19 @@ export function computeFirstStopSlip(
     stoppedVisibles: stopped,
     exceptYakuIds: targets.map((y) => y.id),
   };
-  let best: number | null = null;
-  for (const y of targets) {
-    const sym = y.symbols[reel];
-    if (sym === undefined) continue;
-    const slip = resolver.resolveAssist(ctx, sym, 'middle', pullInCells);
-    if (slip !== null && (best === null || slip < best)) best = slip;
-  }
-  return best ?? 0;
+  const pick = (verticals: readonly Vertical[]): number | null => {
+    let best: number | null = null;
+    for (const y of targets) {
+      const sym = y.symbols[reel];
+      if (sym === undefined) continue;
+      for (const vertical of verticals) {
+        const slip = resolver.resolveAssist(ctx, sym, vertical, pullInCells);
+        if (slip !== null && (best === null || slip < best)) best = slip;
+      }
+    }
+    return best;
+  };
+  return pick(['middle']) ?? pick(['top', 'bottom']) ?? 0;
 }
 
 describe.skipIf(!RUN)('停止テーブル生成', () => {
