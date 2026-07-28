@@ -50,6 +50,7 @@ import {
   showShisaNotice,
   hideShisaNotice,
   setEffectHost,
+  showDelay,
   showEntryCharge,
   showFreezeBanner,
   clearFreezeBanner,
@@ -272,6 +273,8 @@ export async function bootstrap() {
   // pendingFreeze: デバッグボタンで「次のレバーでフリーズ」を予約するフラグ。
   let freezeActive = false;
   let pendingFreeze = false;
+  /** 遅れの「間」の最中。まだどのリールも回っていないのでレバーとBETを塞ぐ。 */
+  let spinPending = false;
   // レバーオン時のフリーズ抽選確率（通常時のみ）／倍速回転スピード。data/tuning で調整。
   const FREEZE_SPIN_SPEED = tuning.freeze.spinSpeed;
 
@@ -517,6 +520,8 @@ export async function bootstrap() {
   let betPlaced = false;
   let resultTimer: number | null = null;
   let pendingDebugEffect: ForcedEffect | null = null;
+  /** デバッグ：次のレバーで強制する内部役（ボーナスのおかわり確認用）。 */
+  let pendingForcedRole: InternalRoleResult | null = null;
   let autoMode = false;
   /** AUTOをOFFにした後、現在ゲームを全停止まで消化している最中か。 */
   let autoFinishing = false;
@@ -639,6 +644,41 @@ export async function bootstrap() {
       return 'rescue';
     }
     return 'default';
+  };
+
+  /**
+   * この1ゲームで遅れを出すか。**ハズレ（miss）と1枚役（single）では出さない**ので、
+   * 遅れたら必ず何かが当たっている。率はボーナスへ寄せてあり「濃厚だが確定ではない」。
+   *
+   * **無演出のゲームでだけ出す。** 演出が出ているならボーナスかどうかは色や役名ですでに
+   * 分かっている（赤・金・虹はすべてボーナスを指す）ので、遅れを重ねても情報が増えない。
+   * むしろ青示唆（小役）に遅れが重なると「ボーナス濃厚」と「小役です」が同時に出て読みにくい。
+   *
+   * 通常の抽選（`source === 'lottery'`）でだけ出す。他の経路はどれも遅れの意味を壊す。
+   * - **ボーナス中**: 毎ゲーム当選しているので「何かある」が情報にならない（none=0 なので
+   *   そもそも無演出が無い）
+   * - **持ち越し中**: 同じボーナス役を毎ゲーム引き直すため、遅れが数百ゲーム鳴り続ける。
+   *   そもそも持ち越しは無告知でリーチ目から読む設計（[27章]）なので、告知したら台無し
+   * - **確定告知ランプ点灯中**: すでにボーナスが分かっており足す情報が無い
+   * - **フリーズ**: 別系統の強演出なので重ねない
+   */
+  const rollDelay = (round: RoundContext | null): boolean => {
+    if (!round || round.source !== 'lottery') return false;
+    if (round.effect !== 'none') return false;
+    if (bonusZone.isActive()) return false;
+    const role = round.internalRole;
+    const rate = tuning.delay.rate;
+    const p =
+      role.kind === 'core'
+        ? rate.core
+        : role.kind === 'cherry'
+          ? rate.cherry
+          : role.kind === 'reg'
+            ? rate.reg
+            : role.kind === 'big'
+              ? rate.big
+              : 0; // miss / single
+    return Math.random() < p;
   };
 
   const activateRound = (
@@ -1026,6 +1066,20 @@ export async function bootstrap() {
     triggerAim: () => {
       forceDebugEffect('aim', '狙え演出');
     },
+    triggerNextBonusFlag: (kind: 'big' | 'reg') => {
+      // 次のレバーでBIG/REGの内部役を強制する。ボーナス中に押せばおかわりの確認になる。
+      // 素の抽選ではボーナス中のBIGが1/1981（BIG18Gで0.9%）で、まず引けないため。
+      const yaku =
+        kind === 'big' ? yakuList.premiumYaku[0] : yakuList.bonusYaku[0];
+      if (!yaku) return;
+      pendingForcedRole = internalRoleLottery.forYaku(yaku);
+      showResult(`${yaku.name}フラグを次のレバーに予約`, 'win');
+      const allIdle = engines.every((e) => e.state.get() === 'idle');
+      if (allIdle && !betPlaced && wallet.canBet(calc.bet)) {
+        placeBet();
+        pullLever();
+      }
+    },
     triggerFreeze: () => {
       // 次のレバーでフリーズ発動を予約。待機中なら自動でBET→レバーまで進めて即確認できる。
       pendingFreeze = true;
@@ -1104,8 +1158,9 @@ export async function bootstrap() {
     const allIdle = engines.every((e) => e.state.get() === 'idle');
     const anySpinning = engines.some((e) => e.state.get() === 'spinning');
 
-    betBtn.disabled = anySpinning || !wallet.canBet(calc.bet) || betPlaced;
-    leverBtn.disabled = !betPlaced || anySpinning || allStopped;
+    betBtn.disabled =
+      anySpinning || spinPending || !wallet.canBet(calc.bet) || betPlaced;
+    leverBtn.disabled = !betPlaced || anySpinning || allStopped || spinPending;
     stopBtns.forEach((btn, i) => {
       btn.disabled = engines[i].state.get() !== 'spinning';
     });
@@ -1271,6 +1326,18 @@ export async function bootstrap() {
           'announce',
         );
       }
+    } else if (pendingForcedRole) {
+      // デバッグ：内部役を直接指定する。演出は通常どおり抽選する（おかわりの見え方も確認したいため）。
+      const forced = pendingForcedRole;
+      pendingForcedRole = null;
+      const forcedYaku = internalRoleLottery.yakuFor(forced);
+      activateRound(
+        forced,
+        forcedYaku
+          ? scheduler.rollAvailable(eligibility.eligibleEffects(forcedYaku))
+          : 'none',
+        'debug',
+      );
     } else if (pendingDebugEffect) {
       const effect = pendingDebugEffect;
       pendingDebugEffect = null;
@@ -1299,13 +1366,29 @@ export async function bootstrap() {
       activateRound(role, effect, doFreeze ? 'freeze' : 'lottery');
     }
 
-    for (const engine of engines) engine.spin();
-    if (autoMode) setupAutoTarget();
+    // 遅れ：レバーを叩いてもリールが回り出さない「間」。ハズレでは出さないので
+    // 「何かは当たっている」は必ず本当。ただし何かは言わないので狙える役は増えない。
+    const delayMs = !doFreeze && rollDelay(currentRound) ? tuning.delay.ms : 0;
+    const startSpin = () => {
+      spinPending = false;
+      for (const engine of engines) engine.spin();
+      if (autoMode) setupAutoTarget();
+      updateButtons();
+      if (doFreeze) runFreeze();
+    };
     flashButton(leverBtn);
     spawnButtonRipple(leverBtn, '#ffd700');
     sfx.lever();
-    updateButtons();
-    if (doFreeze) runFreeze();
+    if (delayMs > 0) {
+      // 間の最中はまだどのリールも回っていない＝レバーが有効なままなので、
+      // 二度押しで内部役を引き直せてしまう。フラグで塞ぐ。
+      spinPending = true;
+      showDelay(delayMs);
+      updateButtons();
+      window.setTimeout(startSpin, delayMs);
+    } else {
+      startSpin();
+    }
   };
 
   /**
@@ -1465,22 +1548,30 @@ export async function bootstrap() {
       result.errorMs <= BITA_MS ? '#ffd700' : '#ff5566',
     );
 
-    // 中段にボーナス専用図柄が止まった＝その場でボーナス確定（一発リーチ目）。
+    // 1確（いっかく）＝第1停止だけでボーナスが確定する出目。中段にボーナス専用図柄が
+    // 止まった形がこれにあたる。実機の用語では「リーチ目」は全リール停止後の出目の総称で、
+    // その一種として1確・2確がある。ここは1確。
+    //
     // **第1停止だけ**が対象。「非ボーナスフラグではこの図柄を中段に止めない」規則は
-    // 停止テーブル（第1停止）でしか保証しておらず、第2・第3停止はアルゴリズム任せで
-    // 普通に中段へ来てしまうため（実測で誤告知14〜21%）。実機の「左中段◯◯＝確定」も
-    // 第1停止の話なので、これが正しい範囲。
+    // 停止テーブル（第1停止）でしか担保しておらず、第2・第3停止はアルゴリズム任せで
+    // 普通に中段へ来てしまうため（実測で誤告知14〜21%）。第1停止の誤告知は20万G×4腕で0件。
+    //
+    // **無演出のゲームでだけ知らせる。** 演出が出ているならボーナスかどうかは色や役名で
+    // すでに分かっている（赤・金・虹はすべてボーナスを指す）ので、そこへ重ねても
+    // 情報が増えず邪魔になるだけ。ボーナス中は none=0 で必ず演出が出るため、ここは通らない。
+    //
+    // 文字は出さない。実機でも出ないし、そもそも出目を読む遊びを文字で潰すことになる。
     const isFirstStop = stopOrder.length === 1;
     if (
       isFirstStop &&
       !reachEyeShown &&
+      currentEffect === 'none' &&
       reachEyes.isBonusOnlyAtMiddle(idx, getVisibleCell(engine, 'middle'))
     ) {
       reachEyeShown = true;
       views[idx].startTenpaiFlash(true);
       sfx.tenpaiPremium();
       jinSpeech.say('premium');
-      showResult('リーチ目！ ボーナス確定', 'premium');
     }
 
     // 示唆 →「狙え！」への発展。
@@ -1581,12 +1672,13 @@ export async function bootstrap() {
         }
       }
       if (reachKind && heldBonusYaku) {
-        // 枠を光らせて「今の出目はただのハズレじゃない」と伝える。
-        // 種別（REG/BIG）は伏せたまま＝出目を読める人だけが分かる。
+        // 全リール停止後の出目が**リーチ目**（ボーナス成立時にしか出ない並び）だった。
+        // 枠を光らせて「今の出目はただのハズレじゃない」とだけ伝える。種別（REG/BIG）は
+        // 伏せたまま＝出目を読める人だけが分かる。**文字は出さない**。
+        // 読ませる遊びなので、答えを書いてしまうと成立しない。
         for (const v of views) v.startTenpaiFlash(reachKind !== 'reg');
         sfx.tenpaiPremium();
         jinSpeech.say('tenpai');
-        showResult('リーチ目！？', 'premium');
       }
       // チェリー重複（実機のレア役＋ボーナス同時当選）。
       // チェリーが**実際に揃った**時だけ抽選し、当たれば確定告知ランプを点灯＝次ゲーム以降ボーナス確定。

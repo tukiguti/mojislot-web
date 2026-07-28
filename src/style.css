@@ -2919,6 +2919,40 @@ body.shake {
   50% { box-shadow: 0 0 30px #ffb000, 0 0 64px rgba(255, 150, 0, 1); }
 }
 
+/* === 遅れ（レバーONからリールが回り出すまでの「間」） ===
+   何が当たっているかは言わない演出なので、視覚も最小限に留める。派手にすると
+   「回り出さない」という間そのものの緊張が消える。 */
+.delay-hold {
+  position: absolute;
+  inset: 0;
+  z-index: 9990;
+  pointer-events: none;
+  opacity: 0;
+  background: radial-gradient(
+    ellipse at center,
+    rgba(0, 0, 0, 0) 45%,
+    rgba(0, 0, 0, 0.5) 100%
+  );
+  transition: opacity 90ms ease-out;
+}
+
+.delay-hold.show {
+  opacity: 1;
+  animation: delay-breathe var(--delay-ms, 320ms) ease-in-out;
+}
+
+@keyframes delay-breathe {
+  0% { opacity: 0; }
+  30% { opacity: 1; }
+  100% { opacity: 0.75; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .delay-hold.show {
+    animation: none;
+  }
+}
+
 /* === 突入直前の「溜め」演出 === */
 .entry-charge {
   position: absolute;

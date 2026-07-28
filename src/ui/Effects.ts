@@ -159,6 +159,23 @@ export function showEntryCharge(variant: 'big' | 'reg' = 'big', durMs = 650): vo
 }
 
 /**
+ * 遅れ演出。レバーを叩いてもリールが回り出さない「間」を見せる。
+ *
+ * 何が当たっているかは言わないので狙える役は増えない。**気づけるかどうかだけ**が変わる。
+ * リールが回り出す前に完結するので他の演出とぶつからない。派手にすると「間」の緊張が
+ * 消えるので、画面をわずかに沈ませるだけに留める。
+ */
+export function showDelay(durMs: number): void {
+  document.querySelectorAll('.delay-hold').forEach((el) => el.remove());
+  const el = document.createElement('div');
+  el.className = 'delay-hold';
+  el.style.setProperty('--delay-ms', `${durMs}ms`);
+  effectHost.appendChild(el);
+  requestAnimationFrame(() => el.classList.add('show'));
+  window.setTimeout(() => el.remove(), durMs + 240);
+}
+
+/**
  * 連チャン昇格バッジ。「{streak}連 RANK UP!」を段の色で一瞬出す。
  * 連チャンの段が上がった瞬間の高揚を演出する（pointer-events: none）。
  */

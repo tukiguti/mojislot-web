@@ -117,9 +117,9 @@
       "kind": "core",
       "displayYakuId": "utau",
       "rate": {
-        "default": 0.1323690643,
-        "rescue": 0.1515777399,
-        "bonus": 0.2573760438
+        "default": 0.1681517634,
+        "rescue": 0.1951203983,
+        "bonus": 0.312420112
       }
     },
     {
@@ -127,9 +127,9 @@
       "kind": "core",
       "displayYakuId": "oyogu",
       "rate": {
-        "default": 0.1323690758,
-        "rescue": 0.1515777399,
-        "bonus": 0.2573760544
+        "default": 0.1076171285,
+        "rescue": 0.1248770549,
+        "bonus": 0.1999488717
       }
     },
     {
@@ -137,9 +137,9 @@
       "kind": "core",
       "displayYakuId": "hanasu",
       "rate": {
-        "default": 0.099276801,
-        "rescue": 0.1212621962,
-        "bonus": 0.1930320325
+        "default": 0.0860937028,
+        "rescue": 0.099901644,
+        "bonus": 0.1599590973
       }
     },
     {
@@ -147,9 +147,9 @@
       "kind": "core",
       "displayYakuId": "asobu",
       "rate": {
-        "default": 0.1323690643,
-        "rescue": 0.1515777399,
-        "bonus": 0.2144800399
+        "default": 0.1345214107,
+        "rescue": 0.1560963187,
+        "bonus": 0.2499360896
       }
     },
     {

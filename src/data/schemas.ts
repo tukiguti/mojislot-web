@@ -382,6 +382,17 @@ const DEFAULT_SHISA_TIERS: ShisaTier[] = [
   { color: 'rainbow', weight: 1, targets: ['big1'] },
 ];
 
+/**
+ * 遅れ演出の既定。data/tuning が正、ここはフォールバック。
+ *
+ * ボーナス（reg/big）へ大きく寄せてあるので、遅れの内訳はボーナスが7割前後になる。
+ * 出現率そのものは 1/200 前後で、**出たら意味があるが出なくても否定にならない**濃度。
+ */
+const DEFAULT_DELAY = {
+  ms: 320,
+  rate: { core: 0.002, cherry: 0.005, reg: 0.45, big: 0.6 },
+};
+
 export const TuningSchema = z.object({
   /** ベット毎の演出抽選レート（通常／ハマり救済／ボーナス中）。各合計は1.0必須。 */
   effectRates: z.object({
@@ -468,6 +479,26 @@ export const TuningSchema = z.object({
   bitaWindowMs: z.number().positive().default(12),
   /** 突入直前の「溜め」演出の長さ（ms）。 */
   entryChargeMs: z.number().nonnegative().default(650),
+  /**
+   * 遅れ演出。レバーONからリールが回り出すまで一瞬の間を置く。
+   *
+   * **ハズレでは絶対に出さない**（`miss` と `single` の率は0）。何が当たっているかは
+   * 言わないが「何かは当たっている」ことは必ず本当なので、ガセにならない。
+   * 出現率は内部役の種別ごとに決め、ボーナスへ寄せてある＝**濃厚だが確定ではない**。
+   */
+  delay: z
+    .object({
+      /** 間の長さ（ms）。 */
+      ms: z.number().nonnegative(),
+      /** 内部役の種別ごとの発生率。miss と single は演出側で0固定。 */
+      rate: z.object({
+        core: z.number().min(0).max(1),
+        cherry: z.number().min(0).max(1),
+        reg: z.number().min(0).max(1),
+        big: z.number().min(0).max(1),
+      }),
+    })
+    .default(DEFAULT_DELAY),
 });
 
 export type Tuning = z.infer<typeof TuningSchema>;

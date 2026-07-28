@@ -83,5 +83,14 @@
   "reelSpeed": 24,
   "motionBlurStrength": 0.34,
   "bitaWindowMs": 12,
-  "entryChargeMs": 650
+  "entryChargeMs": 650,
+  "delay": {
+    "ms": 320,
+    "rate": {
+      "core": 0.002,
+      "cherry": 0.005,
+      "reg": 0.45,
+      "big": 0.6
+    }
+  }
 }

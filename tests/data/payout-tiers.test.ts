@@ -38,16 +38,26 @@ describe('小役の枚数配分', () => {
       expect(list.coreYaku.map((y) => y.payout)).toEqual(CORE_TIERS);
     });
 
-    it(`${chapter}: 当選率がいちばん低い小役がいちばん高配当`, () => {
-      const rate = new Map(
-        list.internalRoles
-          .filter((r) => r.kind === 'core' && r.displayYakuId)
-          .map((r) => [r.displayYakuId as string, r.rate.default]),
-      );
-      const rarest = [...list.coreYaku].sort(
-        (a, b) => (rate.get(a.id) ?? 0) - (rate.get(b.id) ?? 0),
-      )[0];
-      expect(rarest.payout).toBe(Math.max(...CORE_TIERS));
-    });
+    // 枚数が上がるほど当選率が下がる、が**どの状態でも**成り立つこと。
+    // 以前はボーナス中だけ 8枚が 4枚と同率で最頻になっており、階段と逆行していた
+    // （通常時しか見ていなかったので検出できなかった）。
+    for (const state of ['default', 'rescue', 'bonus'] as const) {
+      it(`${chapter}: ${state} で枚数が高い小役ほど当選率が低い`, () => {
+        const rate = new Map(
+          list.internalRoles
+            .filter((r) => r.kind === 'core' && r.displayYakuId)
+            .map((r) => [r.displayYakuId as string, r.rate[state]]),
+        );
+        const rates = list.coreYaku.map((y) => rate.get(y.id) ?? 0);
+        if (rates.every((r) => r === 0)) return; // その状態で小役を引かない章
+        for (let i = 1; i < rates.length; i++) {
+          expect(
+            rates[i],
+            `${list.coreYaku[i].name}(${CORE_TIERS[i]}枚) が ` +
+              `${list.coreYaku[i - 1].name}(${CORE_TIERS[i - 1]}枚) より出やすい`,
+          ).toBeLessThan(rates[i - 1]);
+        }
+      });
+    }
   }
 });

@@ -330,6 +330,28 @@ function runChapter(
         ? eligibility.pickTier(yaku, rng)
         : null;
 
+    // 遅れ：ハズレ・1枚役では出ない＝出たら必ず何かが当たっている。
+    // **無演出のゲームでだけ出す**（main.ts と同条件）。演出が出ていればボーナスかどうかは
+    // 色や役名で分かっているので情報が増えず、青示唆に重なると読みにくくなる。
+    // ボーナス中は none=0 でそもそも無演出が無く、持ち越し中は同じ役を毎ゲーム引き直す
+    // ので鳴り続けてしまう。
+    const delayRate = tuning.delay.rate;
+    const delayed =
+      effect === 'none' &&
+      !bonusActive &&
+      !carried &&
+      !heldYaku &&
+      rng() <
+        (role.kind === 'core'
+          ? delayRate.core
+          : role.kind === 'cherry'
+            ? delayRate.cherry
+            : role.kind === 'reg'
+              ? delayRate.reg
+              : role.kind === 'big'
+                ? delayRate.big
+                : 0);
+
     // 本作は順押し前提（左→中→右）。押し順は停止制御の入力であって役ではない。
     // SEQ=2,1,0 のように指定すると押し順を変えて比較できる（検証用）。
     const seq = (process.env.SEQ ?? '0,1,2').split(',').map(Number);
@@ -373,9 +395,24 @@ function runChapter(
       // 示唆で未発展の間は「自分が選んだ候補」を狙う（外していれば引き込みは効かない）。
       // 持ち越し中は無告知だが、リーチ目を読めたプレイヤーは狙える。
       // 読み取れる割合は腕に依存する（初心者ほど気づかず適当押し）。
+      // 演出が無くても遅れが出ていれば「何かは当たっている」と分かる。役は絞れないので、
+      // 遅れの内訳がボーナスへ寄っている以上、**ボーナス2つが共有する頭2文字**を狙うのが最善手。
+      // それを「BIG1（REGと頭2文字が同じ側）を狙う」としてモデル化する。
+      const delayGuess =
+        delayed && effect === 'none' && !carried && !heldYaku
+          ? (yakuList.premiumYaku[0] ?? null)
+          : null;
       const aimYaku =
-        effect === 'shisa' && !escalated ? shisaGuess : carriedNoticed ? target : target;
-      const canAim = effect !== 'none' || (carried !== null && carriedNoticed) || heldYaku !== null;
+        effect === 'shisa' && !escalated
+          ? shisaGuess
+          : effect === 'none' && delayGuess && !carriedNoticed
+            ? delayGuess
+            : target ?? delayGuess;
+      const canAim =
+        effect !== 'none' ||
+        delayGuess !== null ||
+        (carried !== null && carriedNoticed) ||
+        heldYaku !== null;
       if (canAim && aimYaku) aimedThisSpin = true;
       const sym = canAim && aimYaku ? aimYaku.symbols[idx] : undefined;
       if (sym === undefined) {
@@ -574,7 +611,7 @@ describe.skipIf(!RUN)('出玉シミュレーション（新モデル）', () => 
         `${carS.toString().padStart(6)} ` +
         `${((carM / Math.max(1, carS)) * 100).toFixed(1).padStart(7)}% ` +
         `${((fT / Math.max(1, nb)) * 100).toFixed(1).padStart(9)}% ` +
-        `${((fT1 / Math.max(1, nb)) * 100).toFixed(2).padStart(10)}% ` +
+        `${fT1.toString().padStart(10)}件 ` +
         `${((bMiss / Math.max(1, bspins)) * 100).toFixed(1).padStart(9)}% ` +
         `${((bSpill / Math.max(1, bMiss)) * 100).toFixed(1).padStart(5)}%`,
       );

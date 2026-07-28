@@ -21,6 +21,12 @@ export interface DebugActions {
   triggerAim(): void;
   triggerFreeze(): void;
   triggerAnnounceLamp(): void;
+  /**
+   * 次のレバーでボーナス（BIG/REG）の内部役を強制する。
+   * **ボーナス中に押せばおかわりの確認になる**（実確率は BIG 1/1981・REG 1/462 で、
+   * BIG18G中に引ける確率は 0.9% / 3.8% しかなく、素の抽選では現実的に確認できない）。
+   */
+  triggerNextBonusFlag(kind: 'big' | 'reg'): void;
   fillEffects(): void;
 }
 
@@ -120,6 +126,8 @@ export class SettingsOverlay {
             <button data-debug="regular" type="button">REG BONUS</button>
             <button data-debug="freeze" type="button">フリーズ</button>
             <button data-debug="lamp" type="button">確定ランプ</button>
+            <button data-debug="flag-big" type="button">次レバーBIGフラグ</button>
+            <button data-debug="flag-reg" type="button">次レバーREGフラグ</button>
             <button data-debug="cutin" type="button">カットイン</button>
             <button data-debug="aim" type="button">狙え！予告</button>
             <button data-debug="shisa" type="button">示唆発動</button>
@@ -218,6 +226,12 @@ export class SettingsOverlay {
             break;
           case 'lamp':
             this.debugActions.triggerAnnounceLamp();
+            break;
+          case 'flag-big':
+            this.debugActions.triggerNextBonusFlag('big');
+            break;
+          case 'flag-reg':
+            this.debugActions.triggerNextBonusFlag('reg');
             break;
           case 'tenpai':
             this.debugActions.triggerTenpaiSe();
