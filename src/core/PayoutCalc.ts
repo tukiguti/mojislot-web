@@ -13,12 +13,35 @@ export class PayoutCalc {
    * @param bonusActive ボーナス中か（true なら bonusZoneMultiplier 適用）
    * @param streakMult  連チャン倍率（1.0 / 1.2 / 1.5 / 2.0 など）
    */
+  /**
+   * この役の「コンボなしの払い出し枚数」。役ごとの `payout` が最優先で、
+   * 書かれていない役だけカテゴリの既定値へ落ちる。
+   *
+   * **小役にカテゴリ既定は無い。** 4種を枚数で区別するので役ごとの payout が必須で、
+   * `YakuListSchema` がそれを強制している。ここへ来るのはデータが壊れている時だけ。
+   */
+  private baseOf(yaku: Yaku): number {
+    if (yaku.payout !== undefined) return yaku.payout;
+    const m = this.payout.baseMultiplier;
+    switch (yaku.category) {
+      case 'premium':
+        return m.premium;
+      case 'bonus':
+        return m.bonus;
+      case 'cherry':
+        return m.cherry;
+      case 'single':
+        return m.single;
+      case 'core':
+        throw new Error(`小役「${yaku.id}」に payout がありません`);
+    }
+  }
+
   calc(yaku: Yaku | null, bonusActive = false, streakMult = 1): number {
     if (!yaku) return 0;
     // base はそのものが「コンボなしの払い出し枚数」。betPerSpin は掛け枚数=コスト（毎ゲーム消費）で
     // あって払い出しには掛けない（＝役 base × 倍率がそのまま枚数）。
-    // 役ごとの payout が最優先。書かれていない役だけ category の既定値へ落ちる。
-    const base = yaku.payout ?? this.payout.baseMultiplier[yaku.category];
+    const base = this.baseOf(yaku);
     // ボーナス倍率×コンボ倍率の積算は maxComboMultiplier で頭打ち（出玉の伸びすぎ防止）。
     const combined = Math.min(
       this.payout.maxComboMultiplier,

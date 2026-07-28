@@ -6,7 +6,7 @@ import type { PaylineHit } from '../../src/core/YakuJudge';
 // テスト専用の固定 Payout（実データ default.json の変更で壊れないよう独立）。
 const PAYOUT: Payout = {
   betPerSpin: 3,
-  baseMultiplier: { core: 5, premium: 25, bonus: 6, cherry: 2 },
+  baseMultiplier: { premium: 25, bonus: 6, cherry: 2 },
   bonusZoneMultiplier: 2.5,
   // ボーナス倍率×コンボ倍率の積算上限（出玉の伸びすぎ防止）。
   maxComboMultiplier: 3.0,
@@ -20,11 +20,14 @@ const PAYOUT: Payout = {
   aimBonusMultiplier: 1.5,
 };
 
+// 小役はカテゴリ既定を持たない（4種を枚数で区別するので役ごとの payout が必須）。
+// 旧 baseMultiplier.core と同じ5枚を役側に持たせ、既存の期待値をそのまま使う。
 const yaku = (category: Yaku['category']): Yaku => ({
   id: category,
   name: category,
   symbols: ['あ', 'い', 'う'],
   category,
+  ...(category === 'core' ? { payout: 5 } : {}),
 });
 
 const hit = (category: Yaku['category']): PaylineHit => ({

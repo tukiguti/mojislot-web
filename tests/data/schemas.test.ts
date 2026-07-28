@@ -33,7 +33,7 @@ describe('YakuListSchema internalRoles', () => {
   const yakuList = {
     mode: 'test',
     coreYaku: [
-      { id: 'apple', name: 'りんご', symbols: ['り', 'ん', 'ご'], category: 'core' },
+      { id: 'apple', name: 'りんご', symbols: ['り', 'ん', 'ご'], category: 'core', payout: 5 },
     ],
     cherryYaku: [],
     bonusYaku: [],
@@ -82,6 +82,14 @@ describe('YakuListSchema internalRoles', () => {
   it('core などの内部役には表示役が必須', () => {
     const invalid = structuredClone(yakuList);
     invalid.internalRoles[2].displayYakuId = null;
+    expect(YakuListSchema.safeParse(invalid).success).toBe(false);
+  });
+
+  // 小役は4種を枚数で区別する（4/6/8/10）ので、カテゴリ既定では表せない。
+  // ここが緩むと baseMultiplier に小役の共通枠が戻り、「枚数が役の名札」が崩れる。
+  it('payout を持たない小役は拒否する', () => {
+    const invalid = structuredClone(yakuList);
+    delete (invalid.coreYaku[0] as { payout?: number }).payout;
     expect(YakuListSchema.safeParse(invalid).success).toBe(false);
   });
 

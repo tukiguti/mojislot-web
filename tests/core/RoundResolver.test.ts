@@ -18,8 +18,8 @@ import type { Payout, YakuList } from '../../src/data/schemas';
 
 const YAKU: YakuList = {
   coreYaku: [
-    { id: 'core_a', name: 'あいう', symbols: ['あ', 'い', 'う'], category: 'core' },
-    { id: 'core_b', name: 'かきく', symbols: ['か', 'き', 'く'], category: 'core' },
+    { id: 'core_a', name: 'あいう', symbols: ['あ', 'い', 'う'], category: 'core', payout: 5 },
+    { id: 'core_b', name: 'かきく', symbols: ['か', 'き', 'く'], category: 'core', payout: 5 },
   ],
   premiumYaku: [
     { id: 'prem', name: 'すしや', symbols: ['す', 'し', 'や'], category: 'premium' },
@@ -38,7 +38,7 @@ const YAKU: YakuList = {
 
 const PAYOUT: Payout = {
   betPerSpin: 3,
-  baseMultiplier: { core: 5, premium: 34, bonus: 14, cherry: 4, single: 1 },
+  baseMultiplier: { premium: 34, bonus: 14, cherry: 4, single: 1 },
   bonusZoneMultiplier: 2.2,
   initialCoins: 0,
   streakTiers: [

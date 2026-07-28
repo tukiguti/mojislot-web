@@ -113,6 +113,18 @@ export const YakuListSchema = z
     internalRoles: z.array(InternalRoleSchema).min(1),
   })
   .superRefine((list, ctx) => {
+    // 小役は4種を枚数で区別するので、カテゴリ既定では表せず payout が要る。
+    // ここを緩めると baseMultiplier に小役の共通枠を戻すことになり、
+    // 「枚数が役の名札」という設計（[31章] §3③）が崩れる。
+    list.coreYaku.forEach((y, i) => {
+      if (y.payout === undefined) {
+        ctx.addIssue({
+          code: 'custom',
+          path: ['coreYaku', i, 'payout'],
+          message: `小役「${y.id}」には payout（払い出し枚数）が必要です`,
+        });
+      }
+    });
     const yakuIds = new Set(
       [
         ...list.coreYaku,
@@ -189,18 +201,22 @@ export const PayoutSchema = z.object({
   // 1ゲームの掛け枚数（毎ゲーム消費するコスト）。実機の3枚掛け＝有効ライン多めのリアリティ用。
   // 払い出しには掛けない（払い出し＝役 base × コンボ倍率）。
   betPerSpin: z.number().int().positive(),
-  // 役カテゴリ別の「コンボなしの払い出し枚数」そのもの（旧称 multiplier だが bet には掛けない）。
-  // 役が payout を持っていればそちらが優先で、ここはカテゴリ既定値。
+  /**
+   * 役カテゴリ別の「コンボなしの払い出し枚数」そのもの（旧称 multiplier だが bet には掛けない）。
+   * 役が `payout` を持っていればそちらが優先。
+   *
+   * **小役（core）はここに無い。** 小役は4種を枚数で区別する（4/6/8/10・[31章]）ので、
+   * カテゴリ1つでは表せず、役ごとの `payout` が必須になる（`YakuListSchema` が強制する）。
+   * 以前はここに `core` を置いていたが、全小役が payout を持つため誰も読まない値になっていた。
+   */
   baseMultiplier: z.object({
-    /** 小役の既定。実データの小役は payout で 4/6/8/10 に散らしてある（[31章]）。 */
-    core: z.number(),
     premium: z.number(),
     bonus: z.number(),
     cherry: z.number().default(2),
-    /** 1枚役（2個テンパイ＝惜しい出目）の払い出し。全ハズレは0枚。 */
+    /** 1枚役（惜しい出目）の払い出し。全ハズレは0枚。 */
     single: z.number().default(1),
   }),
-  // ボーナス中の素点倍率。実運用値は data/payouts/default.json が正（現行2.2）。
+  // ボーナス中の素点倍率。実運用値は data/payouts/default.json が正（現行1.4）。
   bonusZoneMultiplier: z.number(),
   initialCoins: z.number().int().nonnegative(),
   // 連チャン（コンボ）数→配当倍率。しきい値で評価（順不同・最大一致を採用）。
