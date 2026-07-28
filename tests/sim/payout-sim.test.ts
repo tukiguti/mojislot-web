@@ -405,10 +405,14 @@ function runChapter(
       slipPerReel[idx] = slipCells;
       stopped[idx] = visCol(cells, (basePos + slipCells) % N);
       stopN++;
-      // 示唆→「狙え！」への発展：最終停止より前に内部役の図柄が中段へ来たか。
+      // 示唆→「狙え！」への発展：最終停止より前に内部役の図柄が**窓のどこかへ**来たか。
+      // main.ts と同じ条件。中段限定だと発展しない時に腕と無関係にほぼ落とすため緩めてある。
       if (effect === 'shisa' && !escalated && stopN < 3 && yaku) {
         const sy = yaku.symbols[idx];
-        if (sy !== undefined && stopped[idx]!.middle === sy) escalated = true;
+        const v = stopped[idx]!;
+        if (sy !== undefined && (v.top === sy || v.middle === sy || v.bottom === sy)) {
+          escalated = true;
+        }
       }
     }
     if (effect === 'shisa') {

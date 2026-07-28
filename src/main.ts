@@ -526,13 +526,17 @@ export async function bootstrap() {
   // 示唆の期待度tier色 → 画面tint(hex) / ジンの煽り台詞。
   const SHISA_TINT: Record<ShisaTierColor, number> = {
     blue: 0x66ccff,
+    green: 0x4ade80,
     red: 0xff3b30,
     gold: 0xffcc33,
+    rainbow: 0xff66cc,
   };
   const SHISA_SPEECH: Record<ShisaTierColor, JinSpeechEvent> = {
     blue: 'shisaWeak',
+    green: 'shisaWeak',
     red: 'shisaBonus',
     gold: 'shisaPremium',
+    rainbow: 'shisaPremium',
   };
   interface EffectOptions {
     targetYaku?: Yaku | null;
@@ -560,6 +564,7 @@ export async function bootstrap() {
       'tier-green',
       'tier-red',
       'tier-gold',
+      'tier-rainbow',
     );
     if (effect === 'shisa' && currentShisaTier) {
       effectStatusEl.textContent = '示唆';
@@ -1359,7 +1364,9 @@ export async function bootstrap() {
   const shisaTargetsBonus = (): boolean =>
     currentEffect === 'shisa' &&
     currentShisaTier !== null &&
-    currentShisaTier.targets.some((c) => c === 'bonus' || c === 'premium');
+    currentShisaTier.targets.some(
+      (slot) => slot === 'reg' || slot === 'big0' || slot === 'big1',
+    );
 
   /**
    * 蹴りで除外する「予告した役」ID。aim/quiz が premium/bonus を予告した時、その役は
@@ -1477,8 +1484,12 @@ export async function bootstrap() {
     }
 
     // 示唆 →「狙え！」への発展。
-    // 内部役の図柄がこの停止で中段に来た＝候補が1役に絞れたので、吹き出しを差し替える。
+    // 内部役の図柄がこの停止で**窓のどこかに**来た＝候補が1役に絞れたので、吹き出しを差し替える。
     // 「本当に当たっている役」でしか発展しないので、ガセにはならない。
+    //
+    // 以前は中段に来た時だけだった。示唆は色しか出さず候補から当てずっぽうで選ぶので、
+    // 発展しないと腕に関係なくほぼ落とす（実測98%）。発展が候補を1役へ絞る唯一の出口なので、
+    // 条件を可視3コマへ緩めて発展率を上げてある（実測 69%→82%）。
     if (
       currentEffect === 'shisa' &&
       !shisaEscalated &&
@@ -1486,7 +1497,12 @@ export async function bootstrap() {
     ) {
       const target = currentInternalYaku();
       const sym = target?.symbols[idx];
-      if (target && sym !== undefined && getVisibleCell(engine, 'middle') === sym) {
+      const shown =
+        sym !== undefined &&
+        (['top', 'middle', 'bottom'] as const).some(
+          (v) => getVisibleCell(engine, v) === sym,
+        );
+      if (target && shown) {
         shisaEscalated = true;
         hideShisaNotice();
         showAimNotice({

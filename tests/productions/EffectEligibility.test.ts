@@ -44,9 +44,10 @@ const YAKU: YakuList = {
   ],
 } as unknown as YakuList;
 
+// 示唆はカテゴリではなく役の「枠」（位置）で指す。小役4種を色で割るにはカテゴリでは粗すぎた。
 const TIERS: ShisaTier[] = [
-  { color: 'blue', weight: 3, targets: ['core', 'cherry'] },
-  { color: 'gold', weight: 1, targets: ['premium'] },
+  { color: 'blue', weight: 3, targets: ['core0', 'core1', 'cherry'] },
+  { color: 'gold', weight: 1, targets: ['big0'] },
 ];
 
 const QUIZZES: Quiz[] = [

@@ -310,24 +310,60 @@ export const EffectRatesSchema = z
  * 「どのカテゴリの当選か」という**情報だけ**を表す。引き込みの強さは色で変わらない。
  * 旧・黄と緑は青と同じ意味（小役確定）になるため廃止（2026-07-25）。
  */
-export const ShisaTierColorSchema = z.enum(['blue', 'red', 'gold']);
+export const ShisaTierColorSchema = z.enum([
+  'blue',
+  'green',
+  'red',
+  'gold',
+  'rainbow',
+]);
 export type ShisaTierColor = z.infer<typeof ShisaTierColorSchema>;
 
-/** 示唆の1段階。`targets` に含まれるカテゴリの内部役が当選した時だけこの色が出る。 */
+/**
+ * 示唆が指せる役の枠。**役IDではなく位置で書く。**
+ *
+ * tuning は全島で共有するので、島ごとに違う役IDは書けない。全島とも
+ * 「小役4＋チェリー1＋REG1＋BIG2」で構造が同じなので、位置で指せば足りる。
+ */
+export const YakuSlotSchema = z.enum([
+  'core0',
+  'core1',
+  'core2',
+  'core3',
+  'cherry',
+  'reg',
+  'big0',
+  'big1',
+]);
+export type YakuSlot = z.infer<typeof YakuSlotSchema>;
+
+/** 示唆の1段階。`targets` に含まれる枠の内部役が当選した時だけこの色が出る。 */
 const ShisaTierSchema = z.object({
   color: ShisaTierColorSchema,
   /** 同じ内部役に複数tierが該当する時の抽選ウェイト。 */
   weight: z.number().min(0),
-  /** この色が示すカテゴリ（＝当たりうる役の範囲）。 */
-  targets: z.array(YakuCategorySchema).min(1),
+  /** この色が指す役の枠（＝当たりうる役の範囲）。 */
+  targets: z.array(YakuSlotSchema).min(1),
 });
 export type ShisaTier = z.infer<typeof ShisaTierSchema>;
 
-/** 示唆tierの既定。data/tuning が正、ここはフォールバック。 */
+/**
+ * 示唆tierの既定。data/tuning が正、ここはフォールバック。
+ *
+ * 旧構成は 青＝小役4＋チェリーの**5択**で、色以外に手がかりが無く当てずっぽうになっていた。
+ * 5択は腕で埋められないので、目押しが本体のこのゲームでは示唆だけが運の演出になっていた。
+ * 青と緑に割って2〜3択まで詰めてある。
+ *
+ * 赤（REG確定）と金（REGかBIG1の2択）は同じ役を指し得る。**どちらも左2文字の狙い方は同じ**
+ * （REGはBIG1と頭2文字を共有する・[28章]）なので、金が出ても手は変わらず期待値だけ上がる。
+ * 虹はもう一方のBIGだけを指す最上位。
+ */
 const DEFAULT_SHISA_TIERS: ShisaTier[] = [
-  { color: 'blue', weight: 1, targets: ['core', 'cherry'] },
-  { color: 'red', weight: 1, targets: ['bonus'] },
-  { color: 'gold', weight: 1, targets: ['premium'] },
+  { color: 'blue', weight: 1, targets: ['core0', 'core1'] },
+  { color: 'green', weight: 1, targets: ['core2', 'core3', 'cherry'] },
+  { color: 'red', weight: 3, targets: ['reg'] },
+  { color: 'gold', weight: 1, targets: ['reg', 'big0'] },
+  { color: 'rainbow', weight: 1, targets: ['big1'] },
 ];
 
 export const TuningSchema = z.object({

@@ -2171,11 +2171,34 @@ body.shake {
   font-weight: 900;
 }
 
+#effect-status.shisa.tier-green {
+  color: #4ade80;
+  border-color: #4ade80;
+  background: rgba(18, 55, 35, 0.85);
+  box-shadow: 0 0 14px rgba(74, 222, 128, 0.55);
+}
+
 #effect-status.shisa.tier-gold {
   color: #ffd24a;
   border-color: #ffcc33;
   background: rgba(70, 55, 10, 0.9);
   box-shadow: 0 0 22px rgba(255, 204, 51, 0.95);
+  font-weight: 900;
+}
+
+/* 虹＝最上位。BIG2だけを指すので、色が出た時点で役が確定する。 */
+#effect-status.shisa.tier-rainbow {
+  color: #fff;
+  border-color: #fff;
+  background: linear-gradient(
+    100deg,
+    rgba(255, 60, 120, 0.9),
+    rgba(255, 190, 60, 0.9),
+    rgba(90, 220, 140, 0.9),
+    rgba(90, 170, 255, 0.9),
+    rgba(200, 110, 255, 0.9)
+  );
+  box-shadow: 0 0 26px rgba(255, 255, 255, 0.9);
   font-weight: 900;
 }
 
@@ -4407,6 +4430,10 @@ body.shake {
   color: #66ccff;
 }
 
+.shisa-notice.tier-green {
+  color: #4ade80;
+}
+
 .shisa-notice.tier-red {
   color: #ff5b52;
 }
@@ -4415,8 +4442,13 @@ body.shake {
   color: var(--gold);
 }
 
+.shisa-notice.tier-rainbow {
+  color: #fff;
+}
+
 .shisa-notice.tier-red .shisa-candidates,
-.shisa-notice.tier-gold .shisa-candidates {
+.shisa-notice.tier-gold .shisa-candidates,
+.shisa-notice.tier-rainbow .shisa-candidates {
   box-shadow: 0 0 16px currentColor;
 }
 

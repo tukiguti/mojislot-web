@@ -4,6 +4,7 @@ import type {
   ShisaTier,
   Yaku,
   YakuList,
+  YakuSlot,
 } from '../data/schemas';
 import type { EffectType } from './EffectScheduler';
 
@@ -45,11 +46,26 @@ export class EffectEligibility {
     ];
   }
 
-  /** この役を示唆で表せる色（tier）一覧。カテゴリが tier の targets に入っているもの。 */
+  /**
+   * 役の「枠」（位置）。示唆はカテゴリではなく枠で指す（schemas の `YakuSlot`）。
+   * 小役4種を色で割るために、カテゴリ単位では粗すぎた。
+   */
+  slotOf(yaku: Yaku): YakuSlot | null {
+    const y = this.deps.yakuList;
+    const core = y.coreYaku.findIndex((c) => c.id === yaku.id);
+    if (core >= 0 && core < 4) return `core${core}` as YakuSlot;
+    if (y.cherryYaku.some((c) => c.id === yaku.id)) return 'cherry';
+    if (y.bonusYaku.some((c) => c.id === yaku.id)) return 'reg';
+    const big = y.premiumYaku.findIndex((c) => c.id === yaku.id);
+    if (big >= 0 && big < 2) return `big${big}` as YakuSlot;
+    return null;
+  }
+
+  /** この役を示唆で表せる色（tier）一覧。枠が tier の targets に入っているもの。 */
   tiersFor(yaku: Yaku): ShisaTier[] {
-    return this.deps.shisaTiers.filter((tier) =>
-      tier.targets.includes(yaku.category),
-    );
+    const slot = this.slotOf(yaku);
+    if (slot === null) return [];
+    return this.deps.shisaTiers.filter((tier) => tier.targets.includes(slot));
   }
 
   /**

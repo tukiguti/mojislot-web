@@ -31,22 +31,39 @@
         "color": "blue",
         "weight": 1,
         "targets": [
-          "core",
+          "core0",
+          "core1"
+        ]
+      },
+      {
+        "color": "green",
+        "weight": 1,
+        "targets": [
+          "core2",
+          "core3",
           "cherry"
         ]
       },
       {
         "color": "red",
-        "weight": 1,
+        "weight": 3,
         "targets": [
-          "bonus"
+          "reg"
         ]
       },
       {
         "color": "gold",
         "weight": 1,
         "targets": [
-          "premium"
+          "reg",
+          "big0"
+        ]
+      },
+      {
+        "color": "rainbow",
+        "weight": 1,
+        "targets": [
+          "big1"
         ]
       }
     ]

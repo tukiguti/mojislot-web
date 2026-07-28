@@ -345,7 +345,7 @@ export interface ShisaCandidate {
 export interface ShisaNoticeOptions {
   candidates: readonly ShisaCandidate[];
   /** tier色。枠と見出しの色に反映する。 */
-  color: 'blue' | 'green' | 'red' | 'gold';
+  color: 'blue' | 'green' | 'red' | 'gold' | 'rainbow';
   /** 見出し文（未指定なら候補数から自動）。押し順ナビは「どれだ？」を渡す。 */
   headline?: string;
 }
