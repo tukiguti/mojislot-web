@@ -1352,6 +1352,18 @@ export async function bootstrap() {
         'none',
         'held-bonus',
       );
+    } else if (pendingForcedDelay) {
+      // デバッグ：遅れの確認。**実際に遅れが出る条件をそのまま再現する**。
+      // 遅れは「無演出」かつ「ハズレでも1枚役でもない」ゲームでしか出ないので、
+      // 演出を none に固定し、miss と single を除いて内部役を引く。
+      // ここを普通の抽選のままにすると、遅れと示唆が同時に出る＝**実際には起こらない
+      // 組み合わせ**を見せることになる（かつおの示唆と遅れが重なって見えていた）。
+      const role = internalRoleLottery.draw(activeInternalRoleState(), {
+        allowMiss: false,
+        roleFilter: (r) => r.kind !== 'single',
+      });
+      doFreeze = role.freeze;
+      activateRound(role, 'none', doFreeze ? 'freeze' : 'lottery');
     } else {
       const role = internalRoleLottery.draw(activeInternalRoleState());
       const yaku = internalRoleLottery.yakuFor(role);
