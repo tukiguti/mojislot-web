@@ -522,6 +522,8 @@ export async function bootstrap() {
   let pendingDebugEffect: ForcedEffect | null = null;
   /** デバッグ：次のレバーで強制する内部役（ボーナスのおかわり確認用）。 */
   let pendingForcedRole: InternalRoleResult | null = null;
+  /** デバッグ：次のレバーで遅れを強制する。抽選と条件を飛ばして見た目だけ確認する。 */
+  let pendingForcedDelay = false;
   let autoMode = false;
   /** AUTOをOFFにした後、現在ゲームを全停止まで消化している最中か。 */
   let autoFinishing = false;
@@ -1066,6 +1068,9 @@ export async function bootstrap() {
     triggerAim: () => {
       forceDebugEffect('aim', '狙え演出');
     },
+    // 「次のレバーで◯◯」系は**予約するだけ**で、BET とレバーは打ち手が自分で入れる。
+    // 以前は待機中なら自動で BET→レバーまで進めていたが、押した瞬間に回り出すので
+    // レバーONの瞬間に起きること（遅れ・フリーズ）を見る前に通り過ぎてしまう。
     triggerNextBonusFlag: (kind: 'big' | 'reg') => {
       // 次のレバーでBIG/REGの内部役を強制する。ボーナス中に押せばおかわりの確認になる。
       // 素の抽選ではボーナス中のBIGが1/1981（BIG18Gで0.9%）で、まず引けないため。
@@ -1074,20 +1079,16 @@ export async function bootstrap() {
       if (!yaku) return;
       pendingForcedRole = internalRoleLottery.forYaku(yaku);
       showResult(`${yaku.name}フラグを次のレバーに予約`, 'win');
-      const allIdle = engines.every((e) => e.state.get() === 'idle');
-      if (allIdle && !betPlaced && wallet.canBet(calc.bet)) {
-        placeBet();
-        pullLever();
-      }
+    },
+    triggerNextDelay: () => {
+      // 次のレバーで遅れを強制する。素の出現率は 1/214 かつ無演出のゲーム限定なので、
+      // 見た目と長さの確認には引くのを待っていられない。
+      pendingForcedDelay = true;
+      showResult('遅れを次のレバーに予約', 'win');
     },
     triggerFreeze: () => {
-      // 次のレバーでフリーズ発動を予約。待機中なら自動でBET→レバーまで進めて即確認できる。
+      // 次のレバーでフリーズ発動を予約。
       pendingFreeze = true;
-      const allIdle = engines.every((e) => e.state.get() === 'idle');
-      if (allIdle && !betPlaced && wallet.canBet(calc.bet)) {
-        placeBet();
-        pullLever();
-      }
     },
     triggerAnnounceLamp: () => {
       // 確定告知ランプを即点灯（種別は内部抽選＝伏せ）。以降、目押しで揃えに行くと回収。
@@ -1368,7 +1369,10 @@ export async function bootstrap() {
 
     // 遅れ：レバーを叩いてもリールが回り出さない「間」。ハズレでは出さないので
     // 「何かは当たっている」は必ず本当。ただし何かは言わないので狙える役は増えない。
-    const delayMs = !doFreeze && rollDelay(currentRound) ? tuning.delay.ms : 0;
+    const forcedDelay = pendingForcedDelay;
+    pendingForcedDelay = false;
+    const delayMs =
+      !doFreeze && (forcedDelay || rollDelay(currentRound)) ? tuning.delay.ms : 0;
     const startSpin = () => {
       spinPending = false;
       for (const engine of engines) engine.spin();

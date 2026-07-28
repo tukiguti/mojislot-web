@@ -27,6 +27,11 @@ export interface DebugActions {
    * BIG18G中に引ける確率は 0.9% / 3.8% しかなく、素の抽選では現実的に確認できない）。
    */
   triggerNextBonusFlag(kind: 'big' | 'reg'): void;
+  /**
+   * 次のレバーで遅れを強制する。素の出現率は 1/214 かつ無演出のゲーム限定なので、
+   * 見た目と長さの確認には引くのを待っていられない。
+   */
+  triggerNextDelay(): void;
   fillEffects(): void;
 }
 
@@ -128,6 +133,7 @@ export class SettingsOverlay {
             <button data-debug="lamp" type="button">確定ランプ</button>
             <button data-debug="flag-big" type="button">次レバーBIGフラグ</button>
             <button data-debug="flag-reg" type="button">次レバーREGフラグ</button>
+            <button data-debug="delay" type="button">次レバー遅れ</button>
             <button data-debug="cutin" type="button">カットイン</button>
             <button data-debug="aim" type="button">狙え！予告</button>
             <button data-debug="shisa" type="button">示唆発動</button>
@@ -232,6 +238,9 @@ export class SettingsOverlay {
             break;
           case 'flag-reg':
             this.debugActions.triggerNextBonusFlag('reg');
+            break;
+          case 'delay':
+            this.debugActions.triggerNextDelay();
             break;
           case 'tenpai':
             this.debugActions.triggerTenpaiSe();
