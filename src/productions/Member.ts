@@ -5,6 +5,7 @@
 
 const ID_KEY = 'mojislot.memberId.v1';
 const NAME_KEY = 'mojislot.memberName.v1';
+const SINCE_KEY = 'mojislot.memberSince.v1';
 const DEFAULT_NAME = 'ゲスト';
 
 /**
@@ -17,10 +18,25 @@ export function getMemberId(): string {
     if (existing) return existing;
     const id = crypto.randomUUID();
     localStorage.setItem(ID_KEY, id);
+    // 券面に出す発行日。**IDを作った瞬間にだけ**記録する。
+    // 後から埋めると実際とは違う日付になるので、記録の無い会員は「—」のままにする。
+    localStorage.setItem(SINCE_KEY, new Date().toISOString());
     return id;
   } catch {
     // localStorage 不可の環境でも記録は進めたいので、その場限りのIDを返す
     return crypto.randomUUID();
+  }
+}
+
+/**
+ * 会員証の発行日（ISO文字列）。この項目が出来る前に発行された会員は持っていないので
+ * null を返す。分からない日付を埋めるより空欄のほうが正しい。
+ */
+export function getMemberSince(): string | null {
+  try {
+    return localStorage.getItem(SINCE_KEY);
+  } catch {
+    return null;
   }
 }
 

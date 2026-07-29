@@ -14,6 +14,8 @@ import {
 import { lineColorOf, themeVars } from '../data/islandThemes';
 import { PayoutSchema, TuningSchema, YakuListSchema, type YakuList } from '../data/schemas';
 import { hallPolicyFor, isTargeted, type HallPolicy } from '../productions/HallPolicy';
+import { getMemberName } from '../productions/Member';
+import { RUN_RULESET_VERSION, loadRunHistory } from '../productions/RunHistory';
 import {
   bonusRate,
   readAllMachineDays,
@@ -308,21 +310,32 @@ function machineCard(v: MachineView, selected: boolean): string {
 
 // ═══════════ 画面 ═══════════
 
+/** カウンター前で選んでいる場所。 */
+export type CounterSpot = 'card' | 'rank';
+
 interface HallState {
-  phase: 'entrance' | 'entering' | 'floor' | 'seat';
-  /** 表示中の島のインデックス。 */
+  phase: 'entrance' | 'entering' | 'floor' | 'counter' | 'seat';
+  /** 表示中の場所。0〜島数-1 が島、島数が景品カウンター。 */
   nav: number;
   /** 選択中の台ID。 */
   selId: string;
   /** 寄りで見ている台ID（島を移動しても寄りの中身が変わらないよう保持）。 */
   seatId: string;
+  /** カウンター前で選んでいる場所。 */
+  spot: CounterSpot;
   narrow: boolean;
   scale: number;
 }
 
-export function mountHallView(cb: HallViewCallbacks): void {
+/** mountHallView の戻り。会員カード/ランキングから戻る時にカウンター前へ寄せる。 */
+export interface HallViewHandle {
+  showCounter(spot: CounterSpot): void;
+}
+
+export function mountHallView(cb: HallViewCallbacks): HallViewHandle {
   const found = document.getElementById('view-play');
-  if (!found) return;
+  // 置き場所が無い環境（テスト等）では何もしないハンドルを返す。
+  if (!found) return { showCounter: () => {} };
   // render()/wire() は巻き上げられる関数宣言なので、絞り込み済みの const に持ち替える。
   const root: HTMLElement = found;
 
@@ -332,9 +345,14 @@ export function mountHallView(cb: HallViewCallbacks): void {
     nav: Math.max(0, ISLANDS.findIndex((i) => i.id === initial.islandId)),
     selId: initial.id,
     seatId: initial.id,
+    spot: 'card',
     narrow: window.innerWidth < NARROW_AT,
     scale: 1,
   };
+
+  /** 場所の数＝6島＋景品カウンター。◀▶ で横に歩いて回れる。 */
+  const PLACES = ISLANDS.length + 1;
+  const COUNTER_NAV = ISLANDS.length;
 
   let track: HTMLElement | null = null;
   let fitTimer: number | null = null;
@@ -406,17 +424,27 @@ export function mountHallView(cb: HallViewCallbacks): void {
     enterTimer = window.setTimeout(() => go('floor'), ENTER_MS);
   };
 
-  /** 島を1つ横へ。選択台は同じ席番号を引き継ぐ（実機のホールで隣の島の同じ位置へ歩く感じ）。 */
+  /**
+   * 場所を1つ横へ。島から島へは選択台が同じ席番号を引き継ぐ（隣の島の同じ位置へ歩く感じ）。
+   * 島の端から先は景品カウンターで、そこは画面ごと切り替わる。
+   */
   const move = (d: number): void => {
-    const nav = (st.nav + d + ISLANDS.length) % ISLANDS.length;
+    const nav = (st.nav + d + PLACES) % PLACES;
+    if (nav === COUNTER_NAV) {
+      st.nav = nav;
+      go('counter');
+      return;
+    }
     const seat = selMachine().seat;
     const island = ISLANDS[nav];
     const next =
       machinesOfIsland(island.id).find((m) => m.seat === seat) ??
       machinesOfIsland(island.id)[0];
+    const wasCounter = st.nav === COUNTER_NAV;
     st.nav = nav;
     st.selId = next.id;
-    updateFloor();
+    if (wasCounter) go('floor');
+    else updateFloor();
   };
 
   const toSeat = (id: string): void => {
@@ -586,6 +614,17 @@ export function mountHallView(cb: HallViewCallbacks): void {
       </div>`;
   };
 
+  /** 場所インジケータ。島6つ＋景品カウンター（幅を狭くして種類の違いを出す）。 */
+  const dotsHtml = (): string =>
+    ISLANDS.map(
+      (island, i) =>
+        `<span class="hall-dot${i === st.nav ? ' on' : ''}" data-dot="${i}" style="--dot:${lineColorOf(island.id)}"></span>`,
+    )
+      .concat(
+        `<span class="hall-dot hall-dot-counter${st.nav === COUNTER_NAV ? ' on' : ''}" data-dot="${COUNTER_NAV}" style="--dot:#ffd166"></span>`,
+      )
+      .join('');
+
   // ─── 島 ───
   const floorHtml = (): string => {
     const p = policy();
@@ -607,10 +646,7 @@ export function mountHallView(cb: HallViewCallbacks): void {
         </div>`;
     }).join('');
 
-    const dots = ISLANDS.map(
-      (island, i) =>
-        `<span class="hall-dot${i === st.nav ? ' on' : ''}" data-dot="${i}" style="--dot:${lineColorOf(island.id)}"></span>`,
-    ).join('');
+    const dots = dotsHtml();
 
     return `
       <div class="hall-floor"${st.narrow ? ' data-narrow' : ''}>
@@ -643,7 +679,7 @@ export function mountHallView(cb: HallViewCallbacks): void {
           <div class="hall-foot-exit" data-act="exit" role="button" tabindex="0">
             <span>←</span><span>入口</span>
           </div>
-          <div class="hall-foot-counter" data-act="ranking" role="button" tabindex="0">
+          <div class="hall-foot-counter" data-act="to-counter" role="button" tabindex="0">
             <span class="hall-foot-counter-bar"></span><span>景品カウンター</span>
           </div>
           <div class="hall-foot-space"></div>
@@ -679,6 +715,264 @@ export function mountHallView(cb: HallViewCallbacks): void {
     const go = root.querySelector<HTMLElement>('[data-confirm]');
     if (go) go.textContent = `${selMachine().number}番台を見る ▶`;
   };
+
+  // ─── 景品カウンター前（引きの絵） ───
+
+  /** 景品棚。飾りなので中身は固定。色は各島の主色から借りて場内の統一感を出す。 */
+  const SHELF: { c: string; h: number }[][] = [
+    [
+      { c: 'linear-gradient(#c8342a,#8a1c16)', h: 62 },
+      { c: 'linear-gradient(#d99a20,#8a6210)', h: 82 },
+      { c: 'linear-gradient(#e8dcc8,#a89880)', h: 54 },
+    ],
+    [
+      { c: 'linear-gradient(#2e6b30,#1c4a1e)', h: 74 },
+      { c: 'linear-gradient(#43d9ff,#1a6a8a)', h: 56 },
+      { c: 'linear-gradient(#b8a0ff,#5a4a90)', h: 88 },
+    ],
+    [
+      { c: 'linear-gradient(#e8dcc8,#a89880)', h: 58 },
+      { c: 'linear-gradient(#c8342a,#8a1c16)', h: 78 },
+      { c: 'linear-gradient(#d99a20,#8a6210)', h: 66 },
+    ],
+  ];
+
+  const shelfHtml = (flip: boolean): string => {
+    const rows = flip ? [...SHELF].reverse() : SHELF;
+    const shelves = rows
+      .map(
+        (row, i) =>
+          `<div class="hall-shelf-row${i === rows.length - 1 ? ' last' : ''}">${row
+            .map((x) => `<span style="height:${x.h}%;background:${x.c}"></span>`)
+            .join('')}</div>`,
+      )
+      .join('');
+    return `
+      <div class="hall-shelf">
+        <span class="hall-shelf-label">景　品</span>
+        ${shelves}
+        <span class="hall-shelf-gloss"></span>
+      </div>`;
+  };
+
+  /** データボードに出す本日の上位3件。条件は既定（最新規則・DEBUG除外）と揃える。 */
+  const topThree = (): { no: number; member: string; machine: string; sahmai: number }[] => {
+    const today = new Date();
+    const sameDay = (ms: number): boolean => {
+      const d = new Date(ms);
+      return (
+        d.getFullYear() === today.getFullYear() &&
+        d.getMonth() === today.getMonth() &&
+        d.getDate() === today.getDate()
+      );
+    };
+    return loadRunHistory()
+      .filter(
+        (r) =>
+          sameDay(r.settledAt) &&
+          r.rulesetVersion === RUN_RULESET_VERSION &&
+          !r.debugEnabled,
+      )
+      .sort((a, b) => b.sahmai - a.sahmai)
+      .slice(0, 3)
+      .map((r, i) => ({
+        no: i + 1,
+        member: r.memberName || '—',
+        machine: islandById(r.chapterId)?.name ?? r.chapterId,
+        sahmai: r.sahmai,
+      }));
+  };
+
+  const boardRows = (): string => {
+    const top = topThree();
+    if (top.length === 0) {
+      return `<span class="hall-databoard-nodata">NO DATA</span>`;
+    }
+    return top
+      .map(
+        (r) => `
+        <div class="hall-boardrow">
+          <span class="hall-boardrow-no">${r.no}</span>
+          <span class="hall-boardrow-member">${esc(r.member)}</span>
+          <span class="hall-boardrow-machine">${esc(r.machine)}</span>
+          <span class="hall-boardrow-sa ${r.sahmai > 0 ? 'plus' : r.sahmai < 0 ? 'minus' : ''}">${signed(r.sahmai)}</span>
+        </div>`,
+      )
+      .join('');
+  };
+
+  const dataBoard = (): string => `
+    <div class="hall-databoard${st.spot === 'rank' ? ' selected' : ''}" data-act="rank" role="button" tabindex="0">
+      <div class="hall-databoard-rods"><span></span><span></span></div>
+      <div class="hall-databoard-case">
+        <div class="hall-databoard-screen">
+          <div class="hall-databoard-head">
+            <span class="hall-databoard-title">ラ ン キ ン グ</span>
+            <span class="hall-databoard-sub">本日の差枚 上位</span>
+          </div>
+          ${boardRows()}
+        </div>
+      </div>
+      <span class="hall-spotframe"></span>
+    </div>`;
+
+  const receptionDesk = (): string => `
+    <div class="hall-desk${st.spot === 'card' ? ' selected' : ''}" data-act="card-spot" role="button" tabindex="0">
+      <div class="hall-desk-top">
+        <div class="hall-ticket">
+          <div class="hall-ticket-face">
+            <span class="hall-ticket-label">呼出番号</span>
+            <span class="hall-ticket-no">12</span>
+          </div>
+          <span class="hall-ticket-stand"></span>
+        </div>
+        <div class="hall-membercard">
+          <span class="hall-membercard-brand">MOJISLOT MEMBER</span>
+          <span class="hall-membercard-name">${esc(getMemberName())}</span>
+          <span class="hall-membercard-stripe"></span>
+        </div>
+        <div class="hall-reader-mini">
+          <span class="hall-reader-mini-slot"></span>
+          <span class="hall-reader-mini-lamp"></span>
+        </div>
+        <div class="hall-bell">
+          <span class="hall-bell-dome"></span>
+          <span class="hall-bell-base"></span>
+          <span class="hall-bell-label">呼出</span>
+        </div>
+      </div>
+      <span class="hall-desk-edge"></span>
+      <div class="hall-desk-front">
+        <div class="hall-showcase">
+          <span class="hall-showcase-label">特 殊 景 品</span>
+          <div class="hall-showcase-row">
+            ${'<span class="gold"></span>'.repeat(4)}
+          </div>
+          <div class="hall-showcase-row last">
+            ${'<span class="silver"></span>'.repeat(4)}
+          </div>
+          <span class="hall-showcase-gloss"></span>
+        </div>
+        <div class="hall-acryl">
+          <span class="hall-acryl-title">会 員 カ ー ド</span>
+          <span class="hall-acryl-sub">発行・読み込み　—　1 キーで選択</span>
+        </div>
+      </div>
+      <span class="hall-spotframe"></span>
+    </div>`;
+
+  const counterWide = (): string => `
+    <div class="hall-counterfront">
+      <div class="hall-ceiling"><span class="hall-ceiling-edge"></span><span class="hall-fluoro"></span></div>
+      <div class="hall-far hall-far-counter">
+        ${Array.from({ length: 9 }, () => '<span class="hall-far-bar"></span>').join('')}
+        <span class="hall-far-fade side"></span>
+      </div>
+      <span class="hall-backwall"></span>
+      <span class="hall-carpet"></span>
+
+      <div class="hall-cfsign">
+        <div class="hall-islandsign-rods"><span></span><span></span></div>
+        <div class="hall-cfsign-box">
+          <span class="hall-cfsign-title">景 品 カ ウ ン タ ー</span>
+          <div class="hall-cfsign-tags">
+            <span class="t1">景品交換</span><span class="sep"></span>
+            <span class="t2">両替</span><span class="sep"></span>
+            <span class="t3">会員登録</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="hall-dots hall-dots-static">${dotsHtml()}</div>
+
+      <div class="hall-aisle hall-aisle-l" data-act="prev" role="button" tabindex="0">
+        <span class="hall-aisle-mark">◀</span><span class="hall-aisle-label">前の島</span>
+      </div>
+      <div class="hall-aisle hall-aisle-r" data-act="next" role="button" tabindex="0">
+        <span class="hall-aisle-mark">▶</span><span class="hall-aisle-label">次の島</span>
+      </div>
+
+      <div class="hall-cfwall">
+        ${shelfHtml(false)}
+        ${dataBoard()}
+        ${shelfHtml(true)}
+      </div>
+
+      <div class="hall-cfspace"></div>
+      ${receptionDesk()}
+
+      <div class="hall-footbar hall-footbar-counter">
+        <div class="hall-foot-exit" data-act="exit" role="button" tabindex="0">
+          <span>←</span><span>入口</span>
+        </div>
+        <div class="hall-foot-hint">← → で場所を移動　1 / 2 で選択　Enter で寄る　Esc 入口</div>
+        <div class="hall-foot-go" data-act="zoom-spot" role="button" tabindex="0">${
+          st.spot === 'card' ? '会員カードを見る ▶' : 'ランキングを見る ▶'
+        }</div>
+      </div>
+    </div>`;
+
+  const counterNarrow = (): string => `
+    <div class="hall-counterfront narrow">
+      <span class="hall-cf-topline"></span>
+      <span class="hall-carpet sm"></span>
+
+      <div class="hall-cfsign-box sm">
+        <span class="hall-cfsign-title">景 品 カ ウ ン タ ー</span>
+      </div>
+      <div class="hall-dots hall-dots-static">${dotsHtml()}</div>
+
+      <div class="hall-cf-shelfrow">
+        <div class="hall-shelf sm">
+          ${SHELF.flat()
+            .map((x) => `<span style="height:${x.h}%;background:${x.c}"></span>`)
+            .join('')}
+          <span class="hall-shelf-gloss"></span>
+        </div>
+        <div class="hall-ticket-face sm">
+          <span class="hall-ticket-label">呼出番号</span>
+          <span class="hall-ticket-no">12</span>
+        </div>
+      </div>
+
+      <div class="hall-databoard sm" data-act="rank" role="button" tabindex="0">
+        <div class="hall-databoard-screen">
+          <div class="hall-databoard-head">
+            <span class="hall-databoard-title">ランキング</span>
+            <span class="hall-databoard-sub">差枚 上位</span>
+          </div>
+          ${boardRows()}
+          <span class="hall-databoard-tap">タップで寄る</span>
+        </div>
+      </div>
+
+      <div class="hall-desk sm" data-act="card-spot" role="button" tabindex="0">
+        <div class="hall-desk-top">
+          <div class="hall-membercard">
+            <span class="hall-membercard-brand">MOJISLOT MEMBER</span>
+            <span class="hall-membercard-name">${esc(getMemberName())}</span>
+            <span class="hall-membercard-stripe"></span>
+          </div>
+          <div class="hall-reader-mini">
+            <span class="hall-reader-mini-slot"></span>
+            <span class="hall-reader-mini-lamp"></span>
+          </div>
+        </div>
+        <span class="hall-desk-edge"></span>
+        <div class="hall-desk-front sm">
+          <span class="hall-acryl-title">会 員 カ ー ド</span>
+          <span class="hall-acryl-sub">発行・読み込み</span>
+        </div>
+      </div>
+
+      <div class="hall-cfspace"></div>
+
+      <div class="hall-cf-nav">
+        <div class="hall-cf-navbtn" data-act="prev" role="button" tabindex="0">◀ 前の島</div>
+        <div class="hall-cf-navbtn" data-act="next" role="button" tabindex="0">次の島 ▶</div>
+      </div>
+      <div class="hall-cf-exit" data-act="exit" role="button" tabindex="0">← 入口に戻る</div>
+    </div>`;
 
   // ─── 寄り ───
   const toggleRow = (
@@ -822,6 +1116,9 @@ export function mountHallView(cb: HallViewCallbacks): void {
     if (st.phase === 'entrance' || st.phase === 'entering') {
       root.innerHTML = st.narrow ? entranceNarrow() : entranceWide();
       track = null;
+    } else if (st.phase === 'counter') {
+      root.innerHTML = st.narrow ? counterNarrow() : counterWide();
+      track = null;
     } else if (st.phase === 'floor') {
       root.innerHTML = floorHtml();
       track = root.querySelector<HTMLElement>('[data-track]');
@@ -867,6 +1164,11 @@ export function mountHallView(cb: HallViewCallbacks): void {
     cb.onLaunch();
   };
 
+  const zoomSpot = (): void => {
+    if (st.spot === 'card') cb.onCard();
+    else cb.onRanking();
+  };
+
   const actions: Record<string, () => void> = {
     enter: enterHall,
     top: cb.onBack,
@@ -878,6 +1180,21 @@ export function mountHallView(cb: HallViewCallbacks): void {
     next: () => move(1),
     zoom: () => toSeat(st.selId),
     sit,
+    // 島の足元バーから景品カウンターへ歩く（場所として移動する）
+    'to-counter': () => {
+      st.nav = COUNTER_NAV;
+      go('counter');
+    },
+    // カウンター前で受付／データボードを押したら、選ぶだけでなくそのまま寄る
+    'card-spot': () => {
+      st.spot = 'card';
+      cb.onCard();
+    },
+    rank: () => {
+      st.spot = 'rank';
+      cb.onRanking();
+    },
+    'zoom-spot': zoomSpot,
   };
 
   function wire(): void {
@@ -957,6 +1274,22 @@ export function mountHallView(cb: HallViewCallbacks): void {
       }
       return;
     }
+    if (st.phase === 'counter') {
+      if (e.key === 'ArrowLeft') move(-1);
+      else if (e.key === 'ArrowRight') move(1);
+      else if (e.key === 'Escape') go('entrance');
+      else if (e.key === '1') {
+        st.spot = 'card';
+        render();
+      } else if (e.key === '2') {
+        st.spot = 'rank';
+        render();
+      } else if (e.key === 'Enter') {
+        e.preventDefault();
+        zoomSpot();
+      }
+      return;
+    }
     if (e.key === 'ArrowLeft') move(-1);
     else if (e.key === 'ArrowRight') move(1);
     else if (e.key === 'Escape') go('entrance');
@@ -975,4 +1308,13 @@ export function mountHallView(cb: HallViewCallbacks): void {
 
   window.addEventListener('resize', fit);
   render();
+
+  return {
+    showCounter(spot: CounterSpot): void {
+      st.spot = spot;
+      st.nav = COUNTER_NAV;
+      st.phase = 'counter';
+      render();
+    },
+  };
 }

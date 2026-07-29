@@ -5,6 +5,22 @@
 
 ## P0: 仕様を決めてから着手
 
+- [x] 景品カウンター（会員カード・ランキング）を実装する（2026-07-30）
+  - カウンター前の引きの絵は `HallView` の1局面。**島の並びの隣にある場所**として置き、
+    ← → で島から歩いて着く（`PLACES = 島数 + 1`）。場所インジケータにも細い金の点が増える
+  - 寄りの2画面は `src/ui/CounterCard.ts` / `src/ui/CounterRanking.ts`（＋ `counter.css`）。
+    `CardView.ts` / `RankingView.ts` は削除。ルート（#/card・#/ranking）はそのまま
+  - 戻るは入口ではなく**カウンター前**へ返す。`mountHallView` が `showCounter(spot)` を返し、
+    main-entry が戻り導線で呼ぶ
+  - デザインの一次情報は claude.ai/design の「MOJISLOT 台を選ぶ.dc.html」。ただし
+    **デザイン側のカード符号化・種データは使わない**。中身は既存の `CardManager` /
+    `RunHistory` / `Member` に繋いである（保存形式もキーも実装側が正）
+  - 券面の発行日のために `mojislot.memberSince.v1` を追加。**IDを作った瞬間にだけ**書く。
+    後から埋めると実際と違う日付になるので、記録の無い会員は「—」のままにする
+  - カウンター前のデータボードは本日の差枚上位3件（最新規則・DEBUG除外）。ダミーではない
+  - 罠: `.ctr-msg{display:flex}` がブラウザ既定の `[hidden]{display:none}` に勝って、
+    空のメッセージ欄が出ていた。`[hidden]` 側を明示して直した
+  - 未確認: スマホ幅（760px未満）の実機表示。ホールと同じく分岐は書いたが目視できていない
 - [x] 台選び画面をホール（入口→島→寄り）へ差し替える（2026-07-30）
   - デザインの一次情報は claude.ai/design の「MOJISLOT 台を選ぶ.dc.html」
   - `src/ui/HallView.ts`（画面）＋ `src/ui/hall.css`（構造）＋ `src/data/islandThemes.ts`（島ごとの筐体色）

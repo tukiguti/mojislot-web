@@ -818,3 +818,315 @@
 .hall-notice-body { font-size: 11px; color: #5a5348; line-height: 1.6 }
 .hall-seat-another { text-align: center; font-size: 13px; color: #8c8377; cursor: pointer }
 .hall-seat-another:hover { color: #cdbfa6 }
+
+/* ═══════════ 景品カウンター前（引きの絵） ═══════════ */
+
+.hall-counterfront {
+  position: relative; height: 100vh; box-sizing: border-box; overflow: hidden;
+  display: flex; flex-direction: column; animation: hall-step-in .38s cubic-bezier(.2, .7, .3, 1) both;
+}
+@keyframes hall-step-in { from { opacity: 0; transform: scale(1.05) } to { opacity: 1; transform: none } }
+
+.hall-counterfront.narrow {
+  height: auto; min-height: 100vh; background: #0e0a10; gap: 16px;
+  padding: calc(env(safe-area-inset-top, 0px) + 22px) 16px calc(env(safe-area-inset-bottom, 0px) + 22px);
+}
+.hall-cf-topline {
+  position: absolute; left: 0; right: 0; top: 0; height: 5px;
+  background: linear-gradient(90deg, #3a3440, #6a6072, #3a3440);
+}
+/* 奥の島は片側だけ見える（カウンターは島の並びの端にある） */
+.hall-far-counter {
+  top: 15vh; height: 11vh; justify-content: flex-start; padding-left: 2vw; filter: blur(1.8px);
+}
+.hall-far-counter .hall-far-bar { width: 3vw; min-width: 20px; height: 8vh; opacity: .45 }
+.hall-far-fade.side {
+  background: linear-gradient(90deg, rgba(14, 10, 16, .2), rgba(14, 10, 16, .95) 34%);
+}
+.hall-backwall {
+  position: absolute; left: 0; right: 0; top: 18vh; height: 44vh;
+  background: linear-gradient(#241c2e, #171222); border-top: 1px solid #3a3244;
+  box-shadow: inset 0 20px 40px -20px rgba(0, 0, 0, .7);
+}
+.hall-carpet.sm {
+  height: 22vh; background-image: repeating-linear-gradient(90deg, rgba(255, 255, 255, .045) 0 2px, transparent 2px 26px);
+  box-shadow: inset 0 30px 46px -18px rgba(0, 0, 0, .85);
+}
+
+/* 天井吊り看板 */
+.hall-cfsign {
+  position: relative; flex: none; align-self: center; margin-top: 1.4vh;
+  display: flex; flex-direction: column; align-items: center; z-index: 4;
+}
+.hall-cfsign-box {
+  padding: clamp(6px, 1.1vh, 11px) clamp(18px, 4vw, 44px);
+  border: 3px solid #ffd166; background: linear-gradient(#1e1a2e, #0d0a16);
+  box-shadow: 0 10px 26px rgba(0, 0, 0, .7);
+  display: flex; flex-direction: column; align-items: center; gap: 5px;
+}
+.hall-cfsign-box.sm { position: relative; align-self: center; border-width: 2px; padding: 8px 22px }
+.hall-cfsign-title {
+  font-size: clamp(15px, 2.2vw, 23px); font-weight: 800; letter-spacing: .24em;
+  color: #ffe9a8; white-space: nowrap; padding-left: .24em;
+}
+.hall-cfsign-tags {
+  display: flex; align-items: center; gap: clamp(8px, 1.4vw, 16px);
+  padding: 2px 8px; background: #0a0810; border: 1px solid #4a3f58;
+  font-size: 9px; letter-spacing: .16em;
+}
+.hall-cfsign-tags .t1 { color: #ff6b52 }
+.hall-cfsign-tags .t2 { color: #ffb020 }
+.hall-cfsign-tags .t3 { color: #43d9ff }
+.hall-cfsign-tags .sep { width: 1px; height: 9px; background: #4a3f58 }
+
+.hall-dots-static {
+  position: relative; left: auto; top: auto; transform: none;
+  flex: none; align-self: center; margin-top: 9px;
+}
+.hall-counterfront.narrow .hall-dots-static { margin-top: 0 }
+.hall-dot-counter { width: 14px }
+
+/* 壁：景品棚｜データボード｜景品棚 */
+.hall-cfwall {
+  /* 背面壁いっぱいに棚とボードを立てる。auto だと中身の高さまで縮んで壁が空く。 */
+  position: relative; flex: 0 0 clamp(170px, 32vh, 330px); min-height: 0;
+  align-self: stretch; margin-top: 1.6vh;
+  display: flex; align-items: stretch; justify-content: center;
+  gap: clamp(10px, 1.8vw, 26px); padding: 0 max(56px, clamp(54px, 6vw, 80px)); z-index: 2;
+}
+.hall-shelf {
+  position: relative; flex: 0 1 clamp(84px, 13vw, 152px); min-width: 0; box-sizing: border-box;
+  background: linear-gradient(#2e2436, #181222); border: 2px solid #4a3f58;
+  box-shadow: 0 18px 34px rgba(0, 0, 0, .6), inset 0 0 30px rgba(0, 0, 0, .65);
+  padding: 6px; display: flex; flex-direction: column; gap: 5px; overflow: hidden;
+}
+.hall-shelf.sm {
+  flex: 1; min-width: 0; flex-direction: row; align-items: flex-end; gap: 4px;
+  padding: 5px; box-shadow: inset 0 0 20px rgba(0, 0, 0, .65);
+}
+.hall-shelf.sm > span { flex: 1; border: 1px solid rgba(255, 255, 255, .16) }
+.hall-shelf-label { flex: none; font-size: 8px; letter-spacing: .3em; color: #8a7fa0; text-align: center }
+.hall-shelf-row {
+  flex: 1; min-height: 0; display: flex; align-items: flex-end; gap: 4px;
+  border-bottom: 2px solid #574c66; padding-bottom: 3px;
+}
+.hall-shelf-row.last { border-bottom: none }
+.hall-shelf-row > span { flex: 1; border: 1px solid rgba(255, 255, 255, .16) }
+.hall-shelf-gloss {
+  position: absolute; inset: 0; pointer-events: none;
+  background: linear-gradient(112deg, rgba(255, 255, 255, .14) 0 22%, transparent 34%, rgba(255, 255, 255, .05) 58%, transparent 68%);
+}
+
+/* データボード（ランキング） */
+.hall-databoard {
+  position: relative; flex: 0 1 min(700px, 58vw); min-width: 0; align-self: stretch;
+  overflow: hidden; z-index: 3; cursor: pointer;
+  display: flex; flex-direction: column; align-items: center;
+}
+.hall-databoard.sm {
+  position: relative; flex: none; align-self: stretch;
+  background: linear-gradient(#3a3a40, #1a1a1e); border: 1px solid #55555c; padding: 6px;
+  box-shadow: 0 12px 26px rgba(0, 0, 0, .65);
+}
+.hall-databoard-rods {
+  flex: none; align-self: stretch; display: flex; justify-content: space-between; padding: 0 14%;
+}
+.hall-databoard-rods span { width: 3px; height: 14px; background: #4a4258 }
+.hall-databoard-case {
+  /* 壁の高さいっぱいに立てる（棚と背丈を揃える）。 */
+  flex: 1 1 auto; min-height: 0; overflow: hidden; align-self: stretch;
+  background: linear-gradient(#3a3a40, #1a1a1e); border: 1px solid #55555c; padding: 7px;
+  box-shadow: 0 18px 36px rgba(0, 0, 0, .7);
+}
+.hall-databoard:hover .hall-databoard-case { border-color: #ffd166 }
+.hall-databoard-screen {
+  height: 100%; box-sizing: border-box; overflow: hidden;
+  background: #050506; border: 1px solid #3a3a40; padding: clamp(9px, 1.4vw, 15px);
+  display: flex; flex-direction: column; gap: 8px;
+}
+.hall-databoard.sm .hall-databoard-screen { height: auto; padding: 12px }
+.hall-databoard-head {
+  flex: none; display: flex; align-items: baseline; gap: 12px;
+  border-bottom: 1px solid #2f2f36; padding-bottom: 7px;
+}
+.hall-databoard-title {
+  font-size: clamp(11px, 1.4vw, 14px); letter-spacing: .24em; color: #43d9ff;
+  text-shadow: 0 0 12px rgba(67, 217, 255, .6);
+}
+.hall-databoard-sub { font-size: 10px; color: #6a6a72; margin-left: auto }
+.hall-databoard-nodata {
+  flex: none; font-family: ui-monospace, monospace; font-size: 15px; color: #6a6a72;
+  letter-spacing: .2em; padding: 9px 0;
+}
+.hall-databoard-tap {
+  font-size: 10px; color: #6a6a72; border-top: 1px solid #2f2f36; padding-top: 7px;
+}
+.hall-boardrow {
+  flex: 0 1 auto; min-height: 0; overflow: hidden; display: flex; align-items: center;
+  gap: clamp(8px, 1.4vw, 16px); font-variant-numeric: tabular-nums;
+}
+.hall-boardrow-no {
+  font-family: ui-monospace, monospace; font-size: clamp(15px, 1.9vw, 20px); font-weight: 700;
+  color: #ffb020; width: 22px; flex: none;
+}
+.hall-boardrow-member {
+  font-size: clamp(11px, 1.4vw, 14px); color: #f2eee8; width: clamp(52px, 7vw, 80px); flex: none;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.hall-boardrow-machine {
+  flex: 1; font-size: clamp(10px, 1.2vw, 13px); color: #8c8377;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.hall-boardrow-sa {
+  font-family: ui-monospace, monospace; font-size: clamp(15px, 2vw, 22px); font-weight: 700;
+  white-space: nowrap; color: #6f6578;
+}
+.hall-boardrow-sa.plus { color: #ffd166 }
+.hall-boardrow-sa.minus { color: #ff6b52 }
+.hall-databoard.sm .hall-boardrow-machine { display: none }
+
+/* 選択枠（受付／データボード） */
+.hall-spotframe {
+  position: absolute; inset: 0; border: 3px solid #4cd964;
+  box-shadow: 0 0 32px rgba(76, 217, 100, .45); pointer-events: none; opacity: 0;
+}
+.hall-databoard .hall-spotframe { top: 14px }
+.hall-databoard.selected .hall-spotframe, .hall-desk.selected .hall-spotframe { opacity: 1 }
+
+.hall-cfspace { flex: 1 1 0; min-height: 0 }
+
+/* 受付カウンター（会員カード） */
+.hall-desk {
+  position: relative; flex: none; align-self: center; width: min(880px, 74vw);
+  z-index: 3; cursor: pointer; display: flex; flex-direction: column;
+}
+.hall-desk.sm { width: auto; align-self: stretch; box-shadow: 0 12px 26px rgba(0, 0, 0, .65) }
+.hall-desk-top {
+  flex: none; height: clamp(76px, 10vh, 96px); display: flex; align-items: flex-end;
+  justify-content: center; gap: clamp(12px, 2.4vw, 28px); padding: 0 clamp(20px, 5vw, 60px);
+}
+.hall-desk.sm .hall-desk-top { height: 52px; gap: 18px; padding: 0 20px }
+.hall-ticket {
+  flex: none; width: clamp(46px, 5.6vw, 64px);
+  display: flex; flex-direction: column; align-items: center; gap: 3px;
+}
+.hall-ticket-face {
+  align-self: stretch; background: #f6efe0; border: 1px solid #b8ac96; padding: 3px 2px;
+  display: flex; flex-direction: column; align-items: center;
+  box-shadow: 0 5px 12px rgba(0, 0, 0, .6);
+}
+.hall-ticket-face.sm {
+  flex: none; width: 52px; align-self: stretch; justify-content: center; box-shadow: none;
+}
+.hall-ticket-label { font-size: 6px; letter-spacing: .14em; color: #7a7266 }
+.hall-ticket-no {
+  font-family: ui-monospace, monospace; font-size: clamp(15px, 1.8vw, 21px); font-weight: 700;
+  color: #c8342a; line-height: 1.1;
+}
+.hall-ticket-face.sm .hall-ticket-no { font-size: 20px }
+.hall-ticket-stand { width: 56%; height: 6px; background: linear-gradient(#4a4258, #2a2436) }
+.hall-membercard {
+  width: clamp(94px, 13vw, 142px); padding: 8px 10px;
+  background: linear-gradient(135deg, #1e1a2e, #0d0a16); border: 1px solid #6a5ca0;
+  box-shadow: 0 6px 14px rgba(0, 0, 0, .7); transform: rotate(-2.4deg);
+  display: flex; flex-direction: column; gap: 5px;
+}
+.hall-desk.sm .hall-membercard { width: 104px; padding: 7px 9px; gap: 4px }
+.hall-membercard-brand { font-size: 6px; letter-spacing: .2em; color: #c8a86c }
+.hall-membercard-name {
+  font-size: clamp(11px, 1.4vw, 14px); font-weight: 800; color: #ffe9a8;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.hall-membercard-stripe { height: 6px; background: #0a0810; border-top: 1px solid #2a2436 }
+.hall-reader-mini {
+  width: clamp(40px, 5vw, 56px); padding: 6px 5px;
+  background: linear-gradient(#3a3a40, #1a1a1e); border: 1px solid #55555c;
+  box-shadow: 0 6px 14px rgba(0, 0, 0, .6);
+  display: flex; flex-direction: column; align-items: center; gap: 5px;
+}
+.hall-desk.sm .hall-reader-mini { width: 40px; padding: 5px }
+.hall-reader-mini-slot { width: 70%; height: 4px; background: #050506; border: 1px solid #6a6a72 }
+.hall-reader-mini-lamp {
+  width: 7px; height: 7px; border-radius: 50%; background: #4cd964;
+  box-shadow: 0 0 10px rgba(76, 217, 100, .9); animation: hall-lamp-pulse 1.6s infinite;
+}
+.hall-bell { flex: none; display: flex; flex-direction: column; align-items: center; gap: 2px }
+.hall-bell-dome {
+  width: clamp(24px, 2.8vw, 32px); height: clamp(12px, 1.4vw, 16px);
+  border-radius: clamp(12px, 1.4vw, 16px) clamp(12px, 1.4vw, 16px) 0 0;
+  background: radial-gradient(circle at 36% 24%, #fff, #c8342a 60%, #7a1410);
+  box-shadow: 0 5px 12px rgba(0, 0, 0, .6);
+}
+.hall-bell-base {
+  width: clamp(28px, 3.2vw, 36px); height: 4px; background: linear-gradient(#a89f92, #4a453c);
+}
+.hall-bell-label { font-size: 6px; letter-spacing: .12em; color: #8c8377 }
+.hall-desk-edge {
+  flex: none; height: clamp(18px, 2.6vh, 26px);
+  background: linear-gradient(#6d5140, #3a2a20); border-top: 2px solid #8f6d54;
+  box-shadow: 0 8px 20px rgba(0, 0, 0, .7);
+}
+.hall-desk.sm .hall-desk-edge { height: 16px; box-shadow: none }
+.hall-desk-front {
+  flex: none; padding: clamp(10px, 1.8vh, 18px) clamp(14px, 2.6vw, 30px);
+  background: linear-gradient(#2a1e18, #150e0a);
+  background-image: repeating-linear-gradient(90deg, rgba(0, 0, 0, .35) 0 1px, transparent 1px 84px);
+  border: 1px solid #4a3628; border-top: none;
+  display: flex; align-items: stretch; gap: clamp(12px, 2.4vw, 26px);
+}
+.hall-desk:hover .hall-desk-front { border-color: #ffd166 }
+.hall-desk-front.sm {
+  padding: 20px; flex-direction: column; align-items: center; gap: 4px;
+}
+.hall-showcase {
+  position: relative; flex: 1 1 0; min-width: 0; height: clamp(54px, 7.4vh, 78px);
+  background: linear-gradient(#191322, #0b0810); border: 1px solid #574c66; padding: 5px 7px;
+  display: flex; flex-direction: column; justify-content: flex-end; gap: 5px; overflow: hidden;
+  box-shadow: inset 0 2px 10px rgba(0, 0, 0, .8);
+}
+.hall-showcase-label {
+  position: absolute; left: 7px; top: 4px; font-size: 7px; letter-spacing: .18em; color: #7a7284;
+}
+.hall-showcase-row {
+  display: flex; gap: 4px; align-items: flex-end;
+  border-bottom: 1px solid #574c66; padding-bottom: 4px;
+}
+.hall-showcase-row.last { border-bottom: none; padding-bottom: 0 }
+.hall-showcase-row span { flex: 1; border: 1px solid rgba(0, 0, 0, .45) }
+.hall-showcase-row .gold { height: 9px; background: linear-gradient(#ffe9a8, #c8891a) }
+.hall-showcase-row .silver { height: 8px; background: linear-gradient(#e8ecf0, #8a919c) }
+.hall-showcase-gloss {
+  position: absolute; inset: 0; pointer-events: none;
+  background: linear-gradient(108deg, rgba(255, 255, 255, .13) 0 20%, transparent 32%, rgba(255, 255, 255, .05) 60%, transparent 70%);
+}
+.hall-acryl {
+  flex: none; align-self: center; padding: clamp(8px, 1.4vh, 14px) clamp(18px, 3.4vw, 38px);
+  border: 2px solid #ffd166; background: rgba(13, 11, 20, .55);
+  box-shadow: 0 0 22px rgba(255, 214, 140, .2);
+  display: flex; flex-direction: column; align-items: center; gap: 4px;
+}
+.hall-acryl-title {
+  font-size: clamp(14px, 1.9vw, 19px); font-weight: 800; letter-spacing: .2em;
+  color: #ffe9a8; white-space: nowrap; padding-left: .2em;
+}
+.hall-desk-front.sm .hall-acryl-title { font-size: 15px; letter-spacing: .18em }
+.hall-acryl-sub { font-size: 10px; color: #c8a86c; letter-spacing: .1em; white-space: nowrap }
+
+.hall-footbar-counter { position: relative; flex: none; height: max(11vh, 64px) }
+.hall-foot-hint {
+  flex: 1 1 0; min-width: 0; text-align: center; font-size: 11px; color: #6f6578;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+
+/* スマホのカウンター前 */
+.hall-cf-shelfrow { position: relative; display: flex; gap: 8px; height: 56px }
+.hall-cf-nav { position: relative; display: flex; gap: 9px }
+.hall-cf-navbtn {
+  flex: 1; box-sizing: border-box; padding: 14px; text-align: center;
+  border: 1px solid #4a4258; background: rgba(13, 11, 20, .8);
+  font-size: 13px; color: #ffd166; cursor: pointer;
+}
+.hall-cf-exit {
+  position: relative; box-sizing: border-box; padding: 12px; text-align: center;
+  font-size: 12px; color: #8c8377; cursor: pointer;
+}

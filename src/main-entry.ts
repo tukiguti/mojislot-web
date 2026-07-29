@@ -3,8 +3,8 @@ import type { Route } from './router/Router';
 import { bootstrap } from './main';
 import { mountTopView } from './ui/TopView';
 import { mountHallView } from './ui/HallView';
-import { renderRankingView } from './ui/RankingView';
-import { renderCardView } from './ui/CardView';
+import { renderCounterRanking } from './ui/CounterRanking';
+import { renderCounterCard } from './ui/CounterCard';
 
 /**
  * アプリ起点。hash ルータでビューを出し分ける。
@@ -28,16 +28,24 @@ function enter(route: Route): void {
     location.reload();
     return;
   }
-  // ランキングは表示のたびに最新の runHistory を読み直して再描画する
+  // 景品カウンターの2画面は、表示のたびに最新の履歴・会員名で描き直す。
+  // 「戻る」は入口ではなくカウンター前（＝寄っていた場所の引きの絵）へ返す。
   if (route === 'ranking') {
-    renderRankingView({
-      onBack: () => router.navigate('top'),
+    renderCounterRanking({
+      onBack: () => {
+        hall.showCounter('rank');
+        router.navigate('play');
+      },
       onPlay: () => router.navigate('play'),
     });
   }
-  // 会員カードも表示のたびに現在の会員名で再描画する
   if (route === 'card') {
-    renderCardView({ onBack: () => router.navigate('top') });
+    renderCounterCard({
+      onBack: () => {
+        hall.showCounter('card');
+        router.navigate('play');
+      },
+    });
   }
   showView(route);
 }
@@ -50,7 +58,9 @@ mountTopView({
   onRanking: () => router.navigate('ranking'),
 });
 
-mountHallView({
+// enter() から showCounter を呼ぶので参照を持っておく。
+// enter() が実際に走るのは router.start() 以降なので、この時点で未初期化にはならない。
+const hall = mountHallView({
   onLaunch: () => {
     // PLAY→GAME は素の状態から bootstrap したいので reload 起動
     location.hash = '#/game';
