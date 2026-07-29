@@ -25,11 +25,25 @@
 @keyframes hall-fade-out { from { opacity: 1 } to { opacity: 0 } }
 @keyframes hall-floor-in { from { opacity: 0; filter: brightness(2.6) } to { opacity: 1; filter: none } }
 @keyframes hall-seat-in { from { opacity: 0; transform: scale(.95) } to { opacity: 1; transform: none } }
+/*
+ * 場所の切り替え。島どうしはトラックの transform で滑るが、島↔景品カウンターは
+ * 画面ごと作り直すので、**同じ長さ・同じイージング**で横に滑らせて動きを揃える。
+ * ここが違うと、カウンターに入る時だけふわっとして別の操作に感じられる。
+ */
+@keyframes hall-slide-from-right { from { transform: translateX(100%) } to { transform: none } }
+@keyframes hall-slide-from-left { from { transform: translateX(-100%) } to { transform: none } }
+.hall-floor.from-right, .hall-counterfront.from-right {
+  animation: hall-slide-from-right .42s cubic-bezier(.22, .7, .24, 1) both;
+}
+.hall-floor.from-left, .hall-counterfront.from-left {
+  animation: hall-slide-from-left .42s cubic-bezier(.22, .7, .24, 1) both;
+}
 
 @media (prefers-reduced-motion: reduce) {
   .hall-entrance,
   .hall-entrance *,
   .hall-floor,
+  .hall-counterfront,
   .hall-seat-body,
   .hall-slider {
     animation: none !important;

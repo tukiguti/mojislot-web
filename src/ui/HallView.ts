@@ -321,6 +321,8 @@ interface HallState {
   seatId: string;
   /** カウンター前で選んでいる場所。 */
   spot: CounterSpot;
+  /** 場所を切り替えた向き。島のスライドと動きを揃えるために持つ。 */
+  slide: 'none' | 'left' | 'right';
   narrow: boolean;
   scale: number;
 }
@@ -337,20 +339,27 @@ export function mountHallView(cb: HallViewCallbacks): HallViewHandle {
   // render()/wire() は巻き上げられる関数宣言なので、絞り込み済みの const に持ち替える。
   const root: HTMLElement = found;
 
+  /**
+   * 場所の並び。**左端が景品カウンター**で、その右に島が続く。
+   * 実際のホールでも景品カウンターは入って手前の端にあり、島の列はその奥へ伸びる。
+   * `nav` 0 = カウンター、1..N = ISLANDS[nav-1]。
+   */
+  const PLACES = ISLANDS.length + 1;
+  const COUNTER_NAV = 0;
+  const islandAt = (nav: number): Island => ISLANDS[nav - 1] ?? ISLANDS[0];
+  const navOfIsland = (idx: number): number => idx + 1;
+
   const initial = getCurrentMachine();
   const st: HallState = {
     phase: 'entrance',
-    nav: Math.max(0, ISLANDS.findIndex((i) => i.id === initial.islandId)),
+    nav: navOfIsland(Math.max(0, ISLANDS.findIndex((i) => i.id === initial.islandId))),
     selId: initial.id,
     seatId: initial.id,
     spot: 'card',
+    slide: 'none',
     narrow: window.innerWidth < NARROW_AT,
     scale: 1,
   };
-
-  /** 場所の数＝6島＋景品カウンター。◀▶ で横に歩いて回れる。 */
-  const PLACES = ISLANDS.length + 1;
-  const COUNTER_NAV = ISLANDS.length;
 
   let track: HTMLElement | null = null;
   let fitTimer: number | null = null;
@@ -409,8 +418,14 @@ export function mountHallView(cb: HallViewCallbacks): HallViewHandle {
   };
 
   // ─── 移動 ───
-  const go = (phase: HallState['phase']): void => {
+  /**
+   * 局面を切り替える。`slide` は「新しい画面がどちら側から入ってくるか」。
+   * 島どうしはトラックの transform で滑るが、島↔カウンターは画面ごと作り直すので、
+   * 同じ長さ・同じイージングで横に滑らせないと**そこだけ動きが変わって見える**。
+   */
+  const go = (phase: HallState['phase'], slide: HallState['slide'] = 'none'): void => {
     st.phase = phase;
+    st.slide = slide;
     render();
   };
 
@@ -428,20 +443,21 @@ export function mountHallView(cb: HallViewCallbacks): HallViewHandle {
    */
   const move = (d: number): void => {
     const nav = (st.nav + d + PLACES) % PLACES;
+    const dir: HallState['slide'] = d > 0 ? 'right' : 'left';
     if (nav === COUNTER_NAV) {
       st.nav = nav;
-      go('counter');
+      go('counter', dir);
       return;
     }
     const seat = selMachine().seat;
-    const island = ISLANDS[nav];
+    const island = islandAt(nav);
     const next =
       machinesOfIsland(island.id).find((m) => m.seat === seat) ??
       machinesOfIsland(island.id)[0];
     const wasCounter = st.nav === COUNTER_NAV;
     st.nav = nav;
     st.selId = next.id;
-    if (wasCounter) go('floor');
+    if (wasCounter) go('floor', dir);
     else updateFloor();
   };
 
@@ -610,14 +626,20 @@ export function mountHallView(cb: HallViewCallbacks): HallViewHandle {
       </div>`;
   };
 
-  /** 場所インジケータ。島6つ＋景品カウンター（幅を狭くして種類の違いを出す）。 */
+  /** 画面ごと入れ替わる時のスライド方向。島のトラックと同じ動きに見せるため。 */
+  const slideClass = (): string =>
+    st.slide === 'none' ? '' : ` from-${st.slide}`;
+
+  /** 場所インジケータ。左端が景品カウンター（幅を狭くして種類の違いを出す）。 */
   const dotsHtml = (): string =>
-    ISLANDS.map(
-      (island, i) =>
-        `<span class="hall-dot${i === st.nav ? ' on' : ''}" data-dot="${i}" style="--dot:${lineColorOf(island.id)}"></span>`,
-    )
+    [
+      `<span class="hall-dot hall-dot-counter${st.nav === COUNTER_NAV ? ' on' : ''}" data-dot="${COUNTER_NAV}" style="--dot:#ffd166"></span>`,
+    ]
       .concat(
-        `<span class="hall-dot hall-dot-counter${st.nav === COUNTER_NAV ? ' on' : ''}" data-dot="${COUNTER_NAV}" style="--dot:#ffd166"></span>`,
+        ISLANDS.map(
+          (island, i) =>
+            `<span class="hall-dot${navOfIsland(i) === st.nav ? ' on' : ''}" data-dot="${navOfIsland(i)}" style="--dot:${lineColorOf(island.id)}"></span>`,
+        ),
       )
       .join('');
 
@@ -645,7 +667,7 @@ export function mountHallView(cb: HallViewCallbacks): HallViewHandle {
     const dots = dotsHtml();
 
     return `
-      <div class="hall-floor"${st.narrow ? ' data-narrow' : ''}>
+      <div class="hall-floor${slideClass()}"${st.narrow ? ' data-narrow' : ''}>
         <div class="hall-ceiling"><span class="hall-ceiling-edge"></span><span class="hall-fluoro"></span></div>
         <div class="hall-far">
           ${Array.from({ length: 9 }, () => '<span class="hall-far-bar"></span>').join('')}
@@ -693,10 +715,10 @@ export function mountHallView(cb: HallViewCallbacks): HallViewHandle {
   /** 島の移動と選択だけを差分で反映する（スライドの transition を殺さないため）。 */
   const updateFloor = (): void => {
     if (st.phase !== 'floor') return;
-    const island = ISLANDS[st.nav];
+    const island = islandAt(st.nav);
     const slider = root.querySelector<HTMLElement>('[data-slider]');
     if (slider) {
-      slider.style.transform = `translateX(-${(st.nav * 100) / ISLANDS.length}%)`;
+      slider.style.transform = `translateX(-${((st.nav - 1) * 100) / ISLANDS.length}%)`;
     }
     const sign = root.querySelector<HTMLElement>('[data-sign-box]');
     if (sign) {
@@ -714,8 +736,19 @@ export function mountHallView(cb: HallViewCallbacks): HallViewHandle {
     root.querySelectorAll<HTMLElement>('.hall-machine').forEach((el) => {
       el.classList.toggle('selected', el.dataset.machine === st.selId);
     });
-    const go = root.querySelector<HTMLElement>('[data-confirm]');
-    if (go) go.textContent = `${selMachine().number}番台を見る ▶`;
+    const goBtn = root.querySelector<HTMLElement>('[data-confirm]');
+    if (goBtn) goBtn.textContent = `${selMachine().number}番台を見る ▶`;
+    // 隣が景品カウンターなら通路の表示をそう言い換える（「前の島」ではないので）
+    const label = (nav: number): string =>
+      nav === COUNTER_NAV ? '景品カウンター' : '';
+    const prevNav = (st.nav - 1 + PLACES) % PLACES;
+    const nextNav = (st.nav + 1) % PLACES;
+    const setLabel = (sel: string, nav: number, fallback: string): void => {
+      const el = root.querySelector<HTMLElement>(`${sel} .hall-aisle-label`);
+      if (el) el.textContent = label(nav) || fallback;
+    };
+    setLabel('.hall-aisle-l', prevNav, '前の島');
+    setLabel('.hall-aisle-r', nextNav, '次の島');
   };
 
   // ─── 景品カウンター前（引きの絵） ───
@@ -864,7 +897,7 @@ export function mountHallView(cb: HallViewCallbacks): HallViewHandle {
     </div>`;
 
   const counterWide = (): string => `
-    <div class="hall-counterfront">
+    <div class="hall-counterfront${slideClass()}">
       <div class="hall-ceiling"><span class="hall-ceiling-edge"></span><span class="hall-fluoro"></span></div>
       <div class="hall-far hall-far-counter">
         ${Array.from({ length: 9 }, () => '<span class="hall-far-bar"></span>').join('')}
@@ -915,7 +948,7 @@ export function mountHallView(cb: HallViewCallbacks): HallViewHandle {
     </div>`;
 
   const counterNarrow = (): string => `
-    <div class="hall-counterfront narrow">
+    <div class="hall-counterfront narrow${slideClass()}">
       <span class="hall-cf-topline"></span>
       <span class="hall-carpet sm"></span>
 
@@ -1184,7 +1217,7 @@ export function mountHallView(cb: HallViewCallbacks): HallViewHandle {
     // 島の足元バーから景品カウンターへ歩く（場所として移動する）
     'to-counter': () => {
       st.nav = COUNTER_NAV;
-      go('counter');
+      go('counter', 'left'); // カウンターは左端なので左から入ってくる
     },
     // カウンター前で受付／データボードを押したら、選ぶだけでなくそのまま寄る
     'card-spot': () => {
@@ -1206,7 +1239,7 @@ export function mountHallView(cb: HallViewCallbacks): HallViewHandle {
     root.querySelectorAll<HTMLElement>('[data-island]').forEach((el) => {
       el.addEventListener('click', () => {
         const idx = Number(el.dataset.island);
-        st.nav = idx;
+        st.nav = navOfIsland(idx);
         const first = machinesOfIsland(ISLANDS[idx].id)[0];
         st.selId = first.id;
         enterHall();
@@ -1214,10 +1247,18 @@ export function mountHallView(cb: HallViewCallbacks): HallViewHandle {
     });
     root.querySelectorAll<HTMLElement>('[data-dot]').forEach((el) => {
       el.addEventListener('click', () => {
-        st.nav = Number(el.dataset.dot);
-        const first = machinesOfIsland(ISLANDS[st.nav].id)[0];
-        st.selId = first.id;
-        updateFloor();
+        const nav = Number(el.dataset.dot);
+        const dir: HallState['slide'] = nav > st.nav ? 'right' : 'left';
+        if (nav === COUNTER_NAV) {
+          st.nav = nav;
+          go('counter', dir);
+          return;
+        }
+        const wasCounter = st.nav === COUNTER_NAV;
+        st.nav = nav;
+        st.selId = machinesOfIsland(islandAt(nav).id)[0].id;
+        if (wasCounter) go('floor', dir);
+        else updateFloor();
       });
     });
     root.querySelectorAll<HTMLElement>('.hall-machine').forEach((el) => {
@@ -1299,7 +1340,7 @@ export function mountHallView(cb: HallViewCallbacks): HallViewHandle {
       toSeat(st.selId);
     } else if (/^[1-4]$/.test(e.key)) {
       const seat = Number(e.key);
-      const m = machinesOfIsland(ISLANDS[st.nav].id).find((x) => x.seat === seat);
+      const m = machinesOfIsland(islandAt(st.nav).id).find((x) => x.seat === seat);
       if (m) {
         st.selId = m.id;
         updateFloor();
