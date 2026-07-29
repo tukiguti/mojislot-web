@@ -3,13 +3,18 @@
  * GitHub Pages はサーバ側リライト不可のため、hash(`#/play` 等)でディープリンク/リロード404を回避する。
  * ビューは `#view-{route}` を `hidden` トグルで出し分ける。
  */
-export type Route = 'top' | 'play' | 'game' | 'ranking' | 'card';
+/**
+ * `play` がホール（入口→島→寄り→カウンター前）。**ここが起点**で、独立したTOPは無い。
+ * 遊ぶ・会員カード・ランキングの3導線は全部ホールの入口に出ているので、
+ * その手前にもう1枚メニューを置くと、入場するまでに2回クリックさせることになる。
+ */
+export type Route = 'play' | 'game' | 'ranking' | 'card';
 
-const ROUTES: Route[] = ['top', 'play', 'game', 'ranking', 'card'];
+const ROUTES: Route[] = ['play', 'game', 'ranking', 'card'];
 
 export function parseRoute(hash: string): Route {
   const r = hash.replace(/^#\/?/, '');
-  return (ROUTES as string[]).includes(r) ? (r as Route) : 'top';
+  return (ROUTES as string[]).includes(r) ? (r as Route) : 'play';
 }
 
 /** 全ビューを hidden にし、route のビューだけ表示。先頭見出しへフォーカス移動(最低限のa11y)。 */

@@ -43,8 +43,6 @@ import './hall.css';
 export interface HallViewCallbacks {
   /** 台と設定を確定してゲームを起動する。 */
   onLaunch: () => void;
-  /** TOPへ戻る。 */
-  onBack: () => void;
   /** 景品カウンター（会員カード）へ。 */
   onCard: () => void;
   /** 景品カウンター（ランキング）へ。 */
@@ -555,7 +553,6 @@ export function mountHallView(cb: HallViewCallbacks): HallViewHandle {
         <div class="hall-enter">
           <div class="hall-enter-btn" data-act="enter" role="button" tabindex="0">入 場 す る</div>
           <span class="hall-enter-hint">Enter / クリックで入場　—　場内は ← → で島、1–4 で台、Enter で決定</span>
-          <button class="hall-exit-top" data-act="top" type="button">← TOP</button>
         </div>
       </div>`;
   };
@@ -609,7 +606,6 @@ export function mountHallView(cb: HallViewCallbacks): HallViewHandle {
             <div class="hall-counterlink" data-act="ranking" role="button" tabindex="0">ランキング</div>
           </div>
           <span class="hall-enter-hint">島は左右スワイプ／台をタップで詳細</span>
-          <button class="hall-exit-top" data-act="top" type="button">← TOP</button>
         </div>
       </div>`;
   };
@@ -1171,7 +1167,6 @@ export function mountHallView(cb: HallViewCallbacks): HallViewHandle {
 
   const actions: Record<string, () => void> = {
     enter: enterHall,
-    top: cb.onBack,
     card: cb.onCard,
     ranking: cb.onRanking,
     exit: () => go('entrance'),
