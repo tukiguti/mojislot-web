@@ -4,10 +4,11 @@ import { fileURLToPath } from 'node:url';
 import { dirname, resolve } from 'node:path';
 import { YakuListSchema, type InternalRoleState } from '../../src/data/schemas';
 import {
+  SETTINGS,
   applySetting,
+  applySettingToEffects,
   dayKey,
   settingFor,
-  SETTINGS,
 } from '../../src/productions/MachineSetting';
 
 /**
@@ -98,5 +99,62 @@ describe('MachineSetting', () => {
     const before = bonusRate(yakuList, 'default');
     applySetting(yakuList, 6);
     expect(bonusRate(yakuList, 'default')).toBe(before);
+  });
+});
+
+describe('設定と演出レート', () => {
+  const base = { none: 0.5, shisa: 0.15, quiz: 0.25, aim: 0.1 };
+
+  it('設定が高いほど無演出が減る（＝何を狙うか分かるゲームが増える）', () => {
+    const nones = SETTINGS.map((s) => applySettingToEffects(base, s).none);
+    for (let i = 1; i < nones.length; i++) {
+      expect(nones[i], `設定${i + 1}`).toBeLessThan(nones[i - 1]);
+    }
+  });
+
+  it('合計は常に1（抽選が壊れない）', () => {
+    for (const s of SETTINGS) {
+      const r = applySettingToEffects(base, s);
+      expect(r.none + r.shisa + r.quiz + r.aim, `設定${s}`).toBeCloseTo(1, 9);
+    }
+  });
+
+  it('演出の種類の比は設定で変わらない', () => {
+    // 「今日はクイズが多い＝高設定」のような別の読み筋を作らないため、
+    // 動かすのは無演出の割合だけで、示唆・クイズ・狙えの比は保つ。
+    const ratio = (r: { shisa: number; quiz: number; aim: number }): number[] => {
+      const sum = r.shisa + r.quiz + r.aim;
+      return [r.shisa / sum, r.quiz / sum, r.aim / sum];
+    };
+    const want = ratio(base);
+    for (const s of SETTINGS) {
+      ratio(applySettingToEffects(base, s)).forEach((v, i) => {
+        expect(v, `設定${s} の${i}番目`).toBeCloseTo(want[i], 9);
+      });
+    }
+  });
+
+  it('ボーナス中（無演出0）は設定差が出ない', () => {
+    const bonus = { none: 0, shisa: 0.4, quiz: 0.35, aim: 0.25 };
+    for (const s of SETTINGS) {
+      expect(applySettingToEffects(bonus, s), `設定${s}`).toEqual(bonus);
+    }
+  });
+
+  it('出現ウェイト込みの加重平均がほぼ1倍（ホール全体の水位が動かない）', () => {
+    // 低設定ほど出やすいので、単純に1.0を挟むと平均が低設定側へ寄る。
+    const WEIGHT: Record<number, number> = { 1: 30, 2: 24, 3: 18, 4: 14, 5: 9, 6: 5 };
+    const total = SETTINGS.reduce((a, s) => a + WEIGHT[s], 0);
+    const avg = SETTINGS.reduce(
+      (a, s) => a + (applySettingToEffects(base, s).none / base.none) * WEIGHT[s],
+      0,
+    ) / total;
+    expect(avg).toBeCloseTo(1, 2);
+  });
+
+  it('元のレートは書き換えない', () => {
+    const copy = { ...base };
+    applySettingToEffects(base, 6);
+    expect(base).toEqual(copy);
   });
 });

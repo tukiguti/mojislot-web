@@ -12,7 +12,12 @@ import { YakuJudge } from '../../src/core/YakuJudge';
 import { PayoutCalc } from '../../src/core/PayoutCalc';
 import { RoundResolver } from '../../src/core/RoundResolver';
 import { EffectEligibility } from '../../src/productions/EffectEligibility';
-import { applySetting, SETTINGS, type Setting } from '../../src/productions/MachineSetting';
+import {
+  applySetting,
+  applySettingToEffects,
+  SETTINGS,
+  type Setting,
+} from '../../src/productions/MachineSetting';
 import { StopTableLookup } from '../../src/core/StopTable';
 import { StopController } from '../../src/core/StopController';
 import { ReachEyes } from '../../src/core/ReachEyes';
@@ -169,6 +174,14 @@ function runChapter(
   const reelCfg = ReelConfigSchema.parse(readJson(`${DATA}/reels/${chapter}.json`));
   const payout: Payout = PayoutSchema.parse(readJson(`${DATA}/payouts/default.json`));
   const tuning: Tuning = TuningSchema.parse(readJson(`${DATA}/tuning/default.json`));
+  // 設定差の主役は演出レート（無演出の割合）。本番と同じ関数で適用する。
+  const effectRates = setting
+    ? {
+        default: applySettingToEffects(tuning.effectRates.default, setting),
+        rescue: applySettingToEffects(tuning.effectRates.rescue, setting),
+        bonus: tuning.effectRates.bonus,
+      }
+    : tuning.effectRates;
   const quizzes = readJson(`${DATA}/quizzes/${chapter}.json`).quizzes as {
     answerYakuId: string;
   }[];
@@ -306,10 +319,10 @@ function runChapter(
     const yaku = role.yakuId ? (yakuById.get(role.yakuId) ?? null) : null;
     const rates =
       state === 'bonus'
-        ? tuning.effectRates.bonus
+        ? effectRates.bonus
         : state === 'rescue'
-          ? tuning.effectRates.rescue
-          : tuning.effectRates.default;
+          ? effectRates.rescue
+          : effectRates.default;
 
     let effect: 'none' | 'shisa' | 'quiz' | 'aim';
     if (heldYaku || carried) {

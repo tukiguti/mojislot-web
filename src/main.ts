@@ -20,7 +20,7 @@ import {
 } from './productions/EffectScheduler';
 import { BonusZone } from './productions/BonusZone';
 import { BonusSession } from './productions/BonusSession';
-import { applySetting } from './productions/MachineSetting';
+import { applySetting, applySettingToEffects } from './productions/MachineSetting';
 import { settingForMachine } from './productions/HallPolicy';
 import { recordSpin as recordMachineSpin } from './productions/MachineData';
 import { drawEndScreen } from './productions/SettingHint';
@@ -191,6 +191,16 @@ export async function bootstrap() {
   );
   // 演出レート・補助・フリーズ等の調整値（散在していた定数を集約）。data/tuning/default.json。
   const tuning = TuningSchema.parse(tuningDataRaw);
+  /**
+   * 設定を適用した演出レート。**設定差の主役はここ**（MachineSetting の NONE_MULTIPLIER）。
+   * 高設定ほど無演出が減り、何を狙えばよいか分かるゲームが増える＝取りこぼしが減る。
+   * ボーナス中は none が0なので差が出ない（引いた後の性能は設定で変えない）。
+   */
+  const effectRates = {
+    default: applySettingToEffects(tuning.effectRates.default, machineSetting),
+    rescue: applySettingToEffects(tuning.effectRates.rescue, machineSetting),
+    bonus: tuning.effectRates.bonus,
+  };
   // 役の id → 役オブジェクトの逆引き（AUTO のターゲット解決などで使う）
   const allYakusFlat = [
     ...yakuList.coreYaku,
@@ -212,7 +222,7 @@ export async function bootstrap() {
     bitaMultiplier: payout.bitaMultiplier,
   });
   const wallet = new CoinWallet(payout.initialCoins);
-  const scheduler = new EffectScheduler(tuning.effectRates.default);
+  const scheduler = new EffectScheduler(effectRates.default);
   const jinState = new JinState();
   const quizState = new QuizState();
   const slipResolver = new SlipResolver(yakuList, {
@@ -221,7 +231,7 @@ export async function bootstrap() {
   const bonusZone = new BonusZone({
     spinsPerBonus: tuning.bonus.spinsPerBig,
     spinsPerReg: tuning.bonus.spinsPerReg,
-    bonusEffectRates: tuning.effectRates.bonus,
+    bonusEffectRates: effectRates.bonus,
   });
   // 突入〜消化しきりの区間管理（獲得集計・おかわり判定・締め）は BonusSession が持つ。
   const bonusSession = new BonusSession(bonusZone);
@@ -1290,9 +1300,9 @@ export async function bootstrap() {
     } else if (bonusSession.spinActive) {
       scheduler.setRates(bonusZone.config.bonusEffectRates);
     } else if (playStats.stats.get().missStreak >= tuning.rescueMissThreshold) {
-      scheduler.setRates(tuning.effectRates.rescue);
+      scheduler.setRates(effectRates.rescue);
     } else {
-      scheduler.setRates(tuning.effectRates.default);
+      scheduler.setRates(effectRates.default);
     }
     updateButtons();
   };
