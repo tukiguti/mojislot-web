@@ -48,10 +48,16 @@ export interface ChapterBundle {
   hidden?: boolean;
 }
 
+/**
+ * `name` はホールの島看板・筐体のタイトルパネルに出る表示名なので、**文字種は入れない**。
+ * 「ひらがな寿司」ではなく「寿司」。文字種は `description` に並ぶ役名を見れば分かるし、
+ * 看板として長い名前は収まらない（デザイン仕様書と表記を揃えるための取り決め）。
+ * `id` は保存済みの記録との互換のため据え置き（寿司が `hiragana_food`、八百屋が `yasai`）。
+ */
 export const CHAPTERS: readonly ChapterBundle[] = [
   {
     id: 'hiragana_food',
-    name: 'ひらがな寿司',
+    name: '寿司',
     description: 'いわし・さんま・かつお・まぐろ。チェリーは「えび」、REGは「しゃこ」、BIGは「しゃけ」「たらこ」',
     reelData: hiraganaFoodReel,
     yakuData: hiraganaFoodYaku,
@@ -61,7 +67,7 @@ export const CHAPTERS: readonly ChapterBundle[] = [
   },
   {
     id: 'katakana_animal',
-    name: 'カタカナ動物',
+    name: '動物',
     description: 'ウサギ・キリン・タヌキなど。チェリーは「サイ」、REGは「ナマコ」、BIGは「ナマズ」「インコ」',
     reelData: katakanaAnimalReel,
     yakuData: katakanaAnimalYaku,
@@ -71,7 +77,7 @@ export const CHAPTERS: readonly ChapterBundle[] = [
   },
   {
     id: 'hiragana_verb',
-    name: 'ひらがな動詞',
+    name: '動詞',
     description: 'うたう・あそぶ・およぐなど。チェリーは「ねる」、REGは「いきむ」、BIGは「いきる」「やすむ」',
     reelData: hiraganaVerbReel,
     yakuData: hiraganaVerbYaku,
@@ -81,7 +87,7 @@ export const CHAPTERS: readonly ChapterBundle[] = [
   },
   {
     id: 'yasai',
-    name: 'カタカナ八百屋',
+    name: '八百屋',
     description: 'オクラ・モヤシ・セロリなど。チェリーは「ナス」、REGは「ライム」、BIGは「ライチ」「プラム」',
     reelData: yasaiReel,
     yakuData: yasaiYaku,
