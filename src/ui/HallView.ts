@@ -1,0 +1,978 @@
+import { CHAPTERS, setCurrentChapterId } from '../data/chapters';
+import {
+  ISLANDS,
+  MACHINES,
+  SEATS_PER_ISLAND,
+  chapterIdOfMachine,
+  getCurrentMachine,
+  islandById,
+  machinesOfIsland,
+  setCurrentMachineId,
+  type Island,
+  type Machine,
+} from '../data/machines';
+import { lineColorOf, themeVars } from '../data/islandThemes';
+import { PayoutSchema, TuningSchema, YakuListSchema, type YakuList } from '../data/schemas';
+import { hallPolicyFor, isTargeted, type HallPolicy } from '../productions/HallPolicy';
+import {
+  bonusRate,
+  readAllMachineDays,
+  readMachineDay,
+  type MachineDay,
+} from '../productions/MachineData';
+import payoutDataRaw from '../../data/payouts/default.json';
+import tuningDataRaw from '../../data/tuning/default.json';
+import './hall.css';
+
+/**
+ * ホール（台を選ぶ）。入口 → 島 → 寄り の3段階で打つ台を決める。
+ *
+ * 章カード5枚の一覧を、実機のホールと同じ**24台から1台を選ぶ**体験に置き換えたもの。
+ * 同じ島の4台はリール配列が同じで、違うのは**設定だけ**。だから配列を覚える技術は
+ * 島の中で持ち越せて、台移動しても無駄にならない。
+ *
+ * デザインの一次情報は claude.ai/design の「MOJISLOT 台を選ぶ.dc.html」。
+ * 構造と寸法は style.css の `.hall-*`、色は島テーマ（`--isl-*`）から来る。
+ *
+ * プレイ設定（ミッション/リール絵柄/AUTO/デバッグ）は**寄り画面の座る直前**に置いた。
+ * 打つ直前が最後に確認する場所なので、選ぶ→設定→遊ぶの順序が壊れない。
+ */
+
+export interface HallViewCallbacks {
+  /** 台と設定を確定してゲームを起動する。 */
+  onLaunch: () => void;
+  /** TOPへ戻る。 */
+  onBack: () => void;
+  /** 景品カウンター（会員カード）へ。 */
+  onCard: () => void;
+  /** 景品カウンター（ランキング）へ。 */
+  onRanking: () => void;
+}
+
+/** プレイ設定の保存先。既存コードが読む正本に合わせる（PlaySetup から引き継ぎ）。 */
+const MISSIONS_KEY = 'mojislot.challengesEnabled.v1';
+const REEL_ART_KEY = 'mojislot.reelArt.v1';
+const DEBUG_KEY = 'mojislot.debugVisible.v1';
+const PLAY_SETUP_KEY = 'mojislot.playSetup.v1';
+
+/** スマホ用マークアップへ切り替える幅。CSSではなく状態で分岐する（入口は構造ごと違う）。 */
+const NARROW_AT = 760;
+/** ハマりの警告しきい値（回転数）。実機の呼出ランプが赤くなる目安。 */
+const HOT_THRESHOLD = 200;
+/** 入場アニメーションの長さ。ドア0.8秒＋ズーム1.15秒より少し後で切り替える。 */
+const ENTER_MS = 1150;
+/** 台カードの倍率を測り直す間隔。フォント読み込み等で後からずれるため。 */
+const FIT_MS = 400;
+
+const payout = PayoutSchema.parse(payoutDataRaw);
+const tuning = TuningSchema.parse(tuningDataRaw);
+
+const esc = (s: string): string =>
+  s.replace(
+    /[&<>"']/g,
+    (c) =>
+      ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[
+        c
+      ] ?? c,
+  );
+
+const signed = (n: number): string => `${n > 0 ? '+' : n < 0 ? '−' : '±'}${Math.abs(n)}`;
+
+/** 曜日つきの日付。ホールの看板に出す。 */
+function todayLabel(now: Date): string {
+  const w = ['日', '月', '火', '水', '木', '金', '土'][now.getDay()];
+  return `${now.getMonth() + 1}/${now.getDate()} (${w})`;
+}
+
+/** 章の役リスト。配当表とリールの停止表示に使うので、島を開いた時だけ読む。 */
+const yakuCache = new Map<string, YakuList>();
+function yakuOf(chapterId: string): YakuList {
+  const hit = yakuCache.get(chapterId);
+  if (hit) return hit;
+  const chapter = CHAPTERS.find((c) => c.id === chapterId);
+  if (!chapter) throw new Error(`章「${chapterId}」がありません`);
+  const parsed = YakuListSchema.parse(chapter.yakuData);
+  yakuCache.set(chapterId, parsed);
+  return parsed;
+}
+
+const wordOf = (symbols: readonly string[]): string => symbols.join('');
+
+/**
+ * 島の役（小役4・チェリー・REG・BIG2）。配当表と筐体の図柄に使う。
+ *
+ * リミックス島は章を複数持つので、**小役は章をまたいで1つずつ**取る。i番目の章から
+ * i番目の小役を取れば 4/6/8/10 の枚数の階段は保たれる。ボーナスは最後の章から丸ごと
+ * 取る（REG＝BIG2種から文字を借りる構成規則を島の中で成立させるため）。
+ */
+function islandYaku(island: Island): {
+  words: string[];
+  pays: number[];
+  cherry: string;
+  reg: string;
+  big: string[];
+} {
+  const lists = island.chapterIds.map(yakuOf);
+  const bonusFrom = lists[lists.length - 1];
+  const cores =
+    lists.length === 1
+      ? lists[0].coreYaku
+      : lists[0].coreYaku.map((_, i) => (lists[i] ?? lists[0]).coreYaku[i]);
+  return {
+    words: cores.map((k) => wordOf(k.symbols)),
+    pays: cores.map((k) => k.payout ?? 0),
+    cherry: wordOf(bonusFrom.cherryYaku[0].symbols),
+    reg: wordOf(bonusFrom.bonusYaku[0].symbols),
+    big: bonusFrom.premiumYaku.map((k) => wordOf(k.symbols)),
+  };
+}
+
+/**
+ * 筐体のリール窓に出す3×3。席ごとに違う停止位置にして「同じ配列・違う止まり方」を見せる。
+ * 中段はBIG図柄。打つ前の飾りなので当選とは無関係。
+ */
+function reelGrid(island: Island, seat: number): string[] {
+  const { words, big } = islandYaku(island);
+  const rows = [words[seat - 1], big[0], words[seat % words.length]];
+  const out: string[] = [];
+  rows.forEach((w, r) => {
+    for (let c = 0; c < 3; c++) out.push(w[(c + r + seat) % 3] ?? '');
+  });
+  return out;
+}
+
+/** 1台ぶんの表示値。データが無い台は「—」で、まだ誰も打っていないことを示す。 */
+interface MachineView {
+  machine: Machine;
+  island: Island;
+  day: MachineDay;
+  played: boolean;
+  hot: boolean;
+  plus: boolean;
+  target: boolean;
+}
+
+function viewOf(
+  machine: Machine,
+  day: MachineDay,
+  policy: HallPolicy,
+): MachineView {
+  return {
+    machine,
+    island: islandById(machine.islandId) ?? ISLANDS[0],
+    day,
+    played: day.spins > 0,
+    hot: day.sinceBonus >= HOT_THRESHOLD,
+    plus: day.sahmai > 0,
+    target: isTargeted(machine, policy),
+  };
+}
+
+/** ホール方針のタグ（狙い目バッジの文字）。掲示が無い日は空。 */
+function policyTag(policy: HallPolicy): string {
+  switch (policy.kind) {
+    case 'tail':
+      return `末尾${policy.tail}`;
+    case 'island':
+      return '強化島';
+    case 'corner':
+      return '角狙い';
+    default:
+      return '';
+  }
+}
+
+// ═══════════ 部品 ═══════════
+
+/**
+ * スランプグラフ。差枚の推移を0〜100%の高さに正規化する。
+ * 実データ（MachineDay.samples）だけで描き、点が無ければ何も出さない。
+ */
+function graphBars(day: MachineDay): string {
+  if (day.samples.length === 0) return '';
+  const max = Math.max(1, ...day.samples.map((v) => Math.abs(v)));
+  return day.samples
+    .map((v) => {
+      // 中央が±0。上下に振れるので 50% を基準に半分ずつ使う。
+      const h = 50 + (v / max) * 44;
+      return `<span class="hall-graph-bar" style="height:${h.toFixed(0)}%"></span>`;
+    })
+    .join('');
+}
+
+/** データ表示器（ホール設備・全島共通のデザイン）。筐体とは別体で上に載る。 */
+function dataCounter(v: MachineView): string {
+  const d = v.day;
+  const num = (n: number): string => (v.played ? String(n) : '—');
+  return `
+    <div class="hall-counter">
+      <div class="hall-lamps">
+        <span class="hall-lamp hall-lamp-red${v.hot ? ' on' : ''}"></span>
+        <span class="hall-lamp hall-lamp-yellow${v.plus ? ' on' : ''}"></span>
+        <span class="hall-lamp hall-lamp-green${v.target ? ' on' : ''}"></span>
+        <span class="hall-lamp-gloss"></span>
+      </div>
+      <div class="hall-seg">
+        <span class="hall-seg-label">台番</span>
+        <span class="hall-seg-value">${String(v.machine.number).padStart(3, '0')}</span>
+      </div>
+      <div class="hall-counter-grid">
+        <div class="hall-counter-cell"><span>BB</span><b class="hall-num-bb">${num(d.big)}</b></div>
+        <div class="hall-counter-cell"><span>RB</span><b class="hall-num-rb">${num(d.reg)}</b></div>
+        <div class="hall-counter-cell"><span>総スタート</span><b class="hall-num-games">${num(d.spins)}</b></div>
+      </div>
+      <div class="hall-graph">
+        <span class="hall-graph-base"></span>
+        ${graphBars(d)}
+        <span class="hall-graph-label">差枚 ${v.played ? signed(d.sahmai) : '±0'}</span>
+      </div>
+    </div>`;
+}
+
+/** 筐体。シャーシは全島共通で、パネル・リール窓・ボタンだけがテーマで変わる。 */
+function cabinet(v: MachineView, size: 'floor' | 'seat'): string {
+  const cells = reelGrid(v.island, v.machine.seat)
+    .map((ch) => `<span class="hall-cell">${esc(ch)}</span>`)
+    .join('');
+  const insert =
+    size === 'seat'
+      ? `<span class="hall-info-lamp">INSERT</span>`
+      : '';
+  const settle =
+    size === 'seat'
+      ? `<div class="hall-settle"><span class="hall-slot-mouth"></span><span class="hall-settle-btn">精算</span></div>`
+      : `<span class="hall-slot-mouth"></span>`;
+  return `
+    <div class="hall-cabinet hall-cabinet-${size}">
+      <div class="hall-toplamp"></div>
+      <div class="hall-titlepanel"><span>${esc(v.island.name)}</span></div>
+      <div class="hall-lcd">
+        <span class="hall-lcd-scan"></span>
+        <span class="hall-lcd-text">演出液晶</span>
+        <span class="hall-lcd-glow"></span>
+      </div>
+      <div class="hall-reelframe">
+        <div class="hall-reelgrid">${cells}</div>
+        <span class="hall-payline"></span>
+        <span class="hall-payline-dot hall-payline-dot-l"></span>
+        <span class="hall-payline-dot hall-payline-dot-r"></span>
+      </div>
+      <div class="hall-infopanel">
+        <span class="hall-info-label">CREDIT</span>
+        <span class="hall-info-value">00</span>
+        <div class="hall-info-lamps">
+          <span class="hall-info-lamp hall-info-replay">REPLAY</span>
+          ${insert}
+          <span class="hall-info-lamp">START</span>
+        </div>
+        <span class="hall-info-label">PAYOUT</span>
+        <span class="hall-info-value">00</span>
+      </div>
+      <div class="hall-ctrl">
+        <div class="hall-bets">
+          <span class="hall-maxbet">MAX</span>
+          <span class="hall-1bet">1BET</span>
+        </div>
+        <div class="hall-lever">
+          <span class="hall-lever-ball"></span>
+          <span class="hall-lever-rod"></span>
+        </div>
+        <div class="hall-stops">
+          <span class="hall-stop"></span>
+          <span class="hall-stop"></span>
+          <span class="hall-stop"></span>
+        </div>
+        ${settle}
+      </div>
+      <div class="hall-lowerpanel"><span>MOJISLOT</span></div>
+      <div class="hall-tray"></div>
+    </div>`;
+}
+
+/** 島に並ぶ1台（表示器＋筐体＋丸椅子＋選択枠）と、その右の台間サンド。 */
+function machineCard(v: MachineView, selected: boolean): string {
+  return `
+    <div class="hall-slot">
+      <div class="hall-machine${selected ? ' selected' : ''}" data-machine="${v.machine.id}" role="button" tabindex="0">
+        ${dataCounter(v)}
+        ${cabinet(v, 'floor')}
+        <div class="hall-stool"><span class="hall-stool-seat"></span><span class="hall-stool-pole"></span></div>
+        <span class="hall-selframe"></span>
+      </div>
+      <div class="hall-sand">
+        <span class="hall-sand-lamp"></span>
+        <span class="hall-sand-mouth"></span>
+      </div>
+    </div>`;
+}
+
+// ═══════════ 画面 ═══════════
+
+interface HallState {
+  phase: 'entrance' | 'entering' | 'floor' | 'seat';
+  /** 表示中の島のインデックス。 */
+  nav: number;
+  /** 選択中の台ID。 */
+  selId: string;
+  /** 寄りで見ている台ID（島を移動しても寄りの中身が変わらないよう保持）。 */
+  seatId: string;
+  narrow: boolean;
+  scale: number;
+}
+
+export function mountHallView(cb: HallViewCallbacks): void {
+  const found = document.getElementById('view-play');
+  if (!found) return;
+  // render()/wire() は巻き上げられる関数宣言なので、絞り込み済みの const に持ち替える。
+  const root: HTMLElement = found;
+
+  const initial = getCurrentMachine();
+  const st: HallState = {
+    phase: 'entrance',
+    nav: Math.max(0, ISLANDS.findIndex((i) => i.id === initial.islandId)),
+    selId: initial.id,
+    seatId: initial.id,
+    narrow: window.innerWidth < NARROW_AT,
+    scale: 1,
+  };
+
+  let track: HTMLElement | null = null;
+  let fitTimer: number | null = null;
+  let enterTimer: number | null = null;
+  let touch: { x: number; y: number; col: HTMLElement | null; left: number } | null =
+    null;
+
+  const now = (): Date => new Date();
+  const policy = (): HallPolicy => hallPolicyFor(now());
+  const days = (): Map<string, MachineDay> =>
+    readAllMachineDays(
+      MACHINES.map((m) => m.id),
+      now(),
+    );
+
+  const machineOf = (id: string): Machine =>
+    MACHINES.find((m) => m.id === id) ?? MACHINES[0];
+
+  const selMachine = (): Machine => machineOf(st.selId);
+
+  // ─── 倍率の実測 ───
+  // 台カードは固定寸法で作り、画面に合わせるのは1つの倍率だけ。各パーツを個別に
+  // clamp() で可変にすると最小値の合計が画面高を超えて上端が切れる（デザインの罠1）。
+  const fit = (): void => {
+    const narrow = window.innerWidth < NARROW_AT;
+    if (narrow !== st.narrow) {
+      st.narrow = narrow;
+      render();
+      return;
+    }
+    if (!track) return;
+    const row = track.querySelector<HTMLElement>('[data-card-row]');
+    const box = track.getBoundingClientRect();
+    if (!row || !row.offsetHeight || !box.height) return;
+    // 6px 引いてから切り捨てる。切り上げると1pxはみ出して選択枠の上辺が切れる。
+    const byH = (box.height - 6) / row.offsetHeight;
+    const raw = narrow
+      ? Math.min(1, byH)
+      : Math.min(1, byH, (box.width - 6) / row.offsetWidth);
+    const next = Math.floor(raw * 1000) / 1000;
+    if (Math.abs(next - st.scale) < 0.0005) return;
+    st.scale = next;
+    track
+      .querySelectorAll<HTMLElement>('[data-card-row]')
+      .forEach((el) => (el.style.transform = `scale(${next.toFixed(3)})`));
+  };
+
+  const startFit = (): void => {
+    if (fitTimer !== null) return;
+    fitTimer = window.setInterval(fit, FIT_MS);
+  };
+  const stopFit = (): void => {
+    if (fitTimer === null) return;
+    window.clearInterval(fitTimer);
+    fitTimer = null;
+  };
+
+  // ─── 移動 ───
+  const go = (phase: HallState['phase']): void => {
+    st.phase = phase;
+    render();
+  };
+
+  const enterHall = (): void => {
+    if (st.phase !== 'entrance') return;
+    st.phase = 'entering';
+    render();
+    if (enterTimer !== null) window.clearTimeout(enterTimer);
+    enterTimer = window.setTimeout(() => go('floor'), ENTER_MS);
+  };
+
+  /** 島を1つ横へ。選択台は同じ席番号を引き継ぐ（実機のホールで隣の島の同じ位置へ歩く感じ）。 */
+  const move = (d: number): void => {
+    const nav = (st.nav + d + ISLANDS.length) % ISLANDS.length;
+    const seat = selMachine().seat;
+    const island = ISLANDS[nav];
+    const next =
+      machinesOfIsland(island.id).find((m) => m.seat === seat) ??
+      machinesOfIsland(island.id)[0];
+    st.nav = nav;
+    st.selId = next.id;
+    updateFloor();
+  };
+
+  const toSeat = (id: string): void => {
+    st.selId = id;
+    st.seatId = id;
+    go('seat');
+  };
+
+  // ─── 入口 ───
+  const guideRows = (): string =>
+    ISLANDS.map((island, idx) => {
+      const y = islandYaku(island);
+      const range = `${island.no}1 – ${island.no}${SEATS_PER_ISLAND}`;
+      const tail = island.chapterIds.length > 1
+        ? `<span class="hall-guide-wip">調整中</span>`
+        : `<span class="hall-guide-range">${range}</span>`;
+      return `
+        <div class="hall-guide-row" data-island="${idx}" role="button" tabindex="0">
+          <span class="hall-guide-bar" style="background:${lineColorOf(island.id)}"></span>
+          <span class="hall-guide-text">
+            <b>${esc(island.name)}</b>
+            <i>${esc(y.words.join('・'))}</i>
+          </span>
+          ${tail}
+        </div>`;
+    }).join('');
+
+  const doorSilhouettes = (heights: number[]): string =>
+    ISLANDS.map(
+      (island, i) =>
+        `<span class="hall-door-sil" style="height:${heights[i] ?? 150}px;border-top-color:${lineColorOf(island.id)}"></span>`,
+    ).join('');
+
+  const entranceCommon = (): {
+    poster: string;
+    today: string;
+    running: number;
+  } => {
+    const p = policy();
+    const all = days();
+    return {
+      poster: p.poster ?? '本日は通常営業です',
+      today: todayLabel(now()),
+      running: MACHINES.filter((m) => (all.get(m.id)?.spins ?? 0) > 0).length,
+    };
+  };
+
+  const entranceWide = (): string => {
+    const c = entranceCommon();
+    return `
+      <div class="hall-entrance${st.phase === 'entering' ? ' entering' : ''}">
+        <span class="hall-sky"></span>
+        <span class="hall-wall"></span>
+        <span class="hall-road"></span>
+        <span class="hall-signglow"></span>
+
+        <div class="hall-bigsign">
+          <div class="hall-bigsign-box">
+            <span class="hall-bigsign-sub">SLOT HALL</span>
+            <span class="hall-bigsign-logo">MOJISLOT</span>
+            <span class="hall-bigsign-chase"></span>
+          </div>
+          <div class="hall-openrow">
+            <div class="hall-openbadge"><span class="hall-openlamp"></span><span>営業中</span></div>
+            <span class="hall-opentime">9:00 – 22:45　${esc(c.today)}</span>
+          </div>
+        </div>
+
+        <div class="hall-door" data-act="enter" role="button" tabindex="0">
+          <span class="hall-door-inner"></span>
+          <span class="hall-door-ceil"></span>
+          <div class="hall-door-sils">${doorSilhouettes([150, 168, 158, 172, 146, 162])}</div>
+          <div class="hall-door-panel hall-door-l"></div>
+          <div class="hall-door-panel hall-door-r"></div>
+          <span class="hall-door-label">AUTO DOOR</span>
+        </div>
+        <span class="hall-mat"></span>
+
+        <div class="hall-board">
+          <div class="hall-board-face">
+            <span class="hall-board-badge">本日の掲示</span>
+            <span class="hall-board-text">${esc(c.poster)}</span>
+            <span class="hall-board-note">※ 確約ではありません</span>
+            <div class="hall-board-foot">
+              <span>設置 ${MACHINES.length}台 ／ ${ISLANDS.length}島</span>
+              <span>本日 稼働 ${c.running}台</span>
+            </div>
+          </div>
+          <div class="hall-board-leg"></div>
+        </div>
+
+        <div class="hall-guide">
+          <div class="hall-guide-head">
+            <span class="hall-guide-title">島 案 内</span>
+            <span class="hall-guide-count">全${ISLANDS.length}島</span>
+          </div>
+          ${guideRows()}
+        </div>
+
+        <div class="hall-counterlinks">
+          <span class="hall-counterlinks-title">景品カウンター</span>
+          <div class="hall-counterlinks-row">
+            <div class="hall-counterlink" data-act="card" role="button" tabindex="0">会員カード</div>
+            <div class="hall-counterlink" data-act="ranking" role="button" tabindex="0">ランキング</div>
+          </div>
+        </div>
+
+        <div class="hall-enter">
+          <div class="hall-enter-btn" data-act="enter" role="button" tabindex="0">入 場 す る</div>
+          <span class="hall-enter-hint">Enter / クリックで入場　—　場内は ← → で島、1–4 で台、Enter で決定</span>
+          <button class="hall-exit-top" data-act="top" type="button">← TOP</button>
+        </div>
+      </div>`;
+  };
+
+  const entranceNarrow = (): string => {
+    const c = entranceCommon();
+    return `
+      <div class="hall-entrance narrow${st.phase === 'entering' ? ' entering' : ''}">
+        <span class="hall-road"></span>
+        <div class="hall-head-sm">
+          <span class="hall-bigsign-sub">SLOT HALL</span>
+          <span class="hall-bigsign-logo">MOJISLOT</span>
+          <div class="hall-openrow">
+            <div class="hall-openbadge"><span class="hall-openlamp"></span><span>営業中</span></div>
+            <span class="hall-opentime">${esc(c.today)}</span>
+          </div>
+        </div>
+
+        <div class="hall-door sm" data-act="enter" role="button" tabindex="0">
+          <span class="hall-door-inner"></span>
+          <span class="hall-door-ceil"></span>
+          <div class="hall-door-sils">${doorSilhouettes([96, 108, 101, 112, 93, 104])}</div>
+          <div class="hall-door-panel hall-door-l"></div>
+          <div class="hall-door-panel hall-door-r"></div>
+          <span class="hall-door-label">AUTO DOOR</span>
+        </div>
+        <span class="hall-mat sm"></span>
+
+        <div class="hall-sm-body">
+          <div class="hall-board-face sm">
+            <span class="hall-board-badge">本日の掲示</span>
+            <span class="hall-board-text">${esc(c.poster)}</span>
+            <div class="hall-board-foot">
+              <span>設置 ${MACHINES.length}台 ／ ${ISLANDS.length}島</span>
+              <span>本日 稼働 ${c.running}台</span>
+            </div>
+          </div>
+          <div class="hall-guide sm">
+            <div class="hall-guide-head">
+              <span class="hall-guide-title">島 案 内</span>
+              <span class="hall-guide-count">全${ISLANDS.length}島</span>
+            </div>
+            ${guideRows()}
+          </div>
+        </div>
+
+        <div class="hall-enter sm">
+          <div class="hall-enter-btn" data-act="enter" role="button" tabindex="0">入 場 す る</div>
+          <div class="hall-counterlinks-row">
+            <div class="hall-counterlink" data-act="card" role="button" tabindex="0">会員カード</div>
+            <div class="hall-counterlink" data-act="ranking" role="button" tabindex="0">ランキング</div>
+          </div>
+          <span class="hall-enter-hint">島は左右スワイプ／台をタップで詳細</span>
+          <button class="hall-exit-top" data-act="top" type="button">← TOP</button>
+        </div>
+      </div>`;
+  };
+
+  // ─── 島 ───
+  const floorHtml = (): string => {
+    const p = policy();
+    const all = days();
+    const cols = ISLANDS.map((island) => {
+      const cards = machinesOfIsland(island.id)
+        .map((m) => {
+          const day = all.get(m.id);
+          return day ? machineCard(viewOf(m, day, p), m.id === st.selId) : '';
+        })
+        .join('');
+      return `
+        <div class="hall-col" data-island-col
+             style="${themeVars(island.id)};width:${(100 / ISLANDS.length).toFixed(4)}%">
+          <div class="hall-cardrow" data-card-row>
+            <span class="hall-endboard"></span>
+            ${cards}
+          </div>
+        </div>`;
+    }).join('');
+
+    const dots = ISLANDS.map(
+      (island, i) =>
+        `<span class="hall-dot${i === st.nav ? ' on' : ''}" data-dot="${i}" style="--dot:${lineColorOf(island.id)}"></span>`,
+    ).join('');
+
+    return `
+      <div class="hall-floor"${st.narrow ? ' data-narrow' : ''}>
+        <div class="hall-ceiling"><span class="hall-ceiling-edge"></span><span class="hall-fluoro"></span></div>
+        <div class="hall-far">
+          ${Array.from({ length: 9 }, () => '<span class="hall-far-bar"></span>').join('')}
+          <span class="hall-far-fade"></span>
+        </div>
+        <div class="hall-carpet"></div>
+
+        <div class="hall-islandsign" data-island-sign>
+          <div class="hall-islandsign-rods"><span></span><span></span></div>
+          <div class="hall-islandsign-box" data-sign-box></div>
+        </div>
+
+        <div class="hall-aisle hall-aisle-l" data-act="prev" role="button" tabindex="0">
+          <span class="hall-aisle-mark">◀</span><span class="hall-aisle-label">前の島</span>
+        </div>
+        <div class="hall-aisle hall-aisle-r" data-act="next" role="button" tabindex="0">
+          <span class="hall-aisle-mark">▶</span><span class="hall-aisle-label">次の島</span>
+        </div>
+
+        <div class="hall-dots" data-dots>${dots}</div>
+
+        <div class="hall-track" data-track>
+          <div class="hall-slider" data-slider>${cols}</div>
+        </div>
+
+        <div class="hall-footbar">
+          <div class="hall-foot-exit" data-act="exit" role="button" tabindex="0">
+            <span>←</span><span>入口</span>
+          </div>
+          <div class="hall-foot-counter" data-act="ranking" role="button" tabindex="0">
+            <span class="hall-foot-counter-bar"></span><span>景品カウンター</span>
+          </div>
+          <div class="hall-foot-space"></div>
+          <div class="hall-foot-go" data-act="zoom" role="button" tabindex="0" data-confirm></div>
+        </div>
+      </div>`;
+  };
+
+  /** 島の移動と選択だけを差分で反映する（スライドの transition を殺さないため）。 */
+  const updateFloor = (): void => {
+    if (st.phase !== 'floor') return;
+    const island = ISLANDS[st.nav];
+    const slider = root.querySelector<HTMLElement>('[data-slider]');
+    if (slider) {
+      slider.style.transform = `translateX(-${(st.nav * 100) / ISLANDS.length}%)`;
+    }
+    const sign = root.querySelector<HTMLElement>('[data-sign-box]');
+    if (sign) {
+      const wip = island.chapterIds.length > 1;
+      sign.setAttribute('style', themeVars(island.id));
+      sign.innerHTML = `
+        <span class="hall-islandsign-name">${esc(island.name)}</span>
+        <span class="hall-islandsign-sep"></span>
+        <span class="hall-islandsign-range">${island.no}1 – ${island.no}${SEATS_PER_ISLAND}</span>
+        ${wip ? '<span class="hall-islandsign-wip">調 整 中</span>' : ''}`;
+    }
+    root.querySelectorAll<HTMLElement>('[data-dot]').forEach((el) => {
+      el.classList.toggle('on', Number(el.dataset.dot) === st.nav);
+    });
+    root.querySelectorAll<HTMLElement>('.hall-machine').forEach((el) => {
+      el.classList.toggle('selected', el.dataset.machine === st.selId);
+    });
+    const go = root.querySelector<HTMLElement>('[data-confirm]');
+    if (go) go.textContent = `${selMachine().number}番台を見る ▶`;
+  };
+
+  // ─── 寄り ───
+  const toggleRow = (
+    opt: string,
+    title: string,
+    sub: string,
+    on: boolean,
+  ): string => `
+    <label class="hall-toggle">
+      <span class="hall-toggle-text"><b>${title}</b><i>${sub}</i></span>
+      <input type="checkbox" data-opt="${opt}" ${on ? 'checked' : ''}>
+      <span class="hall-toggle-switch"></span>
+    </label>`;
+
+  const playSettings = (): string => {
+    const missionsOn = localStorage.getItem(MISSIONS_KEY) !== '0';
+    const artOn = localStorage.getItem(REEL_ART_KEY) === 'image';
+    const debugOn = localStorage.getItem(DEBUG_KEY) === '1';
+    let autoOn = true;
+    try {
+      const raw = sessionStorage.getItem(PLAY_SETUP_KEY);
+      if (raw) autoOn = (JSON.parse(raw) as { auto?: unknown }).auto !== false;
+    } catch {
+      /* 既定のまま */
+    }
+    return `
+      <details class="hall-settings">
+        <summary class="hall-settings-head">プレイ設定</summary>
+        <div class="hall-settings-body">
+          ${toggleRow('missions', 'ミッション', '達成状況を記録してトーストで通知', missionsOn)}
+          ${toggleRow('reelart', 'リール絵柄に画像を使う', '既定OFF＝色タイル＋文字。ONで図柄画像（作り直し中）', artOn)}
+          ${toggleRow('auto', 'AUTOモード', 'ONでAUTOボタンを表示（自動消化）', autoOn)}
+          ${toggleRow('debug', 'デバッグボタン', '設定内に演出の強制発動ボタンを表示', debugOn)}
+        </div>
+      </details>`;
+  };
+
+  const seatHtml = (): string => {
+    const m = machineOf(st.seatId);
+    const p = policy();
+    const day = readMachineDay(m.id, now());
+    const v = viewOf(m, day, p);
+    const y = islandYaku(v.island);
+    const wip = v.island.chapterIds.length > 1;
+    const rate = bonusRate(day);
+    const tag = policyTag(p);
+    const num = (n: number): string => (v.played ? String(n) : '—');
+
+    const koyaku = y.words
+      .map(
+        (w, i) =>
+          `<div class="hall-pay-row"><span class="hall-pay-name">${esc(w)}</span><span class="hall-pay-mai">${y.pays[i]}枚</span></div>`,
+      )
+      .join('');
+
+    return `
+      <div class="hall-seat" style="${themeVars(v.island.id)}">
+        <span class="hall-seat-floor"></span>
+        <div class="hall-seat-back" data-act="back" role="button" tabindex="0">
+          <span>←</span><span>島に戻る（Esc）</span>
+        </div>
+        <div class="hall-seat-body">
+          <div class="hall-seat-cabinet">
+            <div class="hall-lamps hall-lamps-seat">
+              <span class="hall-lamp hall-lamp-red${v.hot ? ' on' : ''}"></span>
+              <span class="hall-lamp hall-lamp-yellow${v.plus ? ' on' : ''}"></span>
+              <span class="hall-lamp hall-lamp-green${v.target ? ' on' : ''}"></span>
+              <span class="hall-lamp-gloss"></span>
+            </div>
+            ${cabinet(v, 'seat')}
+          </div>
+
+          <div class="hall-detail">
+            <div class="hall-detail-head">
+              <span class="hall-detail-no">${m.number}</span>
+              <span class="hall-detail-unit">番台</span>
+              <span class="hall-detail-island">${esc(v.island.name)}</span>
+              ${m.corner ? '<span class="hall-badge">角台</span>' : ''}
+              ${v.target && tag ? `<span class="hall-badge hall-badge-target">${esc(tag)}</span>` : ''}
+            </div>
+
+            <div class="hall-detail-grid">
+              <div><span>BB</span><b class="hall-num-bb">${num(day.big)}</b></div>
+              <div><span>RB</span><b class="hall-num-rb">${num(day.reg)}</b></div>
+              <div><span>総スタート</span><b class="hall-num-games">${num(day.spins)}</b></div>
+              <div><span>最大ハマり</span><b class="${v.hot ? 'hall-num-hot' : ''}">${num(day.sinceBonus)}</b></div>
+              <div><span>差枚</span><b class="${v.plus ? 'hall-num-plus' : 'hall-num-flat'}">${v.played ? signed(day.sahmai) : '±0'}</b></div>
+              <div><span>合成確率</span><b>${rate === null ? '—' : `1/${rate.toFixed(0)}`}</b></div>
+            </div>
+
+            <div class="hall-paytable">
+              <span class="hall-paytable-title">配 当 表</span>
+              <div class="hall-pay-group">
+                <div class="hall-pay-line">
+                  <span class="hall-pay-kind">BIG</span>
+                  <span class="hall-pay-word big">${esc(y.big.join('・'))}</span>
+                  <span class="hall-pay-mai">${payout.baseMultiplier.premium}枚 ＋ ${tuning.bonus.spinsPerBig}ゲーム</span>
+                </div>
+                <div class="hall-pay-line">
+                  <span class="hall-pay-kind">REG</span>
+                  <span class="hall-pay-word">${esc(y.reg)}</span>
+                  <span class="hall-pay-mai">${payout.baseMultiplier.bonus}枚 ＋ ${tuning.bonus.spinsPerReg}ゲーム</span>
+                </div>
+                <div class="hall-pay-line">
+                  <span class="hall-pay-kind">チェリー</span>
+                  <span class="hall-pay-word cherry">${esc(y.cherry)}</span>
+                  <span class="hall-pay-mai">${payout.baseMultiplier.cherry}枚</span>
+                </div>
+                <span class="hall-pay-note">REGはBIG2種から文字を借用　${esc(y.big[0])} ＋ ${esc(y.big[1])} → ${esc(y.reg)}</span>
+              </div>
+              <div class="hall-pay-koyaku">
+                <div class="hall-pay-koyaku-head">
+                  <span>小役</span><span>枚数が多いほど確率は低い</span>
+                </div>
+                ${koyaku}
+              </div>
+            </div>
+
+            ${wip ? '' : playSettings()}
+
+            ${
+              wip
+                ? `<div class="hall-notice">
+                     <span class="hall-notice-badge">お 知 ら せ</span>
+                     <span class="hall-notice-title">この島は入替・調整中です</span>
+                     <span class="hall-notice-body">全図柄を混ぜた台のため、配当の調整が終わるまでご遊技いただけません。稼働開始はあらためて掲示します。</span>
+                   </div>`
+                : `<div class="hall-sit" data-act="sit" role="button" tabindex="0">この台に座る　Enter</div>`
+            }
+            <div class="hall-seat-another" data-act="back" role="button" tabindex="0">別の台を見る</div>
+          </div>
+        </div>
+      </div>`;
+  };
+
+  // ─── 描画 ───
+  function render(): void {
+    if (st.phase === 'floor') startFit();
+    else stopFit();
+
+    if (st.phase === 'entrance' || st.phase === 'entering') {
+      root.innerHTML = st.narrow ? entranceNarrow() : entranceWide();
+      track = null;
+    } else if (st.phase === 'floor') {
+      root.innerHTML = floorHtml();
+      track = root.querySelector<HTMLElement>('[data-track]');
+      const slider = root.querySelector<HTMLElement>('[data-slider]');
+      if (slider) {
+        // 6島ぶんを横に並べた帯。1島あたり 100/6 %。
+        slider.style.width = `${ISLANDS.length * 100}%`;
+      }
+      updateFloor();
+      // 初回はレイアウト確定後に測る（この時点では offsetHeight が 0 のことがある）
+      window.setTimeout(fit, 0);
+    } else {
+      root.innerHTML = seatHtml();
+      track = null;
+    }
+    wire();
+  }
+
+  // ─── 配線 ───
+  const persistSettings = (): void => {
+    const checked = (opt: string): boolean =>
+      root.querySelector<HTMLInputElement>(`input[data-opt="${opt}"]`)?.checked ??
+      false;
+    try {
+      localStorage.setItem(MISSIONS_KEY, checked('missions') ? '1' : '0');
+      localStorage.setItem(REEL_ART_KEY, checked('reelart') ? 'image' : 'plain');
+      localStorage.setItem(DEBUG_KEY, checked('debug') ? '1' : '0');
+      sessionStorage.setItem(
+        PLAY_SETUP_KEY,
+        JSON.stringify({ auto: checked('auto') }),
+      );
+    } catch {
+      /* storage 不可でもゲーム開始は妨げない */
+    }
+  };
+
+  const sit = (): void => {
+    const m = machineOf(st.seatId);
+    if (islandById(m.islandId)?.chapterIds.length !== 1) return; // 調整中の島
+    setCurrentMachineId(m.id);
+    setCurrentChapterId(chapterIdOfMachine(m));
+    persistSettings();
+    cb.onLaunch();
+  };
+
+  const actions: Record<string, () => void> = {
+    enter: enterHall,
+    top: cb.onBack,
+    card: cb.onCard,
+    ranking: cb.onRanking,
+    exit: () => go('entrance'),
+    back: () => go('floor'),
+    prev: () => move(-1),
+    next: () => move(1),
+    zoom: () => toSeat(st.selId),
+    sit,
+  };
+
+  function wire(): void {
+    root.querySelectorAll<HTMLElement>('[data-act]').forEach((el) => {
+      const fn = actions[el.dataset.act ?? ''];
+      if (fn) el.addEventListener('click', fn);
+    });
+    root.querySelectorAll<HTMLElement>('[data-island]').forEach((el) => {
+      el.addEventListener('click', () => {
+        const idx = Number(el.dataset.island);
+        st.nav = idx;
+        const first = machinesOfIsland(ISLANDS[idx].id)[0];
+        st.selId = first.id;
+        enterHall();
+      });
+    });
+    root.querySelectorAll<HTMLElement>('[data-dot]').forEach((el) => {
+      el.addEventListener('click', () => {
+        st.nav = Number(el.dataset.dot);
+        const first = machinesOfIsland(ISLANDS[st.nav].id)[0];
+        st.selId = first.id;
+        updateFloor();
+      });
+    });
+    root.querySelectorAll<HTMLElement>('.hall-machine').forEach((el) => {
+      el.addEventListener('click', () => toSeat(el.dataset.machine ?? st.selId));
+    });
+    if (track) {
+      track.addEventListener('touchstart', onTouchStart, { passive: true });
+      track.addEventListener('touchend', onTouchEnd, { passive: true });
+    }
+  }
+
+  // ─── スワイプ ───
+  // 島内の横スクロールと同じ軸で競合するので、内側が端に着いている時だけ島を移動する。
+  function onTouchStart(e: TouchEvent): void {
+    const t = e.touches[0];
+    const target = e.target as HTMLElement | null;
+    const col = target?.closest<HTMLElement>('[data-island-col]') ?? null;
+    touch = { x: t.clientX, y: t.clientY, col, left: col?.scrollLeft ?? 0 };
+  }
+
+  function onTouchEnd(e: TouchEvent): void {
+    const tr = touch;
+    touch = null;
+    if (!tr) return;
+    const t = e.changedTouches[0];
+    const dx = t.clientX - tr.x;
+    const dy = t.clientY - tr.y;
+    if (Math.abs(dx) < 50 || Math.abs(dx) < Math.abs(dy) * 1.4) return;
+    const col = tr.col;
+    if (col) {
+      const max = col.scrollWidth - col.clientWidth;
+      if (max > 2 && Math.abs(col.scrollLeft - tr.left) > 4) return;
+      if (dx < 0 && col.scrollLeft < max - 2) return;
+      if (dx > 0 && col.scrollLeft > 2) return;
+    }
+    move(dx < 0 ? 1 : -1);
+  }
+
+  // ─── キーボード ───
+  window.addEventListener('keydown', (e) => {
+    if (root.hidden) return; // 他のビューを見ている間は拾わない
+    if (st.phase === 'entering') return;
+    if (st.phase === 'entrance') {
+      if (e.key === 'Enter' || e.key === ' ') {
+        e.preventDefault();
+        enterHall();
+      }
+      return;
+    }
+    if (st.phase === 'seat') {
+      if (e.key === 'Escape') go('floor');
+      if (e.key === 'Enter') {
+        e.preventDefault();
+        sit();
+      }
+      return;
+    }
+    if (e.key === 'ArrowLeft') move(-1);
+    else if (e.key === 'ArrowRight') move(1);
+    else if (e.key === 'Escape') go('entrance');
+    else if (e.key === 'Enter') {
+      e.preventDefault();
+      toSeat(st.selId);
+    } else if (/^[1-4]$/.test(e.key)) {
+      const seat = Number(e.key);
+      const m = machinesOfIsland(ISLANDS[st.nav].id).find((x) => x.seat === seat);
+      if (m) {
+        st.selId = m.id;
+        updateFloor();
+      }
+    }
+  });
+
+  window.addEventListener('resize', fit);
+  render();
+}

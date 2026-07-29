@@ -86,3 +86,39 @@ export const islandById = (id: string): Island | undefined =>
 
 export const machinesOfIsland = (islandId: string): Machine[] =>
   MACHINES.filter((m) => m.islandId === islandId);
+
+export const islandOfMachine = (m: Machine): Island =>
+  islandById(m.islandId) ?? ISLANDS[0];
+
+/**
+ * その台で回る章。通常の島は1つだけ持つ。リミックス島は複数持つが
+ * ステージ切替が未実装なので、いまは先頭を返す（島ごと着席を塞いである）。
+ */
+export const chapterIdOfMachine = (m: Machine): string =>
+  islandOfMachine(m).chapterIds[0];
+
+/**
+ * 選んだ台。設定（1〜6）とデータカウンターは**章ではなく台ごと**に決まるので、
+ * ゲーム側はこのIDを見る。章IDだけでは同じ島の4台が区別できない。
+ */
+const CURRENT_MACHINE_KEY = 'mojislot.machine.v1';
+
+/** いま選ばれている台。未選択・不正値なら先頭の島の1番台。 */
+export function getCurrentMachine(): Machine {
+  try {
+    const stored = localStorage.getItem(CURRENT_MACHINE_KEY);
+    const found = stored ? machineById(stored) : undefined;
+    if (found) return found;
+  } catch {
+    /* ignore */
+  }
+  return MACHINES[0];
+}
+
+export function setCurrentMachineId(id: string): void {
+  try {
+    localStorage.setItem(CURRENT_MACHINE_KEY, id);
+  } catch {
+    /* ignore */
+  }
+}

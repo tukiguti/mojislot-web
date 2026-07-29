@@ -1,0 +1,820 @@
+/*
+ * ホール（台を選ぶ）の見た目。HallView.ts が組む DOM の構造・寸法をここが持ち、
+ * 色は島テーマの CSS 変数（--isl-*・data/islandThemes.ts）から来る。
+ *
+ * style.css とは別ファイルにしてある。4500行の共通スタイルに1画面ぶんの
+ * 800行を混ぜると探せなくなるため、画面の規模が大きいものは分ける。
+ *
+ * 画像素材はゼロ。すべてグラデーション・シャドウ・繰り返しパターンで描く。
+ */
+
+/* ═══════════ アニメーション ═══════════ */
+
+@keyframes hall-lamp-pulse { 0%, 100% { opacity: .3 } 50% { opacity: 1 } }
+@keyframes hall-neon-buzz { 0%, 92%, 100% { opacity: 1 } 94% { opacity: .4 } 97% { opacity: .85 } }
+@keyframes hall-chase { from { background-position: 0 0 } to { background-position: 36px 0 } }
+/* transform を入れないこと。translateX(-50%) の中央寄せを上書きして恒久的に壊す */
+@keyframes hall-rise-in { from { opacity: 0 } to { opacity: 1 } }
+@keyframes hall-door-l { from { transform: translateX(0) } to { transform: translateX(-104%) } }
+@keyframes hall-door-r { from { transform: translateX(0) } to { transform: translateX(104%) } }
+@keyframes hall-zoom-out {
+  0% { transform: scale(1); opacity: 1 }
+  45% { transform: scale(1.45); opacity: 1 }
+  100% { transform: scale(5.2); opacity: 0 }
+}
+@keyframes hall-fade-out { from { opacity: 1 } to { opacity: 0 } }
+@keyframes hall-floor-in { from { opacity: 0; filter: brightness(2.6) } to { opacity: 1; filter: none } }
+@keyframes hall-seat-in { from { opacity: 0; transform: scale(.95) } to { opacity: 1; transform: none } }
+
+@media (prefers-reduced-motion: reduce) {
+  .hall-entrance,
+  .hall-entrance *,
+  .hall-floor,
+  .hall-seat-body,
+  .hall-slider {
+    animation: none !important;
+    transition: none !important;
+  }
+}
+
+/* ═══════════ 入口 ═══════════ */
+
+.hall-entrance {
+  position: relative;
+  min-height: 100vh;
+  overflow: hidden;
+  background: #07060b;
+  transform-origin: 50% 52vh;
+}
+.hall-entrance.entering { animation: hall-zoom-out 1.15s cubic-bezier(.5, 0, .85, .4) forwards }
+.hall-entrance.narrow { transform-origin: 50% 40vh; display: flex; flex-direction: column }
+
+.hall-sky { position: absolute; left: 0; right: 0; top: 0; height: 34vh; background: linear-gradient(#0d0b18, #07060b) }
+.hall-wall {
+  position: absolute; left: 0; right: 0; top: 34vh; height: 38vh;
+  background: linear-gradient(#191320, #120e18); border-top: 1px solid #2a2436;
+}
+.hall-road {
+  position: absolute; left: 0; right: 0; bottom: 0; height: 28vh; background: #14121a;
+  background-image: repeating-linear-gradient(0deg, rgba(255, 255, 255, .03) 0 1px, transparent 1px 22px);
+}
+.hall-entrance.narrow .hall-road { height: 34vh }
+.hall-signglow {
+  position: absolute; left: 50%; bottom: 0; transform: translateX(-50%);
+  width: min(660px, 80vw); height: 28vh;
+  background: radial-gradient(60% 90% at 50% 0%, rgba(255, 209, 102, .22), transparent 70%);
+}
+
+/* 大看板 */
+.hall-bigsign {
+  position: absolute; left: 50%; top: clamp(20px, 4.4vh, 52px); transform: translateX(-50%);
+  display: flex; flex-direction: column; align-items: center; gap: 10px; z-index: 3;
+  animation: hall-rise-in .5s ease both;
+}
+.hall-bigsign-box {
+  position: relative; padding: clamp(10px, 2vh, 20px) clamp(24px, 6vw, 64px);
+  background: #0b0912; border: 3px solid #ffd166;
+  box-shadow: 0 0 60px rgba(255, 209, 102, .32), inset 0 0 40px rgba(255, 209, 102, .1);
+}
+.hall-bigsign-sub {
+  display: block; text-align: center; font-size: clamp(9px, 1.2vw, 13px);
+  letter-spacing: .5em; color: #c8a86c; padding-left: .5em;
+}
+.hall-bigsign-logo {
+  display: block; font-size: clamp(32px, 6.6vw, 64px); font-weight: 800; letter-spacing: .06em;
+  color: #ffe9a8; line-height: 1.1; white-space: nowrap;
+  text-shadow: 0 0 26px rgba(255, 214, 140, .7), 0 0 70px rgba(255, 120, 60, .32);
+  animation: hall-neon-buzz 7s infinite;
+}
+.hall-bigsign-chase {
+  position: absolute; left: 6px; right: 6px; bottom: 5px; height: 3px;
+  background: repeating-linear-gradient(90deg, #ffd166 0 6px, transparent 6px 14px);
+  animation: hall-chase .6s linear infinite;
+}
+.hall-openrow { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; justify-content: center }
+.hall-openbadge {
+  display: flex; align-items: center; gap: 9px; padding: 5px 16px;
+  border: 1px solid rgba(76, 217, 100, .55); background: rgba(76, 217, 100, .09);
+  font-size: 12px; letter-spacing: .26em; color: #8fe8a4;
+}
+.hall-openlamp {
+  width: 8px; height: 8px; border-radius: 50%; background: #4cd964;
+  box-shadow: 0 0 12px rgba(76, 217, 100, .9); animation: hall-lamp-pulse 1.5s infinite;
+}
+.hall-opentime { font-size: 12px; color: #8c8377; letter-spacing: .1em; font-variant-numeric: tabular-nums }
+
+/* 自動ドア */
+.hall-door {
+  position: absolute; left: 50%; top: 34vh; transform: translateX(-50%);
+  width: min(396px, 42vw); height: 38vh; background: #0d0b14;
+  border: 6px solid #3a3444; border-bottom: none;
+  box-shadow: 0 -10px 50px rgba(255, 209, 102, .18); cursor: pointer; z-index: 2; overflow: hidden;
+}
+.hall-door.sm {
+  position: relative; left: auto; top: auto; transform: none; margin: 20px auto 0;
+  width: min(300px, 78vw); height: 200px; border-width: 5px; border-bottom: none;
+  box-shadow: 0 -8px 40px rgba(255, 209, 102, .18);
+}
+.hall-door-inner { position: absolute; inset: 0; background: linear-gradient(#2a2030, #120e18) }
+.hall-door-ceil {
+  position: absolute; left: 0; right: 0; top: 0; height: 22%;
+  background: linear-gradient(rgba(255, 224, 150, .4), transparent);
+}
+.hall-door-sils {
+  position: absolute; left: 8px; right: 8px; bottom: 0;
+  display: flex; align-items: flex-end; justify-content: center; gap: 2.2%; filter: blur(1.2px);
+}
+.hall-door.sm .hall-door-sils { left: 6px; right: 6px; gap: 3px; filter: blur(1px) }
+.hall-door-sil {
+  flex: 1; max-width: 56px; background: linear-gradient(#3c3644, #1d1a24);
+  border-top: 4px solid #ffd166; opacity: .85;
+}
+.hall-door.sm .hall-door-sil { max-width: 38px; border-top-width: 3px }
+.hall-door-panel { position: absolute; top: 0; bottom: 0; width: 50% }
+.hall-door-l {
+  left: 0; border-right: 3px solid #4a4258;
+  background: linear-gradient(105deg, rgba(255, 255, 255, .13), rgba(180, 190, 220, .05) 60%, rgba(255, 255, 255, .02)), rgba(18, 14, 26, .5);
+}
+.hall-door-r {
+  right: 0; border-left: 3px solid #4a4258;
+  background: linear-gradient(255deg, rgba(255, 255, 255, .11), rgba(180, 190, 220, .04) 60%, rgba(255, 255, 255, .02)), rgba(18, 14, 26, .5);
+}
+.hall-entrance.entering .hall-door-l { animation: hall-door-l .8s cubic-bezier(.35, 0, .15, 1) forwards }
+.hall-entrance.entering .hall-door-r { animation: hall-door-r .8s cubic-bezier(.35, 0, .15, 1) forwards }
+.hall-door-label {
+  position: absolute; left: 50%; top: 10px; transform: translateX(-50%);
+  font-size: 10px; letter-spacing: .3em; color: #8c8377;
+}
+.hall-entrance.entering .hall-door-label { animation: hall-fade-out .3s ease forwards }
+.hall-mat {
+  position: absolute; left: 50%; top: 72vh; transform: translateX(-50%);
+  width: min(436px, 48vw); height: 24px;
+  background: linear-gradient(#241820, #16121a); border: 1px solid #3a3444;
+}
+.hall-mat.sm {
+  position: relative; left: auto; top: auto; transform: none; margin: 0 auto;
+  width: min(330px, 86vw); height: 18px;
+}
+
+/* 立て看板（本日の掲示） */
+.hall-board {
+  position: absolute; left: clamp(12px, 3.4vw, 44px); top: 40vh;
+  width: clamp(168px, 20vw, 222px); z-index: 3; animation: hall-rise-in .5s .08s ease both;
+}
+.hall-board-face {
+  background: #f6efe0; border: 3px solid #2a2436; padding: 13px;
+  display: flex; flex-direction: column; gap: 8px;
+  box-shadow: 6px 8px 0 rgba(0, 0, 0, .5); transform: rotate(-1.2deg);
+}
+.hall-board-face.sm { transform: none; box-shadow: 5px 6px 0 rgba(0, 0, 0, .5); gap: 7px }
+.hall-board-badge {
+  font-size: 10px; letter-spacing: .24em; color: #0f0d14; background: #ffd166;
+  padding: 3px 10px; align-self: flex-start;
+}
+.hall-board-text {
+  font-size: clamp(15px, 1.9vw, 19px); font-weight: 800; line-height: 1.5;
+  color: #191320; text-wrap: pretty;
+}
+.hall-board-face.sm .hall-board-text { font-size: 17px }
+.hall-board-note { font-size: 9px; color: #7a7266 }
+.hall-board-foot {
+  border-top: 1px dashed #b8ac96; padding-top: 7px;
+  display: flex; flex-direction: column; gap: 3px; font-size: 11px; color: #5a5348;
+}
+.hall-board-face.sm .hall-board-foot { flex-direction: row; gap: 16px; flex-wrap: wrap }
+.hall-board-leg {
+  width: 60px; height: 36px; margin-left: 24px; background: #2a2436; transform: skewX(-10deg);
+}
+
+/* 島案内板 */
+.hall-guide {
+  position: absolute; right: clamp(12px, 3.4vw, 44px);
+  top: clamp(150px, 30vh, 300px); bottom: clamp(96px, 18vh, 150px);
+  width: clamp(178px, 21vw, 238px); background: #0d0b14; border: 2px solid #4a4258;
+  padding: 13px; display: flex; flex-direction: column; gap: 8px;
+  box-shadow: 0 16px 34px rgba(0, 0, 0, .6); z-index: 3; overflow: hidden;
+  animation: hall-rise-in .5s .12s ease both;
+}
+.hall-guide.sm {
+  position: relative; right: auto; top: auto; bottom: auto; width: auto;
+  padding: 12px; gap: 7px; box-shadow: none; animation: none;
+}
+.hall-guide-head {
+  display: flex; align-items: center; gap: 10px;
+  border-bottom: 1px solid #4a4258; padding-bottom: 7px; flex: none;
+}
+.hall-guide-title { font-size: 12px; letter-spacing: .26em; color: #ffd166 }
+.hall-guide-count { font-size: 10px; color: #6f6578; margin-left: auto }
+.hall-guide-row {
+  display: flex; align-items: center; gap: 9px; padding: 6px 8px;
+  background: #151220; cursor: pointer; flex: 1 1 auto; min-height: 0;
+}
+.hall-guide.sm .hall-guide-row { flex: none; padding: 9px; min-height: 44px }
+.hall-guide-row:hover, .hall-guide-row:focus-visible { background: #1e1a2e; outline: none }
+.hall-guide-bar { width: 4px; height: 28px; flex: none }
+.hall-guide-text { display: flex; flex-direction: column; gap: 1px; min-width: 0; margin-right: auto }
+.hall-guide-text b { font-size: 13px; font-weight: 700; color: #f2eee8 }
+.hall-guide-text i {
+  font-size: 9px; font-style: normal; color: #8c8377;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.hall-guide-range {
+  font-size: 10px; color: #cdbfa6; font-variant-numeric: tabular-nums; white-space: nowrap;
+}
+.hall-guide-wip {
+  font-size: 9px; padding: 2px 6px; background: #c8342a; color: #fdf4e3; white-space: nowrap;
+}
+
+/* 景品カウンターへの案内 */
+.hall-counterlinks {
+  position: absolute; left: clamp(12px, 3.4vw, 44px); bottom: clamp(16px, 5vh, 54px);
+  width: clamp(168px, 20vw, 222px); display: flex; flex-direction: column; gap: 6px;
+  z-index: 3; animation: hall-rise-in .5s .14s ease both;
+}
+.hall-counterlinks-title { font-size: 10px; letter-spacing: .2em; color: #6f6578 }
+.hall-counterlinks-row { display: flex; gap: 6px; align-self: stretch }
+.hall-counterlink {
+  flex: 1; min-width: 0; box-sizing: border-box; padding: 10px 6px; text-align: center;
+  border: 1px solid #4a4258; background: rgba(13, 11, 20, .85);
+  font-size: 11px; color: #cdbfa6; cursor: pointer;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.hall-counterlink:hover, .hall-counterlink:focus-visible { background: #1e1a2e; outline: none }
+
+/* 入場 */
+.hall-enter {
+  position: absolute; left: 0; right: clamp(206px, 24vw, 296px); bottom: clamp(16px, 5vh, 54px);
+  display: flex; flex-direction: column; align-items: center; gap: 11px; z-index: 4;
+  padding-left: clamp(190px, 24vw, 290px);
+  animation: hall-rise-in .5s .16s ease both;
+}
+.hall-enter.sm {
+  position: relative; left: auto; right: auto; bottom: auto; padding: 20px 18px calc(env(safe-area-inset-bottom, 0px) + 44px);
+  gap: 10px;
+}
+.hall-enter-btn {
+  padding: clamp(13px, 2vh, 17px) clamp(34px, 7vw, 62px);
+  background: linear-gradient(#ffe6a8, #d19b30); border: 2px solid #fff6de; color: #2a1d0b;
+  font-size: clamp(15px, 2vw, 19px); font-weight: 800; letter-spacing: .16em;
+  cursor: pointer; box-shadow: 0 0 40px rgba(255, 214, 140, .45); white-space: nowrap;
+}
+.hall-enter.sm .hall-enter-btn {
+  align-self: stretch; box-sizing: border-box; padding: 17px; text-align: center; font-size: 18px;
+}
+.hall-enter-btn:hover, .hall-enter-btn:focus-visible {
+  background: linear-gradient(#fff6de, #e8ae3c); outline: none;
+}
+.hall-enter-hint {
+  font-size: 11px; color: #6f6578; letter-spacing: .08em; text-align: center; text-wrap: pretty;
+}
+.hall-exit-top {
+  background: none; border: none; font: inherit; font-size: 11px; color: #6f6578;
+  cursor: pointer; padding: 4px 8px;
+}
+.hall-exit-top:hover { color: #cdbfa6 }
+
+/* スマホ入口の縦積み */
+.hall-head-sm {
+  position: relative; padding: calc(env(safe-area-inset-top, 0px) + 68px) 18px 0;
+  display: flex; flex-direction: column; align-items: center; gap: 9px;
+  animation: hall-rise-in .5s ease both;
+}
+.hall-head-sm .hall-bigsign-sub { font-size: 10px; letter-spacing: .44em; padding-left: .44em }
+.hall-head-sm .hall-bigsign-logo {
+  font-size: 38px; letter-spacing: .04em; line-height: 1.05;
+  text-shadow: 0 0 22px rgba(255, 214, 140, .7), 0 0 60px rgba(255, 120, 60, .3);
+}
+.hall-sm-body {
+  position: relative; padding: 20px 18px 0;
+  display: flex; flex-direction: column; gap: 14px;
+  animation: hall-rise-in .5s .08s ease both;
+}
+
+/* ═══════════ 島（フロア） ═══════════ */
+
+.hall-floor {
+  position: relative; height: 100vh; box-sizing: border-box; overflow: hidden;
+  animation: hall-floor-in .5s ease both;
+}
+/* 絶対配置の子はパディングボックス基準で下がるので、セーフエリアはここ1箇所で済む */
+.hall-floor[data-narrow] { padding-top: calc(env(safe-area-inset-top, 0px) + 56px) }
+
+.hall-ceiling {
+  position: absolute; left: 0; right: 0; top: 0; height: 15vh;
+  background: linear-gradient(#221a24, #0e0a10);
+}
+.hall-ceiling-edge {
+  position: absolute; left: 0; right: 0; top: 0; height: 5px;
+  background: linear-gradient(90deg, #3a3440, #6a6072, #3a3440);
+}
+.hall-fluoro {
+  position: absolute; left: 8%; top: 3.4vh; width: 84%; height: 4px; border-radius: 3px;
+  background: #fff6de; box-shadow: 0 0 40px 14px rgba(255, 246, 222, .24);
+}
+.hall-far {
+  position: absolute; left: 0; right: 0; top: 15vh; height: 14vh;
+  filter: blur(1.6px); display: flex; justify-content: center; gap: 2vw; overflow: hidden;
+}
+.hall-far-bar {
+  width: 3.4vw; min-width: 24px; height: 10vh;
+  background: linear-gradient(#2a2432, #191521);
+  border-top: 3px solid rgba(255, 214, 140, .24); opacity: .6;
+}
+.hall-far-fade {
+  position: absolute; inset: 0;
+  background: linear-gradient(rgba(14, 10, 16, 0) 18%, rgba(14, 10, 16, .96));
+}
+.hall-carpet {
+  position: absolute; left: 0; right: 0; bottom: 0; height: 30vh; background: #3a0e14;
+  background-image:
+    repeating-linear-gradient(90deg, rgba(255, 255, 255, .045) 0 2px, transparent 2px 26px),
+    repeating-linear-gradient(0deg, rgba(0, 0, 0, .35) 0 1px, transparent 1px 18px);
+  box-shadow: inset 0 40px 60px -20px rgba(0, 0, 0, .85);
+}
+
+/* 島看板（天井から吊る） */
+.hall-islandsign {
+  position: absolute; left: 50%; top: 1.4vh; transform: translateX(-50%);
+  display: flex; flex-direction: column; align-items: center; z-index: 3;
+}
+.hall-islandsign-rods { display: flex; gap: min(240px, 40vw) }
+.hall-islandsign-rods span { width: 3px; height: 12px; background: #5a5262 }
+.hall-islandsign-box {
+  position: relative; padding: clamp(6px, 1.1vh, 11px) clamp(18px, 4vw, 44px);
+  border: 3px solid var(--isl-sign-border); background: var(--isl-sign);
+  display: flex; align-items: center; gap: clamp(10px, 1.8vw, 20px);
+  box-shadow: 0 10px 26px rgba(0, 0, 0, .7);
+}
+.hall-islandsign-name {
+  font-size: clamp(16px, 2.6vw, 26px); font-weight: 800; letter-spacing: .1em;
+  white-space: nowrap; color: var(--isl-sign-text);
+}
+.hall-islandsign-sep { width: 1px; height: 20px; background: rgba(255, 255, 255, .35) }
+.hall-islandsign-range {
+  font-size: clamp(11px, 1.4vw, 15px); font-variant-numeric: tabular-nums;
+  opacity: .75; color: var(--isl-sign-text);
+}
+.hall-islandsign-wip {
+  font-size: 11px; font-weight: 700; letter-spacing: .14em; padding: 3px 9px;
+  background: #c8342a; color: #fdf4e3; white-space: nowrap;
+}
+
+/* 通路の矢印 */
+.hall-aisle {
+  position: absolute; top: 15vh; bottom: max(11vh, 64px);
+  width: max(44px, clamp(42px, 5vw, 68px));
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  gap: 11px; cursor: pointer; z-index: 4;
+}
+.hall-aisle-l { left: 0; background: linear-gradient(90deg, rgba(0, 0, 0, .78), transparent) }
+.hall-aisle-r { right: 0; background: linear-gradient(270deg, rgba(0, 0, 0, .78), transparent) }
+.hall-aisle-l:hover, .hall-aisle-l:focus-visible {
+  background: linear-gradient(90deg, rgba(255, 214, 140, .22), transparent); outline: none;
+}
+.hall-aisle-r:hover, .hall-aisle-r:focus-visible {
+  background: linear-gradient(270deg, rgba(255, 214, 140, .22), transparent); outline: none;
+}
+.hall-aisle-mark { font-size: clamp(22px, 2.6vw, 32px); color: #ffd166 }
+.hall-aisle-label {
+  writing-mode: vertical-rl; font-size: 11px; letter-spacing: .26em; color: #b0a8b8;
+}
+
+/* 島インジケータ */
+.hall-dots {
+  position: absolute; left: 50%; transform: translateX(-50%); top: 13.2vh;
+  display: flex; gap: 6px; z-index: 5;
+}
+.hall-dot {
+  width: 26px; height: 4px; cursor: pointer; background: rgba(255, 255, 255, .18);
+}
+.hall-dot.on { background: var(--dot); box-shadow: 0 0 10px rgba(255, 255, 255, .35) }
+
+/* 台の列 */
+.hall-track {
+  position: absolute; left: max(44px, clamp(42px, 5vw, 68px)); right: max(44px, clamp(42px, 5vw, 68px));
+  top: 17.5vh; bottom: max(11vh, 64px); overflow: hidden; z-index: 2;
+}
+.hall-slider {
+  display: flex; height: 100%;
+  transition: transform .42s cubic-bezier(.22, .7, .24, 1);
+}
+.hall-col {
+  flex: none; height: 100%; display: flex; align-items: flex-end;
+  /* center だと狭い画面で左にはみ出した分がスクロール不能になる */
+  justify-content: safe center;
+  overflow-x: auto; overflow-y: hidden; padding: 0 4px;
+}
+.hall-cardrow {
+  display: flex; align-items: flex-end; flex: none;
+  transform-origin: bottom center;
+}
+/* 島の先頭の仕切り板（台間サンドと同寸で中身なし） */
+.hall-endboard {
+  width: 22px; flex: none; height: 170px; margin-bottom: 60px;
+  background: linear-gradient(#2d2732, #171320); border: 1px solid #453c50;
+}
+.hall-slot { display: flex; align-items: flex-end; flex: none }
+.hall-machine {
+  position: relative; width: 206px; display: flex; flex-direction: column; cursor: pointer;
+}
+.hall-machine:focus-visible { outline: 2px solid #ffd166; outline-offset: 2px }
+/* inset を負にしないこと。はみ出すと track の overflow:hidden で上辺が切れる */
+.hall-selframe {
+  position: absolute; left: 0; right: 0; top: 0; bottom: 56px;
+  border: 3px solid #4cd964; box-shadow: 0 0 32px rgba(76, 217, 100, .45);
+  pointer-events: none; opacity: 0;
+}
+.hall-machine.selected .hall-selframe { opacity: 1 }
+
+/* 台間サンド */
+.hall-sand {
+  width: 22px; flex: none; height: 170px; margin-bottom: 60px;
+  background: linear-gradient(#2d2732, #171320); border: 1px solid #453c50;
+  display: flex; flex-direction: column; align-items: center; gap: 6px; padding-top: 22px;
+  box-shadow: 0 12px 24px rgba(0, 0, 0, .5);
+}
+.hall-sand-lamp {
+  width: 11px; height: 3px; background: #7ad4ff; box-shadow: 0 0 10px rgba(122, 212, 255, .8);
+}
+.hall-sand-mouth { width: 11px; height: 16px; background: #0d0a14; border: 1px solid #574c66 }
+
+/* 丸椅子 */
+.hall-stool {
+  height: 60px; flex: none; display: flex; flex-direction: column;
+  justify-content: flex-start; align-items: center; padding-top: 6px;
+}
+.hall-stool-seat {
+  width: 58px; height: 12px; border-radius: 50%;
+  box-shadow: 0 6px 12px rgba(0, 0, 0, .6); background: var(--isl-stool);
+}
+.hall-stool-pole { width: 8px; height: 30px; background: linear-gradient(90deg, #4a4258, #a8a0bc, #4a4258) }
+
+/* ═══════════ データ表示器（ホール設備・全島共通） ═══════════ */
+
+.hall-counter {
+  margin: 0 6px; background: linear-gradient(#3a3a3f, #1a1a1e); border: 1px solid #55555c;
+  border-radius: 3px 3px 0 0; padding: 4px; display: flex; flex-direction: column; gap: 3px;
+  box-shadow: 0 8px 20px rgba(0, 0, 0, .6);
+}
+.hall-lamps {
+  position: relative; height: 20px; flex: none; border-radius: 2px;
+  background: #0c0c0e; border: 1px solid #55555c; display: flex; gap: 2px; padding: 2px; overflow: hidden;
+}
+.hall-lamps-seat {
+  margin: 0 32px; height: clamp(24px, 4vh, 38px); padding: 3px; border-radius: 0;
+}
+.hall-lamp { flex: 1 }
+.hall-lamp-red { background: #2a1512 }
+.hall-lamp-yellow { background: #2a2512 }
+.hall-lamp-green { background: #152a1a }
+.hall-lamp-red.on {
+  background: linear-gradient(#ff6b52, #c81a10);
+  box-shadow: 0 0 18px rgba(255, 59, 48, .9); animation: hall-lamp-pulse 1s infinite;
+}
+.hall-lamp-yellow.on {
+  background: linear-gradient(#ffe08a, #d99a10); box-shadow: 0 0 18px rgba(255, 209, 102, .8);
+}
+.hall-lamp-green.on {
+  background: linear-gradient(#8affa0, #20a03c); box-shadow: 0 0 18px rgba(76, 217, 100, .8);
+}
+.hall-lamps-seat .hall-lamp.on { box-shadow: 0 0 26px rgba(255, 255, 255, .5) }
+.hall-lamp-gloss {
+  position: absolute; inset: 0; pointer-events: none;
+  background: linear-gradient(rgba(255, 255, 255, .24), transparent 55%);
+}
+.hall-seg {
+  background: #050506; border: 1px solid #55555c; padding: 2px 6px;
+  display: flex; align-items: center; justify-content: space-between;
+}
+.hall-seg-label { font-size: 8px; letter-spacing: .1em; color: #6a6a72 }
+.hall-seg-value {
+  font-family: ui-monospace, monospace; font-size: 25px; font-weight: 700; letter-spacing: .06em;
+  color: #ff3b30; text-shadow: 0 0 12px rgba(255, 59, 48, .85); line-height: 1;
+}
+.hall-counter-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 2px }
+.hall-counter-cell {
+  background: #050506; border: 1px solid #3a3a40; padding: 2px 3px;
+  display: flex; flex-direction: column; align-items: center;
+}
+.hall-counter-cell span { font-size: 7px; color: #6a6a72 }
+.hall-counter-cell b {
+  font-family: ui-monospace, monospace; font-size: 16px; font-weight: 700; line-height: 1.1;
+}
+.hall-num-bb { color: #ff3b30 }
+.hall-num-rb { color: #43d9ff }
+.hall-num-games { color: #7dff7a }
+.hall-graph {
+  position: relative; height: 34px; flex: none; background: #050506; border: 1px solid #3a3a40;
+  padding: 3px; display: flex; align-items: flex-end; gap: 1px;
+}
+.hall-graph-base { position: absolute; left: 3px; right: 3px; top: 50%; height: 1px; background: #2f2f36 }
+.hall-graph-bar { flex: 1; background: #43d9ff; opacity: .85; min-height: 1px }
+.hall-graph-label { position: absolute; right: 4px; top: 2px; font-size: 7px; color: #6a6a72 }
+.hall-counter-rate {
+  font-size: 7px; color: #6a6a72; text-align: right; font-variant-numeric: tabular-nums;
+}
+
+/* ═══════════ 筐体 ═══════════ */
+
+.hall-cabinet {
+  margin-top: 5px; padding: 6px; display: flex; flex-direction: column; gap: 4px;
+  box-shadow: 0 16px 32px rgba(0, 0, 0, .7);
+  background: var(--isl-body); border: 2px solid var(--isl-body-border); border-radius: var(--isl-radius);
+}
+.hall-cabinet-seat {
+  margin-top: 0; padding: clamp(9px, 1.4vw, 14px); gap: 8px;
+  box-shadow: 0 30px 60px rgba(0, 0, 0, .7);
+}
+.hall-toplamp { height: 8px; border-radius: 4px; background: var(--isl-top) }
+.hall-cabinet-seat .hall-toplamp { height: 10px; border-radius: 5px }
+.hall-titlepanel {
+  height: 32px; flex: none; border: 1px solid rgba(0, 0, 0, .4);
+  display: flex; align-items: center; justify-content: center; background: var(--isl-panel);
+}
+.hall-titlepanel span {
+  font-size: 15px; font-weight: 800; letter-spacing: .18em; color: var(--isl-panel-text);
+  white-space: nowrap;
+}
+.hall-cabinet-seat .hall-titlepanel { height: clamp(30px, 4.4vh, 42px) }
+.hall-cabinet-seat .hall-titlepanel span { font-size: clamp(15px, 2vw, 20px); letter-spacing: .2em }
+.hall-lcd {
+  position: relative; height: 80px; flex: none; display: flex; align-items: center;
+  justify-content: center; overflow: hidden;
+  background: var(--isl-screen); border: 3px solid var(--isl-body-border);
+}
+.hall-cabinet-seat .hall-lcd { height: clamp(80px, 13vh, 132px) }
+.hall-lcd-scan {
+  position: absolute; inset: 0;
+  background: repeating-linear-gradient(0deg, rgba(255, 255, 255, .035) 0 1px, transparent 1px 3px);
+}
+.hall-lcd-text { font-family: ui-monospace, monospace; font-size: 9px; color: #8a8298 }
+.hall-cabinet-seat .hall-lcd-text { font-size: 11px }
+.hall-lcd-glow {
+  position: absolute; left: 0; right: 0; bottom: 0; height: 12px;
+  background: linear-gradient(transparent, var(--isl-glow));
+}
+.hall-cabinet-seat .hall-lcd-glow { height: 16px }
+.hall-reelframe {
+  position: relative; padding: 5px; box-shadow: inset 0 1px 0 rgba(255, 255, 255, .5);
+  background: var(--isl-frame); border: 2px solid var(--isl-frame-border);
+}
+.hall-cabinet-seat .hall-reelframe { padding: 6px }
+.hall-reelgrid {
+  display: grid; grid-template-columns: repeat(3, minmax(0, 1fr));
+  background: #0a0407; border: 2px solid var(--isl-body-border);
+}
+.hall-cell {
+  height: 32px; display: flex; align-items: center; justify-content: center;
+  font-size: 20px; font-weight: 700;
+  background: var(--isl-cell); border: 1px solid var(--isl-cell-border); color: var(--isl-cell-text);
+}
+.hall-cabinet-seat .hall-cell { height: clamp(44px, 6.6vh, 60px); font-size: clamp(24px, 3.4vw, 36px) }
+.hall-payline {
+  position: absolute; left: 5px; right: 5px; top: 50%; height: 2px;
+  transform: translateY(-1px); pointer-events: none; background: var(--isl-line);
+}
+.hall-cabinet-seat .hall-payline { left: 6px; right: 6px; height: 3px; transform: translateY(-1.5px) }
+.hall-payline-dot {
+  position: absolute; top: 50%; transform: translateY(-50%);
+  width: 7px; height: 7px; border-radius: 50%; background: var(--isl-line);
+}
+.hall-cabinet-seat .hall-payline-dot { width: 9px; height: 9px }
+.hall-payline-dot-l { left: -1px }
+.hall-payline-dot-r { right: -1px }
+.hall-infopanel {
+  display: flex; align-items: center; gap: 5px; padding: 2px 5px;
+  background: #14101a; border: 1px solid #4a4258;
+}
+.hall-cabinet-seat .hall-infopanel { gap: 6px; padding: 3px 6px }
+.hall-info-label { font-size: 6px; color: #8a8298 }
+.hall-cabinet-seat .hall-info-label { font-size: 7px }
+.hall-info-value {
+  font-family: ui-monospace, monospace; font-size: 13px; font-weight: 700; color: #ff3b30; line-height: 1;
+}
+.hall-cabinet-seat .hall-info-value { font-size: 15px }
+.hall-info-lamps { flex: 1; display: flex; gap: 3px; justify-content: center }
+.hall-info-lamp { font-size: 6px; padding: 1px 3px; border: 1px solid #4a4258; color: #6a6072 }
+.hall-cabinet-seat .hall-info-lamp { font-size: 7px; padding: 1px 4px }
+.hall-info-replay { color: #ff8a80 }
+.hall-ctrl {
+  height: 48px; flex: none; padding: 4px 7px; display: flex; align-items: center; gap: 6px;
+  box-shadow: inset 0 2px 4px rgba(0, 0, 0, .5);
+  background: var(--isl-ctrl); border: 2px solid var(--isl-ctrl-border);
+}
+.hall-cabinet-seat .hall-ctrl { height: clamp(44px, 7vh, 56px); padding: 7px 8px; gap: 7px }
+.hall-bets { display: flex; flex-direction: column; gap: 3px; flex: none }
+.hall-maxbet {
+  width: 24px; height: 13px; background: linear-gradient(#ffd166, #c8891a); border: 1px solid #8a5c10;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 6px; font-weight: 700; color: #3d2708;
+}
+.hall-1bet {
+  width: 24px; height: 10px; background: linear-gradient(#f2f2f4, #a8a8b0); border: 1px solid #6a6a72;
+  display: flex; align-items: center; justify-content: center; font-size: 5px; color: #2a2a30;
+}
+.hall-cabinet-seat .hall-maxbet { width: 28px; height: 16px }
+.hall-cabinet-seat .hall-1bet { width: 28px; height: 12px; font-size: 6px }
+.hall-lever { flex: none; display: flex; flex-direction: column; align-items: center }
+.hall-lever-ball {
+  width: 13px; height: 13px; border-radius: 50%;
+  background: radial-gradient(circle at 34% 30%, #fff, #a8102a); border: 1px solid #5c0a14;
+}
+.hall-lever-rod { width: 5px; height: 14px; background: linear-gradient(90deg, #8a8a92, #e8e8ec, #8a8a92) }
+.hall-cabinet-seat .hall-lever-ball { width: 15px; height: 15px }
+.hall-cabinet-seat .hall-lever-rod { height: 17px }
+.hall-stops { flex: 1; display: flex; gap: 6px; justify-content: center; align-items: center }
+.hall-cabinet-seat .hall-stops { gap: 8px }
+.hall-stop {
+  width: 28px; height: 28px; border-radius: 50%; box-shadow: inset 0 -2px 3px rgba(0, 0, 0, .3);
+  background: var(--isl-btn); border: 2px solid var(--isl-btn-border);
+}
+.hall-cabinet-seat .hall-stop {
+  width: 32px; height: 32px;
+  box-shadow: inset 0 -2px 3px rgba(0, 0, 0, .3), 0 2px 4px rgba(0, 0, 0, .45);
+}
+.hall-slot-mouth { width: 18px; height: 5px; flex: none; background: #0a0a0c; border: 1px solid #6a6a72 }
+.hall-settle { flex: none; display: flex; flex-direction: column; align-items: center; gap: 3px }
+.hall-settle .hall-slot-mouth { width: 20px }
+.hall-settle-btn {
+  width: 20px; height: 11px; background: linear-gradient(#f2f2f4, #a8a8b0); border: 1px solid #6a6a72;
+  display: flex; align-items: center; justify-content: center; font-size: 5px; color: #2a2a30;
+}
+.hall-lowerpanel {
+  height: 28px; flex: none; border: 1px solid rgba(0, 0, 0, .35);
+  display: flex; align-items: center; justify-content: center; background: var(--isl-lower);
+}
+.hall-lowerpanel span { font-size: 8px; letter-spacing: .28em; color: var(--isl-lower-text) }
+.hall-cabinet-seat .hall-lowerpanel { height: clamp(24px, 4vh, 32px) }
+.hall-cabinet-seat .hall-lowerpanel span { font-size: 9px; letter-spacing: .3em }
+.hall-tray {
+  height: 14px; flex: none; border-radius: 2px 2px 5px 5px;
+  box-shadow: inset 0 4px 8px rgba(0, 0, 0, .85);
+  background: var(--isl-tray); border: 1px solid var(--isl-tray-border);
+}
+.hall-cabinet-seat .hall-tray { height: 20px; border-radius: 2px 2px 6px 6px }
+
+/* 足元バー */
+.hall-footbar {
+  position: absolute; left: 0; right: 0; bottom: 0; height: 11vh; min-height: 64px;
+  background: linear-gradient(rgba(14, 10, 16, .5), rgba(14, 10, 16, .97) 45%);
+  border-top: 1px solid rgba(255, 214, 140, .25); padding: 0 clamp(10px, 2.4vw, 30px);
+  display: flex; align-items: center; gap: clamp(8px, 2vw, 24px); overflow: hidden; z-index: 5;
+}
+.hall-foot-exit { display: flex; align-items: center; gap: 7px; cursor: pointer; flex: none }
+.hall-foot-exit span { font-size: 12px; color: #8c8377 }
+.hall-foot-exit span:first-child { font-size: 14px }
+.hall-foot-counter {
+  flex: none; display: flex; align-items: center; gap: 7px; padding: 8px 14px;
+  border: 1px solid #4a4258; background: #151220; cursor: pointer; white-space: nowrap;
+  font-size: 12px; color: #cdbfa6;
+}
+.hall-foot-counter:hover, .hall-foot-counter:focus-visible { background: #1e1a2e; outline: none }
+.hall-foot-counter-bar { width: 4px; height: 16px; background: #ffd166 }
+.hall-foot-space { flex: 1 1 0; min-width: 0 }
+.hall-foot-go {
+  flex: none; padding: clamp(9px, 1.4vh, 13px) clamp(18px, 3vw, 30px);
+  background: linear-gradient(#ffe6a8, #d19b30); border: 1px solid #fff6de; color: #2a1d0b;
+  font-size: clamp(12px, 1.5vw, 15px); font-weight: 700; cursor: pointer; white-space: nowrap;
+  box-shadow: 0 0 24px rgba(255, 214, 140, .3);
+}
+
+/* ═══════════ 寄り ═══════════ */
+
+.hall-seat {
+  position: relative; min-height: 100vh; display: flex; align-items: center; justify-content: center;
+  padding: clamp(16px, 4vh, 44px) clamp(14px, 4vw, 48px);
+  background: radial-gradient(90% 70% at 50% 30%, #241c2e, #0a080c 72%);
+}
+.hall-seat-floor {
+  position: absolute; left: 0; right: 0; bottom: 0; height: 24vh; background: #3a0e14;
+  opacity: .32; box-shadow: inset 0 40px 60px -20px rgba(0, 0, 0, .9);
+}
+.hall-seat-back {
+  position: absolute; left: clamp(14px, 3vw, 32px); top: clamp(14px, 3vh, 28px);
+  display: flex; align-items: center; gap: 8px; cursor: pointer; z-index: 4;
+}
+.hall-seat-back span:first-child { font-size: 16px; color: #ffd68c }
+.hall-seat-back span:last-child { font-size: 13px; color: #cdbfa6 }
+.hall-seat-body {
+  position: relative; display: flex; gap: clamp(18px, 3.4vw, 44px); align-items: center;
+  flex-wrap: wrap; justify-content: center; animation: hall-seat-in .3s ease both;
+}
+.hall-seat-cabinet { width: clamp(240px, 30vw, 340px); display: flex; flex-direction: column }
+.hall-detail {
+  width: min(420px, 92vw); display: flex; flex-direction: column; gap: clamp(11px, 1.8vh, 18px);
+}
+.hall-detail-head { display: flex; align-items: baseline; gap: 11px; flex-wrap: wrap }
+.hall-detail-no {
+  font-size: clamp(38px, 5.6vw, 60px); font-weight: 800; color: #ffd68c; line-height: 1;
+  font-variant-numeric: tabular-nums; text-shadow: 0 0 24px rgba(255, 214, 140, .4);
+}
+.hall-detail-unit { font-size: 14px; color: #8c8377 }
+.hall-detail-island { font-size: 14px; color: #cdbfa6 }
+.hall-badge { font-size: 11px; padding: 3px 8px; border: 1px solid #6f6578; color: #cdbfa6 }
+.hall-badge-target { background: #4cd964; color: #0c0a0d; font-weight: 700; border-color: #4cd964 }
+.hall-detail-grid {
+  background: #08060a; border: 1px solid #453c50; padding: clamp(11px, 1.8vw, 16px);
+  display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: clamp(9px, 1.5vh, 15px);
+  font-variant-numeric: tabular-nums;
+}
+.hall-detail-grid > div { display: flex; flex-direction: column; gap: 3px }
+.hall-detail-grid span { font-size: 10px; letter-spacing: .14em; color: #6f6578 }
+.hall-detail-grid b { font-size: clamp(18px, 2.4vw, 24px); font-weight: 700; color: #f2eee8 }
+.hall-detail-grid .hall-num-bb {
+  font-size: clamp(20px, 2.8vw, 28px); color: #ff6b52; text-shadow: 0 0 12px rgba(255, 107, 82, .6);
+}
+.hall-detail-grid .hall-num-rb {
+  font-size: clamp(20px, 2.8vw, 28px); color: #43d9ff; text-shadow: 0 0 12px rgba(67, 217, 255, .5);
+}
+.hall-detail-grid .hall-num-games { font-size: clamp(20px, 2.8vw, 28px); color: #7dff7a }
+.hall-num-hot { color: #ff6b52 }
+.hall-num-plus { color: #ffd166 }
+.hall-num-flat { color: #6f6578 }
+
+/* 配当表 */
+.hall-paytable {
+  background: #150f1c; border: 1px solid #453c50; padding: clamp(11px, 1.8vw, 16px);
+  display: flex; flex-direction: column; gap: 10px;
+}
+.hall-paytable-title {
+  font-size: 11px; letter-spacing: .24em; color: #ffd68c;
+  border-bottom: 1px solid #453c50; padding-bottom: 6px;
+}
+.hall-pay-group { display: flex; flex-direction: column; gap: 6px }
+.hall-pay-line { display: flex; align-items: baseline; gap: 10px }
+.hall-pay-kind { font-size: 9px; letter-spacing: .14em; color: #6f6578; width: 52px; flex: none }
+.hall-pay-word { flex: 1; font-size: 15px; font-weight: 700; color: #f2eee8 }
+.hall-pay-word.big { font-size: clamp(15px, 2vw, 19px); font-weight: 800 }
+.hall-pay-word.cherry { color: #ffd68c }
+.hall-pay-note { font-size: 9px; color: #6f6578; padding-left: 62px; line-height: 1.5 }
+.hall-pay-koyaku {
+  display: flex; flex-direction: column; gap: 5px;
+  border-top: 1px dashed #3a3244; padding-top: 10px;
+}
+.hall-pay-koyaku-head {
+  display: flex; align-items: baseline; justify-content: space-between;
+  font-size: 9px; letter-spacing: .14em; color: #6f6578;
+}
+.hall-pay-row { display: flex; align-items: baseline; gap: 10px }
+.hall-pay-name { flex: 1; font-size: 14px; font-weight: 700; color: #f2eee8 }
+.hall-pay-mai {
+  font-size: 13px; color: #cdbfa6; font-variant-numeric: tabular-nums; white-space: nowrap;
+}
+.hall-pay-line .hall-pay-mai { font-size: 11px; color: #ffd68c }
+
+/* プレイ設定（座る直前） */
+.hall-settings { background: #0d0a12; border: 1px solid #453c50 }
+.hall-settings-head {
+  padding: 11px 14px; font-size: 11px; letter-spacing: .18em; color: #cdbfa6; cursor: pointer;
+  list-style: none;
+}
+.hall-settings-head::-webkit-details-marker { display: none }
+.hall-settings-head::after { content: ' ▼'; font-size: 9px; color: #6f6578 }
+.hall-settings[open] .hall-settings-head::after { content: ' ▲' }
+.hall-settings-body {
+  padding: 0 14px 12px; display: flex; flex-direction: column; gap: 2px;
+}
+.hall-toggle {
+  display: flex; align-items: center; gap: 12px; padding: 9px 0; cursor: pointer;
+  border-top: 1px solid #2a2436;
+}
+.hall-toggle-text { flex: 1; display: flex; flex-direction: column; gap: 2px; min-width: 0 }
+.hall-toggle-text b { font-size: 13px; font-weight: 700; color: #f2eee8 }
+.hall-toggle-text i { font-size: 10px; font-style: normal; color: #6f6578; line-height: 1.4 }
+.hall-toggle input { position: absolute; opacity: 0; width: 0; height: 0 }
+.hall-toggle-switch {
+  flex: none; width: 40px; height: 22px; border-radius: 11px; background: #2a2436;
+  border: 1px solid #453c50; position: relative; transition: background .15s;
+}
+.hall-toggle-switch::after {
+  content: ''; position: absolute; left: 2px; top: 2px; width: 16px; height: 16px;
+  border-radius: 50%; background: #8c8377; transition: transform .15s, background .15s;
+}
+.hall-toggle input:checked + .hall-toggle-switch { background: #4cd964; border-color: #4cd964 }
+.hall-toggle input:checked + .hall-toggle-switch::after {
+  transform: translateX(18px); background: #0c0a0d;
+}
+.hall-toggle input:focus-visible + .hall-toggle-switch { outline: 2px solid #ffd166; outline-offset: 2px }
+
+.hall-sit {
+  padding: clamp(13px, 2vh, 18px); background: linear-gradient(#ffe6a8, #d19b30);
+  border: 1px solid #fff6de; color: #2a1d0b; font-size: clamp(15px, 2vw, 19px); font-weight: 800;
+  letter-spacing: .1em; text-align: center; cursor: pointer;
+  box-shadow: 0 0 34px rgba(255, 214, 140, .35);
+}
+.hall-sit:hover, .hall-sit:focus-visible {
+  background: linear-gradient(#fff6de, #e8ae3c); outline: none;
+}
+.hall-notice {
+  background: #f6efe0; border: 2px solid #2a2436; padding: 13px 15px;
+  display: flex; flex-direction: column; gap: 5px;
+  box-shadow: 4px 6px 0 rgba(0, 0, 0, .5); transform: rotate(-.6deg);
+}
+.hall-notice-badge {
+  font-size: 10px; letter-spacing: .2em; color: #fdf4e3; background: #c8342a;
+  padding: 3px 9px; align-self: flex-start;
+}
+.hall-notice-title { font-size: 15px; font-weight: 800; color: #191320; line-height: 1.5 }
+.hall-notice-body { font-size: 11px; color: #5a5348; line-height: 1.6 }
+.hall-seat-another { text-align: center; font-size: 13px; color: #8c8377; cursor: pointer }
+.hall-seat-another:hover { color: #cdbfa6 }

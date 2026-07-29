@@ -20,7 +20,8 @@ import {
 } from './productions/EffectScheduler';
 import { BonusZone } from './productions/BonusZone';
 import { BonusSession } from './productions/BonusSession';
-import { applySetting, settingFor } from './productions/MachineSetting';
+import { applySetting } from './productions/MachineSetting';
+import { settingForMachine } from './productions/HallPolicy';
 import { recordSpin as recordMachineSpin } from './productions/MachineData';
 import { drawEndScreen } from './productions/SettingHint';
 import { EffectEligibility } from './productions/EffectEligibility';
@@ -96,11 +97,12 @@ import payoutDataRaw from '../data/payouts/default.json';
 import tuningDataRaw from '../data/tuning/default.json';
 import packageMeta from '../package.json';
 import {
+  CHAPTERS,
   getCurrentChapter,
-  getCurrentChapterId,
   isSecretUnlocked,
   setSecretUnlocked,
 } from './data/chapters';
+import { chapterIdOfMachine, getCurrentMachine } from './data/machines';
 import './style.css';
 
 const REEL_GAP = 16;
@@ -160,8 +162,10 @@ export async function bootstrap() {
     preference: 'webgl',
   });
 
-  const chapter = getCurrentChapter();
-  const chapterId = getCurrentChapterId();
+  // 打つ台はホール（HallView）で確定済み。章は台から引くので両者がずれない。
+  const machine = getCurrentMachine();
+  const chapterId = chapterIdOfMachine(machine);
+  const chapter = CHAPTERS.find((c) => c.id === chapterId) ?? getCurrentChapter();
 
   // 島ごとのアート（public/art/）。
   // ※ body の島背景パネルは一旦オフ（必要になったら has-chapter-bg を復活させる）。
@@ -170,7 +174,8 @@ export async function bootstrap() {
   const reelConfig = ReelConfigSchema.parse(chapter.reelData);
   // 設定（1〜6）はその日その台で決まる。プレイヤーには見せず、
   // データと示唆演出から推測させる（設計: MachineSetting）。
-  const machineSetting = settingFor(chapterId, new Date());
+  // **章ではなく台ごと**。同じ島の4台が同じ設定だと、台を選び分ける意味が消える。
+  const machineSetting = settingForMachine(machine, new Date());
   const yakuList = applySetting(
     YakuListSchema.parse(chapter.yakuData),
     machineSetting,
@@ -1728,7 +1733,8 @@ export async function bootstrap() {
         bonusTriggered: isPremium || isRegular,
       });
       // 台のデータカウンター（設定推測の材料）。ハマりはボーナスで0に戻る。
-      recordMachineSpin(chapterId, new Date(), {
+      // キーは台ID。章で数えると同じ島の4台のデータが混ざる。
+      recordMachineSpin(machine.id, new Date(), {
         bet: calc.bet,
         win,
         bonus: isPremium ? 'big' : isRegular ? 'reg' : null,

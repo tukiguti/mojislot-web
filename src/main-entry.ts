@@ -2,7 +2,7 @@ import { Router, showView } from './router/Router';
 import type { Route } from './router/Router';
 import { bootstrap } from './main';
 import { mountTopView } from './ui/TopView';
-import { mountPlaySetup } from './ui/PlaySetup';
+import { mountHallView } from './ui/HallView';
 import { renderRankingView } from './ui/RankingView';
 import { renderCardView } from './ui/CardView';
 
@@ -50,13 +50,15 @@ mountTopView({
   onRanking: () => router.navigate('ranking'),
 });
 
-mountPlaySetup({
+mountHallView({
   onLaunch: () => {
     // PLAY→GAME は素の状態から bootstrap したいので reload 起動
     location.hash = '#/game';
     location.reload();
   },
   onBack: () => router.navigate('top'),
+  onCard: () => router.navigate('card'),
+  onRanking: () => router.navigate('ranking'),
 });
 
 // ゲーム内「TOPへ」: gameStarted=true なので enter() が reload で破棄して戻す
