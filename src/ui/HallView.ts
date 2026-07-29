@@ -407,14 +407,14 @@ export function mountHallView(cb: HallViewCallbacks): HallViewHandle {
       .forEach((el) => (el.style.transform = `scale(${next.toFixed(3)})`));
   };
 
+  /**
+   * 幅の見張りは**どの局面でも回し続ける**。以前は島の画面でしか回しておらず、
+   * カウンターや入口にいる間に幅が変わっても次の作り直しまで気付かなかった。
+   * 台カードの実測（重い方）は `track` がある島の画面でだけ走る。
+   */
   const startFit = (): void => {
     if (fitTimer !== null) return;
     fitTimer = window.setInterval(fit, FIT_MS);
-  };
-  const stopFit = (): void => {
-    if (fitTimer === null) return;
-    window.clearInterval(fitTimer);
-    fitTimer = null;
   };
 
   // ─── 移動 ───
@@ -694,10 +694,6 @@ export function mountHallView(cb: HallViewCallbacks): HallViewHandle {
         </div>
 
         <div class="hall-footbar">
-          <div class="hall-islandnav">
-            <div class="hall-navbtn" data-act="prev" role="button" tabindex="0">◀ 前の島</div>
-            <div class="hall-navbtn" data-act="next" role="button" tabindex="0">次の島 ▶</div>
-          </div>
           <div class="hall-footrow">
             <div class="hall-foot-exit" data-act="exit" role="button" tabindex="0">
               <span>←</span><span>入口</span>
@@ -950,6 +946,12 @@ export function mountHallView(cb: HallViewCallbacks): HallViewHandle {
   const counterNarrow = (): string => `
     <div class="hall-counterfront narrow${slideClass()}">
       <span class="hall-cf-topline"></span>
+      <div class="hall-aisle hall-aisle-l" data-act="prev" role="button" tabindex="0">
+        <span class="hall-aisle-mark">◀</span><span class="hall-aisle-label">前の島</span>
+      </div>
+      <div class="hall-aisle hall-aisle-r" data-act="next" role="button" tabindex="0">
+        <span class="hall-aisle-mark">▶</span><span class="hall-aisle-label">次の島</span>
+      </div>
       <span class="hall-carpet sm"></span>
 
       <div class="hall-cfsign-box sm">
@@ -1002,10 +1004,6 @@ export function mountHallView(cb: HallViewCallbacks): HallViewHandle {
 
       <div class="hall-cfspace"></div>
 
-      <div class="hall-islandnav">
-        <div class="hall-navbtn" data-act="prev" role="button" tabindex="0">◀ 前の島</div>
-        <div class="hall-navbtn" data-act="next" role="button" tabindex="0">次の島 ▶</div>
-      </div>
       <div class="hall-cf-exit" data-act="exit" role="button" tabindex="0">← 入口に戻る</div>
     </div>`;
 
@@ -1145,8 +1143,6 @@ export function mountHallView(cb: HallViewCallbacks): HallViewHandle {
 
   // ─── 描画 ───
   function render(): void {
-    if (st.phase === 'floor') startFit();
-    else stopFit();
 
     if (st.phase === 'entrance' || st.phase === 'entering') {
       root.innerHTML = st.narrow ? entranceNarrow() : entranceWide();
@@ -1349,6 +1345,7 @@ export function mountHallView(cb: HallViewCallbacks): HallViewHandle {
   });
 
   window.addEventListener('resize', fit);
+  startFit();
   render();
 
   return {

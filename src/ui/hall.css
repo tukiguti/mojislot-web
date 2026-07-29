@@ -311,10 +311,7 @@
   position: relative; height: 100vh; box-sizing: border-box; overflow: hidden;
   animation: hall-floor-in .5s ease both;
 }
-/* スマホ: 左右の帯をやめて足元に島移動を出す。バーが2段になるぶん背が要る。 */
-.hall-floor[data-narrow] { --hall-foot-h: 126px }
-.hall-floor[data-narrow] .hall-aisle { display: none }
-.hall-floor[data-narrow] .hall-islandnav { display: flex }
+
 /* 絶対配置の子はパディングボックス基準で下がるので、セーフエリアはここ1箇所で済む */
 .hall-floor[data-narrow] { padding-top: calc(env(safe-area-inset-top, 0px) + 56px) }
 
@@ -674,10 +671,9 @@
 
 /* 足元バー */
 /*
- * 足元バー。島移動の導線は**画面幅で置き場所が変わる**。
- * デスクトップは通路の左右（◀▶ の帯）、スマホは足元の2段目。
- * スマホで左右の帯を出すと 44px × 2 が台の表示から削られ、ただでさえ縮んでいる
- * 台カードがさらに小さくなる。カウンター前も同じ規則で揃えてある。
+ * 足元バー。**島移動は画面幅によらず通路の左右（◀▶ の帯）に統一**してある。
+ * 一時はスマホだけ足元に置いていたが、幅で置き場所が変わると「幅の判定が
+ * 古いまま残った時」に導線ごと入れ替わってしまう。分岐を無くして原因を断った。
  */
 .hall-footbar {
   position: absolute; left: 0; right: 0; bottom: 0; height: var(--hall-foot-h);
@@ -689,14 +685,6 @@
 .hall-footrow {
   display: flex; align-items: center; gap: clamp(8px, 2vw, 24px); width: 100%;
 }
-/* 島移動（スマホのみ）。カウンター前でも同じクラスを使う。 */
-.hall-islandnav { display: none; gap: 9px }
-.hall-navbtn {
-  flex: 1; box-sizing: border-box; padding: 12px; text-align: center;
-  border: 1px solid #4a4258; background: rgba(13, 11, 20, .8);
-  font-size: 13px; color: #ffd166; cursor: pointer;
-}
-.hall-navbtn:hover, .hall-navbtn:focus-visible { background: #1e1a2e; outline: none }
 .hall-foot-exit { display: flex; align-items: center; gap: 7px; cursor: pointer; flex: none }
 .hall-foot-exit span { font-size: 12px; color: #8c8377 }
 .hall-foot-exit span:first-child { font-size: 14px }
@@ -866,7 +854,8 @@
 
 .hall-counterfront.narrow {
   height: auto; min-height: 100vh; background: #0e0a10; gap: 16px;
-  padding: calc(env(safe-area-inset-top, 0px) + 22px) 16px calc(env(safe-area-inset-bottom, 0px) + 22px);
+  /* 左右 44px は通路の帯のぶん。中身がその下に潜らないようにする。 */
+  padding: calc(env(safe-area-inset-top, 0px) + 22px) 44px calc(env(safe-area-inset-bottom, 0px) + 22px);
 }
 .hall-cf-topline {
   position: absolute; left: 0; right: 0; top: 0; height: 5px;
@@ -1160,7 +1149,13 @@
 
 /* スマホのカウンター前 */
 .hall-cf-shelfrow { position: relative; display: flex; gap: 8px; height: 56px }
-.hall-counterfront.narrow .hall-islandnav { position: relative; display: flex }
+/*
+ * スマホのカウンター前は縦に流れるので、帯は fixed にして常に手が届く高さに置く。
+ * 中身側は左右に 44px の余白を取ってあり、帯の下に潜り込まない。
+ */
+.hall-counterfront.narrow .hall-aisle {
+  position: fixed; top: 30vh; bottom: 30vh; width: 40px; z-index: 6;
+}
 .hall-cf-exit {
   position: relative; box-sizing: border-box; padding: 12px; text-align: center;
   font-size: 12px; color: #8c8377; cursor: pointer;
