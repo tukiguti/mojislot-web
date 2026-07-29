@@ -672,14 +672,20 @@ export function mountHallView(cb: HallViewCallbacks): HallViewHandle {
         </div>
 
         <div class="hall-footbar">
-          <div class="hall-foot-exit" data-act="exit" role="button" tabindex="0">
-            <span>←</span><span>入口</span>
+          <div class="hall-islandnav">
+            <div class="hall-navbtn" data-act="prev" role="button" tabindex="0">◀ 前の島</div>
+            <div class="hall-navbtn" data-act="next" role="button" tabindex="0">次の島 ▶</div>
           </div>
-          <div class="hall-foot-counter" data-act="to-counter" role="button" tabindex="0">
-            <span class="hall-foot-counter-bar"></span><span>景品カウンター</span>
+          <div class="hall-footrow">
+            <div class="hall-foot-exit" data-act="exit" role="button" tabindex="0">
+              <span>←</span><span>入口</span>
+            </div>
+            <div class="hall-foot-counter" data-act="to-counter" role="button" tabindex="0">
+              <span class="hall-foot-counter-bar"></span><span>景品カウンター</span>
+            </div>
+            <div class="hall-foot-space"></div>
+            <div class="hall-foot-go" data-act="zoom" role="button" tabindex="0" data-confirm></div>
           </div>
-          <div class="hall-foot-space"></div>
-          <div class="hall-foot-go" data-act="zoom" role="button" tabindex="0" data-confirm></div>
         </div>
       </div>`;
   };
@@ -963,9 +969,9 @@ export function mountHallView(cb: HallViewCallbacks): HallViewHandle {
 
       <div class="hall-cfspace"></div>
 
-      <div class="hall-cf-nav">
-        <div class="hall-cf-navbtn" data-act="prev" role="button" tabindex="0">◀ 前の島</div>
-        <div class="hall-cf-navbtn" data-act="next" role="button" tabindex="0">次の島 ▶</div>
+      <div class="hall-islandnav">
+        <div class="hall-navbtn" data-act="prev" role="button" tabindex="0">◀ 前の島</div>
+        <div class="hall-navbtn" data-act="next" role="button" tabindex="0">次の島 ▶</div>
       </div>
       <div class="hall-cf-exit" data-act="exit" role="button" tabindex="0">← 入口に戻る</div>
     </div>`;

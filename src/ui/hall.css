@@ -293,9 +293,14 @@
 /* ═══════════ 島（フロア） ═══════════ */
 
 .hall-floor {
+  --hall-foot-h: max(11vh, 64px);
   position: relative; height: 100vh; box-sizing: border-box; overflow: hidden;
   animation: hall-floor-in .5s ease both;
 }
+/* スマホ: 左右の帯をやめて足元に島移動を出す。バーが2段になるぶん背が要る。 */
+.hall-floor[data-narrow] { --hall-foot-h: 126px }
+.hall-floor[data-narrow] .hall-aisle { display: none }
+.hall-floor[data-narrow] .hall-islandnav { display: flex }
 /* 絶対配置の子はパディングボックス基準で下がるので、セーフエリアはここ1箇所で済む */
 .hall-floor[data-narrow] { padding-top: calc(env(safe-area-inset-top, 0px) + 56px) }
 
@@ -361,7 +366,7 @@
 
 /* 通路の矢印 */
 .hall-aisle {
-  position: absolute; top: 15vh; bottom: max(11vh, 64px);
+  position: absolute; top: 15vh; bottom: var(--hall-foot-h, max(11vh, 64px));
   width: max(44px, clamp(42px, 5vw, 68px));
   display: flex; flex-direction: column; align-items: center; justify-content: center;
   gap: 11px; cursor: pointer; z-index: 4;
@@ -392,7 +397,7 @@
 /* 台の列 */
 .hall-track {
   position: absolute; left: max(44px, clamp(42px, 5vw, 68px)); right: max(44px, clamp(42px, 5vw, 68px));
-  top: 17.5vh; bottom: max(11vh, 64px); overflow: hidden; z-index: 2;
+  top: 17.5vh; bottom: var(--hall-foot-h, max(11vh, 64px)); overflow: hidden; z-index: 2;
 }
 .hall-slider {
   display: flex; height: 100%;
@@ -654,12 +659,30 @@
 .hall-cabinet-seat .hall-tray { height: 20px; border-radius: 2px 2px 6px 6px }
 
 /* 足元バー */
+/*
+ * 足元バー。島移動の導線は**画面幅で置き場所が変わる**。
+ * デスクトップは通路の左右（◀▶ の帯）、スマホは足元の2段目。
+ * スマホで左右の帯を出すと 44px × 2 が台の表示から削られ、ただでさえ縮んでいる
+ * 台カードがさらに小さくなる。カウンター前も同じ規則で揃えてある。
+ */
 .hall-footbar {
-  position: absolute; left: 0; right: 0; bottom: 0; height: 11vh; min-height: 64px;
+  position: absolute; left: 0; right: 0; bottom: 0; height: var(--hall-foot-h);
   background: linear-gradient(rgba(14, 10, 16, .5), rgba(14, 10, 16, .97) 45%);
   border-top: 1px solid rgba(255, 214, 140, .25); padding: 0 clamp(10px, 2.4vw, 30px);
-  display: flex; align-items: center; gap: clamp(8px, 2vw, 24px); overflow: hidden; z-index: 5;
+  display: flex; flex-direction: column; justify-content: center; gap: 8px;
+  overflow: hidden; z-index: 5;
 }
+.hall-footrow {
+  display: flex; align-items: center; gap: clamp(8px, 2vw, 24px); width: 100%;
+}
+/* 島移動（スマホのみ）。カウンター前でも同じクラスを使う。 */
+.hall-islandnav { display: none; gap: 9px }
+.hall-navbtn {
+  flex: 1; box-sizing: border-box; padding: 12px; text-align: center;
+  border: 1px solid #4a4258; background: rgba(13, 11, 20, .8);
+  font-size: 13px; color: #ffd166; cursor: pointer;
+}
+.hall-navbtn:hover, .hall-navbtn:focus-visible { background: #1e1a2e; outline: none }
 .hall-foot-exit { display: flex; align-items: center; gap: 7px; cursor: pointer; flex: none }
 .hall-foot-exit span { font-size: 12px; color: #8c8377 }
 .hall-foot-exit span:first-child { font-size: 14px }
@@ -1112,7 +1135,10 @@
 .hall-desk-front.sm .hall-acryl-title { font-size: 15px; letter-spacing: .18em }
 .hall-acryl-sub { font-size: 10px; color: #c8a86c; letter-spacing: .1em; white-space: nowrap }
 
-.hall-footbar-counter { position: relative; flex: none; height: max(11vh, 64px) }
+.hall-footbar-counter {
+  position: relative; flex: none; height: max(11vh, 64px);
+  flex-direction: row; align-items: center; gap: clamp(8px, 2vw, 24px);
+}
 .hall-foot-hint {
   flex: 1 1 0; min-width: 0; text-align: center; font-size: 11px; color: #6f6578;
   white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
@@ -1120,12 +1146,7 @@
 
 /* スマホのカウンター前 */
 .hall-cf-shelfrow { position: relative; display: flex; gap: 8px; height: 56px }
-.hall-cf-nav { position: relative; display: flex; gap: 9px }
-.hall-cf-navbtn {
-  flex: 1; box-sizing: border-box; padding: 14px; text-align: center;
-  border: 1px solid #4a4258; background: rgba(13, 11, 20, .8);
-  font-size: 13px; color: #ffd166; cursor: pointer;
-}
+.hall-counterfront.narrow .hall-islandnav { position: relative; display: flex }
 .hall-cf-exit {
   position: relative; box-sizing: border-box; padding: 12px; text-align: center;
   font-size: 12px; color: #8c8377; cursor: pointer;
