@@ -1262,6 +1262,9 @@ export async function bootstrap() {
   const placeBet = () => {
     if (freezeActive) return;
     if (betBtn.disabled) return;
+    // チェリー重複の点灯待ちが残っていれば、次ゲームの役を決める前にここで点ける。
+    // 待ちを跨がせると回転中に点いて「点いたのに揃わない」になる。
+    if (cherryLampTimer !== null) fireCherryLamp();
     sfx.init(); // user gesture でオーディオ起動
     // BGM も最初の BET で起動（自動再生制限の回避）。再生中ならスキップ。
     bgm.init();
@@ -1706,12 +1709,7 @@ export async function bootstrap() {
         !freezeActive &&
         Math.random() < tuning.cherryBonus.rate
       ) {
-        window.setTimeout(() => {
-          // 待っている間に他経路で点灯／ボーナス突入していたら何もしない。
-          if (announcedBonus || bonusZone.isActive()) return;
-          announceBonus(tuning.cherryBonus.bigRatio);
-          showResult('チェリー重複！ ボーナス確定', 'premium');
-        }, tuning.cherryBonus.delayMs);
+        cherryLampTimer = window.setTimeout(fireCherryLamp, tuning.cherryBonus.delayMs);
       }
       if (quizTargetYakuId) {
         const quizMatched = hits.some((h) => h.yaku.id === quizTargetYakuId);
@@ -1986,6 +1984,27 @@ export async function bootstrap() {
     flashScreen({ color: '#fff3a0', alpha: 0.8, durMs: 280 });
     jinSpeech.say('premium');
   };
+  /**
+   * チェリー重複の点灯待ち。全停止直後ではなく少し置いてから点けることで、
+   * チェリー成立の表示を見せてから「チェリーが呼んだ」と読める間を作る。
+   *
+   * ただし**その間はプレイヤーを待たせない**。全停止後はすぐBETできるので、
+   * 待たせる作りにすると次ゲームの回転中にランプが点く。そのゲームの内部役は
+   * 普通に抽選されたもの（ボーナスではない）なので、**点いたのに揃わない**という
+   * 見え方になる。BETした時点で先に点けて、そのゲームからボーナス役を強制する。
+   */
+  let cherryLampTimer: number | null = null;
+  const fireCherryLamp = () => {
+    if (cherryLampTimer !== null) {
+      window.clearTimeout(cherryLampTimer);
+      cherryLampTimer = null;
+    }
+    // 待っている間に他経路で点灯／ボーナス突入していたら何もしない。
+    if (announcedBonus || bonusZone.isActive()) return;
+    // 文字は出さない。ランプの点灯・SE・フラッシュで十分に分かる（1確・リーチ目と同じ扱い）。
+    announceBonus(tuning.cherryBonus.bigRatio);
+  };
+
   /** ランプ消灯（ボーナス回収後）。 */
   const clearAnnounceLamp = () => {
     announcedBonus = null;
