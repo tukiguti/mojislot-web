@@ -55,6 +55,11 @@ export interface RunRecord {
   missionsEnabled?: boolean;
   /** デバッグ操作を表示可能な状態だったか。ランキング比較時の注意情報。 */
   debugEnabled?: boolean;
+  /**
+   * 試打コーナーの台だったか。あそこは設定6で固定なので、ホールで設定を探して
+   * 打った記録とは条件が違う。ランキングの比較条件で既定除外する。
+   */
+  trialPlay?: boolean;
 }
 
 /** 履歴を読み込む。壊れていれば空配列にフォールバックする。 */

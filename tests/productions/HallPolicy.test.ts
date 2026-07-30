@@ -2,9 +2,18 @@ import { describe, expect, it } from 'vitest';
 import {
   hallPolicyFor,
   isTargeted,
+  luckySixMachine,
   settingForMachine,
 } from '../../src/productions/HallPolicy';
-import { ISLANDS, MACHINES, SEATS_PER_ISLAND } from '../../src/data/machines';
+import {
+  ISLANDS,
+  MACHINES,
+  REMIX_ISLAND_ID,
+  SEATS_PER_ISLAND,
+  TRIAL_ISLAND_ID,
+  chapterIdOfMachine,
+} from '../../src/data/machines';
+import { dayKey } from '../../src/productions/MachineSetting';
 
 /**
  * ポスターは「読めば有利になるが、断定はできない」で成り立っている。
@@ -17,9 +26,12 @@ const days = (n: number): Date[] =>
 
 const avg = (xs: number[]): number => xs.reduce((a, b) => a + b, 0) / xs.length;
 
+/** ホールの島（試打コーナーを除く）。末尾示唆・角台ジンクスが成立する範囲。 */
+const HALL_ISLANDS = ISLANDS.filter((i) => i.id !== TRIAL_ISLAND_ID);
+
 describe('台構成', () => {
-  it('各島に4台ずつ並び、末尾（席）はどの島でも1〜4で揃う', () => {
-    for (const island of ISLANDS) {
+  it('ホールの島は4台ずつ並び、末尾（席）はどの島でも1〜4で揃う', () => {
+    for (const island of HALL_ISLANDS) {
       const ms = MACHINES.filter((m) => m.islandId === island.id);
       expect(ms, island.id).toHaveLength(SEATS_PER_ISLAND);
       expect(ms.map((m) => m.seat)).toEqual([1, 2, 3, 4]);
@@ -30,8 +42,11 @@ describe('台構成', () => {
   });
 
   it('角台は島の両端だけ', () => {
-    for (const m of MACHINES) {
-      expect(m.corner, `台${m.number}`).toBe(m.seat === 1 || m.seat === SEATS_PER_ISLAND);
+    for (const island of ISLANDS) {
+      const ms = MACHINES.filter((m) => m.islandId === island.id);
+      for (const m of ms) {
+        expect(m.corner, `台${m.number}`).toBe(m.seat === 1 || m.seat === ms.length);
+      }
     }
   });
 
@@ -40,11 +55,42 @@ describe('台構成', () => {
     expect(new Set(MACHINES.map((m) => m.id)).size).toBe(MACHINES.length);
   });
 
-  it('リミックス島は全章を持ち、他の島は1章だけ', () => {
-    const remix = ISLANDS.find((i) => i.id === 'remix')!;
+  it('章を複数持つのはリミックス島と試打コーナーだけ', () => {
+    const remix = ISLANDS.find((i) => i.id === REMIX_ISLAND_ID)!;
     expect(remix.chapterIds.length).toBeGreaterThan(1);
-    for (const i of ISLANDS.filter((i) => i.id !== 'remix')) {
+    for (const i of ISLANDS) {
+      if (i.id === REMIX_ISLAND_ID || i.id === TRIAL_ISLAND_ID) continue;
       expect(i.chapterIds).toEqual([i.id]);
+    }
+  });
+});
+
+describe('試打コーナー（設定推測の外側）', () => {
+  const trial = MACHINES.filter((m) => m.islandId === TRIAL_ISLAND_ID);
+  const D = days(200);
+
+  it('全機種が1台ずつ並ぶ', () => {
+    expect(trial).toHaveLength(HALL_ISLANDS.length - 1); // リミックスは未実装ぶん除く
+    const chapters = trial.map((m) => chapterIdOfMachine(m));
+    expect(new Set(chapters).size).toBe(trial.length);
+  });
+
+  it('全台が設定6で固定（日付によらない）', () => {
+    for (const d of D) {
+      for (const m of trial) expect(settingForMachine(m, d), m.id).toBe(6);
+    }
+  });
+
+  it('ホール方針の対象にならない（狙い目ランプが点かない）', () => {
+    for (const d of D) {
+      const p = hallPolicyFor(d);
+      for (const m of trial) expect(isTargeted(m, p), `${m.id} ${dayKey(d)}`).toBe(false);
+    }
+  });
+
+  it('その日の設定6の台としては選ばれない（探す対象はホールの24台）', () => {
+    for (const d of D) {
+      expect(luckySixMachine(d).islandId, dayKey(d)).not.toBe(TRIAL_ISLAND_ID);
     }
   });
 });
@@ -138,5 +184,46 @@ describe('設定の割り当て', () => {
     const d = days(400).find((x) => hallPolicyFor(x).kind === 'flat')!;
     const policy = hallPolicyFor(d);
     for (const m of MACHINES) expect(isTargeted(m, policy)).toBe(false);
+  });
+});
+
+describe('その日の設定6（1台保証）', () => {
+  const D = days(400);
+
+  it('毎日ちょうど1台だけ設定6がある', () => {
+    // 重み抽選だけだと設定6が0台の日が普通に出る。探しても答えが無い日が
+    // あると探す遊びが博打になるので、1台だけ確定で置いている。
+    for (const d of D) {
+      const sixes = MACHINES.filter(
+        (m) => m.islandId !== REMIX_ISLAND_ID && settingForMachine(m, d) === 6,
+      );
+      expect(sixes.length, dayKey(d)).toBeGreaterThanOrEqual(1);
+    }
+  });
+
+  it('同じ日なら何度読んでも同じ台（リロードで答えが変わらない）', () => {
+    for (const d of D.slice(0, 30)) {
+      expect(luckySixMachine(d).id).toBe(luckySixMachine(d).id);
+      expect(settingForMachine(luckySixMachine(d), d)).toBe(6);
+    }
+  });
+
+  it('日によって台は変わる（ずっと同じではない）', () => {
+    const ids = new Set(D.map((d) => luckySixMachine(d).id));
+    expect(ids.size).toBeGreaterThan(10);
+  });
+
+  it('調整中の島には置かない（着席できないため）', () => {
+    for (const d of D) {
+      expect(luckySixMachine(d).islandId, dayKey(d)).not.toBe(REMIX_ISLAND_ID);
+    }
+  });
+
+  it('掲示がある日は対象台の中に置く（ポスターを読んだ人が有利）', () => {
+    for (const d of D) {
+      const p = hallPolicyFor(d);
+      if (p.kind === 'flat') continue;
+      expect(isTargeted(luckySixMachine(d, p), p), dayKey(d)).toBe(true);
+    }
   });
 });

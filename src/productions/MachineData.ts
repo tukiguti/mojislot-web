@@ -43,6 +43,18 @@ export interface MachineDay {
   samples: number[];
   /** 現在の記録間隔。間引くたびに倍になる。 */
   sampleEvery: number;
+  /**
+   * 通常時（ボーナス中でない）の回転数と、そのうち**演出が出た**回転数。
+   *
+   * 設定差は演出の出方に乗せてあるので（`MachineSetting`）、**設定を読める数字は
+   * これだけ**。BIG/REG回数や合成確率は設定差が小さすぎて事実上読めない
+   * （2台を3σで見分けるのに28万ゲーム。演出率なら約400ゲーム）。
+   *
+   * ボーナス中を数えないのは、ボーナス中は無演出が0で必ず演出が出るため。
+   * 混ぜると消化ゲーム数の差で率が動いてしまう。
+   */
+  normalSpins: number;
+  effectSpins: number;
 }
 
 const emptyDay = (day: string): MachineDay => ({
@@ -54,6 +66,8 @@ const emptyDay = (day: string): MachineDay => ({
   sahmai: 0,
   samples: [],
   sampleEvery: INITIAL_SAMPLE_EVERY,
+  normalSpins: 0,
+  effectSpins: 0,
 });
 
 /** 保存済みレコードに欠けている項目を補う（項目追加前のデータを壊さない）。 */
@@ -61,6 +75,8 @@ const normalize = (d: MachineDay): MachineDay => ({
   ...d,
   samples: Array.isArray(d.samples) ? d.samples : [],
   sampleEvery: d.sampleEvery > 0 ? d.sampleEvery : INITIAL_SAMPLE_EVERY,
+  normalSpins: d.normalSpins ?? 0,
+  effectSpins: d.effectSpins ?? 0,
 });
 
 type Store = Record<string, MachineDay>;
@@ -111,6 +127,10 @@ export interface SpinRecord {
   win: number;
   /** このゲームでボーナスへ新規突入したか（おかわりは数えない）。 */
   bonus: 'big' | 'reg' | null;
+  /** ボーナス消化中のゲームか。演出率の母数から外す。 */
+  inBonus: boolean;
+  /** 演出（示唆・クイズ・狙え）が出たか。設定を読める唯一の数字。 */
+  effect: boolean;
 }
 
 /**
@@ -151,6 +171,8 @@ export function recordSpin(
   const next: MachineDay = {
     day,
     spins,
+    normalSpins: cur.normalSpins + (spin.inBonus ? 0 : 1),
+    effectSpins: cur.effectSpins + (!spin.inBonus && spin.effect ? 1 : 0),
     big: cur.big + (spin.bonus === 'big' ? 1 : 0),
     reg: cur.reg + (spin.bonus === 'reg' ? 1 : 0),
     sinceBonus: spin.bonus ? 0 : cur.sinceBonus + 1,
@@ -161,6 +183,14 @@ export function recordSpin(
   store[machineId] = next;
   save(store);
   return next;
+}
+
+/**
+ * 演出が出た割合（通常時のみ）。まだ回していなければ null。
+ * 高いほど高設定寄り。設定1で約25%、設定6で約35%（ハズレと1枚役を含む母数）。
+ */
+export function effectRate(d: MachineDay): number | null {
+  return d.normalSpins > 0 ? d.effectSpins / d.normalSpins : null;
 }
 
 /** ボーナス確率の表示（1/N）。まだ引いていなければ null。 */

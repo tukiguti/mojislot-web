@@ -5,7 +5,9 @@ import {
   SEATS_PER_ISLAND,
   chapterIdOfMachine,
   getCurrentMachine,
+  REMIX_ISLAND_ID,
   islandById,
+  isTrialMachine,
   machinesOfIsland,
   setCurrentMachineId,
   type Island,
@@ -18,6 +20,7 @@ import { getMemberName } from '../productions/Member';
 import { RUN_RULESET_VERSION, loadRunHistory } from '../productions/RunHistory';
 import {
   bonusRate,
+  effectRate,
   readAllMachineDays,
   readMachineDay,
   type MachineDay,
@@ -63,6 +66,11 @@ const HOT_THRESHOLD = 200;
 const ENTER_MS = 1150;
 /** 台カードの倍率を測り直す間隔。フォント読み込み等で後からずれるため。 */
 const FIT_MS = 400;
+/**
+ * 演出率が「読める数字」になる通常時ゲーム数。設定1（約25%）と設定6（約35%）が
+ * 3σで分かれるのが約400ゲームなので、そこを境に表示の濃さを変える。
+ */
+const EFFECT_READABLE_SPINS = 400;
 
 const payout = PayoutSchema.parse(payoutDataRaw);
 const tuning = TuningSchema.parse(tuningDataRaw);
@@ -98,6 +106,9 @@ function yakuOf(chapterId: string): YakuList {
 
 const wordOf = (symbols: readonly string[]): string => symbols.join('');
 
+/** 着席できない島か。いまはステージ切替が未実装のリミックス島だけ。 */
+const closed = (island: Island): boolean => island.id === REMIX_ISLAND_ID;
+
 /**
  * 島の役（小役4・チェリー・REG・BIG2）。配当表と筐体の図柄に使う。
  *
@@ -105,13 +116,24 @@ const wordOf = (symbols: readonly string[]): string => symbols.join('');
  * i番目の小役を取れば 4/6/8/10 の枚数の階段は保たれる。ボーナスは最後の章から丸ごと
  * 取る（REG＝BIG2種から文字を借りる構成規則を島の中で成立させるため）。
  */
-function islandYaku(island: Island): {
+function islandYaku(island: Island, seat = 1): {
   words: string[];
   pays: number[];
   cherry: string;
   reg: string;
   big: string[];
 } {
+  // 試打コーナーは席ごとに1機種。その席の章だけを見る。
+  if (island.trial) {
+    const y = yakuOf(island.chapterIds[seat - 1] ?? island.chapterIds[0]);
+    return {
+      words: y.coreYaku.map((k) => wordOf(k.symbols)),
+      pays: y.coreYaku.map((k) => k.payout ?? 0),
+      cherry: wordOf(y.cherryYaku[0].symbols),
+      reg: wordOf(y.bonusYaku[0].symbols),
+      big: y.premiumYaku.map((k) => wordOf(k.symbols)),
+    };
+  }
   const lists = island.chapterIds.map(yakuOf);
   const bonusFrom = lists[lists.length - 1];
   const cores =
@@ -132,8 +154,13 @@ function islandYaku(island: Island): {
  * 中段はBIG図柄。打つ前の飾りなので当選とは無関係。
  */
 function reelGrid(island: Island, seat: number): string[] {
-  const { words, big } = islandYaku(island);
-  const rows = [words[seat - 1], big[0], words[seat % words.length]];
+  const { words, big } = islandYaku(island, seat);
+  // 席数は島によって違う（試打コーナーは5席）が小役は4つなので、必ず折り返す。
+  const rows = [
+    words[(seat - 1) % words.length],
+    big[0],
+    words[seat % words.length],
+  ];
   const out: string[] = [];
   rows.forEach((w, r) => {
     for (let c = 0; c < 3; c++) out.push(w[(c + r + seat) % 3] ?? '');
@@ -200,6 +227,54 @@ function graphBars(day: MachineDay): string {
     .join('');
 }
 
+/**
+ * 演出の出方。**設定を読める唯一の数字**なのでカウンターに出す。
+ *
+ * 設定差は演出率に乗せてあり（`MachineSetting`）、2台を3σで見分けるのに
+ * 演出率なら約400ゲーム、合成確率だと28万ゲーム要る。数字にしないと
+ * 「なんとなく出てる気がする」で終わってしまう。
+ *
+ * 母数は通常時のゲーム数。ハズレと1枚役は元から演出が出ないので、
+ * ここには**画面上「演出が出た」ように見えたゲーム**の割合が出る。
+ */
+function effectMeter(d: MachineDay): string {
+  const rate = effectRate(d);
+  if (rate === null) {
+    return `<div class="hall-effmeter empty"><span>演出</span><b>—</b></div>`;
+  }
+  // 設定1で約25%・設定6で約35%。目盛りはその間に置く。
+  const pct = rate * 100;
+  const fill = Math.max(0, Math.min(100, ((pct - 20) / 20) * 100));
+  // 400ゲーム弱で設定1と6が3σで分かれる。それより手前は薄く出して
+  // 「まだ読める数字ではない」と分かるようにする（同じ見た目だと誤読を招く）。
+  const thin = d.normalSpins < EFFECT_READABLE_SPINS;
+  return `
+    <div class="hall-effmeter${thin ? ' thin' : ''}" ${thin ? 'title="まだサンプルが足りません"' : ''}>
+      <span class="hall-effmeter-label">演出</span>
+      <span class="hall-effmeter-bar"><i style="width:${fill.toFixed(0)}%"></i></span>
+      <b class="hall-effmeter-value">${pct.toFixed(1)}%</b>
+      <span class="hall-effmeter-n">${d.effectSpins}/${d.normalSpins}</span>
+    </div>`;
+}
+
+/**
+ * 筐体のタイトルパネルに出す名前。通常は島名だが、**試打コーナーは席ごとに機種が違う**ので
+ * その台の章名を出す（全部「試打コーナー」だと何の台か分からない）。
+ */
+/**
+ * その台の筐体デザインを引く島ID。試打コーナーは席ごとに機種が違うので、
+ * **島のテーマではなくその機種のテーマ**を着せる（並べた時に何の台か色で分かる）。
+ */
+function themeIdOf(v: MachineView): string {
+  return v.island.trial ? chapterIdOfMachine(v.machine) : v.island.id;
+}
+
+function machineTitle(v: MachineView): string {
+  if (!v.island.trial) return v.island.name;
+  const id = chapterIdOfMachine(v.machine);
+  return CHAPTERS.find((c) => c.id === id)?.name ?? v.island.name;
+}
+
 /** データ表示器（ホール設備・全島共通のデザイン）。筐体とは別体で上に載る。 */
 function dataCounter(v: MachineView): string {
   const d = v.day;
@@ -226,6 +301,7 @@ function dataCounter(v: MachineView): string {
         ${graphBars(d)}
         <span class="hall-graph-label">差枚 ${v.played ? signed(d.sahmai) : '±0'}</span>
       </div>
+      ${effectMeter(d)}
     </div>`;
 }
 
@@ -245,7 +321,7 @@ function cabinet(v: MachineView, size: 'floor' | 'seat'): string {
   return `
     <div class="hall-cabinet hall-cabinet-${size}">
       <div class="hall-toplamp"></div>
-      <div class="hall-titlepanel"><span>${esc(v.island.name)}</span></div>
+      <div class="hall-titlepanel"><span>${esc(machineTitle(v))}</span></div>
       <div class="hall-lcd">
         <span class="hall-lcd-scan"></span>
         <span class="hall-lcd-text">演出液晶</span>
@@ -293,7 +369,8 @@ function cabinet(v: MachineView, size: 'floor' | 'seat'): string {
 function machineCard(v: MachineView, selected: boolean): string {
   return `
     <div class="hall-slot">
-      <div class="hall-machine${selected ? ' selected' : ''}" data-machine="${v.machine.id}" role="button" tabindex="0">
+      <div class="hall-machine${selected ? ' selected' : ''}" data-machine="${v.machine.id}"
+           style="${themeVars(themeIdOf(v))}" role="button" tabindex="0">
         ${dataCounter(v)}
         ${cabinet(v, 'floor')}
         <div class="hall-stool"><span class="hall-stool-seat"></span><span class="hall-stool-pole"></span></div>
@@ -470,17 +547,25 @@ export function mountHallView(cb: HallViewCallbacks): HallViewHandle {
   // ─── 入口 ───
   const guideRows = (): string =>
     ISLANDS.map((island, idx) => {
-      const y = islandYaku(island);
-      const range = `${island.no}1 – ${island.no}${SEATS_PER_ISLAND}`;
-      const tail = island.chapterIds.length > 1
+      // 試打コーナーは機種が混在するので、小役ではなく**並んでいる機種名**を出す。
+      const lineup = island.trial
+        ? island.chapterIds
+            .map((id) => CHAPTERS.find((c) => c.id === id)?.name ?? id)
+            .join('・')
+        : islandYaku(island, 1).words.join('・');
+      const seats = island.seats ?? SEATS_PER_ISLAND;
+      const range = `${island.no}1 – ${island.no}${seats}`;
+      const tail = closed(island)
         ? `<span class="hall-guide-wip">調整中</span>`
-        : `<span class="hall-guide-range">${range}</span>`;
+        : island.trial
+          ? `<span class="hall-guide-open">設定6</span>`
+          : `<span class="hall-guide-range">${range}</span>`;
       return `
         <div class="hall-guide-row" data-island="${idx}" role="button" tabindex="0">
           <span class="hall-guide-bar" style="background:${lineColorOf(island.id)}"></span>
           <span class="hall-guide-text">
             <b>${esc(island.name)}</b>
-            <i>${esc(y.words.join('・'))}</i>
+            <i>${esc(lineup)}</i>
           </span>
           ${tail}
         </div>`;
@@ -718,12 +803,12 @@ export function mountHallView(cb: HallViewCallbacks): HallViewHandle {
     }
     const sign = root.querySelector<HTMLElement>('[data-sign-box]');
     if (sign) {
-      const wip = island.chapterIds.length > 1;
+      const wip = closed(island);
       sign.setAttribute('style', themeVars(island.id));
       sign.innerHTML = `
         <span class="hall-islandsign-name">${esc(island.name)}</span>
         <span class="hall-islandsign-sep"></span>
-        <span class="hall-islandsign-range">${island.no}1 – ${island.no}${SEATS_PER_ISLAND}</span>
+        <span class="hall-islandsign-range">${island.no}1 – ${island.no}${island.seats ?? SEATS_PER_ISLAND}</span>
         ${wip ? '<span class="hall-islandsign-wip">調 整 中</span>' : ''}`;
     }
     root.querySelectorAll<HTMLElement>('[data-dot]').forEach((el) => {
@@ -1048,9 +1133,10 @@ export function mountHallView(cb: HallViewCallbacks): HallViewHandle {
     const p = policy();
     const day = readMachineDay(m.id, now());
     const v = viewOf(m, day, p);
-    const y = islandYaku(v.island);
-    const wip = v.island.chapterIds.length > 1;
+    const y = islandYaku(v.island, m.seat);
+    const wip = closed(v.island);
     const rate = bonusRate(day);
+    const eff = effectRate(day);
     const tag = policyTag(p);
     const num = (n: number): string => (v.played ? String(n) : '—');
 
@@ -1062,7 +1148,7 @@ export function mountHallView(cb: HallViewCallbacks): HallViewHandle {
       .join('');
 
     return `
-      <div class="hall-seat" style="${themeVars(v.island.id)}">
+      <div class="hall-seat" style="${themeVars(themeIdOf(v))}">
         <span class="hall-seat-floor"></span>
         <div class="hall-seat-back" data-act="back" role="button" tabindex="0">
           <span>←</span><span>島に戻る（Esc）</span>
@@ -1083,7 +1169,8 @@ export function mountHallView(cb: HallViewCallbacks): HallViewHandle {
               <span class="hall-detail-no">${m.number}</span>
               <span class="hall-detail-unit">番台</span>
               <span class="hall-detail-island">${esc(v.island.name)}</span>
-              ${m.corner ? '<span class="hall-badge">角台</span>' : ''}
+              ${isTrialMachine(m) ? '<span class="hall-badge hall-badge-trial">試打台・設定6</span>' : ''}
+              ${!isTrialMachine(m) && m.corner ? '<span class="hall-badge">角台</span>' : ''}
               ${v.target && tag ? `<span class="hall-badge hall-badge-target">${esc(tag)}</span>` : ''}
             </div>
 
@@ -1094,6 +1181,10 @@ export function mountHallView(cb: HallViewCallbacks): HallViewHandle {
               <div><span>最大ハマり</span><b class="${v.hot ? 'hall-num-hot' : ''}">${num(day.sinceBonus)}</b></div>
               <div><span>差枚</span><b class="${v.plus ? 'hall-num-plus' : 'hall-num-flat'}">${v.played ? signed(day.sahmai) : '±0'}</b></div>
               <div><span>合成確率</span><b>${rate === null ? '—' : `1/${rate.toFixed(0)}`}</b></div>
+              <div><span>演出</span><b class="hall-num-eff">${
+                eff === null ? '—' : `${(eff * 100).toFixed(1)}%`
+              }</b></div>
+              <div><span>通常時G</span><b>${day.normalSpins || '—'}</b></div>
             </div>
 
             <div class="hall-paytable">
@@ -1124,6 +1215,14 @@ export function mountHallView(cb: HallViewCallbacks): HallViewHandle {
               </div>
             </div>
 
+            ${
+              isTrialMachine(m)
+                ? `<div class="hall-trialnote">
+                     設定6で開放してある台です。設定を探さずに打てますが、条件が違うので
+                     <b>ここでの記録はランキングの比較条件で既定除外</b>されます。
+                   </div>`
+                : ''
+            }
             ${wip ? '' : playSettings()}
 
             ${
@@ -1188,7 +1287,8 @@ export function mountHallView(cb: HallViewCallbacks): HallViewHandle {
 
   const sit = (): void => {
     const m = machineOf(st.seatId);
-    if (islandById(m.islandId)?.chapterIds.length !== 1) return; // 調整中の島
+    const island = islandById(m.islandId);
+    if (island && closed(island)) return; // 調整中の島には座れない
     setCurrentMachineId(m.id);
     setCurrentChapterId(chapterIdOfMachine(m));
     persistSettings();

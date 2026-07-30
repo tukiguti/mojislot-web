@@ -41,11 +41,14 @@ const NARROW_AT = 760;
  * **既定を「公平に比べられる記録だけ」に寄せる**。
  * - 出玉規則が違う記録は数字の意味が違う → 最新規則のみ
  * - DEBUG操作が使えた記録は自己ベストとして扱えない → 除外
+ * - 試打コーナーは設定6固定なので、設定を探して打った記録と並べられない → 除外
  * AUTO・ミッションは有利不利が小さいので既定では絞らない（見たい人だけ絞る）。
  */
 interface Conditions {
   latestRulesetOnly: boolean;
   excludeDebug: boolean;
+  /** 試打コーナー（設定6固定）の記録を外す。 */
+  excludeTrial: boolean;
   manualOnly: boolean;
   missionsOnly: boolean;
   /** 'all' または「その速度で通しでプレイした記録だけ」を示すコマ/秒。 */
@@ -55,6 +58,7 @@ interface Conditions {
 const DEFAULT_CONDITIONS: Conditions = {
   latestRulesetOnly: true,
   excludeDebug: true,
+  excludeTrial: true,
   manualOnly: false,
   missionsOnly: false,
   speed: 'all',
@@ -65,6 +69,7 @@ function applyConditions(runs: RunRecord[], c: Conditions): RunRecord[] {
   return runs.filter((r) => {
     if (c.latestRulesetOnly && r.rulesetVersion !== RUN_RULESET_VERSION) return false;
     if (c.excludeDebug && r.debugEnabled) return false;
+    if (c.excludeTrial && r.trialPlay) return false;
     if (c.manualOnly && r.autoUsed !== false) return false;
     if (c.missionsOnly && r.missionsEnabled !== true) return false;
     if (c.speed !== 'all') {
@@ -139,6 +144,7 @@ function condTags(r: RunRecord): { text: string; warn: boolean }[] {
     { text: r.missionsEnabled ? 'ミッションON' : 'ミッションOFF', warn: false },
   ];
   if (r.debugEnabled) tags.push({ text: 'DEBUG', warn: true });
+  if (r.trialPlay) tags.push({ text: '試打台・設定6', warn: true });
   return tags;
 }
 
@@ -248,6 +254,7 @@ export function renderCounterRanking(cb: CounterRankingCallbacks): void {
   const condKeys: [keyof Conditions, string][] = [
     ['latestRulesetOnly', `最新規則のみ (v${RUN_RULESET_VERSION})`],
     ['excludeDebug', 'DEBUG除外'],
+    ['excludeTrial', '試打台を除外'],
     ['manualOnly', '手動のみ'],
     ['missionsOnly', 'ミッションONのみ'],
   ];

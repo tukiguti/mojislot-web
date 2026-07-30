@@ -102,7 +102,11 @@ import {
   isSecretUnlocked,
   setSecretUnlocked,
 } from './data/chapters';
-import { chapterIdOfMachine, getCurrentMachine } from './data/machines';
+import {
+  chapterIdOfMachine,
+  getCurrentMachine,
+  isTrialMachine,
+} from './data/machines';
 import './style.css';
 
 const REEL_GAP = 16;
@@ -873,6 +877,7 @@ export async function bootstrap() {
         autoUsed: runAutoUsed,
         missionsEnabled: challengeTracker.enabled.get(),
         debugEnabled: debugVisible,
+        trialPlay: isTrialMachine(machine),
       });
     }
     wallet.reset(0);
@@ -1748,6 +1753,9 @@ export async function bootstrap() {
         bet: calc.bet,
         win,
         bonus: isPremium ? 'big' : isRegular ? 'reg' : null,
+        // 演出率は設定を読める唯一の数字なので、通常時だけを母数にして数える。
+        inBonus: bonusZone.isActive(),
+        effect: currentEffect !== 'none',
       });
 
       // 戦専用カウンタも同じ確定点で増分（計数で RunRecord に確定する）

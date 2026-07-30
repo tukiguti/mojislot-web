@@ -19,16 +19,35 @@ export const REMIX_ISLAND_ID = 'remix';
 /** リミックス島の島番号。7は縁起物なので端に置く。 */
 const REMIX_ISLAND_NO = 7;
 
+/** 試打コーナーの島ID。全機種が1台ずつ並び、**全台が設定6**で開放されている。 */
+export const TRIAL_ISLAND_ID = 'trial';
+const TRIAL_ISLAND_NO = 8;
+
 export interface Island {
   id: string;
   name: string;
   /** 台番号の十の位。 */
   no: number;
-  /** この島で使う章。リミックス島だけ複数持ち、ステージとして切り替わる。 */
+  /**
+   * この島で使う章。通常の島は1つ。
+   * リミックス島は複数持ち（ステージとして切り替わる予定）、
+   * 試打コーナーも複数持つが、そちらは**席ごとに1章**を割り当てる。
+   */
   chapterIds: string[];
   /** サムネイルに使う章（リミックスは先頭章の絵を使う）。 */
   artChapterId: string;
   description: string;
+  /** 台数。既定は SEATS_PER_ISLAND。試打コーナーだけ章の数だけ並ぶ。 */
+  seats?: number;
+  /**
+   * 試打コーナーか。**設定推測の外側**にある島で、
+   *  - 全台が設定6で固定（推測の対象にしない）
+   *  - 席ごとに違う章＝「同じ島は同じ配列」の例外
+   *  - ホール方針の対象にしない（ポスターが指さない）
+   *  - ここでの記録はランキングの比較条件で既定除外
+   * 探すのが面倒な日に好きな文字セットをすぐ打てる逃げ道として置いてある。
+   */
+  trial?: boolean;
 }
 
 export interface Machine {
@@ -53,6 +72,18 @@ export const ISLANDS: Island[] = [
     description: c.description,
   })),
   {
+    id: TRIAL_ISLAND_ID,
+    name: '試打コーナー',
+    no: TRIAL_ISLAND_NO,
+    // 席ごとに1章。並び順は ISLANDS の島順と揃える。
+    chapterIds: CHAPTERS.filter((c) => !c.hidden).map((c) => c.id),
+    artChapterId: CHAPTERS[0].id,
+    seats: CHAPTERS.filter((c) => !c.hidden).length,
+    trial: true,
+    description:
+      '全機種が1台ずつ、すべて設定6で開放。設定を探さずに好きな文字セットを打てる。ここでの記録はランキングの比較条件で既定除外。',
+  },
+  {
     id: REMIX_ISLAND_ID,
     name: 'リミックス',
     no: REMIX_ISLAND_NO,
@@ -65,18 +96,19 @@ export const ISLANDS: Island[] = [
 ];
 
 /** 全台（島の並び順 × 席順）。 */
-export const MACHINES: Machine[] = ISLANDS.flatMap((island) =>
-  Array.from({ length: SEATS_PER_ISLAND }, (_, i) => {
+export const MACHINES: Machine[] = ISLANDS.flatMap((island) => {
+  const seats = island.seats ?? SEATS_PER_ISLAND;
+  return Array.from({ length: seats }, (_, i) => {
     const seat = i + 1;
     return {
       id: `m${island.no}${seat}`,
       number: island.no * 10 + seat,
       islandId: island.id,
       seat,
-      corner: seat === 1 || seat === SEATS_PER_ISLAND,
+      corner: seat === 1 || seat === seats,
     };
-  }),
-);
+  });
+});
 
 export const machineById = (id: string): Machine | undefined =>
   MACHINES.find((m) => m.id === id);
@@ -91,11 +123,19 @@ export const islandOfMachine = (m: Machine): Island =>
   islandById(m.islandId) ?? ISLANDS[0];
 
 /**
- * その台で回る章。通常の島は1つだけ持つ。リミックス島は複数持つが
- * ステージ切替が未実装なので、いまは先頭を返す（島ごと着席を塞いである）。
+ * その台で回る章。
+ * 通常の島は1つだけ持つ。**試打コーナーは席ごとに違う章**。
+ * リミックス島は複数持つがステージ切替が未実装なので先頭を返す（着席は塞いである）。
  */
-export const chapterIdOfMachine = (m: Machine): string =>
-  islandOfMachine(m).chapterIds[0];
+export const chapterIdOfMachine = (m: Machine): string => {
+  const island = islandOfMachine(m);
+  if (island.trial) return island.chapterIds[m.seat - 1] ?? island.chapterIds[0];
+  return island.chapterIds[0];
+};
+
+/** 試打コーナーの台か（設定6固定・ランキングの比較条件で既定除外）。 */
+export const isTrialMachine = (m: Machine): boolean =>
+  islandOfMachine(m).trial === true;
 
 /**
  * 選んだ台。設定（1〜6）とデータカウンターは**章ではなく台ごと**に決まるので、

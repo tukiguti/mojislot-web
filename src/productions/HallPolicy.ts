@@ -1,4 +1,12 @@
-import { ISLANDS, SEATS_PER_ISLAND, type Machine } from '../data/machines';
+import {
+  ISLANDS,
+  MACHINES,
+  REMIX_ISLAND_ID,
+  SEATS_PER_ISLAND,
+  TRIAL_ISLAND_ID,
+  isTrialMachine,
+  type Machine,
+} from '../data/machines';
 import { dayKey, SETTINGS, type Setting } from './MachineSetting';
 
 /**
@@ -71,7 +79,12 @@ export function hallPolicyFor(now: Date): HallPolicy {
     return { kind, tail, poster: `本日は 末尾${tail} に力を入れました` };
   }
   if (kind === 'island' || kind === 'allSame') {
-    const island = ISLANDS[hash32(`island/${day}`) % ISLANDS.length];
+    // 調整中の島は掲示の対象にしない。着席できない島に「強化中」と貼っても
+    // プレイヤーは何もできず、その日の掲示が丸ごと無駄になる。
+    const open = ISLANDS.filter(
+      (i) => i.id !== REMIX_ISLAND_ID && i.id !== TRIAL_ISLAND_ID,
+    );
+    const island = open[hash32(`island/${day}`) % open.length];
     return {
       kind,
       islandId: island.id,
@@ -89,6 +102,8 @@ export function hallPolicyFor(now: Date): HallPolicy {
 
 /** その台が今日の方針の対象か（＝高設定が入りやすい台か）。 */
 export function isTargeted(machine: Machine, policy: HallPolicy): boolean {
+  // 試打コーナーは設定推測の外側。ポスターの対象にしない（狙い目ランプも点かない）。
+  if (isTrialMachine(machine)) return false;
   switch (policy.kind) {
     case 'tail':
       return machine.seat === policy.tail;
@@ -112,6 +127,30 @@ const WEIGHT_TARGET: Record<Setting, number> = { 1: 8, 2: 12, 3: 18, 4: 24, 5: 2
 const WEIGHT_ALL_SAME: Record<Setting, number> = { 1: 0, 2: 0, 3: 28, 4: 32, 5: 24, 6: 16 };
 
 /**
+ * その日の「設定6が入っている1台」。**毎日必ず1台だけ**存在する。
+ *
+ * 重み抽選だけだと設定6が1台も無い日が普通に出る（対象外の台で3%、対象台でも16%）。
+ * それだと探しても答えが無い日があることになり、**探す遊びが博打になる**。
+ * 1台だけ確定で置くと、外れを引いても「まだどこかにある」と分かるのでパズルになる。
+ *
+ * 方針の対象台があればそこから選ぶ。ポスターを読んだ人が有利、という筋を通すため。
+ * 通常営業の日（掲示なし）は全台が候補で、その日はいちばん探すのが大変になる。
+ *
+ * 調整中の島（章のステージ切替が未実装で着席できない）は候補から外す。
+ */
+export function luckySixMachine(
+  now: Date,
+  policy: HallPolicy = hallPolicyFor(now),
+): Machine {
+  const playable = MACHINES.filter(
+    (m) => m.islandId !== REMIX_ISLAND_ID && m.islandId !== TRIAL_ISLAND_ID,
+  );
+  const targeted = playable.filter((m) => isTargeted(m, policy));
+  const pool = targeted.length > 0 ? targeted : playable;
+  return pool[hash32(`lucky6/${dayKey(now)}`) % pool.length];
+}
+
+/**
  * その日その台の設定。日付・台番号・方針から決定的に決まる。
  * 保存しないので、リロードしても同じ台なら同じ設定になる（推測が壊れない）。
  */
@@ -120,6 +159,11 @@ export function settingForMachine(
   now: Date,
   policy: HallPolicy = hallPolicyFor(now),
 ): Setting {
+  // 試打コーナーは全台が設定6で固定（推測の対象ではない）。
+  if (isTrialMachine(machine)) return 6;
+  // その日の1台だけは確定で設定6（`luckySixMachine`）。
+  if (machine.id === luckySixMachine(now, policy).id) return 6;
+
   const targeted = isTargeted(machine, policy);
   const weights =
     targeted && policy.kind === 'allSame'
