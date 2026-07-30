@@ -29,6 +29,26 @@ const avg = (xs: number[]): number => xs.reduce((a, b) => a + b, 0) / xs.length;
 /** ホールの島（試打コーナーを除く）。末尾示唆・角台ジンクスが成立する範囲。 */
 const HALL_ISLANDS = ISLANDS.filter((i) => i.id !== TRIAL_ISLAND_ID);
 
+describe('島の並びと台番', () => {
+  it('島番号は入口から順に1から連番（欠番なし）', () => {
+    // 歩いた順と台番の順が食い違うと、末尾示唆も台番も読みにくくなる。
+    expect(ISLANDS.map((i) => i.no)).toEqual(ISLANDS.map((_, idx) => idx + 1));
+  });
+
+  it('台番は島の並び順に単調増加する', () => {
+    const nos = MACHINES.map((m) => m.number);
+    expect(nos).toEqual([...nos].sort((a, b) => a - b));
+  });
+
+  it('いちばん奥（右端）が試打コーナー', () => {
+    expect(ISLANDS[ISLANDS.length - 1].id).toBe(TRIAL_ISLAND_ID);
+  });
+
+  it('リミックス島はその1つ手前', () => {
+    expect(ISLANDS[ISLANDS.length - 2].id).toBe(REMIX_ISLAND_ID);
+  });
+});
+
 describe('台構成', () => {
   it('ホールの島は4台ずつ並び、末尾（席）はどの島でも1〜4で揃う', () => {
     for (const island of HALL_ISLANDS) {

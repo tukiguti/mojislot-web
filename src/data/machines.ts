@@ -14,14 +14,23 @@ import { CHAPTERS } from './chapters';
 /** 1島あたりの台数。末尾示唆と角台ジンクスの両方が成立する最小構成。 */
 export const SEATS_PER_ISLAND = 4;
 
+/**
+ * 島番号は台番の十の位で、**入口から見て左から右へ 1・2・3… と連番**になる。
+ * 欠番は作らない（歩いた順と台番の順が食い違うと、末尾示唆も台番も読みにくくなる）。
+ *
+ *   寿司1 → 動物2 → 動詞3 → 八百屋4 → セキュリティ5 → リミックス6 → 試打コーナー7
+ *
+ * いちばん奥（右端）が試打コーナーで、そこに縁起物の7が来る。
+ * 全台が設定6で開放してある一角なので、番号としても収まりがよい。
+ */
+
 /** リミックス島（章がステージとして切り替わる台）の島ID。 */
 export const REMIX_ISLAND_ID = 'remix';
-/** リミックス島の島番号。7は縁起物なので端に置く。 */
-const REMIX_ISLAND_NO = 7;
+const REMIX_ISLAND_NO = 6;
 
 /** 試打コーナーの島ID。全機種が1台ずつ並び、**全台が設定6**で開放されている。 */
 export const TRIAL_ISLAND_ID = 'trial';
-const TRIAL_ISLAND_NO = 8;
+const TRIAL_ISLAND_NO = 7;
 
 export interface Island {
   id: string;
@@ -72,6 +81,16 @@ export const ISLANDS: Island[] = [
     description: c.description,
   })),
   {
+    id: REMIX_ISLAND_ID,
+    name: 'リミックス',
+    no: REMIX_ISLAND_NO,
+    // 全章を1台に統合し、ボーナスごとにステージ（＝リール配列）が切り替わる。
+    chapterIds: CHAPTERS.filter((c) => !c.hidden).map((c) => c.id),
+    artChapterId: CHAPTERS[0].id,
+    description:
+      '全章がステージとして切り替わる台。配列を覚え直す忙しさと引き換えに、どの文字も出る。',
+  },
+  {
     id: TRIAL_ISLAND_ID,
     name: '試打コーナー',
     no: TRIAL_ISLAND_NO,
@@ -82,16 +101,6 @@ export const ISLANDS: Island[] = [
     trial: true,
     description:
       '全機種が1台ずつ、すべて設定6で開放。設定を探さずに好きな文字セットを打てる。ここでの記録はランキングの比較条件で既定除外。',
-  },
-  {
-    id: REMIX_ISLAND_ID,
-    name: 'リミックス',
-    no: REMIX_ISLAND_NO,
-    // 全章を1台に統合し、ボーナスごとにステージ（＝リール配列）が切り替わる。
-    chapterIds: CHAPTERS.filter((c) => !c.hidden).map((c) => c.id),
-    artChapterId: CHAPTERS[0].id,
-    description:
-      '全章がステージとして切り替わる台。配列を覚え直す忙しさと引き換えに、どの文字も出る。',
   },
 ];
 
