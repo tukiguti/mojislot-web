@@ -64,6 +64,9 @@ const NARROW_AT = 760;
 const HOT_THRESHOLD = 200;
 /** 入場アニメーションの長さ。ドア0.8秒＋ズーム1.15秒より少し後で切り替える。 */
 const ENTER_MS = 1150;
+/** 掲示に出す島の数。試打コーナーは島ではなく一角なので別に数える。 */
+const HALL_ISLAND_COUNT = ISLANDS.filter((i) => !i.trial).length;
+
 /** 台カードの倍率を測り直す間隔。フォント読み込み等で後からずれるため。 */
 const FIT_MS = 400;
 /**
@@ -628,7 +631,7 @@ export function mountHallView(cb: HallViewCallbacks): HallViewHandle {
             <span class="hall-board-text">${esc(c.poster)}</span>
             <span class="hall-board-note">※ 確約ではありません</span>
             <div class="hall-board-foot">
-              <span>設置 ${MACHINES.length}台 ／ ${ISLANDS.length}島</span>
+              <span>設置 ${MACHINES.length}台 ／ ${HALL_ISLAND_COUNT}島＋試打コーナー</span>
               <span>本日 稼働 ${c.running}台</span>
             </div>
           </div>
@@ -687,7 +690,7 @@ export function mountHallView(cb: HallViewCallbacks): HallViewHandle {
             <span class="hall-board-badge">本日の掲示</span>
             <span class="hall-board-text">${esc(c.poster)}</span>
             <div class="hall-board-foot">
-              <span>設置 ${MACHINES.length}台 ／ ${ISLANDS.length}島</span>
+              <span>設置 ${MACHINES.length}台 ／ ${HALL_ISLAND_COUNT}島＋試打コーナー</span>
               <span>本日 稼働 ${c.running}台</span>
             </div>
           </div>
