@@ -24,6 +24,17 @@ export class ZukanOverlay {
     private readonly yakuList: YakuList,
     private readonly playStats: PlayStats,
     private readonly challengeTracker: ChallengeTracker,
+    /**
+     * ボーナスの払い出しとゲーム数。BIG・REGは役に `payout` を持たず
+     * `baseMultiplier` 側で決まるので、表示のためにここへ渡す。
+     * 台選びの寄り画面の配当表と同じ値を出すため（片方だけ「—」だと食い違って見える）。
+     */
+    private readonly bonusPay: {
+      premium: number;
+      bonus: number;
+      spinsPerBig: number;
+      spinsPerReg: number;
+    },
   ) {
     const root = document.getElementById('zukan-overlay');
     if (!root) throw new Error('#zukan-overlay not found');
@@ -149,6 +160,13 @@ export class ZukanOverlay {
       <div class="zukan-stats-row"><span>プレミアム / ボーナス</span><span>${s.premiumCount} / ${s.bonusCount}</span></div>
     `;
 
+    // 払い出し枚数は**役の名札**（小役は 4/6/8/10 で役が逆算できる）。
+    //
+    // 名前や図柄と違い、**未成立でも隠さない**。台を選ぶ寄り画面に配当表が出ていて
+    // 座る前から全役の枚数が読めるので、ここで伏せても情報は守られず、
+    // 同じ数字が画面によって見えたり見えなかったりするだけになる。
+    // 図鑑側の役割は打っている最中に手元で引けること。
+    const bp = this.bonusPay;
     const renderSection = (title: string, yakus: YakuList['coreYaku'], cls: string) => {
       const items = yakus
         .map((y) => {
@@ -156,10 +174,20 @@ export class ZukanOverlay {
           const done = c > 0;
           const name = done ? y.name : '？？？';
           const symbols = done ? y.symbols.join(' ') : '? ? ?';
+          // ボーナスは枚数だけ出すと小役より安く見える。恩恵は区間なのでゲーム数も添える。
+          const pay =
+            y.payout !== undefined
+              ? `${y.payout}枚`
+              : y.category === 'premium'
+                ? `${bp.premium}枚＋${bp.spinsPerBig}G`
+                : y.category === 'bonus'
+                  ? `${bp.bonus}枚＋${bp.spinsPerReg}G`
+                  : '—';
           return `
             <div class="zukan-row ${done ? 'done' : 'locked'}">
               <span class="zukan-symbols">${symbols}</span>
               <span class="zukan-name">${name}</span>
+              <span class="zukan-pay">${pay}</span>
               <span class="zukan-count">${done ? `×${c}` : '—'}</span>
             </div>
           `;

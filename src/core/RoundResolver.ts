@@ -52,7 +52,7 @@ export interface RoundOutcome {
   isPremium: boolean;
   /** REGボーナス成立（プレミアムが無いときだけ）。 */
   isRegular: boolean;
-  /** チェリー成立（重複当選の抽選契機）。 */
+  /** チェリー成立（昇格抽選の契機）。 */
   cherryHit: boolean;
   /** リーチ目の種別。何か揃った時は判定しない（null）。 */
   reachKind: ReachKind | null;

@@ -375,6 +375,53 @@
   background: #c8342a; color: #fdf4e3; white-space: nowrap;
 }
 
+/*
+ * 本日の掲示を出す立て看板。**場内で唯一の方針の情報源**。
+ *
+ * 以前は該当台に緑ランプと「末尾3」バッジを出していたので、掲示を読まなくても
+ * 対象台が分かった。あれを消した代わりに、掲示そのものを場内へ持ち込む。
+ * どの台が該当するかは書かない（台番と突き合わせるのはプレイヤーの仕事）。
+ *
+ * 吊り看板（島名）は上部中央、こちらは左の通路脇。縦は島看板と台の列の間に収める。
+ */
+.hall-standsign {
+  position: absolute; z-index: 3; pointer-events: none;
+  left: calc(max(44px, clamp(42px, 5vw, 68px)) + clamp(6px, 1.2vw, 16px));
+  top: 7.6vh; width: clamp(146px, 24vw, 256px);
+  display: flex; flex-direction: column; align-items: center;
+}
+.hall-standsign-face {
+  width: 100%; display: flex; flex-direction: column; gap: 2px;
+  padding: clamp(5px, .9vh, 9px) clamp(8px, 1.2vw, 14px);
+  background: linear-gradient(#fdf6e6, #e6d9bd); border: 2px solid #2b2118;
+  box-shadow: 0 10px 22px rgba(0, 0, 0, .65);
+  transform: perspective(520px) rotateY(7deg); transform-origin: left center;
+}
+.hall-standsign-badge {
+  align-self: flex-start; font-size: clamp(8px, .9vw, 10px); font-weight: 700;
+  letter-spacing: .12em; background: #c8342a; color: #fdf4e3; padding: 1px 6px;
+}
+.hall-standsign-text {
+  font-size: clamp(11px, 1.25vw, 15px); font-weight: 800; line-height: 1.3; color: #241c14;
+}
+.hall-standsign-note { font-size: clamp(8px, .85vw, 10px); color: #6b5f4d }
+.hall-standsign-legs {
+  width: 58%; height: clamp(8px, 1.4vh, 16px);
+  background: linear-gradient(#3a2f24, #241c14);
+  clip-path: polygon(0 0, 100% 0, 76% 100%, 24% 100%);
+}
+/* 縦に余裕が無い幅では、立て看板ではなく通路の帯として台の列の上へ寄せる */
+.hall-floor[data-narrow] .hall-standsign {
+  left: max(44px, clamp(42px, 5vw, 68px)); right: max(44px, clamp(42px, 5vw, 68px));
+  width: auto; top: auto; bottom: calc(var(--hall-foot-h, max(11vh, 64px)) + 4px);
+}
+.hall-floor[data-narrow] .hall-standsign-face {
+  flex-direction: row; align-items: center; gap: 8px; transform: none;
+  border-width: 1px; box-shadow: 0 -6px 16px rgba(0, 0, 0, .5);
+}
+.hall-floor[data-narrow] .hall-standsign-note { display: none }
+.hall-floor[data-narrow] .hall-standsign-legs { display: none }
+
 /* 通路の矢印 */
 .hall-aisle {
   position: absolute; top: 15vh; bottom: var(--hall-foot-h, max(11vh, 64px));
@@ -482,16 +529,12 @@
 .hall-lamp { flex: 1 }
 .hall-lamp-red { background: #2a1512 }
 .hall-lamp-yellow { background: #2a2512 }
-.hall-lamp-green { background: #152a1a }
 .hall-lamp-red.on {
   background: linear-gradient(#ff6b52, #c81a10);
   box-shadow: 0 0 18px rgba(255, 59, 48, .9); animation: hall-lamp-pulse 1s infinite;
 }
 .hall-lamp-yellow.on {
   background: linear-gradient(#ffe08a, #d99a10); box-shadow: 0 0 18px rgba(255, 209, 102, .8);
-}
-.hall-lamp-green.on {
-  background: linear-gradient(#8affa0, #20a03c); box-shadow: 0 0 18px rgba(76, 217, 100, .8);
 }
 .hall-lamps-seat .hall-lamp.on { box-shadow: 0 0 26px rgba(255, 255, 255, .5) }
 .hall-lamp-gloss {
@@ -736,7 +779,6 @@
 .hall-detail-unit { font-size: 14px; color: #8c8377 }
 .hall-detail-island { font-size: 14px; color: #cdbfa6 }
 .hall-badge { font-size: 11px; padding: 3px 8px; border: 1px solid #6f6578; color: #cdbfa6 }
-.hall-badge-target { background: #4cd964; color: #0c0a0d; font-weight: 700; border-color: #4cd964 }
 .hall-detail-grid {
   background: #08060a; border: 1px solid #453c50; padding: clamp(11px, 1.8vw, 16px);
   display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: clamp(9px, 1.5vh, 15px);

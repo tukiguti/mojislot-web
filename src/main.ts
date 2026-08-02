@@ -251,6 +251,12 @@ export async function bootstrap() {
     yakuList,
     playStats,
     challengeTracker,
+    {
+      premium: payout.baseMultiplier.premium,
+      bonus: payout.baseMultiplier.bonus,
+      spinsPerBig: tuning.bonus.spinsPerBig,
+      spinsPerReg: tuning.bonus.spinsPerReg,
+    },
   );
   // デバッグ section の表示可否（遊ぶ設定で確定・既定OFF）
   const debugVisible = localStorage.getItem('mojislot.debugVisible.v1') === '1';
@@ -1282,7 +1288,7 @@ export async function bootstrap() {
   const placeBet = () => {
     if (freezeActive) return;
     if (betBtn.disabled) return;
-    // チェリー重複の点灯待ちが残っていれば、次ゲームの役を決める前にここで点ける。
+    // チェリー昇格の点灯待ちが残っていれば、次ゲームの役を決める前にここで点ける。
     // 待ちを跨がせると回転中に点いて「点いたのに揃わない」になる。
     if (cherryLampTimer !== null) fireCherryLamp();
     sfx.init(); // user gesture でオーディオ起動
@@ -1719,9 +1725,15 @@ export async function bootstrap() {
         sfx.tenpaiPremium();
         jinSpeech.say('tenpai');
       }
-      // チェリー重複（実機のレア役＋ボーナス同時当選）。
-      // チェリーが**実際に揃った**時だけ抽選し、当たれば確定告知ランプを点灯＝次ゲーム以降ボーナス確定。
-      // 成立表示の余韻を残してから点灯させ、「チェリーが呼んだ」と読める間を作る。
+      // チェリー昇格。チェリーが**実際に揃った**時だけ抽選し、当たれば確定告知ランプを
+      // 点灯＝次ゲーム以降ボーナス確定。成立表示の余韻を残してから点灯させ、
+      // 「チェリーが呼んだ」と読める間を作る。
+      //
+      // **実機の重複当選とは機構が違う**ので重複とは呼ばない。実機は内部抽選の時点で
+      // チェリーとボーナスに同時当選しており、チェリーをこぼしてもボーナスの権利は残る。
+      // こちらは成立**後**の抽選なので、こぼすと抽選そのものが起きない。
+      // これは意図的で、1枚役やボーナス中のこぼしと同じく**こぼしに代償がある**設計に
+      // 揃えてある（腕が効く方向）。名前だけを実装に合わせた。
       if (
         outcome.cherryHit &&
         !announcedBonus &&
@@ -2009,7 +2021,7 @@ export async function bootstrap() {
     jinSpeech.say('premium');
   };
   /**
-   * チェリー重複の点灯待ち。全停止直後ではなく少し置いてから点けることで、
+   * チェリー昇格の点灯待ち。全停止直後ではなく少し置いてから点けることで、
    * チェリー成立の表示を見せてから「チェリーが呼んだ」と読める間を作る。
    *
    * ただし**その間はプレイヤーを待たせない**。全停止後はすぐBETできるので、

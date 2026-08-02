@@ -15,7 +15,7 @@ import {
 } from '../data/machines';
 import { lineColorOf, themeVars } from '../data/islandThemes';
 import { PayoutSchema, TuningSchema, YakuListSchema, type YakuList } from '../data/schemas';
-import { hallPolicyFor, isTargeted, type HallPolicy } from '../productions/HallPolicy';
+import { hallPolicyFor, type HallPolicy } from '../productions/HallPolicy';
 import { getMemberName } from '../productions/Member';
 import { RUN_RULESET_VERSION, loadRunHistory } from '../productions/RunHistory';
 import {
@@ -171,7 +171,13 @@ function reelGrid(island: Island, seat: number): string[] {
   return out;
 }
 
-/** 1台ぶんの表示値。データが無い台は「—」で、まだ誰も打っていないことを示す。 */
+/**
+ * 1台ぶんの表示値。データが無い台は「—」で、まだ誰も打っていないことを示す。
+ *
+ * **その台が今日の方針の対象かは持たない。** 以前は `isTargeted` を引いて緑ランプと
+ * 「末尾3」バッジを出していたが、それだと掲示を読んで台番から自分で絞る工程を
+ * 機械が肩代わりしてしまう。掲示は場内の立て看板に出し、対応させるのは人がやる。
+ */
 interface MachineView {
   machine: Machine;
   island: Island;
@@ -179,14 +185,9 @@ interface MachineView {
   played: boolean;
   hot: boolean;
   plus: boolean;
-  target: boolean;
 }
 
-function viewOf(
-  machine: Machine,
-  day: MachineDay,
-  policy: HallPolicy,
-): MachineView {
+function viewOf(machine: Machine, day: MachineDay): MachineView {
   return {
     machine,
     island: islandById(machine.islandId) ?? ISLANDS[0],
@@ -194,22 +195,7 @@ function viewOf(
     played: day.spins > 0,
     hot: day.sinceBonus >= HOT_THRESHOLD,
     plus: day.sahmai > 0,
-    target: isTargeted(machine, policy),
   };
-}
-
-/** ホール方針のタグ（狙い目バッジの文字）。掲示が無い日は空。 */
-function policyTag(policy: HallPolicy): string {
-  switch (policy.kind) {
-    case 'tail':
-      return `末尾${policy.tail}`;
-    case 'island':
-      return '強化島';
-    case 'corner':
-      return '角狙い';
-    default:
-      return '';
-  }
 }
 
 // ═══════════ 部品 ═══════════
@@ -287,7 +273,6 @@ function dataCounter(v: MachineView): string {
       <div class="hall-lamps">
         <span class="hall-lamp hall-lamp-red${v.hot ? ' on' : ''}"></span>
         <span class="hall-lamp hall-lamp-yellow${v.plus ? ' on' : ''}"></span>
-        <span class="hall-lamp hall-lamp-green${v.target ? ' on' : ''}"></span>
         <span class="hall-lamp-gloss"></span>
       </div>
       <div class="hall-seg">
@@ -641,7 +626,7 @@ export function mountHallView(cb: HallViewCallbacks): HallViewHandle {
         <div class="hall-guide">
           <div class="hall-guide-head">
             <span class="hall-guide-title">島 案 内</span>
-            <span class="hall-guide-count">全${ISLANDS.length}島</span>
+            <span class="hall-guide-count">全${HALL_ISLAND_COUNT}島＋試打</span>
           </div>
           ${guideRows()}
         </div>
@@ -697,7 +682,7 @@ export function mountHallView(cb: HallViewCallbacks): HallViewHandle {
           <div class="hall-guide sm">
             <div class="hall-guide-head">
               <span class="hall-guide-title">島 案 内</span>
-              <span class="hall-guide-count">全${ISLANDS.length}島</span>
+              <span class="hall-guide-count">全${HALL_ISLAND_COUNT}島＋試打</span>
             </div>
             ${guideRows()}
           </div>
@@ -733,13 +718,12 @@ export function mountHallView(cb: HallViewCallbacks): HallViewHandle {
 
   // ─── 島 ───
   const floorHtml = (): string => {
-    const p = policy();
     const all = days();
     const cols = ISLANDS.map((island) => {
       const cards = machinesOfIsland(island.id)
         .map((m) => {
           const day = all.get(m.id);
-          return day ? machineCard(viewOf(m, day, p), m.id === st.selId) : '';
+          return day ? machineCard(viewOf(m, day), m.id === st.selId) : '';
         })
         .join('');
       return `
@@ -766,6 +750,15 @@ export function mountHallView(cb: HallViewCallbacks): HallViewHandle {
         <div class="hall-islandsign" data-island-sign>
           <div class="hall-islandsign-rods"><span></span><span></span></div>
           <div class="hall-islandsign-box" data-sign-box></div>
+        </div>
+
+        <div class="hall-standsign">
+          <div class="hall-standsign-face">
+            <span class="hall-standsign-badge">本日の掲示</span>
+            <span class="hall-standsign-text">${esc(policy().poster ?? '本日は通常営業です')}</span>
+            <span class="hall-standsign-note">※ 確約ではありません</span>
+          </div>
+          <span class="hall-standsign-legs"></span>
         </div>
 
         <div class="hall-aisle hall-aisle-l" data-act="prev" role="button" tabindex="0">
@@ -1133,14 +1126,12 @@ export function mountHallView(cb: HallViewCallbacks): HallViewHandle {
 
   const seatHtml = (): string => {
     const m = machineOf(st.seatId);
-    const p = policy();
     const day = readMachineDay(m.id, now());
-    const v = viewOf(m, day, p);
+    const v = viewOf(m, day);
     const y = islandYaku(v.island, m.seat);
     const wip = closed(v.island);
     const rate = bonusRate(day);
     const eff = effectRate(day);
-    const tag = policyTag(p);
     const num = (n: number): string => (v.played ? String(n) : '—');
 
     const koyaku = y.words
@@ -1161,7 +1152,6 @@ export function mountHallView(cb: HallViewCallbacks): HallViewHandle {
             <div class="hall-lamps hall-lamps-seat">
               <span class="hall-lamp hall-lamp-red${v.hot ? ' on' : ''}"></span>
               <span class="hall-lamp hall-lamp-yellow${v.plus ? ' on' : ''}"></span>
-              <span class="hall-lamp hall-lamp-green${v.target ? ' on' : ''}"></span>
               <span class="hall-lamp-gloss"></span>
             </div>
             ${cabinet(v, 'seat')}
@@ -1174,7 +1164,6 @@ export function mountHallView(cb: HallViewCallbacks): HallViewHandle {
               <span class="hall-detail-island">${esc(v.island.name)}</span>
               ${isTrialMachine(m) ? '<span class="hall-badge hall-badge-trial">試打台・設定6</span>' : ''}
               ${!isTrialMachine(m) && m.corner ? '<span class="hall-badge">角台</span>' : ''}
-              ${v.target && tag ? `<span class="hall-badge hall-badge-target">${esc(tag)}</span>` : ''}
             </div>
 
             <div class="hall-detail-grid">

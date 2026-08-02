@@ -153,7 +153,7 @@ describe('RoundResolver', () => {
     expect(reg.bonusHit?.yaku.id).toBe('reg');
   });
 
-  it('チェリー成立を重複抽選の契機として返す', () => {
+  it('チェリー成立を昇格抽選の契機として返す', () => {
     const r = resolve(middleOnly('も', 'も', 'ぬ'), ['cherry']);
     expect(r.cherryHit).toBe(true);
     expect(r.win).toBe(4);
