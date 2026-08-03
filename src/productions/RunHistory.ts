@@ -15,8 +15,15 @@ export interface RunRecord {
   memberId: string;
   /** 確定時点の表示名スナップショット */
   memberName: string;
-  /** 台識別 */
+  /** 島（章）識別 */
   chapterId: string;
+  /**
+   * 台識別（`m13` など）。**旧履歴には存在しない。**
+   *
+   * 章だけだと同じ島の4台を区別できず、台ごとに設定が違う以上
+   * 「どの台で打ったか」が記録から復元できなかった。
+   */
+  machineId?: string;
   /** 戦開始 epoch ms（前回計数の直後 or ゲーム起動時） */
   startedAt: number;
   /** 計数を押した瞬間 epoch ms = 確定時刻 */
@@ -37,6 +44,16 @@ export interface RunRecord {
   premiumCount: number;
   /** 戦内のREG(ボーナス)回数 */
   bonusCount: number;
+  /**
+   * 戦内の通常時（ボーナス中でない）回転数と、そのうち演出が出た回転数。
+   * **旧履歴には存在しない。**
+   *
+   * 設定差は演出の出方に乗せてあるので、後から記録を見返した時に
+   * 設定の当たり外れを振り返れる数字はこれだけ。BIG/REG回数では
+   * 設定差が小さすぎて読めない（[MachineData]と同じ理由）。
+   */
+  normalSpins?: number;
+  effectSpins?: number;
   /** 記録時のアプリ版。旧履歴には存在しない。 */
   appVersion?: string;
   /**

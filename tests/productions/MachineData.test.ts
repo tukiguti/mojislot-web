@@ -1,9 +1,11 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import {
   GRAPH_POINTS,
+  archiveStaleDays,
   bonusRate,
   readAllMachineDays,
   readMachineDay,
+  readMachineHistory,
   recordSpin,
 } from '../../src/productions/MachineData';
 
@@ -158,5 +160,63 @@ describe('保存データの互換', () => {
     // そのまま追記できる
     recordSpin('m11', DAY, miss);
     expect(readMachineDay('m11', DAY).spins).toBe(101);
+  });
+});
+
+/**
+ * 過ぎた日のデータは**今日の推測には使わない**（前日の数字で空欄を埋める案は
+ * 却下済み）。保管するのは記録の閲覧のためで、逃がし損ねると翌日その台に
+ * 座った瞬間に消える。消えたことは画面に出ないので、テストで押さえる。
+ */
+describe('過去データの保管', () => {
+  it('日をまたいで同じ台に座ると、前日ぶんが保管庫へ移る', () => {
+    recordSpin('m11', DAY, miss);
+    recordSpin('m11', DAY, miss);
+    // 翌日そのまま打つ＝0で上書きされる局面
+    recordSpin('m11', OTHER_DAY, miss);
+    expect(readMachineDay('m11', OTHER_DAY).spins).toBe(1);
+    const hist = readMachineHistory('m11');
+    expect(hist).toHaveLength(1);
+    expect(hist[0].day).toBe('2026-07-30');
+    expect(hist[0].data.spins).toBe(2);
+  });
+
+  it('打たなくても、ホールに入った時点で前日ぶんが保管される', () => {
+    recordSpin('m11', DAY, miss);
+    recordSpin('m12', DAY, miss);
+    archiveStaleDays(OTHER_DAY);
+    // 現役のカウンターからは消える（今日の数字は空欄で正しい）
+    expect(readMachineDay('m11', OTHER_DAY).spins).toBe(0);
+    expect(readMachineHistory('m11')[0].data.spins).toBe(1);
+    expect(readMachineHistory('m12')[0].data.spins).toBe(1);
+  });
+
+  it('今日ぶんは保管しない（現役のカウンターが正）', () => {
+    recordSpin('m11', DAY, miss);
+    archiveStaleDays(DAY);
+    expect(readMachineDay('m11', DAY).spins).toBe(1);
+    expect(readMachineHistory('m11')).toHaveLength(0);
+  });
+
+  it('保管は30日ぶんで、古い日から落ちる', () => {
+    // 6/1 から32日ぶん、1日1ゲームずつ
+    for (let i = 0; i < 32; i++) {
+      recordSpin('m11', new Date(2026, 5, 1 + i, 12, 0, 0), miss);
+    }
+    const hist = readMachineHistory('m11');
+    expect(hist).toHaveLength(30);
+    // 最後に打った日（7/2）は現役なので、保管の先頭はその前日
+    expect(hist[0].day).toBe('2026-07-01');
+    expect(hist.some((h) => h.day === '2026-06-01')).toBe(false);
+  });
+
+  it('新しい日から順に返す', () => {
+    recordSpin('m11', new Date(2026, 6, 28, 12, 0, 0), miss);
+    recordSpin('m11', new Date(2026, 6, 29, 12, 0, 0), miss);
+    recordSpin('m11', OTHER_DAY, miss);
+    expect(readMachineHistory('m11').map((h) => h.day)).toEqual([
+      '2026-07-29',
+      '2026-07-28',
+    ]);
   });
 });

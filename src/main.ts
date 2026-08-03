@@ -254,6 +254,7 @@ export async function bootstrap() {
     {
       premium: payout.baseMultiplier.premium,
       bonus: payout.baseMultiplier.bonus,
+      cherry: payout.baseMultiplier.cherry,
       spinsPerBig: tuning.bonus.spinsPerBig,
       spinsPerReg: tuning.bonus.spinsPerReg,
     },
@@ -842,6 +843,10 @@ export async function bootstrap() {
   let runTotalWin = 0;
   let runPremiumCount = 0;
   let runBonusCount = 0;
+  // 演出率の材料。台のデータカウンターは日替わりで捨てるので、戦の記録として
+  // 残すにはここで別に数える必要がある（母数は通常時のみ＝カウンターと同じ規則）。
+  let runNormalSpins = 0;
+  let runEffectSpins = 0;
   let runAutoUsed = false;
   let runReelSpeedMin = Infinity;
   let runReelSpeedMax = -Infinity;
@@ -865,6 +870,7 @@ export async function bootstrap() {
         memberId: getMemberId(),
         memberName: getMemberName(),
         chapterId,
+        machineId: machine.id,
         startedAt: runStartedAt,
         settledAt: Date.now(),
         investment,
@@ -875,6 +881,8 @@ export async function bootstrap() {
         totalWin: runTotalWin,
         premiumCount: runPremiumCount,
         bonusCount: runBonusCount,
+        normalSpins: runNormalSpins,
+        effectSpins: runEffectSpins,
         appVersion: packageMeta.version,
         buildId: __BUILD_ID__,
         rulesetVersion: RUN_RULESET_VERSION,
@@ -893,6 +901,8 @@ export async function bootstrap() {
     runTotalWin = 0;
     runPremiumCount = 0;
     runBonusCount = 0;
+    runNormalSpins = 0;
+    runEffectSpins = 0;
     runAutoUsed = false;
     runReelSpeedMin = Infinity;
     runReelSpeedMax = -Infinity;
@@ -1230,7 +1240,11 @@ export async function bootstrap() {
           ? '#ffd700'
           : endScreen.kind === 'even'
             ? '#6ee0d0'
-            : kind === 'reg'
+            : // 奇数示唆は偶数と別色にする。同じ色だと「月が出た」までしか
+              // 伝わらず、6が消えたのか残ったのかが読めない
+              endScreen.kind === 'odd'
+              ? '#f0a860'
+              : kind === 'reg'
               ? '#cdd6e0'
               : '#ffd700';
     flashScreen({ color: flashColor, alpha: 0.6, durMs: 380 });
@@ -1761,13 +1775,16 @@ export async function bootstrap() {
       });
       // 台のデータカウンター（設定推測の材料）。ハマりはボーナスで0に戻る。
       // キーは台ID。章で数えると同じ島の4台のデータが混ざる。
+      // 演出率は設定を読める唯一の数字なので、通常時だけを母数にして数える。
+      // 台のカウンターと戦の記録で母数の規則がずれないよう、判定はここで1度だけ。
+      const inBonusSpin = bonusZone.isActive();
+      const effectShown = currentEffect !== 'none';
       recordMachineSpin(machine.id, new Date(), {
         bet: calc.bet,
         win,
         bonus: isPremium ? 'big' : isRegular ? 'reg' : null,
-        // 演出率は設定を読める唯一の数字なので、通常時だけを母数にして数える。
-        inBonus: bonusZone.isActive(),
-        effect: currentEffect !== 'none',
+        inBonus: inBonusSpin,
+        effect: effectShown,
       });
 
       // 戦専用カウンタも同じ確定点で増分（計数で RunRecord に確定する）
@@ -1776,6 +1793,10 @@ export async function bootstrap() {
       runTotalWin += win;
       if (isPremium) runPremiumCount += 1;
       if (isRegular) runBonusCount += 1;
+      if (!inBonusSpin) {
+        runNormalSpins += 1;
+        if (effectShown) runEffectSpins += 1;
+      }
 
       // ビタ押し：役に必要なリールを1本残らず自力で止めた時だけ1カウント
       // （判定は RoundResolver）。押下精度 ±BITA_MS は出目に影響しないので、

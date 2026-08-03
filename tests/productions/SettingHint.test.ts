@@ -14,7 +14,7 @@ import { SETTINGS, type Setting } from '../../src/productions/MachineSetting';
 
 /** 設定 s で1万回引いて、種別ごとの出現数を数える。 */
 function tally(setting: Setting): Record<EndScreenKind, number> {
-  const counts = { normal: 0, gold: 0, even: 0, high: 0, max: 0 };
+  const counts = { normal: 0, gold: 0, even: 0, odd: 0, high: 0, max: 0 };
   // 決定的な擬似乱数（テストが揺れないように）
   let seed = 12345;
   const rand = (): number => {
@@ -35,6 +35,27 @@ describe('SettingHint（ボーナス終了画面）', () => {
     }
   });
 
+  it('奇数示唆は奇数設定でしか出ない', () => {
+    expect(possibleSettings('odd')).toEqual([1, 3, 5]);
+    for (const s of [2, 4, 6] as Setting[]) {
+      expect(TALLIES.get(s)!.odd, `設定${s}`).toBe(0);
+    }
+  });
+
+  it('偶数示唆と奇数示唆は同時に成り立たない（どの設定でも片方だけ）', () => {
+    // 両方出うる設定があると「月が出た」だけでは何も絞れなくなる
+    for (const s of SETTINGS) {
+      const t = TALLIES.get(s)!;
+      expect(Math.min(t.even, t.odd), `設定${s}`).toBe(0);
+      expect(Math.max(t.even, t.odd), `設定${s}`).toBeGreaterThan(0);
+    }
+  });
+
+  it('奇数示唆も高い方ほど出やすい（奇数＝低設定にはしない）', () => {
+    expect(TALLIES.get(5)!.odd).toBeGreaterThan(TALLIES.get(3)!.odd);
+    expect(TALLIES.get(3)!.odd).toBeGreaterThan(TALLIES.get(1)!.odd);
+  });
+
   it('設定4以上示唆は4・5・6でしか出ない', () => {
     expect(possibleSettings('high')).toEqual([4, 5, 6]);
     for (const s of [1, 2, 3] as Setting[]) {
@@ -52,7 +73,7 @@ describe('SettingHint（ボーナス終了画面）', () => {
   it('通常画面はどの設定でも最頻出（出なかった＝低設定にはしない）', () => {
     for (const s of SETTINGS) {
       const t = TALLIES.get(s)!;
-      const others = t.gold + t.even + t.high + t.max;
+      const others = t.gold + t.even + t.odd + t.high + t.max;
       expect(t.normal, `設定${s}`).toBeGreaterThan(others);
       // 設定6でも通常画面が半分以上＝1回の終了で決めつけられない
       expect(t.normal / 10000, `設定${s}`).toBeGreaterThan(0.5);
@@ -76,7 +97,7 @@ describe('SettingHint（ボーナス終了画面）', () => {
   it('何らかの示唆が出る確率は高設定ほど高い', () => {
     const anyHint = (s: Setting): number => {
       const t = TALLIES.get(s)!;
-      return t.gold + t.even + t.high + t.max;
+      return t.gold + t.even + t.odd + t.high + t.max;
     };
     expect(anyHint(6)).toBeGreaterThan(anyHint(3));
     expect(anyHint(3)).toBeGreaterThan(anyHint(1));

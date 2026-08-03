@@ -71,20 +71,28 @@ export class ZukanState {
     }
   }
 
-  /** 各カテゴリの達成率（％、四捨五入）を返す */
-  completionRate(): { core: number; premium: number; total: number } {
+  /**
+   * 図鑑の達成率。**成立する表示役すべて**が対象で、BIG・REG・チェリー・小役を数える。
+   *
+   * 1枚役（`singleYaku`）だけは外す。当選役を引き込めなかった時のこぼし先で、
+   * 狙って揃える役ではないため集める対象にならない。
+   *
+   * 分子と分母も返す。カテゴリ別の内訳は図鑑の見出しに出ており、
+   * 率だけだと見出しの合計と突き合わせられない。
+   */
+  completionRate(): { done: number; total: number; percent: number } {
     const counts = this.counts.get();
-    const coreTotal = this.yakuList.coreYaku.length;
-    const premiumTotal = this.yakuList.premiumYaku.length;
-    const coreDone = this.yakuList.coreYaku.filter((y) => (counts[y.id] ?? 0) > 0).length;
-    const premiumDone = this.yakuList.premiumYaku.filter((y) => (counts[y.id] ?? 0) > 0).length;
+    const all = [
+      ...this.yakuList.premiumYaku,
+      ...this.yakuList.bonusYaku,
+      ...this.yakuList.cherryYaku,
+      ...this.yakuList.coreYaku,
+    ];
+    const done = all.filter((y) => (counts[y.id] ?? 0) > 0).length;
     return {
-      core: coreTotal === 0 ? 0 : Math.round((coreDone / coreTotal) * 100),
-      premium: premiumTotal === 0 ? 0 : Math.round((premiumDone / premiumTotal) * 100),
-      total:
-        coreTotal + premiumTotal === 0
-          ? 0
-          : Math.round(((coreDone + premiumDone) / (coreTotal + premiumTotal)) * 100),
+      done,
+      total: all.length,
+      percent: all.length === 0 ? 0 : Math.round((done / all.length) * 100),
     };
   }
 

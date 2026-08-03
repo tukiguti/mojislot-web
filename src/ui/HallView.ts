@@ -19,6 +19,7 @@ import { hallPolicyFor, type HallPolicy } from '../productions/HallPolicy';
 import { getMemberName } from '../productions/Member';
 import { RUN_RULESET_VERSION, loadRunHistory } from '../productions/RunHistory';
 import {
+  archiveStaleDays,
   bonusRate,
   effectRate,
   readAllMachineDays,
@@ -401,6 +402,9 @@ export function mountHallView(cb: HallViewCallbacks): HallViewHandle {
   const found = document.getElementById('view-play');
   // 置き場所が無い環境（テスト等）では何もしないハンドルを返す。
   if (!found) return { showCounter: () => {} };
+  // 前の日のカウンターを保管庫へ逃がす。座ってからでは遅い——打ち始めた瞬間に
+  // 0で上書きされる台があるので、ホールに入るこの時点で全台ぶん片付けておく。
+  archiveStaleDays(new Date());
   // render()/wire() は巻き上げられる関数宣言なので、絞り込み済みの const に持ち替える。
   const root: HTMLElement = found;
 

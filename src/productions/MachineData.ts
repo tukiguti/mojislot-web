@@ -20,6 +20,20 @@ import { dayKey } from './MachineSetting';
 // （日替わりで捨てるデータなので移行はしない）。
 const STORAGE_KEY = 'mojislot.machineData.v2';
 
+/**
+ * 過ぎた日のデータの保管庫。**今日の推測には使わない。**
+ *
+ * カウンターの空欄を前日の数字で埋める案は却下してある（設定は日替わりで
+ * 振り直され島の癖も無いので、昨日の数字は今日について情報量がゼロ。
+ * 情報がないのに手がかりに見えるものは空欄より悪い）。
+ *
+ * ここに残すのは**記録の閲覧**のため。「先週この台で勝った」を後から辿れるようにする。
+ * 表示する時も今日の数字とは別の場所に置く——混ぜた瞬間、却下したのと同じものになる。
+ */
+const ARCHIVE_KEY = 'mojislot.machineArchive.v1';
+/** 保管する日数。古い方から捨てる。 */
+const ARCHIVE_KEEP_DAYS = 30;
+
 /** スランプグラフの点数。表示器の幅がこれ以上の棒を置けない。 */
 export const GRAPH_POINTS = 26;
 /** 最初の記録間隔（ゲーム数）。点が溢れたら間引いて倍にしていく。 */
@@ -100,6 +114,78 @@ function save(store: Store): void {
   }
 }
 
+/** 日付キー → 台ID → その日のデータ。 */
+export type MachineArchive = Record<string, Record<string, MachineDay>>;
+
+function loadArchive(): MachineArchive {
+  try {
+    const raw = localStorage.getItem(ARCHIVE_KEY);
+    if (!raw) return {};
+    const parsed: unknown = JSON.parse(raw);
+    return parsed && typeof parsed === 'object' ? (parsed as MachineArchive) : {};
+  } catch {
+    return {};
+  }
+}
+
+function saveArchive(archive: MachineArchive): void {
+  try {
+    localStorage.setItem(ARCHIVE_KEY, JSON.stringify(archive));
+  } catch {
+    // 保管に失敗しても今日遊ぶ方を優先する
+  }
+}
+
+/**
+ * 今日より前の日のデータを保管庫へ移し、現役の store から外す。
+ *
+ * 移さずに放っておくと、**その台を翌日打った瞬間に上書きされて消える**。
+ * だから「打ち始める前」に呼ぶ必要がある（ホールに入った時）。
+ * `recordSpin` 側でも取りこぼしを拾うが、あちらは打った台しか通らない。
+ */
+export function archiveStaleDays(now: Date): void {
+  const today = dayKey(now);
+  const store = load();
+  const stale = Object.entries(store).filter(([, d]) => d && d.day !== today);
+  if (stale.length === 0) return;
+  const archive = loadArchive();
+  for (const [machineId, d] of stale) {
+    (archive[d.day] ??= {})[machineId] = normalize(d);
+    delete store[machineId];
+  }
+  pruneArchive(archive);
+  saveArchive(archive);
+  save(store);
+}
+
+/** 保管日数を超えた古い日を落とす（日付キーは YYYY-MM-DD なので文字列順＝日付順）。 */
+function pruneArchive(archive: MachineArchive): void {
+  const days = Object.keys(archive).sort().reverse();
+  for (const day of days.slice(ARCHIVE_KEEP_DAYS)) delete archive[day];
+}
+
+/** 保管庫を読む。閲覧用で、今日の推測には使わない。 */
+export function readMachineArchive(): MachineArchive {
+  return loadArchive();
+}
+
+/**
+ * その台の過去データを新しい日から順に返す。今日は含まない
+ * （今日は `readMachineDay` が現役の store から返す）。
+ */
+export function readMachineHistory(
+  machineId: string,
+): { day: string; data: MachineDay }[] {
+  const archive = loadArchive();
+  return Object.keys(archive)
+    .sort()
+    .reverse()
+    .flatMap((day) => {
+      const d = archive[day][machineId];
+      return d ? [{ day, data: normalize(d) }] : [];
+    });
+}
+
 /** その台の今日のデータ。日付が変わっていれば0から。 */
 export function readMachineDay(machineId: string, now: Date): MachineDay {
   const day = dayKey(now);
@@ -144,10 +230,21 @@ export function recordSpin(
 ): MachineDay {
   const store = load();
   const day = dayKey(now);
-  const cur =
-    store[machineId] && store[machineId].day === day
-      ? normalize(store[machineId])
-      : emptyDay(day);
+  const prev = store[machineId];
+  let cur: MachineDay;
+  if (prev && prev.day === day) {
+    cur = normalize(prev);
+  } else {
+    // 前の日のまま残っていたら、0で上書きする前に保管庫へ逃がす。
+    // ここを通らないと、日をまたいで同じ台に座った瞬間に前日が消える。
+    if (prev) {
+      const archive = loadArchive();
+      (archive[prev.day] ??= {})[machineId] = normalize(prev);
+      pruneArchive(archive);
+      saveArchive(archive);
+    }
+    cur = emptyDay(day);
+  }
 
   const spins = cur.spins + 1;
   const sahmai = cur.sahmai + spin.win - spin.bet;

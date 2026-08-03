@@ -25,13 +25,14 @@ export class ZukanOverlay {
     private readonly playStats: PlayStats,
     private readonly challengeTracker: ChallengeTracker,
     /**
-     * ボーナスの払い出しとゲーム数。BIG・REGは役に `payout` を持たず
+     * ボーナスとチェリーの払い出し。BIG・REG・チェリーは役に `payout` を持たず
      * `baseMultiplier` 側で決まるので、表示のためにここへ渡す。
      * 台選びの寄り画面の配当表と同じ値を出すため（片方だけ「—」だと食い違って見える）。
      */
     private readonly bonusPay: {
       premium: number;
       bonus: number;
+      cherry: number;
       spinsPerBig: number;
       spinsPerReg: number;
     },
@@ -141,9 +142,11 @@ export class ZukanOverlay {
     const rate = this.state.completionRate();
 
     const bita = this.state.bitaCount.get();
+    // カテゴリ別の率はここに出さない。セクション見出しの達成数と二重に出すと、
+    // 対象カテゴリが増えた時に「コア100%なのに達成率83%」のように食い違って見える。
     this.summaryEl.innerHTML = `
-      <span class="zukan-rate">達成率: <strong>${rate.total}%</strong></span>
-      <span class="zukan-rate-sub">コア ${rate.core}% / プレミアム ${rate.premium}% / ビタ ${bita}回</span>
+      <span class="zukan-rate">達成率: <strong>${rate.percent}%</strong></span>
+      <span class="zukan-rate-sub">${rate.done} / ${rate.total} 役 ・ ビタ ${bita}回</span>
     `;
 
     const s = this.playStats.stats.get();
@@ -168,6 +171,10 @@ export class ZukanOverlay {
     // 図鑑側の役割は打っている最中に手元で引けること。
     const bp = this.bonusPay;
     const renderSection = (title: string, yakus: YakuList['coreYaku'], cls: string) => {
+      if (yakus.length === 0) return '';
+      // 見出しに達成数を出す。カテゴリが4つあるので、上の達成率だけだと
+      // どこが埋まっていないのかが分からない。
+      const doneCount = yakus.filter((y) => (counts[y.id] ?? 0) > 0).length;
       const items = yakus
         .map((y) => {
           const c = counts[y.id] ?? 0;
@@ -182,7 +189,9 @@ export class ZukanOverlay {
                 ? `${bp.premium}枚＋${bp.spinsPerBig}G`
                 : y.category === 'bonus'
                   ? `${bp.bonus}枚＋${bp.spinsPerReg}G`
-                  : '—';
+                  : y.category === 'cherry'
+                    ? `${bp.cherry}枚`
+                    : '—';
           return `
             <div class="zukan-row ${done ? 'done' : 'locked'}">
               <span class="zukan-symbols">${symbols}</span>
@@ -195,14 +204,19 @@ export class ZukanOverlay {
         .join('');
       return `
         <div class="zukan-section ${cls}">
-          <h3>${title}</h3>
+          <h3>${title}<span class="zukan-section-count">${doneCount}/${yakus.length}</span></h3>
           ${items}
         </div>
       `;
     };
 
+    // REGとチェリーも**成立する役**なので集めた記録として出す。記録自体は
+    // 以前から貯まっていて（成立した hits を全部 record している）、出していなかっただけ。
+    // 1枚役だけは載せない——こぼしの受け皿で、狙って揃える役ではないため。
     this.listEl.innerHTML =
       renderSection('プレミアム役', this.yakuList.premiumYaku, 'premium') +
+      renderSection('ボーナス役', this.yakuList.bonusYaku, 'bonus') +
+      renderSection('チェリー', this.yakuList.cherryYaku, 'cherry') +
       renderSection('コア役', this.yakuList.coreYaku, 'core');
 
     // ミッション一覧

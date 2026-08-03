@@ -1893,6 +1893,20 @@ body.shake {
 .zukan-section.premium h3 {
   color: #ff8866;
 }
+/* REG は銀、チェリーは桃赤。カットインの役色（BIG=金/青・REG=銀）と揃える。 */
+.zukan-section.bonus h3 {
+  color: #c9ccd6;
+}
+.zukan-section.cherry h3 {
+  color: #ff7f9a;
+}
+/* 見出しの達成数。カテゴリが4つあるのでどこが埋まっていないかを見出しで示す。 */
+.zukan-section-count {
+  float: right;
+  letter-spacing: 1px;
+  font-variant-numeric: tabular-nums;
+  color: #8b8b8b;
+}
 .zukan-row {
   display: grid;
   grid-template-columns: 96px 1fr 92px 56px;
