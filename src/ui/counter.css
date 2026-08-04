@@ -400,6 +400,72 @@
   display: flex; gap: 5px; flex-wrap: wrap; border-top: 1px dashed #3a3244; padding-top: 10px;
 }
 
+/* 券面と記録の切り替え */
+.ctr-cardtabs {
+  position: relative; display: flex; gap: 6px; justify-content: center;
+  margin-bottom: clamp(12px, 2vh, 20px);
+}
+
+/* 記録（過ぎた日のデータ）。今日の数字は台のカウンターが正で、ここには出さない。 */
+.ctr-log {
+  position: relative; width: min(880px, 96vw); margin: 0 auto;
+  display: flex; flex-direction: column; gap: clamp(12px, 2vh, 18px);
+  animation: ctr-zoom-in .3s ease both;
+}
+/* display:flex が UA の [hidden](display:none) を上書きするので明示で打ち消す。
+   タブの切り替えは hidden 属性だけでやっているので、これが無いと両方出る。 */
+.ctr-log[hidden], .ctr-card-body[hidden] { display: none }
+.ctr-log-head { display: flex; flex-direction: column; gap: 8px }
+.ctr-log-title {
+  font-size: 13px; letter-spacing: .18em; color: #cdbfa6;
+  border-bottom: 1px solid #2f2f36; padding-bottom: 8px;
+}
+.ctr-log-note { font-size: 11px; line-height: 1.75; color: #6f6578 }
+.ctr-log-note b { color: #8c8377; font-weight: 400 }
+.ctr-logwrap { overflow-x: auto }
+.ctr-logtable { min-width: 560px; display: flex; flex-direction: column; gap: 2px }
+.ctr-logrow {
+  display: grid; grid-template-columns: 56px 1fr 82px 44px 44px 84px 118px;
+  align-items: center; gap: 8px; padding: 9px 11px;
+  border-left: 3px solid #3a3244; background: #0d0a12; font-variant-numeric: tabular-nums;
+}
+.ctr-logrow.ctr-loghead {
+  border-left: 3px solid transparent; background: none; padding: 8px 11px;
+  border-bottom: 1px solid #2f2f36;
+}
+.ctr-logrow.ctr-loghead span {
+  font-family: inherit; font-size: 10px; font-weight: 400; letter-spacing: .1em; color: #6a6a72;
+}
+.ctr-logrow .c-day { font-family: ui-monospace, monospace; font-size: 12px; color: #8c8377 }
+.ctr-logrow .c-machine {
+  font-size: 12px; color: #cdbfa6; min-width: 0;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.ctr-logrow .c-machine b {
+  font-family: ui-monospace, monospace; color: #f2eee8; font-weight: 700;
+}
+.ctr-logrow .c-games {
+  font-family: ui-monospace, monospace; font-size: 12px; text-align: right; color: #43d9ff;
+}
+.ctr-logrow .c-big {
+  font-family: ui-monospace, monospace; font-size: 13px; font-weight: 700;
+  text-align: right; color: #ff6b52;
+}
+.ctr-logrow .c-reg {
+  font-family: ui-monospace, monospace; font-size: 13px; font-weight: 700;
+  text-align: right; color: #43d9ff;
+}
+.ctr-logrow .c-sa {
+  font-family: ui-monospace, monospace; font-size: 15px; font-weight: 700; text-align: right;
+}
+.ctr-logrow .c-eff {
+  font-family: ui-monospace, monospace; font-size: 13px; text-align: right; color: #f2eee8;
+}
+/* 母数を添える。率だけだと20ゲームの28%と1200ゲームの28%が同じ顔になる。
+   読めない濃さだと添えていないのと同じなので、他の補助テキストと同じ明るさにする。 */
+.ctr-logrow .c-eff i { font-style: normal; font-size: 10px; color: #8c8377; margin-left: 5px }
+.ctr-logrow .c-eff .dim { color: #4a4450 }
+
 /* 空状態 */
 .ctr-empty {
   padding: clamp(28px, 6vh, 58px) 20px; display: flex; flex-direction: column;

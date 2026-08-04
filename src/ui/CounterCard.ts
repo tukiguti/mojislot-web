@@ -2,6 +2,8 @@ import { getMemberId, getMemberName, getMemberSince, setMemberName } from '../pr
 import { applyCard, downloadCard, readCard, summarizeCard } from '../card/CardManager';
 import { CardError } from '../card/CardCodec';
 import type { CardPayload } from '../card/cardSchema';
+import { effectRate, readMachineArchive } from '../productions/MachineData';
+import { islandOfMachine, machineById } from '../data/machines';
 import './counter.css';
 
 /**
@@ -43,6 +45,88 @@ const memberNo = (id: string): string => {
   return compact.replace(/(.{4})/g, '$1 ').trim() || '— — — —';
 };
 
+const num = (n: number): string => n.toLocaleString('en-US');
+
+/** 保管庫の日付キー（YYYY-MM-DD）を表示用に縮める。 */
+const fmtDay = (day: string): string => {
+  const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(day);
+  return m ? `${Number(m[2])}/${Number(m[3])}` : day;
+};
+
+/** 台IDを「寿司 11」のように島名＋台番で見せる。 */
+const machineLabel = (machineId: string): string => {
+  const m = machineById(machineId);
+  if (!m) return machineId;
+  return `${esc(islandOfMachine(m).name)} <b>${m.number}</b>`;
+};
+
+/**
+ * 過ぎた日の記録。**今日の数字はここに出さない**（現役のデータカウンターが正）。
+ *
+ * 設定を推測する材料ではなく、打った記録の控え。前日データで今日の空欄を埋める案は
+ * 却下してあり、混ぜると却下したのと同じ「情報のない手がかり」になる。
+ */
+function renderLog(): string {
+  const archive = readMachineArchive();
+  const rows = Object.keys(archive)
+    .sort()
+    .reverse()
+    .flatMap((day) =>
+      Object.keys(archive[day])
+        .sort((a, b) => (machineById(a)?.number ?? 0) - (machineById(b)?.number ?? 0))
+        .map((machineId) => ({ day, machineId, data: archive[day][machineId] })),
+    );
+
+  const head = `
+    <div class="ctr-log-head">
+      <span class="ctr-log-title">これまでの記録</span>
+      <span class="ctr-log-note">日付が変わると、その日打った台のデータがここへ移ります（30日ぶん）。<b>今日の数字は台のデータカウンターにあり、ここには出ません。</b>設定は日替わりで振り直されるので、過去の数字は今日の台を読む材料になりません。</span>
+    </div>`;
+
+  if (rows.length === 0) {
+    return `${head}
+      <div class="ctr-empty">
+        <span class="ctr-empty-mark">NO DATA</span>
+        <span class="ctr-empty-text">まだ記録がありません。台を選んで遊ぶと、日付が変わったときにその日のデータがここへ移ります。</span>
+      </div>`;
+  }
+
+  const body = rows
+    .map(({ day, machineId, data }) => {
+      const rate = effectRate(data);
+      // 母数を添える。演出率は標本が要る数字なので、率だけ出すと
+      // 20ゲームの28%と1200ゲームの28%が同じ顔になる。
+      const eff =
+        rate === null
+          ? '<span class="dim">—</span>'
+          : `${(rate * 100).toFixed(1)}% <i>${num(data.normalSpins)}G</i>`;
+      const sa = data.sahmai;
+      return `
+        <div class="ctr-logrow">
+          <span class="c-day">${fmtDay(day)}</span>
+          <span class="c-machine">${machineLabel(machineId)}</span>
+          <span class="c-games">${num(data.spins)} G</span>
+          <span class="c-big">${data.big}</span>
+          <span class="c-reg">${data.reg}</span>
+          <span class="c-sa ${sa >= 0 ? 'plus' : 'minus'}">${sa > 0 ? '+' : ''}${num(sa)}</span>
+          <span class="c-eff">${eff}</span>
+        </div>`;
+    })
+    .join('');
+
+  return `${head}
+    <div class="ctr-logwrap">
+      <div class="ctr-logtable">
+        <div class="ctr-logrow ctr-loghead">
+          <span class="c-day">日付</span><span class="c-machine">台</span>
+          <span class="c-games">回転</span><span class="c-big">BIG</span><span class="c-reg">REG</span>
+          <span class="c-sa">差枚</span><span class="c-eff">演出率</span>
+        </div>
+        ${body}
+      </div>
+    </div>`;
+}
+
 type MsgKind = 'saved' | 'issued' | 'restored' | 'error';
 
 const MESSAGES: Record<MsgKind, { text: string; tone: 'ok' | 'ng' }> = {
@@ -68,7 +152,12 @@ export function renderCounterCard(cb: CounterCardCallbacks): void {
         <span>←</span><span>カウンター前に戻る（Esc）</span>
       </div>
 
-      <div class="ctr-card-body">
+      <div class="ctr-cardtabs">
+        <span class="ctr-chip on" data-tab="face" role="button" tabindex="0">会員証</span>
+        <span class="ctr-chip" data-tab="log" role="button" tabindex="0">記録</span>
+      </div>
+
+      <div class="ctr-card-body" data-panel="face">
         <div class="ctr-card-main">
           <div class="ctr-desk">
             <div class="ctr-face">
@@ -133,6 +222,8 @@ export function renderCounterCard(cb: CounterCardCallbacks): void {
           <span class="ctr-notice-foot">MOJISLOT 景品カウンター</span>
         </div>
       </div>
+
+      <div class="ctr-log" data-panel="log" hidden>${renderLog()}</div>
     </div>
   `;
 
@@ -160,6 +251,24 @@ export function renderCounterCard(cb: CounterCardCallbacks): void {
   };
 
   root.querySelector('[data-act="back"]')?.addEventListener('click', cb.onBack);
+
+  // 券面と記録の切り替え。記録は**過ぎた日**のものしか出さないので、
+  // 券面の裏に置いても今日の推測には影響しない。
+  const tabs = [...root.querySelectorAll<HTMLElement>('[data-tab]')];
+  const panels = [...root.querySelectorAll<HTMLElement>('[data-panel]')];
+  const selectTab = (id: string): void => {
+    for (const t of tabs) t.classList.toggle('on', t.dataset.tab === id);
+    for (const p of panels) p.hidden = p.dataset.panel !== id;
+  };
+  for (const t of tabs) {
+    const pick = (): void => selectTab(t.dataset.tab ?? 'face');
+    t.addEventListener('click', pick);
+    t.addEventListener('keydown', (e) => {
+      if (e.key !== 'Enter' && e.key !== ' ') return;
+      e.preventDefault();
+      pick();
+    });
+  }
 
   root.querySelector('[data-act="save-name"]')?.addEventListener('click', () => {
     setMemberName(nameInput.value);
