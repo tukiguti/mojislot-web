@@ -423,9 +423,9 @@
 .ctr-log-note { font-size: 11px; line-height: 1.75; color: #6f6578 }
 .ctr-log-note b { color: #8c8377; font-weight: 400 }
 .ctr-logwrap { overflow-x: auto }
-.ctr-logtable { min-width: 560px; display: flex; flex-direction: column; gap: 2px }
+.ctr-logtable { min-width: 630px; display: flex; flex-direction: column; gap: 2px }
 .ctr-logrow {
-  display: grid; grid-template-columns: 56px 1fr 82px 44px 44px 84px 118px;
+  display: grid; grid-template-columns: 56px 1fr 82px 44px 44px 84px 118px 62px;
   align-items: center; gap: 8px; padding: 9px 11px;
   border-left: 3px solid #3a3244; background: #0d0a12; font-variant-numeric: tabular-nums;
 }
@@ -465,6 +465,18 @@
    読めない濃さだと添えていないのと同じなので、他の補助テキストと同じ明るさにする。 */
 .ctr-logrow .c-eff i { font-style: normal; font-size: 10px; color: #8c8377; margin-left: 5px }
 .ctr-logrow .c-eff .dim { color: #4a4450 }
+/* 過ぎた日の設定（答え合わせ）。6だけ色を変える——探していたのがこれなので、
+   当たった日が一覧の中で一目で分かるほうがよい。 */
+.ctr-logrow .c-set {
+  font-size: 12px; text-align: right; color: #8c8377;
+}
+.ctr-logrow .c-set.high { color: #ffd76a }
+.ctr-logrow .c-set.six { color: #1a1100; font-weight: 700;
+  background: linear-gradient(180deg, #ffe566 0%, #ffc400 100%);
+  border-radius: 3px; padding: 1px 6px; text-align: center;
+}
+.ctr-logrow .c-set.trial { color: #4a4450 }
+.ctr-logrow .c-set.dim { color: #4a4450 }
 
 /* 空状態 */
 .ctr-empty {

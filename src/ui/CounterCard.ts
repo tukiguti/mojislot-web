@@ -3,7 +3,8 @@ import { applyCard, downloadCard, readCard, summarizeCard } from '../card/CardMa
 import { CardError } from '../card/CardCodec';
 import type { CardPayload } from '../card/cardSchema';
 import { effectRate, readMachineArchive } from '../productions/MachineData';
-import { islandOfMachine, machineById } from '../data/machines';
+import { islandOfMachine, isTrialMachine, machineById } from '../data/machines';
+import { settingForMachine } from '../productions/HallPolicy';
 import './counter.css';
 
 /**
@@ -61,6 +62,31 @@ const machineLabel = (machineId: string): string => {
 };
 
 /**
+ * その日その台の設定。**過ぎた日だけ明かす**。
+ *
+ * 設定は日付＋台IDから決定的に決まるので、保存していなくても後から引き直せる。
+ * 出す理由は**答え合わせ**——「演出率28%だったあの台は設定2だった」と突き合わせられると
+ * 読む腕が上がる。設定は日替わりで独立に振り直されるので、昨日の答えが分かっても
+ * 今日の推測は壊れない（前日データを今日の空欄に混ぜる案を却下したのと同じ理屈で、
+ * 過去の設定は今日について何も語らない）。
+ *
+ * 試打コーナーは全台6で固定＝推測の対象外なので、答えとしては出さず印だけ付ける。
+ */
+const settingOfDay = (
+  day: string,
+  machineId: string,
+): { label: string; cls: string } => {
+  const m = machineById(machineId);
+  const parsed = /^(\d{4})-(\d{2})-(\d{2})$/.exec(day);
+  if (!m || !parsed) return { label: '—', cls: 'dim' };
+  if (isTrialMachine(m)) return { label: '試打', cls: 'trial' };
+  const d = new Date(Number(parsed[1]), Number(parsed[2]) - 1, Number(parsed[3]));
+  const s = settingForMachine(m, d);
+  // 6だけ色を変える。探していたのがこれなので、当たった日が一目で分かるほうがよい。
+  return { label: `設定${s}`, cls: s === 6 ? 'six' : s >= 4 ? 'high' : '' };
+};
+
+/**
  * 過ぎた日の記録。**今日の数字はここに出さない**（現役のデータカウンターが正）。
  *
  * 設定を推測する材料ではなく、打った記録の控え。前日データで今日の空欄を埋める案は
@@ -80,7 +106,7 @@ function renderLog(): string {
   const head = `
     <div class="ctr-log-head">
       <span class="ctr-log-title">これまでの記録</span>
-      <span class="ctr-log-note">日付が変わると、その日打った台のデータがここへ移ります（30日ぶん）。<b>今日の数字は台のデータカウンターにあり、ここには出ません。</b>設定は日替わりで振り直されるので、過去の数字は今日の台を読む材料になりません。</span>
+      <span class="ctr-log-note">日付が変わると、その日打った台のデータがここへ移ります（30日ぶん）。<b>今日の数字は台のデータカウンターにあり、ここには出ません。</b>設定は日替わりで振り直されるので、過去の数字は今日の台を読む材料になりません。<b>過ぎた日の設定はここで明かします</b>——読みが当たっていたかの答え合わせに使ってください。</span>
     </div>`;
 
   if (rows.length === 0) {
@@ -101,6 +127,7 @@ function renderLog(): string {
           ? '<span class="dim">—</span>'
           : `${(rate * 100).toFixed(1)}% <i>${num(data.normalSpins)}G</i>`;
       const sa = data.sahmai;
+      const set = settingOfDay(day, machineId);
       return `
         <div class="ctr-logrow">
           <span class="c-day">${fmtDay(day)}</span>
@@ -110,6 +137,7 @@ function renderLog(): string {
           <span class="c-reg">${data.reg}</span>
           <span class="c-sa ${sa >= 0 ? 'plus' : 'minus'}">${sa > 0 ? '+' : ''}${num(sa)}</span>
           <span class="c-eff">${eff}</span>
+          <span class="c-set ${set.cls}">${set.label}</span>
         </div>`;
     })
     .join('');
@@ -120,7 +148,7 @@ function renderLog(): string {
         <div class="ctr-logrow ctr-loghead">
           <span class="c-day">日付</span><span class="c-machine">台</span>
           <span class="c-games">回転</span><span class="c-big">BIG</span><span class="c-reg">REG</span>
-          <span class="c-sa">差枚</span><span class="c-eff">演出率</span>
+          <span class="c-sa">差枚</span><span class="c-eff">演出率</span><span class="c-set">設定</span>
         </div>
         ${body}
       </div>
