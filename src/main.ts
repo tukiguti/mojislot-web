@@ -21,6 +21,7 @@ import {
 import { BonusZone } from './productions/BonusZone';
 import { BonusSession } from './productions/BonusSession';
 import { applySetting, applySettingToEffects } from './productions/MachineSetting';
+import { REMIX, applyRemixBoost } from './productions/RemixBoost';
 import { settingForMachine } from './productions/HallPolicy';
 import { recordSpin as recordMachineSpin } from './productions/MachineData';
 import { drawEndScreen } from './productions/SettingHint';
@@ -90,6 +91,7 @@ import {
   ReachEyeTableSchema,
   TuningSchema,
   type Yaku,
+  type YakuList,
   type ShisaTier,
   type ShisaTierColor,
   type InternalRoleState,
@@ -183,10 +185,18 @@ export async function bootstrap() {
   // データと示唆演出から推測させる（設計: MachineSetting）。
   // **章ではなく台ごと**。同じ島の4台が同じ設定だと、台を選び分ける意味が消える。
   const machineSetting = settingForMachine(machine, new Date());
-  let yakuList = applySetting(
-    YakuListSchema.parse(chapter.yakuData),
-    machineSetting,
-  );
+  /**
+   * リミックス島はボーナスごとに島が入れ替わる（＝配列を覚え直す）。その見返りに
+   * ボーナスを強くする。**この島かどうかは打っている間ずっと変わらない**ので、
+   * ステージが切り替わっても上乗せは効き続ける（設計: 32章）。
+   */
+  const remix = isRemixMachine(machine);
+  /** 役リストへ設定とリミックス上乗せを適用する。ステージ切替でも同じ手順を通す。 */
+  const buildYakuList = (raw: unknown): YakuList => {
+    const base = applySetting(YakuListSchema.parse(raw), machineSetting);
+    return remix ? applyRemixBoost(base) : base;
+  };
+  let yakuList = buildYakuList(chapter.yakuData);
   const payout = PayoutSchema.parse(payoutDataRaw);
   let quizList = QuizListSchema.parse(chapter.quizData);
   // 停止テーブル（第1停止＝実機のリール制御表）。手編集可・無ければ既定制御へフォールバック。
@@ -198,6 +208,10 @@ export async function bootstrap() {
   );
   // 演出レート・補助・フリーズ等の調整値（散在していた定数を集約）。data/tuning/default.json。
   const tuning = TuningSchema.parse(tuningDataRaw);
+  /** ボーナスのゲーム数。リミックス島だけ長い（覚え直しの見返り）。 */
+  const bonusSpins = remix
+    ? { big: REMIX.spinsPerBig, reg: REMIX.spinsPerReg }
+    : { big: tuning.bonus.spinsPerBig, reg: tuning.bonus.spinsPerReg };
   /**
    * 設定を適用した演出レート。**設定差の主役はここ**（MachineSetting の NONE_MULTIPLIER）。
    * 高設定ほど無演出が減り、何を狙えばよいか分かるゲームが増える＝取りこぼしが減る。
@@ -236,8 +250,8 @@ export async function bootstrap() {
     assistMaxCells: tuning.assist.pullInCells,
   });
   const bonusZone = new BonusZone({
-    spinsPerBonus: tuning.bonus.spinsPerBig,
-    spinsPerReg: tuning.bonus.spinsPerReg,
+    spinsPerBonus: bonusSpins.big,
+    spinsPerReg: bonusSpins.reg,
     bonusEffectRates: effectRates.bonus,
   });
   // 突入〜消化しきりの区間管理（獲得集計・おかわり判定・締め）は BonusSession が持つ。
@@ -258,8 +272,8 @@ export async function bootstrap() {
       premium: payout.baseMultiplier.premium,
       bonus: payout.baseMultiplier.bonus,
       cherry: payout.baseMultiplier.cherry,
-      spinsPerBig: tuning.bonus.spinsPerBig,
-      spinsPerReg: tuning.bonus.spinsPerReg,
+      spinsPerBig: bonusSpins.big,
+      spinsPerReg: bonusSpins.reg,
     },
   );
   // デバッグ section の表示可否（遊ぶ設定で確定・既定OFF）
@@ -1597,10 +1611,8 @@ export async function bootstrap() {
 
     // --- データ層 ---
     reelConfig = ReelConfigSchema.parse(chapter.reelData);
-    yakuList = applySetting(
-      YakuListSchema.parse(chapter.yakuData),
-      machineSetting,
-    );
+    // 設定とリミックス上乗せは初回起動と同じ手順を通す（片方だけ抜けると静かにずれる）。
+    yakuList = buildYakuList(chapter.yakuData);
     quizList = QuizListSchema.parse(chapter.quizData);
     stopTable = new StopTableLookup(StopTableSchema.parse(chapter.stopData));
     reachEyes = new ReachEyes(
@@ -1650,8 +1662,8 @@ export async function bootstrap() {
         premium: payout.baseMultiplier.premium,
         bonus: payout.baseMultiplier.bonus,
         cherry: payout.baseMultiplier.cherry,
-        spinsPerBig: tuning.bonus.spinsPerBig,
-        spinsPerReg: tuning.bonus.spinsPerReg,
+        spinsPerBig: bonusSpins.big,
+        spinsPerReg: bonusSpins.reg,
       },
     );
 

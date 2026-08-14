@@ -18,6 +18,7 @@ import {
   SETTINGS,
   type Setting,
 } from '../../src/productions/MachineSetting';
+import { REMIX, applyRemixBoost } from '../../src/productions/RemixBoost';
 import { StopTableLookup } from '../../src/core/StopTable';
 import { StopController } from '../../src/core/StopController';
 import { ReachEyes } from '../../src/core/ReachEyes';
@@ -54,6 +55,8 @@ import {
  */
 
 const RUN = process.env.SIM === '1';
+/** リミックス島の上乗せを乗せて測る（覚え直しの取りこぼしは再現できないので上限値）。 */
+const REMIX_MODE = process.env.REMIX === '1';
 const DIR = dirname(fileURLToPath(import.meta.url));
 const DATA = resolve(DIR, '../../data');
 const readJson = (p: string) => JSON.parse(readFileSync(p, 'utf-8'));
@@ -177,10 +180,16 @@ function runChapter(
   const baseYaku: YakuList = YakuListSchema.parse(
     readJson(`${DATA}/yaku/${chapter}.json`),
   );
-  const yakuList: YakuList = setting ? applySetting(baseYaku, setting) : baseYaku;
+  // REMIX=1 でリミックス島の上乗せ（ボーナス確率×1.15・区間が長い）を乗せて測る。
+  // **覚え直しによる取りこぼしは再現できない**（このシミュレーターは配列を覚えている
+  // 前提の目押しモデル）ので、出る数字はリミックス島の**上限**になる。
+  const withSetting = setting ? applySetting(baseYaku, setting) : baseYaku;
+  const yakuList: YakuList = REMIX_MODE ? applyRemixBoost(withSetting) : withSetting;
   const reelCfg = ReelConfigSchema.parse(readJson(`${DATA}/reels/${chapter}.json`));
   const payout: Payout = PayoutSchema.parse(readJson(`${DATA}/payouts/default.json`));
   const tuning: Tuning = TuningSchema.parse(readJson(`${DATA}/tuning/default.json`));
+  const spinsBig = REMIX_MODE ? REMIX.spinsPerBig : tuning.bonus.spinsPerBig;
+  const spinsReg = REMIX_MODE ? REMIX.spinsPerReg : tuning.bonus.spinsPerReg;
   // 設定差の主役は演出レート（無演出の割合）。本番と同じ関数で適用する。
   const effectRates = setting
     ? {
@@ -586,7 +595,7 @@ function runChapter(
         curBonusPayout = 0;
         if (isPremium) res.big++; else res.reg++;
       }
-      bonusRemaining += isPremium ? tuning.bonus.spinsPerBig : tuning.bonus.spinsPerReg;
+      bonusRemaining += isPremium ? spinsBig : spinsReg;
     }
     if (bonusActive) {
       bonusRemaining--;
