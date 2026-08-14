@@ -24,13 +24,16 @@ export class StopTableLookup {
    * 第2停止のスベリコマ数（**順押しのみ**）。表に無ければ null。
    * @param firstPos 第1停止したリールの**停止位置**（押下位置ではない）
    * @param press    第2リールの押下位置
+   * @param bonus    ボーナス中（許可リストに1枚役が加わる局面）か
    */
   secondStopSlip(
     flagKey: string,
     firstPos: number,
     press: number,
+    bonus = false,
   ): number | null {
-    const rows = this.table?.secondStop?.[flagKey];
+    const table = bonus ? this.table?.bonusSecondStop : this.table?.secondStop;
+    const rows = table?.[flagKey];
     if (!rows) return null;
     const row = rows[firstPos];
     if (!row) return null;
@@ -49,8 +52,10 @@ export class StopTableLookup {
     firstPos: number,
     secondPos: number,
     press: number,
+    bonus = false,
   ): number | null {
-    const row = this.table?.thirdStop?.[flagKey]?.[firstPos]?.[secondPos];
+    const table = bonus ? this.table?.bonusThirdStop : this.table?.thirdStop;
+    const row = table?.[flagKey]?.[firstPos]?.[secondPos];
     if (!row) return null;
     const slip = row[press];
     return typeof slip === 'number' ? slip : null;

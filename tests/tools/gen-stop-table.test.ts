@@ -184,62 +184,96 @@ describe.skipIf(!RUN)('停止テーブル生成', () => {
         middle: visibleAt(cells, pos, 'middle'),
         bottom: visibleAt(cells, pos, 'bottom'),
       });
-      const secondStop: Record<string, number[][]> = {};
-      for (const role of yakuList.internalRoles) {
-        const flagIds = flagYakusFor(yakuList, role.id).map((y) => y.id);
-        // 添字は「第1停止の**停止位置**」。押下位置ではない点に注意。
-        const byFirstPos: number[][] = Array.from({ length: n }, () =>
-          new Array<number>(n).fill(0),
-        );
-        for (let press0 = 0; press0 < n; press0++) {
-          const slip0 = firstStop[role.id][0][press0];
-          const pos0 = (press0 + slip0) % n;
-          const left = visCol(reels[0], pos0);
-          for (let press1 = 0; press1 < n; press1++) {
-            byFirstPos[pos0][press1] = controller.resolveSlip({
-              reelIndex: 1,
-              basePosition: press1,
-              strip: { id: 'r1', cells: reels[1] },
-              stoppedVisibles: [left, null, null],
-              flagYakuIds: flagIds,
-              flagKey: role.id,
-            });
-          }
-        }
-        secondStop[role.id] = byFirstPos;
-      }
+      /**
+       * その内部役の許可リスト。ボーナス中だけ**1枚役（こぼし先）**が加わる。
+       * 当選役を引き込めなかった最終停止で拾いに行くための受け皿で、
+       * ここが違うと同じ内部役でも制御が変わる（設計: 31章）。
+       */
+      const flagIdsFor = (roleId: string, bonus: boolean): string[] => {
+        const base = flagYakusFor(yakuList, roleId).map((y) => y.id);
+        if (!bonus || base.length === 0) return base;
+        const singles = yakuList.singleYaku.map((s) => s.id);
+        // 1枚役そのものが当選している時は足さない（既にグループ全体が入っている）
+        return singles.some((s) => base.includes(s))
+          ? base
+          : [...base, ...singles];
+      };
 
-      // --- 第3停止（順押し）---
-      // 左・中を止めた状態から右リールの各押下位置で制御を実行する。
-      // 添字は第1・第2の**停止位置**。到達しない位置の枠は 0 のまま残る（引かれない）。
-      const thirdStop: Record<string, number[][][]> = {};
-      for (const role of yakuList.internalRoles) {
-        const flagIds = flagYakusFor(yakuList, role.id).map((y) => y.id);
-        const table: number[][][] = Array.from({ length: n }, () =>
-          Array.from({ length: n }, () => new Array<number>(n).fill(0)),
-        );
-        for (let press0 = 0; press0 < n; press0++) {
-          const pos0 = (press0 + firstStop[role.id][0][press0]) % n;
-          const left = visCol(reels[0], pos0);
-          for (let press1 = 0; press1 < n; press1++) {
-            const pos1 = (press1 + secondStop[role.id][pos0][press1]) % n;
-            const mid = visCol(reels[1], pos1);
-            for (let press2 = 0; press2 < n; press2++) {
-              table[pos0][pos1][press2] = controller.resolveSlip({
-                reelIndex: 2,
-                basePosition: press2,
-                strip: { id: 'r2', cells: reels[2] },
-                stoppedVisibles: [left, mid, null],
+      const buildSecond = (bonus: boolean): Record<string, number[][]> => {
+        const out: Record<string, number[][]> = {};
+        for (const role of yakuList.internalRoles) {
+          const flagIds = flagIdsFor(role.id, bonus);
+          // 添字は「第1停止の**停止位置**」。押下位置ではない点に注意。
+          const byFirstPos: number[][] = Array.from({ length: n }, () =>
+            new Array<number>(n).fill(0),
+          );
+          for (let press0 = 0; press0 < n; press0++) {
+            const pos0 = (press0 + firstStop[role.id][0][press0]) % n;
+            const left = visCol(reels[0], pos0);
+            for (let press1 = 0; press1 < n; press1++) {
+              byFirstPos[pos0][press1] = controller.resolveSlip({
+                reelIndex: 1,
+                basePosition: press1,
+                strip: { id: 'r1', cells: reels[1] },
+                stoppedVisibles: [left, null, null],
                 flagYakuIds: flagIds,
                 flagKey: role.id,
               });
             }
           }
+          out[role.id] = byFirstPos;
         }
-        thirdStop[role.id] = table;
-      }
+        return out;
+      };
+      const secondStop = buildSecond(false);
+      const bonusSecondStop = buildSecond(true);
 
-      const out = { mode: chapter, firstStop, secondStop, thirdStop };
+      // --- 第3停止（順押し）---
+      // 左・中を止めた状態から右リールの各押下位置で制御を実行する。
+      // 添字は第1・第2の**停止位置**。到達しない位置の枠は 0 のまま残る（引かれない）。
+      const buildThird = (
+        bonus: boolean,
+        second: Record<string, number[][]>,
+      ): Record<string, number[][][]> => {
+        const out: Record<string, number[][][]> = {};
+        for (const role of yakuList.internalRoles) {
+          const flagIds = flagIdsFor(role.id, bonus);
+          const table: number[][][] = Array.from({ length: n }, () =>
+            Array.from({ length: n }, () => new Array<number>(n).fill(0)),
+          );
+          for (let press0 = 0; press0 < n; press0++) {
+            const pos0 = (press0 + firstStop[role.id][0][press0]) % n;
+            const left = visCol(reels[0], pos0);
+            for (let press1 = 0; press1 < n; press1++) {
+              const pos1 = (press1 + second[role.id][pos0][press1]) % n;
+              const mid = visCol(reels[1], pos1);
+              for (let press2 = 0; press2 < n; press2++) {
+                table[pos0][pos1][press2] = controller.resolveSlip({
+                  reelIndex: 2,
+                  basePosition: press2,
+                  strip: { id: 'r2', cells: reels[2] },
+                  stoppedVisibles: [left, mid, null],
+                  flagYakuIds: flagIds,
+                  flagKey: role.id,
+                });
+              }
+            }
+          }
+          out[role.id] = table;
+        }
+        return out;
+      };
+      const thirdStop = buildThird(false, secondStop);
+      const bonusThirdStop = buildThird(true, bonusSecondStop);
+
+      const out = {
+        mode: chapter,
+        firstStop,
+        secondStop,
+        thirdStop,
+        bonusSecondStop,
+        bonusThirdStop,
+      };
       // 第3停止だけで 11役 × 21³ ＝ 約10万エントリある。インデントを付けると
       // 1.5MB/島まで膨らむので、ここはコンパクトに書き出す（手で読むものではない）。
       writeFileSync(

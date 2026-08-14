@@ -142,17 +142,22 @@ export class StopController {
     // 値の意味が「主ラインへ何コマ寄せたか」に一意化されて表にできる。
     // 停止位置を渡されていない／逆押し／表が無い、のいずれかなら既定制御へ落ちる。
     //
-    // **ボーナス中のこぼし局面（当選役＋1枚役）は表の想定外**。表は通常時の許可リストで
-    // 焼いてあるので、ここで引くと1枚役への受け皿が消える（実測で「→1枚」が
-    // 8.6%→0.0%、機械割が2ポイント落ちた）。その局面は探索へ落とす。
+    // **ボーナス中のこぼし局面（当選役＋1枚役）は別の表を引く**。ボーナス中だけ
+    // 許可リストに1枚役が加わり、当選役を引き込めなかった最終停止で拾いに行くため、
+    // 通常時の表をそのまま使うと受け皿が消える（実測で「→1枚」8.6%→0.0%・機械割-2pt）。
     const isBonusSpill = hasWinTarget && spillTargets.length > 0;
-    if (!isBonusSpill && req.flagKey && req.stoppedPositions) {
+    if (req.flagKey && req.stoppedPositions) {
       const [p0, p1] = req.stoppedPositions;
       const [v0, v1, v2] = req.stoppedVisibles;
       const tabled =
         req.reelIndex === 1 && v0 !== null && v1 === null && v2 === null
           ? typeof p0 === 'number'
-            ? this.stopTable?.secondStopSlip(req.flagKey, p0, req.basePosition)
+            ? this.stopTable?.secondStopSlip(
+                req.flagKey,
+                p0,
+                req.basePosition,
+                isBonusSpill,
+              )
             : null
           : req.reelIndex === 2 && v0 !== null && v1 !== null && v2 === null
             ? typeof p0 === 'number' && typeof p1 === 'number'
@@ -161,6 +166,7 @@ export class StopController {
                   p0,
                   p1,
                   req.basePosition,
+                  isBonusSpill,
                 )
               : null
             : null;

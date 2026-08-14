@@ -311,6 +311,25 @@ export const StopTableSchema = z.object({
       z.array(z.array(z.array(SlipSchema).length(21)).length(21)).length(21),
     )
     .optional(),
+  /**
+   * **ボーナス中用**の第2・第3停止。構造は上と同じ。
+   *
+   * ボーナス中だけ許可リストに1枚役（こぼし先）が加わる——当選役を引き込めなかった
+   * 最終停止で1枚役を拾い、外した距離が枚数に出る（設計: 31章）。表は内部役IDでしか
+   * 引けずこの違いを区別できないので、通常時の表をそのまま使うと受け皿が消える
+   * （実測で「→1枚」8.6%→0.0%・機械割-2pt）。だから別に持つ。
+   *
+   * 第1停止は許可リストの影響を受けない（まだどの役もロックし得ない）ので共用する。
+   */
+  bonusSecondStop: z
+    .record(z.string(), z.array(z.array(SlipSchema).length(21)).length(21))
+    .optional(),
+  bonusThirdStop: z
+    .record(
+      z.string(),
+      z.array(z.array(z.array(SlipSchema).length(21)).length(21)).length(21),
+    )
+    .optional(),
 });
 export type StopTable = z.infer<typeof StopTableSchema>;
 
