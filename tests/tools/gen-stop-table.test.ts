@@ -3,6 +3,9 @@ import { readFileSync, writeFileSync, mkdirSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { dirname, resolve } from 'node:path';
 import { SlipResolver, type VisibleColumn } from '../../src/productions/SlipResolver';
+import { StopController } from '../../src/core/StopController';
+import { StopTableLookup } from '../../src/core/StopTable';
+import { TenpaiDetector } from '../../src/productions/TenpaiDetector';
 import {
   PAYLINES,
   ROW_VERTICAL,
@@ -165,13 +168,55 @@ describe.skipIf(!RUN)('停止テーブル生成', () => {
           });
         });
       }
-      const out = { mode: chapter, firstStop };
+      // --- 第2停止（順押し）---
+      // 第1停止テーブルで左を止めた状態から、中リールの各押下位置で制御を実行して
+      // 結果を記録する。**制御そのものを通す**ので、表とアルゴリズムが食い違わない。
+      const n = reels[0].length;
+      const controller = new StopController({
+        yakuList,
+        slipResolver: resolver,
+        tenpaiDetector: new TenpaiDetector(yakuList),
+        stopTable: new StopTableLookup({ mode: chapter, firstStop }),
+        pullInCells: tuning.assist.pullInCells,
+      });
+      const visCol = (cells: readonly string[], pos: number): VisibleColumn => ({
+        top: visibleAt(cells, pos, 'top'),
+        middle: visibleAt(cells, pos, 'middle'),
+        bottom: visibleAt(cells, pos, 'bottom'),
+      });
+      const secondStop: Record<string, number[][]> = {};
+      for (const role of yakuList.internalRoles) {
+        const flagIds = flagYakusFor(yakuList, role.id).map((y) => y.id);
+        // 添字は「第1停止の**停止位置**」。押下位置ではない点に注意。
+        const byFirstPos: number[][] = Array.from({ length: n }, () =>
+          new Array<number>(n).fill(0),
+        );
+        for (let press0 = 0; press0 < n; press0++) {
+          const slip0 = firstStop[role.id][0][press0];
+          const pos0 = (press0 + slip0) % n;
+          const left = visCol(reels[0], pos0);
+          for (let press1 = 0; press1 < n; press1++) {
+            byFirstPos[pos0][press1] = controller.resolveSlip({
+              reelIndex: 1,
+              basePosition: press1,
+              strip: { id: 'r1', cells: reels[1] },
+              stoppedVisibles: [left, null, null],
+              flagYakuIds: flagIds,
+              flagKey: role.id,
+            });
+          }
+        }
+        secondStop[role.id] = byFirstPos;
+      }
+
+      const out = { mode: chapter, firstStop, secondStop };
       writeFileSync(
         `${DATA}/stops/${chapter}.json`,
         `${JSON.stringify(out, null, 2)}\n`,
         'utf-8',
       );
       expect(Object.keys(firstStop).length).toBe(yakuList.internalRoles.length);
+      expect(Object.keys(secondStop).length).toBe(yakuList.internalRoles.length);
     }
   });
 });

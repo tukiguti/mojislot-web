@@ -20,6 +20,24 @@ export class StopTableLookup {
     return typeof slip === 'number' ? slip : null;
   }
 
+  /**
+   * 第2停止のスベリコマ数（**順押しのみ**）。表に無ければ null。
+   * @param firstPos 第1停止したリールの**停止位置**（押下位置ではない）
+   * @param press    第2リールの押下位置
+   */
+  secondStopSlip(
+    flagKey: string,
+    firstPos: number,
+    press: number,
+  ): number | null {
+    const rows = this.table?.secondStop?.[flagKey];
+    if (!rows) return null;
+    const row = rows[firstPos];
+    if (!row) return null;
+    const slip = row[press];
+    return typeof slip === 'number' ? slip : null;
+  }
+
   /** 表に載っている内部役ID一覧（検証・デバッグ用）。 */
   get flagKeys(): string[] {
     return this.table ? Object.keys(this.table.firstStop) : [];

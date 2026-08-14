@@ -1554,6 +1554,7 @@ export async function bootstrap() {
     engine: ReelEngine,
     basePos: number,
     stoppedVisibles: (VisibleColumn | null)[],
+    stoppedPositions: (number | null)[],
   ): number => {
     // 確定告知ランプ点灯中はその確定役、それ以外は内部役（1枚役はグループ）。
     const lamp = announcedBonus && announcedRole ? announcedRole : null;
@@ -1566,6 +1567,7 @@ export async function bootstrap() {
       basePosition: basePos,
       strip: engine.strip,
       stoppedVisibles,
+      stoppedPositions,
       flagYakuIds,
       flagKey,
       freeze: freezeActive,
@@ -1592,8 +1594,18 @@ export async function bootstrap() {
         bottom: getVisibleCell(e, 'bottom'),
       };
     });
+    // 停止位置も渡す。第2停止のテーブルを引くのに要る（可視3セルからは逆引きできない）。
+    const stoppedPositions: (number | null)[] = engines.map((e) =>
+      e.state.get() === 'stopped' ? Math.round(e.position) : null,
+    );
     // 引き込み/蹴りの決定は resolveStopSlip に集約（設計: 17_assist-and-slip.md）。
-    const slipCells = resolveStopSlip(idx, engine, basePos, stoppedVisibles);
+    const slipCells = resolveStopSlip(
+      idx,
+      engine,
+      basePos,
+      stoppedVisibles,
+      stoppedPositions,
+    );
 
     const result = engine.stop(timestamp, slipCells);
     // 押下の精度情報を保存（役成立時の bita 集計で参照）

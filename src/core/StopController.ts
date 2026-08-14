@@ -50,6 +50,11 @@ export interface StopRequest {
   /** 各リールの停止3セル（未停止は null） */
   stoppedVisibles: readonly (VisibleColumn | null)[];
   /**
+   * 各リールの**停止位置**（未停止は null）。第2停止の表を引くのに要る。
+   * 渡さなければ表を使わず既定制御へ落ちる（結果は同じで、速度と追跡可能性だけ落ちる）。
+   */
+  stoppedPositions?: readonly (number | null)[];
+  /**
    * 出目に出してよい役ID群。
    * miss は空配列、1枚役はグループ全体、通常は当選役1件。
    */
@@ -115,6 +120,25 @@ export class StopController {
         req.basePosition,
       );
       if (tabled !== null && tabled !== undefined) return tabled;
+    }
+
+    // 第2停止も表を引く（**順押しのみ**）。狙い先を主ライン1本に固定したので、
+    // 値の意味が「主ラインへ何コマ寄せたか」に一意化されて表にできる。
+    // 停止位置を渡されていない／逆押し／表が無い、のいずれかなら既定制御へ。
+    if (req.flagKey && req.reelIndex === 1 && req.stoppedPositions) {
+      const firstPos = req.stoppedPositions[0];
+      const onlyLeftStopped =
+        req.stoppedVisibles[0] !== null &&
+        req.stoppedVisibles[1] === null &&
+        req.stoppedVisibles[2] === null;
+      if (onlyLeftStopped && typeof firstPos === 'number') {
+        const tabled = this.stopTable?.secondStopSlip(
+          req.flagKey,
+          firstPos,
+          req.basePosition,
+        );
+        if (tabled !== null && tabled !== undefined) return tabled;
+      }
     }
 
     const targets = req.flagYakuIds

@@ -273,18 +273,34 @@ export const QuizListSchema = z.object({
  *
  * 第1停止は**まだどの役もロックし得ない**（3文字役は3リール、チェリーは2リール必要）ので
  * 蹴りが発火せず、停止位置は完全に自由＝ここが出目（リーチ目・入り目）の設計点になる。
- * 第2・第3停止は「当選役を揃える／非当選役を避ける」の制約でほぼ一意に決まるため、
- * 表は持たずアルゴリズムに委ねる（[26_reel-guarantee] の②ゼロ保証もそちらで担保）。
+ *
+ * 第2停止も表を持つ（2026-08-14〜）。制御の狙い先を主ライン1本に固定したので
+ * 「主ラインへ何コマ寄せたか」だけが値の意味になり、表として書けるようになった。
+ * 第3停止は 21³ × 役数で膨らむため当面アルゴリズムのまま。
  *
  * このファイルは生成できるが**手で書き換えてよい**。書き換えても②ゼロ保証は
- * 第2・第3停止の蹴りが守るので崩れない（監査テストが全押下位置で検証する）。
+ * 蹴りが守るので崩れない（監査テストが全押下位置で検証する）。
  */
+/** スベリコマ数（0〜4）。 */
+const SlipSchema = z.number().int().min(0).max(4);
+
 export const StopTableSchema = z.object({
   mode: z.string(),
+  /** 第1停止。[内部役][リール][押下位置] → スベリ。 */
   firstStop: z.record(
     z.string(),
-    z.array(z.array(z.number().int().min(0).max(4)).length(21)).length(3),
+    z.array(z.array(SlipSchema).length(21)).length(3),
   ),
+  /**
+   * 第2停止（**順押し限定**）。[内部役][第1停止位置][第2リールの押下位置] → スベリ。
+   *
+   * 押し順を含めると6倍に膨らむ。本作は順押し前提（押し順役は 2026-07-25 に廃止・
+   * ナビも無い）なので、逆押しは実行時の探索へフォールバックする。結果は同じで、
+   * 速度と追跡可能性が落ちるだけ。
+   */
+  secondStop: z
+    .record(z.string(), z.array(z.array(SlipSchema).length(21)).length(21))
+    .optional(),
 });
 export type StopTable = z.infer<typeof StopTableSchema>;
 

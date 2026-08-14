@@ -377,6 +377,8 @@ function runChapter(
     const seq = (process.env.SEQ ?? '0,1,2').split(',').map(Number);
 
     const stopped: (VisibleColumn | null)[] = [null, null, null];
+    /** 停止位置。第2停止のテーブルを引くのに要る（可視3セルからは逆引きできない）。 */
+    const stoppedPos: (number | null)[] = [null, null, null];
     const slipPerReel: number[] = [0, 0, 0];
     /** このゲームで実際に役を狙えたか（演出で狙う役が分かっていたか）。 */
     let aimedThisSpin = false;
@@ -458,12 +460,14 @@ function runChapter(
         basePosition: basePos,
         strip: { id: `r${idx}`, cells },
         stoppedVisibles: stopped,
+        stoppedPositions: stoppedPos,
         flagYakuIds: flagIds,
         flagKey: heldYaku ? heldRoleId : role.roleId,
       });
       const slipCells = slipCellsRaw;
       slipPerReel[idx] = slipCells;
       stopped[idx] = visCol(cells, (basePos + slipCells) % N);
+      stoppedPos[idx] = (basePos + slipCells) % N;
       stopN++;
       // 示唆→「狙え！」への発展：最終停止より前に内部役の図柄が**窓のどこかへ**来たか。
       // main.ts と同じ条件。中段限定だと発展しない時に腕と無関係にほぼ落とすため緩めてある。
