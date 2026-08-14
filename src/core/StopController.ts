@@ -122,25 +122,6 @@ export class StopController {
       if (tabled !== null && tabled !== undefined) return tabled;
     }
 
-    // 第2停止も表を引く（**順押しのみ**）。狙い先を主ライン1本に固定したので、
-    // 値の意味が「主ラインへ何コマ寄せたか」に一意化されて表にできる。
-    // 停止位置を渡されていない／逆押し／表が無い、のいずれかなら既定制御へ。
-    if (req.flagKey && req.reelIndex === 1 && req.stoppedPositions) {
-      const firstPos = req.stoppedPositions[0];
-      const onlyLeftStopped =
-        req.stoppedVisibles[0] !== null &&
-        req.stoppedVisibles[1] === null &&
-        req.stoppedVisibles[2] === null;
-      if (onlyLeftStopped && typeof firstPos === 'number') {
-        const tabled = this.stopTable?.secondStopSlip(
-          req.flagKey,
-          firstPos,
-          req.basePosition,
-        );
-        if (tabled !== null && tabled !== undefined) return tabled;
-      }
-    }
-
     const targets = req.flagYakuIds
       .map((id) => this.allYakus.find((y) => y.id === id))
       .filter((y): y is Yaku => y !== undefined);
@@ -156,6 +137,35 @@ export class StopController {
     const spillTargets = hasWinTarget
       ? targets.filter((y) => y.category === 'single')
       : [];
+
+    // 第2・第3停止も表を引く（**順押しのみ**）。狙い先を主ライン1本に固定したので、
+    // 値の意味が「主ラインへ何コマ寄せたか」に一意化されて表にできる。
+    // 停止位置を渡されていない／逆押し／表が無い、のいずれかなら既定制御へ落ちる。
+    //
+    // **ボーナス中のこぼし局面（当選役＋1枚役）は表の想定外**。表は通常時の許可リストで
+    // 焼いてあるので、ここで引くと1枚役への受け皿が消える（実測で「→1枚」が
+    // 8.6%→0.0%、機械割が2ポイント落ちた）。その局面は探索へ落とす。
+    const isBonusSpill = hasWinTarget && spillTargets.length > 0;
+    if (!isBonusSpill && req.flagKey && req.stoppedPositions) {
+      const [p0, p1] = req.stoppedPositions;
+      const [v0, v1, v2] = req.stoppedVisibles;
+      const tabled =
+        req.reelIndex === 1 && v0 !== null && v1 === null && v2 === null
+          ? typeof p0 === 'number'
+            ? this.stopTable?.secondStopSlip(req.flagKey, p0, req.basePosition)
+            : null
+          : req.reelIndex === 2 && v0 !== null && v1 !== null && v2 === null
+            ? typeof p0 === 'number' && typeof p1 === 'number'
+              ? this.stopTable?.thirdStopSlip(
+                  req.flagKey,
+                  p0,
+                  p1,
+                  req.basePosition,
+                )
+              : null
+            : null;
+      if (tabled !== null && tabled !== undefined) return tabled;
+    }
 
     let slip = this.pullIn(winTargets, req, ctx);
     // 当選役が届かない**最終停止**でだけ、1枚役を拾いに行く＝外した結果としての1枚。

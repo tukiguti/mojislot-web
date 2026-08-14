@@ -301,6 +301,16 @@ export const StopTableSchema = z.object({
   secondStop: z
     .record(z.string(), z.array(z.array(SlipSchema).length(21)).length(21))
     .optional(),
+  /**
+   * 第3停止（**順押し限定**）。[内部役][第1停止位置][第2停止位置][押下位置] → スベリ。
+   * 添字は停止位置であって押下位置ではない。到達しない位置の枠は 0 のまま残る。
+   */
+  thirdStop: z
+    .record(
+      z.string(),
+      z.array(z.array(z.array(SlipSchema).length(21)).length(21)).length(21),
+    )
+    .optional(),
 });
 export type StopTable = z.infer<typeof StopTableSchema>;
 
