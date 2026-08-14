@@ -1,4 +1,8 @@
-import type { ZukanState } from '../productions/ZukanState';
+import {
+  REMIX_ZUKAN_SCOPE,
+  remixOverallCompletion,
+  type ZukanState,
+} from '../productions/ZukanState';
 import type { YakuList } from '../data/schemas';
 import type { PlayStats } from '../productions/PlayStats';
 import {
@@ -144,9 +148,33 @@ export class ZukanOverlay {
     const bita = this.state.bitaCount.get();
     // カテゴリ別の率はここに出さない。セクション見出しの達成数と二重に出すと、
     // 対象カテゴリが増えた時に「コア100%なのに達成率83%」のように食い違って見える。
+    //
+    // リミックス台は記録が島と別勘定で、開いている図鑑はいまのステージの章だけになる。
+    // それだけだと「リミックスで全章を埋める」という目標がどこにも見えないので、
+    // 全章の合計と章ごとの内訳を足す（どの章が残っているかまで出さないと動けない）。
+    const remix =
+      this.state.scope === REMIX_ZUKAN_SCOPE ? remixOverallCompletion() : null;
     this.summaryEl.innerHTML = `
       <span class="zukan-rate">達成率: <strong>${rate.percent}%</strong></span>
       <span class="zukan-rate-sub">${rate.done} / ${rate.total} 役 ・ ビタ ${bita}回</span>
+      ${
+        remix
+          ? `<div class="zukan-remix">
+               <div class="zukan-remix-head">
+                 リミックス通算 <strong>${remix.percent}%</strong>
+                 <span class="zukan-remix-sub">${remix.done} / ${remix.total} 役（全${remix.perChapter.length}章）</span>
+               </div>
+               <div class="zukan-remix-chapters">
+                 ${remix.perChapter
+                   .map(
+                     (c) =>
+                       `<span class="zukan-remix-chip${c.done === c.total ? ' done' : ''}">${c.name} ${c.done}/${c.total}</span>`,
+                   )
+                   .join('')}
+               </div>
+             </div>`
+          : ''
+      }
     `;
 
     const s = this.playStats.stats.get();

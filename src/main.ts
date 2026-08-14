@@ -67,7 +67,7 @@ import { JinView } from './render/JinView';
 import { EffectVisual } from './render/EffectVisual';
 import { QuizState } from './productions/QuizState';
 import { QuizQuestionView } from './render/QuizQuestionView';
-import { ZukanState } from './productions/ZukanState';
+import { REMIX_ZUKAN_SCOPE, ZukanState } from './productions/ZukanState';
 import { ZukanOverlay } from './ui/ZukanOverlay';
 import { SlipResolver, type VisibleColumn } from './productions/SlipResolver';
 import { StopTableLookup } from './core/StopTable';
@@ -261,7 +261,9 @@ export async function bootstrap() {
   let tenpaiDetector = new TenpaiDetector(yakuList);
   let nearMissDetector = new NearMissDetector(yakuList);
   const playStats = new PlayStats();
-  let zukanState = new ZukanState(yakuList, chapterId);
+  // リミックス台の記録は島の図鑑と別勘定にする（設計: 31章 §4）。
+  const zukanScope = remix ? REMIX_ZUKAN_SCOPE : undefined;
+  let zukanState = new ZukanState(yakuList, chapterId, zukanScope);
   const challengeTracker = new ChallengeTracker();
   let zukanOverlay = new ZukanOverlay(
     zukanState,
@@ -1703,7 +1705,7 @@ export async function bootstrap() {
     });
 
     // --- 図鑑（島ごとの記録なので作り直す。innerHTML で組むので旧DOMとリスナは消える）---
-    zukanState = new ZukanState(yakuList, chapterId);
+    zukanState = new ZukanState(yakuList, chapterId, zukanScope);
     zukanOverlay = new ZukanOverlay(
       zukanState,
       yakuList,

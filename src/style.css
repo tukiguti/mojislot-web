@@ -1870,6 +1870,7 @@ body.shake {
 }
 .zukan-summary {
   display: flex;
+  flex-wrap: wrap;
   justify-content: space-between;
   align-items: baseline;
   margin-bottom: 12px;
@@ -1884,6 +1885,50 @@ body.shake {
   color: #999;
   font-size: 11px;
   letter-spacing: 1px;
+}
+/* リミックス台の通算（全章の合計）。ステージが入れ替わるので、いま開いている章の
+   達成率だけでは「全章を埋める」目標が見えない。紫はステージ表示と同じ色域で揃える。 */
+.zukan-remix {
+  flex: 1 0 100%;
+  margin-top: 10px;
+  padding: 8px 10px;
+  background: rgba(120, 80, 200, 0.14);
+  border: 1px solid rgba(160, 120, 230, 0.45);
+  border-radius: 4px;
+}
+.zukan-remix-head {
+  font-size: 12px;
+  color: #d8c8ff;
+}
+.zukan-remix-head strong {
+  color: #c9a6ff;
+  font-size: 16px;
+}
+.zukan-remix-sub {
+  margin-left: 6px;
+  color: #9a90b5;
+  font-size: 11px;
+  letter-spacing: 1px;
+}
+.zukan-remix-chapters {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin-top: 6px;
+}
+.zukan-remix-chip {
+  padding: 1px 7px;
+  font-size: 11px;
+  color: #cfc4e8;
+  background: rgba(0, 0, 0, 0.3);
+  border: 1px solid rgba(160, 120, 230, 0.35);
+  border-radius: 3px;
+}
+/* 埋まった章は色で分ける。残りを探すのが目的なので、済んだ方を沈ませない */
+.zukan-remix-chip.done {
+  color: #1a0d20;
+  background: linear-gradient(180deg, #e0c0ff 0%, #b06bff 100%);
+  border-color: #d8b8ff;
 }
 .zukan-stats {
   background: rgba(255, 215, 0, 0.04);
