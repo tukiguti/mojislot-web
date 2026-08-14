@@ -32,6 +32,17 @@ const REMIX_ISLAND_NO = 6;
 export const TRIAL_ISLAND_ID = 'trial';
 const TRIAL_ISLAND_NO = 7;
 
+/** 試打コーナーに並ぶ章（＝1章1台）。 */
+const OPEN_CHAPTERS = CHAPTERS.filter((c) => !c.hidden);
+
+/**
+ * 試打コーナーでリミックス台が座る席。章の台を並べたあと、最後に1台。
+ *
+ * 「全機種を1台ずつ」の試打コーナーにリミックスが無いと、**この台だけ試し打ちできない**。
+ * 出玉が他島と違う（[31] §4）ぶん、設定を探す前に触れる場所があったほうがよい。
+ */
+export const TRIAL_REMIX_SEAT = OPEN_CHAPTERS.length + 1;
+
 export interface Island {
   id: string;
   name: string;
@@ -72,7 +83,7 @@ export interface Machine {
 }
 
 export const ISLANDS: Island[] = [
-  ...CHAPTERS.filter((c) => !c.hidden).map((c, i) => ({
+  ...OPEN_CHAPTERS.map((c, i) => ({
     id: c.id,
     name: c.name,
     no: i + 1,
@@ -85,19 +96,20 @@ export const ISLANDS: Island[] = [
     name: 'リミックス',
     no: REMIX_ISLAND_NO,
     // 全章を1台に統合し、ボーナスごとにステージ（＝リール配列）が切り替わる。
-    chapterIds: CHAPTERS.filter((c) => !c.hidden).map((c) => c.id),
+    chapterIds: OPEN_CHAPTERS.map((c) => c.id),
     artChapterId: CHAPTERS[0].id,
     description:
-      '全章がステージとして切り替わる台。配列を覚え直す忙しさと引き換えに、どの文字も出る。',
+      '全章がステージとして切り替わる台。配列を覚え直す忙しさと引き換えに、ボーナスが強い。',
   },
   {
     id: TRIAL_ISLAND_ID,
     name: '試打コーナー',
     no: TRIAL_ISLAND_NO,
     // 席ごとに1章。並び順は ISLANDS の島順と揃える。
-    chapterIds: CHAPTERS.filter((c) => !c.hidden).map((c) => c.id),
+    // **最後の1席（TRIAL_REMIX_SEAT）はリミックス台**なので chapterIds には入らない。
+    chapterIds: OPEN_CHAPTERS.map((c) => c.id),
     artChapterId: CHAPTERS[0].id,
-    seats: CHAPTERS.filter((c) => !c.hidden).length,
+    seats: TRIAL_REMIX_SEAT,
     trial: true,
     description:
       '全機種が1台ずつ、すべて設定6で開放。設定を探さずに好きな文字セットを打てる。ここでの記録はランキングの比較条件で既定除外。',
@@ -134,13 +146,12 @@ export const islandOfMachine = (m: Machine): Island =>
 /**
  * その台で回る章。
  * 通常の島は1つだけ持つ。**試打コーナーは席ごとに違う章**。
- * リミックス島は複数持つがステージ切替が未実装なので先頭を返す（着席は塞いである）。
+ * リミックス台は座るたびにランダムな島から始まる（以降はボーナスごとに入れ替わる）。
  */
 export const chapterIdOfMachine = (m: Machine): string => {
+  if (isRemixMachine(m)) return nextRemixStage(null);
   const island = islandOfMachine(m);
   if (island.trial) return island.chapterIds[m.seat - 1] ?? island.chapterIds[0];
-  // リミックス島は座るたびにランダムな島から始まる（以降はボーナスごとに入れ替わる）。
-  if (m.islandId === REMIX_ISLAND_ID) return nextRemixStage(null);
   return island.chapterIds[0];
 };
 
@@ -148,9 +159,14 @@ export const chapterIdOfMachine = (m: Machine): string => {
 export const isTrialMachine = (m: Machine): boolean =>
   islandOfMachine(m).trial === true;
 
-/** リミックス島の台か（ボーナスごとにステージ＝島が入れ替わる）。 */
-export const isRemixMachine = (m: Machine): boolean =>
-  m.islandId === REMIX_ISLAND_ID;
+/**
+ * リミックス台か（ボーナスごとにステージ＝島が入れ替わる）。
+ * リミックス島の4台に加え、**試打コーナーの最後の1席**も同じ性質を持つ。
+ */
+export const isRemixMachine = (m: Machine): boolean => {
+  if (m.islandId === REMIX_ISLAND_ID) return true;
+  return isTrialMachine(m) && m.seat === TRIAL_REMIX_SEAT;
+};
 
 /**
  * リミックス島の次ステージ。**直前と違う島**から選ぶ。

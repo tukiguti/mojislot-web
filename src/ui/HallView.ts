@@ -4,6 +4,9 @@ import {
   MACHINES,
   SEATS_PER_ISLAND,
   chapterIdOfMachine,
+  isRemixMachine,
+  REMIX_ISLAND_ID,
+  TRIAL_REMIX_SEAT,
   getCurrentMachine,
   islandById,
   isTrialMachine,
@@ -129,6 +132,11 @@ function islandYaku(island: Island, seat = 1): {
   reg: string;
   big: string[];
 } {
+  // 試打コーナーの最後の1席はリミックス台。島と同じ「章をまたいで1つずつ」の姿を見せる。
+  if (island.trial && seat === TRIAL_REMIX_SEAT) {
+    const remix = ISLANDS.find((i) => i.id === REMIX_ISLAND_ID);
+    if (remix) return islandYaku(remix);
+  }
   // 試打コーナーは席ごとに1機種。その席の章だけを見る。
   if (island.trial) {
     const y = yakuOf(island.chapterIds[seat - 1] ?? island.chapterIds[0]);
@@ -258,10 +266,16 @@ function effectMeter(d: MachineDay): string {
  * **島のテーマではなくその機種のテーマ**を着せる（並べた時に何の台か色で分かる）。
  */
 function themeIdOf(v: MachineView): string {
+  // リミックス台は章が入れ替わるので、章ではなく**リミックスのテーマ**を着せる。
+  // ここで chapterIdOfMachine を呼ぶと描画のたびに章が変わってしまう（毎回ランダム）。
+  if (isRemixMachine(v.machine)) return REMIX_ISLAND_ID;
   return v.island.trial ? chapterIdOfMachine(v.machine) : v.island.id;
 }
 
 function machineTitle(v: MachineView): string {
+  if (isRemixMachine(v.machine)) {
+    return ISLANDS.find((i) => i.id === REMIX_ISLAND_ID)?.name ?? v.island.name;
+  }
   if (!v.island.trial) return v.island.name;
   const id = chapterIdOfMachine(v.machine);
   return CHAPTERS.find((c) => c.id === id)?.name ?? v.island.name;
@@ -543,9 +557,12 @@ export function mountHallView(cb: HallViewCallbacks): HallViewHandle {
     ISLANDS.map((island, idx) => {
       // 試打コーナーは機種が混在するので、小役ではなく**並んでいる機種名**を出す。
       const lineup = island.trial
-        ? island.chapterIds
-            .map((id) => CHAPTERS.find((c) => c.id === id)?.name ?? id)
-            .join('・')
+        ? [
+            ...island.chapterIds.map(
+              (id) => CHAPTERS.find((c) => c.id === id)?.name ?? id,
+            ),
+            ISLANDS.find((i) => i.id === REMIX_ISLAND_ID)?.name ?? 'リミックス',
+          ].join('・')
         : islandYaku(island, 1).words.join('・');
       const seats = island.seats ?? SEATS_PER_ISLAND;
       const range = `${island.no}1 – ${island.no}${seats}`;

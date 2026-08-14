@@ -1,7 +1,6 @@
 import {
   ISLANDS,
   MACHINES,
-  REMIX_ISLAND_ID,
   SEATS_PER_ISLAND,
   TRIAL_ISLAND_ID,
   isTrialMachine,
@@ -79,11 +78,9 @@ export function hallPolicyFor(now: Date): HallPolicy {
     return { kind, tail, poster: `本日は 末尾${tail} に力を入れました` };
   }
   if (kind === 'island' || kind === 'allSame') {
-    // 調整中の島は掲示の対象にしない。着席できない島に「強化中」と貼っても
-    // プレイヤーは何もできず、その日の掲示が丸ごと無駄になる。
-    const open = ISLANDS.filter(
-      (i) => i.id !== REMIX_ISLAND_ID && i.id !== TRIAL_ISLAND_ID,
-    );
+    // 試打コーナーは掲示の対象にしない。全台が設定6と分かっている島に
+    // 「強化中」と貼っても、その日の掲示が丸ごと無駄になる。
+    const open = ISLANDS.filter((i) => i.id !== TRIAL_ISLAND_ID);
     const island = open[hash32(`island/${day}`) % open.length];
     return {
       kind,
@@ -136,15 +133,15 @@ const WEIGHT_ALL_SAME: Record<Setting, number> = { 1: 0, 2: 0, 3: 28, 4: 32, 5: 
  * 方針の対象台があればそこから選ぶ。ポスターを読んだ人が有利、という筋を通すため。
  * 通常営業の日（掲示なし）は全台が候補で、その日はいちばん探すのが大変になる。
  *
- * 調整中の島（章のステージ切替が未実装で着席できない）は候補から外す。
+ * 試打コーナーだけ候補から外す（設定推測の外側で、全台が設定6と分かっている）。
+ * **リミックス島は普通の島と同じ扱い**——ここを外すと「リミックスに設定6は絶対に無い」
+ * が読めてしまい、探す側にとっては情報の漏れになる。
  */
 export function luckySixMachine(
   now: Date,
   policy: HallPolicy = hallPolicyFor(now),
 ): Machine {
-  const playable = MACHINES.filter(
-    (m) => m.islandId !== REMIX_ISLAND_ID && m.islandId !== TRIAL_ISLAND_ID,
-  );
+  const playable = MACHINES.filter((m) => m.islandId !== TRIAL_ISLAND_ID);
   const targeted = playable.filter((m) => isTargeted(m, policy));
   const pool = targeted.length > 0 ? targeted : playable;
   return pool[hash32(`lucky6/${dayKey(now)}`) % pool.length];

@@ -1,6 +1,6 @@
 import { describe, it } from 'vitest';
 import { hallPolicyFor, settingForMachine } from '../../src/productions/HallPolicy';
-import { MACHINES, REMIX_ISLAND_ID } from '../../src/data/machines';
+import { MACHINES, TRIAL_ISLAND_ID } from '../../src/data/machines';
 
 /** SIX=1 で「その日の設定6は何台あるか」を数える調査用。通常のテスト実行では走らない。 */
 describe.skipIf(!process.env.SIX)('設定6の密度', () => {
@@ -12,7 +12,7 @@ describe.skipIf(!process.env.SIX)('設定6の密度', () => {
       const p = hallPolicyFor(d);
       kinds[p.kind] = (kinds[p.kind] ?? 0) + 1;
       const n = MACHINES.filter(
-        (m) => m.islandId !== REMIX_ISLAND_ID && settingForMachine(m, d, p) === 6,
+        (m) => m.islandId !== TRIAL_ISLAND_ID && settingForMachine(m, d, p) === 6,
       ).length;
       hist[n] = (hist[n] ?? 0) + 1;
     }

@@ -12,6 +12,7 @@ import {
   SEATS_PER_ISLAND,
   TRIAL_ISLAND_ID,
   chapterIdOfMachine,
+  isRemixMachine,
 } from '../../src/data/machines';
 import { dayKey } from '../../src/productions/MachineSetting';
 
@@ -89,10 +90,14 @@ describe('試打コーナー（設定推測の外側）', () => {
   const trial = MACHINES.filter((m) => m.islandId === TRIAL_ISLAND_ID);
   const D = days(200);
 
-  it('全機種が1台ずつ並ぶ', () => {
-    expect(trial).toHaveLength(HALL_ISLANDS.length - 1); // リミックスは未実装ぶん除く
-    const chapters = trial.map((m) => chapterIdOfMachine(m));
-    expect(new Set(chapters).size).toBe(trial.length);
+  it('全機種が1台ずつ並ぶ（リミックス台を含む）', () => {
+    expect(trial).toHaveLength(HALL_ISLANDS.length);
+    // 章の台はそれぞれ違う章。最後の1席はリミックス台で、章は座るたびに変わる。
+    const chapterSeats = trial.filter((m) => !isRemixMachine(m));
+    expect(chapterSeats).toHaveLength(HALL_ISLANDS.length - 1);
+    const chapters = chapterSeats.map((m) => chapterIdOfMachine(m));
+    expect(new Set(chapters).size).toBe(chapterSeats.length);
+    expect(trial.filter((m) => isRemixMachine(m))).toHaveLength(1);
   });
 
   it('全台が設定6で固定（日付によらない）', () => {
@@ -214,9 +219,7 @@ describe('その日の設定6（1台保証）', () => {
     // 重み抽選だけだと設定6が0台の日が普通に出る。探しても答えが無い日が
     // あると探す遊びが博打になるので、1台だけ確定で置いている。
     for (const d of D) {
-      const sixes = MACHINES.filter(
-        (m) => m.islandId !== REMIX_ISLAND_ID && settingForMachine(m, d) === 6,
-      );
+      const sixes = MACHINES.filter((m) => settingForMachine(m, d) === 6);
       expect(sixes.length, dayKey(d)).toBeGreaterThanOrEqual(1);
     }
   });
@@ -233,10 +236,9 @@ describe('その日の設定6（1台保証）', () => {
     expect(ids.size).toBeGreaterThan(10);
   });
 
-  it('調整中の島には置かない（着席できないため）', () => {
-    for (const d of D) {
-      expect(luckySixMachine(d).islandId, dayKey(d)).not.toBe(REMIX_ISLAND_ID);
-    }
+  it('リミックス島も候補に入る（外すと「あそこに6は無い」が読めてしまう）', () => {
+    const islands = new Set(D.map((d) => luckySixMachine(d).islandId));
+    expect(islands.has(REMIX_ISLAND_ID)).toBe(true);
   });
 
   it('掲示がある日は対象台の中に置く（ポスターを読んだ人が有利）', () => {
