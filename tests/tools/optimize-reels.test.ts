@@ -62,11 +62,27 @@ const REACH_MODE = process.env.OPT_MODE === 'reach';
  * 最終確認は `OPT_REACH_STEP=1` で全数を回して確かめる。
  */
 const REACH_STEP = Number(process.env.OPT_REACH_STEP ?? 3);
+/**
+ * ②評価を間引く設定。**既定は間引かない（全数・全押し順）。**
+ *
+ * 速くするために押し順を順押しだけに絞り、押下位置を2コマおきにして試したが、
+ * **②を見逃す**。実測で「間引き評価では②＝0、全数検証では②＝227件」となり、
+ * しかも227件は**すべて逆押し由来**だった。押し順を削ると②が逆押しに逃げるので、
+ * ここは削れない。
+ *
+ * 環境変数は実験用に残してあるが、使うと②を見逃す。使った場合でも
+ * 書き出し前の全数検証で止まるので、壊れた配列が採用されることはない。
+ */
+const SCAN_STEP = Number(process.env.OPT_LEAK_STEP ?? 1);
 
 
 const STOP_ORDERS: readonly (readonly number[])[] = [
   [0, 1, 2], [0, 2, 1], [1, 0, 2], [1, 2, 0], [2, 0, 1], [2, 1, 0],
 ];
+
+/** ②評価で試す停止順。既定は全6通り（`OPT_LEAK_ORDERS=first` で順押しのみ＝実験用）。 */
+const SCAN_ORDERS: readonly (readonly number[])[] =
+  process.env.OPT_LEAK_ORDERS === 'first' ? [[0, 1, 2]] : STOP_ORDERS;
 
 function visCol(cells: readonly string[], pos: number): VisibleColumn {
   return {
@@ -149,7 +165,17 @@ function playPress(
   ];
 }
 
-/** ②の件数。cutoff を超えた時点で打ち切る（焼きなましの棄却は早い方が速い）。 */
+/**
+ * ②の件数。cutoff を超えた時点で打ち切る（焼きなましの棄却は早い方が速い）。
+ *
+ * **打ち切りは②が出る配列でしか効かない。** ②＝0を保っている間は最後まで
+ * 回りきるので、②が出にくい島ほど1イテレーションが重くなる（セキュリティ島は
+ * 他島の20倍＝1回64秒だった）。焼きなまし中は `orders` を順押しのみ・`step` を
+ * 2以上にして間引き、方向づけだけする。**最終確認は必ず全数・全押し順で回すこと。**
+ *
+ * @param orders 試す停止順（既定は全6通り）
+ * @param step   押下位置の間引き幅（既定は1＝全数）
+ */
 function countLeaks(
   yakuList: YakuList,
   reels: string[][],
@@ -157,6 +183,8 @@ function countLeaks(
   judge: YakuJudge,
   cutoff = Infinity,
   controller = makeController(yakuList, reels, resolver),
+  orders: readonly (readonly number[])[] = STOP_ORDERS,
+  step = 1,
 ): number {
   const flags: { label: string; ids: string[] }[] = [
     { label: 'miss', ids: [] },
@@ -172,10 +200,10 @@ function countLeaks(
   let leaks = 0;
   for (const flag of flags) {
     const idSet = new Set(flag.ids);
-    for (const order of STOP_ORDERS) {
-      for (let p0 = 0; p0 < N; p0++) {
-        for (let p1 = 0; p1 < N; p1++) {
-          for (let p2 = 0; p2 < N; p2++) {
+    for (const order of orders) {
+      for (let p0 = 0; p0 < N; p0 += step) {
+        for (let p1 = 0; p1 < N; p1 += step) {
+          for (let p2 = 0; p2 < N; p2 += step) {
             const press = [p0, p1, p2];
             const stopped: (VisibleColumn | null)[] = [null, null, null];
             for (const idx of order) {
@@ -312,7 +340,9 @@ describe.skipIf(!RUN)('リール配列の再最適化', () => {
         let cur = reelCfg.reels.map((r) => [...r.cells]);
         const pools = cur.map((r) => [...new Set(r)]);
         let curCtrl = makeController(yakuList, cur, resolver);
-        let curLeaks = countLeaks(yakuList, cur, resolver, judge, Infinity, curCtrl);
+        let curLeaks = countLeaks(
+          yakuList, cur, resolver, judge, Infinity, curCtrl, SCAN_ORDERS, SCAN_STEP,
+        );
         let curGap = gapPenalty(cur, pools);
         let curReach = reachScore(reachableRates(yakuList, cur, curCtrl, judge, REACH_STEP));
         let best = cur.map((r) => [...r]);
@@ -342,7 +372,9 @@ describe.skipIf(!RUN)('リール配列の再最適化', () => {
 
           const T = 6 * Math.pow(0.02 / 6, iter / MAX_ITER);
           const nextCtrl = makeController(yakuList, next, resolver);
-          const leaks = countLeaks(yakuList, next, resolver, judge, curLeaks + 40, nextCtrl);
+          const leaks = countLeaks(
+            yakuList, next, resolver, judge, curLeaks + 40, nextCtrl, SCAN_ORDERS, SCAN_STEP,
+          );
           const gap = gapPenalty(next, pools);
           const reach = reachScore(
             reachableRates(yakuList, next, nextCtrl, judge, REACH_STEP),
@@ -375,7 +407,18 @@ describe.skipIf(!RUN)('リール配列の再最適化', () => {
         console.log(
           `[${chapter}] 結果 ②=${bestLeaks} 間隔=${bestGap} 到達=${bestReach.toFixed(4)} ${((Date.now() - t0) / 1000).toFixed(0)}s`,
         );
-        if (bestLeaks === 0) {
+        // 焼きなまし中は間引いて評価しているので、**採用する配列は全数・全押し順で
+        // 検証し直す**。間引きで見逃した②がここで出たら書き出さない。
+        const verified =
+          bestLeaks === 0
+            ? countLeaks(yakuList, best, resolver, judge)
+            : bestLeaks;
+        if (verified !== bestLeaks) {
+          console.log(
+            `[${chapter}] 全数検証で②=${verified}（間引き評価では0だった）`,
+          );
+        }
+        if (verified === 0) {
           const out = {
             mode: chapter,
             reels: best.map((cells, i) => ({ id: reelCfg.reels[i].id, cells })),
