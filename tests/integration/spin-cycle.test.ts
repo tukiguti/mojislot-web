@@ -292,7 +292,11 @@ describe('1ゲームの通し（BET→停止→配当→ボーナス）', () => 
 
   it('ボーナス中は最終ゲームまで配当倍率が乗る', () => {
     const g = newGame();
-    const normal = spinAiming(g, CORE, CORE).outcome.win;
+    // **最安小役では検証できない。** 3枚 × 倍率1.25 = 3.75 は切り捨てで3枚のまま
+    // （倍率は補助で、ボーナス中の恩恵は毎ゲーム当選と小役当選率1.9倍が主）。
+    // 倍率が実際に効くのは枚数の大きい小役なので、そちらで見る。
+    const rich = yakuList.coreYaku[yakuList.coreYaku.length - 1].id;
+    const normal = spinAiming(g, rich, rich).outcome.win;
 
     const big = yakuList.premiumYaku[0];
     const bigRole = yakuList.internalRoles.find(
@@ -302,7 +306,7 @@ describe('1ゲームの通し（BET→停止→配当→ボーナス）', () => 
 
     const wins: number[] = [];
     for (let i = 0; i < tuning.bonus.spinsPerBig; i++) {
-      wins.push(spinAiming(g, CORE, CORE).outcome.win);
+      wins.push(spinAiming(g, rich, rich).outcome.win);
     }
     // 残り1Gになる最終ゲームも含め、全ゲームが通常時より多い
     expect(wins).toHaveLength(tuning.bonus.spinsPerBig);

@@ -151,7 +151,12 @@ export function applySetting(yakuList: YakuList, setting: Setting): YakuList {
     ...r,
     rate: { ...r.rate },
   }));
-  const miss = roles.find((r) => r.kind === 'miss');
+  // 設定差の増減はどこかで吸収して合計1を保つ必要がある。ハズレがあればそこ、
+  // 無ければ1枚役。〔2026-08-14〕本作はハズレを廃止して1枚役へ統合したので、
+  // 実質1枚役が吸収する（どちらも「演出が出ず、狙って取る役ではない」枠）。
+  const miss =
+    roles.find((r) => r.kind === 'miss' && r.rate.default > 0) ??
+    roles.find((r) => r.kind === 'single');
   if (!miss) return { ...yakuList, internalRoles: roles };
 
   for (const state of states) {

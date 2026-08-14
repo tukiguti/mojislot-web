@@ -10,7 +10,7 @@
         "ク"
       ],
       "category": "core",
-      "payout": 4
+      "payout": 3
     },
     {
       "id": "salt",
@@ -21,7 +21,7 @@
         "ト"
       ],
       "category": "core",
-      "payout": 6,
+      "payout": 5,
       "noArt": true
     },
     {
@@ -33,7 +33,7 @@
         "プ"
       ],
       "category": "core",
-      "payout": 8,
+      "payout": 7,
       "noArt": true
     },
     {
@@ -45,7 +45,7 @@
         "ル"
       ],
       "category": "core",
-      "payout": 10
+      "payout": 9
     }
   ],
   "premiumYaku": [
@@ -102,9 +102,9 @@
       "kind": "miss",
       "displayYakuId": null,
       "rate": {
-        "default": 0.2248501952,
-        "rescue": 0.1424426854,
-        "bonus": 0
+        "default": 0.0,
+        "rescue": 0.0,
+        "bonus": 0.0
       }
     },
     {
@@ -112,8 +112,8 @@
       "kind": "single",
       "displayYakuId": null,
       "rate": {
-        "default": 0.2058890634,
-        "rescue": 0.1880706104,
+        "default": 0.4307392586,
+        "rescue": 0.3305132958,
         "bonus": 0.0
       }
     },

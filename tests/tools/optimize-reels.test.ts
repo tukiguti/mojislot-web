@@ -267,7 +267,7 @@ function reachableRates(
     ...yakuList.bonusYaku,
     ...yakuList.premiumYaku,
   ];
-  return yakus.map((y) => {
+  const rates = yakus.map((y) => {
     const role = yakuList.internalRoles.find(
       (r) => r.displayYakuId === y.id && !r.freeze,
     );
@@ -289,15 +289,42 @@ function reachableRates(
     }
     return tried > 0 ? hit / tried : 0;
   });
+
+  // 1枚役は**グループのどれかが揃えばよい**ので、個別ではなくまとめて測る。
+  // ハズレを統合した結果、当選率43%と単独で最大の役になった。ここを評価から
+  // 外していたせいで到達率が 55%→29% まで落ち、こぼしの受け皿が機能しなくなった。
+  const singleIds = new Set(yakuList.singleYaku.map((s) => s.id));
+  let sHit = 0;
+  let sTried = 0;
+  if (singleIds.size > 0) {
+    const ids = [...singleIds];
+    for (let p0 = 0; p0 < N; p0 += step) {
+      for (let p1 = 0; p1 < N; p1 += step) {
+        for (let p2 = 0; p2 < N; p2 += step) {
+          sTried++;
+          const grid = playPress(controller, reels, [p0, p1, p2], ids, 'single');
+          if (judge.judgeAll(grid).hits.some((h) => singleIds.has(h.yaku.id))) sHit++;
+        }
+      }
+    }
+  }
+  return [...rates, sTried > 0 ? sHit / sTried : 1];
 }
 
-/** 各役の当選率（通常時）。到達率の重みに使う。 */
+/**
+ * 各役の当選率（通常時）。到達率の重みに使う。
+ * 末尾は1枚役グループぶん（`reachableRates` の返り値と並びを合わせる）。
+ */
 function yakuWeights(yakuList: YakuList, yakus: readonly Yaku[]): number[] {
-  return yakus.map((y) =>
+  const each = yakus.map((y) =>
     yakuList.internalRoles
       .filter((r) => r.displayYakuId === y.id)
       .reduce((a, r) => a + (r.rate?.default ?? 0), 0),
   );
+  const single = yakuList.internalRoles
+    .filter((r) => r.kind === 'single')
+    .reduce((a, r) => a + (r.rate?.default ?? 0), 0);
+  return [...each, single];
 }
 
 /**
@@ -422,7 +449,8 @@ describe.skipIf(!RUN)('リール配列の再最適化', () => {
             '  ' +
               detail
                 .map((y, i) => `${y.name}:${(rates[i] * 100).toFixed(0)}%`)
-                .join(' '),
+                .join(' ') +
+              ` 1枚役:${(rates[detail.length] * 100).toFixed(0)}%`,
           );
         }
 

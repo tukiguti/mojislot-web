@@ -80,7 +80,15 @@ describe('MachineSetting', () => {
     const high = applySetting(yakuList, 6);
     for (const state of STATES) {
       for (const role of low.internalRoles) {
-        if (role.kind === 'reg' || role.kind === 'big' || role.kind === 'miss') {
+        // reg/big は設定差そのもの。miss と single は**その増減の吸収先**なので動く。
+        // 〔2026-08-14〕ハズレを1枚役へ統合したため、吸収先が miss から single へ移った。
+        // どちらも演出が出ず狙って取る役でもないので、出方から設定は読めないまま。
+        if (
+          role.kind === 'reg' ||
+          role.kind === 'big' ||
+          role.kind === 'miss' ||
+          role.kind === 'single'
+        ) {
           continue;
         }
         const other = high.internalRoles.find((r) => r.id === role.id)!;
