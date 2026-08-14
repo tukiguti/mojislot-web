@@ -79,7 +79,15 @@ export const ROW_VERTICAL: readonly Vertical[] = ['top', 'middle', 'bottom'];
  * 揃えようとする、という噛み合わせ事故が起きる（実際それで機械割が32.7%まで
  * 落ちた）。だから制御側の基準はすべてここを参照する。
  */
-const PRIMARY_ID = ENV?.PRIMARY_LINE ?? 'middle';
+/**
+ * 本作の主ラインは**右上がり**（左下段・中中段・右上段）。リール配列・停止テーブル・
+ * リーチ目テーブルはすべてこの前提で焼いてあるので、**既定値をここから動かすと
+ * データと制御が噛み合わなくなる**（実測で機械割が2割変わる）。
+ *
+ * 環境変数はツールと検証用。ブラウザでは `process` が無いので既定値が使われる＝
+ * 本番は常に右上がり。次に作るAT機は `'middle'` にする。
+ */
+const PRIMARY_ID = ENV?.PRIMARY_LINE ?? 'diag_bltr';
 
 export const PRIMARY_PAYLINE: Payline =
   PAYLINES.find((l) => l.id === PRIMARY_ID) ?? PAYLINES[0];
