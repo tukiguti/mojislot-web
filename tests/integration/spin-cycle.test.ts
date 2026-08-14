@@ -83,6 +83,8 @@ type Game = ReturnType<typeof newGame>;
 
 const strips = reelCfg.reels.map((r, i) => ({ id: `r${i}`, cells: r.cells }));
 const CELLS = strips[0].cells.length;
+/** 押下位置の探索で出目を判定するための判定器（ゲーム状態には触らない）。 */
+const judge = new YakuJudge(yakuList);
 
 const findYaku = (id: string): Yaku =>
   [
@@ -94,16 +96,64 @@ const findYaku = (id: string): Yaku =>
   ].find((y) => y.id === id)!;
 
 /**
- * **主ライン上**が sym になる押下位置。狙い打ちの再現に使う。
+ * **主ライン上**が sym になる押下位置をすべて返す。
  * 中段固定にすると、主ラインが斜めの時に狙うはずのない位置を押すことになる。
  */
-const posForMiddle = (reel: number, sym: string): number => {
+const posForMiddle = (reel: number, sym: string): number[] => {
   const row = primaryRowOf(reel);
+  const found: number[] = [];
   for (let p = 0; p < CELLS; p++) {
-    if (visibleAt(strips[reel].cells, p, row) === sym) return p;
+    if (visibleAt(strips[reel].cells, p, row) === sym) found.push(p);
   }
-  throw new Error(`リール${reel}に「${sym}」が無い`);
+  if (found.length === 0) throw new Error(`リール${reel}に「${sym}」が無い`);
+  return found;
 };
+
+/**
+ * その役が**実際に揃う**押下位置を探す。
+ *
+ * 主ラインに図柄が来る位置で押しても、そこで別の役（1枚役など）が他のラインに
+ * 揃ってしまうと蹴りが働いて当選役を逃す。狙って揃う割合は7〜9割なので、
+ * 「主ラインに来る位置なら必ず揃う」を前提にするとテストが配列依存で落ちる。
+ * ここでは候補を総当たりして、成立する組み合わせを1つ選ぶ。
+ */
+function pressThatHits(g: Game, yakuId: string, flagKey: string): number[] {
+  const y = findYaku(yakuId);
+  const cands = y.symbols.map((s, i) => posForMiddle(i, s));
+  for (const p0 of cands[0]) {
+    for (const p1 of cands[1] ?? [0]) {
+      for (const p2 of cands[2] ?? [0]) {
+        const press = [p0, p1, p2];
+        // 状態を汚さずに出目だけ作る（BET も払い出しもしない）
+        const stopped: (VisibleColumn | null)[] = [null, null, null];
+        for (let reel = 0; reel < 3; reel++) {
+          const slip = g.stopController.resolveSlip({
+            reelIndex: reel,
+            basePosition: press[reel],
+            strip: strips[reel],
+            stoppedVisibles: stopped,
+            flagYakuIds: [yakuId],
+            flagKey,
+          });
+          const pos = (press[reel] + slip) % CELLS;
+          stopped[reel] = {
+            top: visibleAt(strips[reel].cells, pos, 'top'),
+            middle: visibleAt(strips[reel].cells, pos, 'middle'),
+            bottom: visibleAt(strips[reel].cells, pos, 'bottom'),
+          };
+        }
+        const s = stopped as VisibleColumn[];
+        const grid: Grid3x3 = [
+          [s[0].top, s[1].top, s[2].top],
+          [s[0].middle, s[1].middle, s[2].middle],
+          [s[0].bottom, s[1].bottom, s[2].bottom],
+        ];
+        if (judge.judgeAll(grid).hits.some((h) => h.yaku.id === yakuId)) return press;
+      }
+    }
+  }
+  throw new Error(`${yakuId} が揃う押下位置が見つからない（配列の到達性を疑うこと）`);
+}
 
 interface SpinOptions {
   /** 出目に出てよい役ID（miss は空配列）。 */
@@ -173,15 +223,13 @@ function playSpin(g: Game, opts: SpinOptions) {
   return { outcome, entry, runEnd, grid, slipCells };
 }
 
-/** 当選役をそのまま狙って1ゲーム回す。 */
-const spinAiming = (g: Game, yakuId: string, flagKey: string) => {
-  const y = findYaku(yakuId);
-  return playSpin(g, {
+/** 当選役をそのまま狙って1ゲーム回す（実際に揃う押下位置を選ぶ）。 */
+const spinAiming = (g: Game, yakuId: string, flagKey: string) =>
+  playSpin(g, {
     flagYakuIds: [yakuId],
     flagKey,
-    press: y.symbols.map((s, i) => posForMiddle(i, s)),
+    press: pressThatHits(g, yakuId, flagKey),
   });
-};
 
 /**
  * 通しの検証に使う代表の小役。役IDを直書きすると章を作り直すたびにテストが落ちるので
@@ -299,10 +347,9 @@ describe('1ゲームの通し（BET→停止→配当→ボーナス）', () => 
 
   it('狙いを外すと引き込みで揃うが、ビタ押しは付かない', () => {
     const g = newGame();
-    const y = findYaku(CORE);
-    // 各リールを狙いの2コマ手前で押す＝引き込みに助けてもらう
-    const press = y.symbols.map(
-      (s, i) => (posForMiddle(i, s) - 2 + CELLS) % CELLS,
+    // 各リールを「揃う押下位置」の2コマ手前で押す＝引き込みに助けてもらう
+    const press = pressThatHits(g, CORE, CORE).map(
+      (p) => (p - 2 + CELLS) % CELLS,
     );
     const r = playSpin(g, { flagYakuIds: [CORE], flagKey: CORE, press });
     expect(r.outcome.willHit, '引き込みで揃う').toBe(true);
