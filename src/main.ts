@@ -318,6 +318,15 @@ export async function bootstrap() {
   let pendingFreeze = false;
   /** 遅れの「間」の最中。まだどのリールも回っていないのでレバーとBETを塞ぐ。 */
   let spinPending = false;
+  /**
+   * リミックス島のステージ切替の待ち（告知の1.5秒＋図柄の読み込み）。
+   *
+   * この間に次のゲームが始まると、レバーONで決めた内部役と回っている配列が
+   * 食い違って出目が壊れる（クイズの問題だけ前ステージのものが出る、など）。
+   * 実機でいう「ボーナス終了処理中はレバーを受け付けない」に相当する短い間で、
+   * BET とレバーをここで止める。AUTO も同じ経路を通るので合わせて止まる。
+   */
+  let stageSwapping = false;
   // レバーオン時のフリーズ抽選確率（通常時のみ）／倍速回転スピード。data/tuning で調整。
   const FREEZE_SPIN_SPEED = tuning.freeze.spinSpeed;
 
@@ -567,6 +576,32 @@ export async function bootstrap() {
   const settingsBtn = requireEl<HTMLButtonElement>('settings-btn');
   const streakStatusEl = requireEl('streak-status');
   const rescueStatusEl = requireEl('rescue-status');
+  const stageStatusEl = requireEl('stage-status');
+  /**
+   * リミックス島の現在ステージを演出液晶の左上に常時出す。
+   *
+   * 切替の告知はボーナス終了画面で一度流れるだけなので、見逃すと
+   * 「配列が変わったのに何へ変わったか分からない」状態になる。ここが最後の手掛かり。
+   * リミックス島以外では出さない（章が変わらないので情報量がゼロ）。
+   *
+   * @param changed 切り替わった直後か。true の時だけ光らせる。
+   */
+  const updateStageStatus = (changed = false): void => {
+    if (!remix) {
+      stageStatusEl.hidden = true;
+      return;
+    }
+    stageStatusEl.hidden = false;
+    stageStatusEl.textContent = `ステージ ${chapter.name}`;
+    stageStatusEl.classList.remove('changed');
+    if (changed) {
+      // クラスを外した直後に付け直してもアニメは再生されない。
+      // レイアウトを読んで強制的に再フローさせる（定番の再生し直し）。
+      void stageStatusEl.offsetWidth;
+      stageStatusEl.classList.add('changed');
+    }
+  };
+  updateStageStatus();
   const bonusBannerEl = requireEl('bonus-banner');
   betTextEl.textContent = `Bet: ${calc.bet}`;
   const effectStatusEl = requireEl('effect-status');
@@ -1223,8 +1258,13 @@ export async function bootstrap() {
     const anySpinning = engines.some((e) => e.state.get() === 'spinning');
 
     betBtn.disabled =
-      anySpinning || spinPending || !wallet.canBet(calc.bet) || betPlaced;
-    leverBtn.disabled = !betPlaced || anySpinning || allStopped || spinPending;
+      anySpinning ||
+      spinPending ||
+      stageSwapping ||
+      !wallet.canBet(calc.bet) ||
+      betPlaced;
+    leverBtn.disabled =
+      !betPlaced || anySpinning || allStopped || spinPending || stageSwapping;
     stopBtns.forEach((btn, i) => {
       btn.disabled = engines[i].state.get() !== 'spinning';
     });
@@ -1297,12 +1337,21 @@ export async function bootstrap() {
     jinSpeech.say('premium');
 
     // 告知を読ませてから入れ替える。リールは全停止しているので差し替えて安全。
+    // **告知を出す時点で入力を止める**——1.5秒の間に次のゲームが始まると、
+    // レバーONで決めた内部役と入れ替わった配列が食い違って出目が壊れる。
     if (nextStage) {
+      stageSwapping = true;
+      updateButtons();
       window.setTimeout(() => {
-        void swapStage(nextStage).then(() => {
-          renderReelStrips();
-          showResult(`ステージ「${nextName}」`, 'premium');
-        });
+        void swapStage(nextStage)
+          .then(() => {
+            renderReelStrips();
+            showResult(`ステージ「${nextName}」`, 'premium');
+          })
+          .finally(() => {
+            stageSwapping = false;
+            updateButtons();
+          });
       }, 1500);
     }
   };
@@ -1350,6 +1399,7 @@ export async function bootstrap() {
 
   const placeBet = () => {
     if (freezeActive) return;
+    if (stageSwapping) return;
     if (betBtn.disabled) return;
     // チェリー昇格の点灯待ちが残っていれば、次ゲームの役を決める前にここで点ける。
     // 待ちを跨がせると回転中に点いて「点いたのに揃わない」になる。
@@ -1383,6 +1433,7 @@ export async function bootstrap() {
 
   const pullLever = () => {
     if (freezeActive) return;
+    if (stageSwapping) return;
     if (leverBtn.disabled) return;
     if (!betPlaced) return;
     // レバーONを1ゲームの確定点とし、内部役→対応できる演出の順に決める。
@@ -1697,6 +1748,11 @@ export async function bootstrap() {
       engines.push(engine);
       views.push(view);
     }
+
+    // 左上のステージ表示を新しい章名へ。ここは切替直後なので光らせる。
+    updateStageStatus(true);
+    // 章説明のツールチップも差し替える（章が変わったのに旧説明が残るのを防ぐ）。
+    effectStatusEl.title = `${chapter.name}：${chapter.description}`;
   };
 
   const resolveStopSlip = (

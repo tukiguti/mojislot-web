@@ -763,6 +763,44 @@ body.has-chapter-bg {
     background 0.2s ease,
     box-shadow 0.2s ease;
 }
+/* リミックス島の現在ステージ。BONUS(金)・連チャン(桃)・レスキュー(水)と
+   ぶつからない紫にして、色だけで何の表示か見分けられるようにする。
+   常時表示なので他の3つより控えめ（光らせない）。 */
+#stage-status {
+  padding: 1px 8px;
+  font-size: 10px;
+  font-weight: bold;
+  letter-spacing: 1px;
+  color: #f0e6ff;
+  background: linear-gradient(180deg, rgba(120, 80, 200, 0.85) 0%, rgba(70, 40, 130, 0.85) 100%);
+  border: 1px solid rgba(190, 150, 255, 0.7);
+  border-radius: 3px;
+}
+#stage-status[hidden] {
+  display: none;
+}
+/* 切り替わった瞬間だけ光らせる。「変わった」ことに気づかせるのが目的なので短く。 */
+#stage-status.changed {
+  animation: stage-changed 1.6s ease-out;
+}
+@keyframes stage-changed {
+  0% {
+    color: #1a0d20;
+    background: linear-gradient(180deg, #e0c0ff 0%, #b06bff 100%);
+    box-shadow: 0 0 14px rgba(176, 107, 255, 0.9);
+    transform: scale(1.25);
+  }
+  60% {
+    color: #1a0d20;
+    background: linear-gradient(180deg, #e0c0ff 0%, #b06bff 100%);
+    box-shadow: 0 0 10px rgba(176, 107, 255, 0.6);
+    transform: scale(1);
+  }
+  100% {
+    box-shadow: 0 0 0 rgba(176, 107, 255, 0);
+    transform: scale(1);
+  }
+}
 #bonus-status {
   padding: 1px 8px;
   font-size: 10px;

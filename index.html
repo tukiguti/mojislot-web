@@ -59,6 +59,9 @@
         <canvas id="game"></canvas>
         <!-- 進行ステータスは演出液晶の左上に出す（ヘッダーを溢れさせない） -->
         <div id="lcd-status">
+          <!-- リミックス島だけ出す。いま何の配列を打っているかが常時見えていないと、
+               ボーナス終了時の一瞬の告知を見逃した人に手掛かりが残らない -->
+          <div id="stage-status" hidden></div>
           <div id="bonus-status" hidden></div>
           <div id="streak-status" hidden></div>
           <div id="rescue-status" hidden></div>
