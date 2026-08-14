@@ -14,7 +14,13 @@ import {
   StopTableSchema,
   type YakuList,
 } from '../../src/data/schemas';
-import type { Grid3x3 } from '../../src/core/Paylines';
+import {
+  PRIMARY_PAYLINE,
+  primaryRowOf,
+  visibleAt,
+  type Grid3x3,
+  type Vertical,
+} from '../../src/core/Paylines';
 import { flagYakusFor, bonusOnlySymbols, computeFirstStopSlip } from './gen-stop-table.test';
 
 /**
@@ -42,6 +48,21 @@ const CHAPTERS = (
 const MAX_ITER = Number(process.env.OPT_ITER ?? 600);
 const PULL_IN = 4;
 const N = 21;
+/**
+ * `OPT_MODE=reach` で「②＝0 を保ったまま**狙いやすさ**を上げる」モードになる。
+ *
+ * 既定モードは②をゼロにした時点で打ち切る。5ラインなら他のラインへ逃げられるので
+ * それで足りていたが、1ライン化すると逃げ場が無く、有効ライン上に役の文字が
+ * 来るかどうかが取りこぼしに直結する。そこを配列側で最適化するためのモード。
+ */
+const REACH_MODE = process.env.OPT_MODE === 'reach';
+/**
+ * 到達率を測るときの押下位置の間引き幅。21³ を毎イテレーション回すと重いので、
+ * 焼きなまし中は 3 コマおき（7³＝343通り）で方向づけだけする。
+ * 最終確認は `OPT_REACH_STEP=1` で全数を回して確かめる。
+ */
+const REACH_STEP = Number(process.env.OPT_REACH_STEP ?? 3);
+
 
 const STOP_ORDERS: readonly (readonly number[])[] = [
   [0, 1, 2], [0, 2, 1], [1, 0, 2], [1, 2, 0], [2, 0, 1], [2, 1, 0],
@@ -69,15 +90,63 @@ function buildStopTable(yakuList: YakuList, reels: string[][], resolver: SlipRes
       return Array.from({ length: N }, (_, press) => {
         const slip = computeFirstStopSlip(resolver, targets, cells, reel, press, PULL_IN);
         if (forbidden.size === 0) return slip;
+        // ボーナス専用図柄を主ライン上に残さない（gen-stop-table と同じ規則）。
+        const row = primaryRowOf(reel);
         for (let d = 0; d <= PULL_IN; d++) {
           const cand = (slip + d) % (PULL_IN + 1);
-          if (!forbidden.has(cells[(press + cand) % N])) return cand;
+          if (!forbidden.has(visibleAt(cells, (press + cand) % N, row))) return cand;
         }
         return slip;
       });
     });
   }
   return { mode: 'opt', firstStop };
+}
+
+/** その配列に対する停止制御一式（②の計測と到達率の計測で共有する）。 */
+function makeController(
+  yakuList: YakuList,
+  reels: string[][],
+  resolver: SlipResolver,
+): StopController {
+  return new StopController({
+    yakuList,
+    slipResolver: resolver,
+    tenpaiDetector: new TenpaiDetector(yakuList),
+    stopTable: new StopTableLookup(
+      StopTableSchema.parse(buildStopTable(yakuList, reels, resolver)),
+    ),
+    pullInCells: PULL_IN,
+  });
+}
+
+/** press[] で3リールを順に止めた結果の出目。 */
+function playPress(
+  controller: StopController,
+  reels: string[][],
+  press: readonly number[],
+  flagIds: readonly string[],
+  flagKey: string,
+  order: readonly number[] = [0, 1, 2],
+): Grid3x3 {
+  const stopped: (VisibleColumn | null)[] = [null, null, null];
+  for (const idx of order) {
+    const slip = controller.resolveSlip({
+      reelIndex: idx,
+      basePosition: press[idx],
+      strip: { id: `r${idx}`, cells: reels[idx] },
+      stoppedVisibles: stopped,
+      flagYakuIds: flagIds,
+      flagKey,
+    });
+    stopped[idx] = visCol(reels[idx], (press[idx] + slip) % N);
+  }
+  const s = stopped as VisibleColumn[];
+  return [
+    [s[0].top, s[1].top, s[2].top],
+    [s[0].middle, s[1].middle, s[2].middle],
+    [s[0].bottom, s[1].bottom, s[2].bottom],
+  ];
 }
 
 /** ②の件数。cutoff を超えた時点で打ち切る（焼きなましの棄却は早い方が速い）。 */
@@ -87,17 +156,8 @@ function countLeaks(
   resolver: SlipResolver,
   judge: YakuJudge,
   cutoff = Infinity,
+  controller = makeController(yakuList, reels, resolver),
 ): number {
-  const stopTable = new StopTableLookup(
-    StopTableSchema.parse(buildStopTable(yakuList, reels, resolver)),
-  );
-  const controller = new StopController({
-    yakuList,
-    slipResolver: resolver,
-    tenpaiDetector: new TenpaiDetector(yakuList),
-    stopTable,
-    pullInCells: PULL_IN,
-  });
   const flags: { label: string; ids: string[] }[] = [
     { label: 'miss', ids: [] },
     ...[
@@ -145,6 +205,62 @@ function countLeaks(
     }
   }
   return leaks;
+}
+
+/**
+ * 各役が**実際に揃う**押下位置の割合（0..1）。
+ *
+ * 「図柄がその行に届くか」だけを見ると足りない。届く位置でも、そこで非当選役が
+ * ロックすると引き込みが拒否されて蹴りに落ちるからで、その分は取りこぼしになる。
+ * だから停止制御を実際に通して出目を作り、役が成立したかで数える。
+ *
+ * 図柄の届き方はリールが円環である以上**主ラインの行に依存しない**（上段を見ようと
+ * 下段を見ようと「4コマ以内に来る押下位置の割合」は同じ）。主ラインごとに差が出るのは
+ * この蹴り込みの部分だけなので、ここを測らないと焼きなましが主ラインを区別できない。
+ *
+ * 焼きなまし中は押下位置を `step` コマおきに間引く（21³ を毎回回すと重すぎる）。
+ */
+function reachableRates(
+  yakuList: YakuList,
+  reels: string[][],
+  controller: StopController,
+  judge: YakuJudge,
+  step: number,
+): number[] {
+  const yakus = [
+    ...yakuList.coreYaku,
+    ...yakuList.cherryYaku,
+    ...yakuList.bonusYaku,
+    ...yakuList.premiumYaku,
+  ];
+  return yakus.map((y) => {
+    const role = yakuList.internalRoles.find(
+      (r) => r.displayYakuId === y.id && !r.freeze,
+    );
+    const flagKey = role?.id ?? y.id;
+    let hit = 0;
+    let tried = 0;
+    for (let p0 = 0; p0 < N; p0 += step) {
+      for (let p1 = 0; p1 < N; p1 += step) {
+        for (let p2 = 0; p2 < N; p2 += step) {
+          tried++;
+          const grid = playPress(controller, reels, [p0, p1, p2], [y.id], flagKey);
+          if (judge.judgeAll(grid).hits.some((h) => h.yaku.id === y.id)) hit++;
+        }
+      }
+    }
+    return tried > 0 ? hit / tried : 0;
+  });
+}
+
+/**
+ * 到達率からスコアを作る（**大きいほど良い**）。
+ * 平均だけだと一部の役が極端に狙いにくいまま放置されるので最小値を重く見る
+ * （28章の「どの役も同じくらい狙いやすい」を配列側で担保する）。
+ */
+function reachScore(rates: readonly number[]): number {
+  const avg = rates.reduce((a, b) => a + b, 0) / rates.length;
+  return avg + 2 * Math.min(...rates);
 }
 
 /** 図柄の最大間隔の合計（小さいほど引き込みが届きやすい）。 */
@@ -195,16 +311,23 @@ describe.skipIf(!RUN)('リール配列の再最適化', () => {
 
         let cur = reelCfg.reels.map((r) => [...r.cells]);
         const pools = cur.map((r) => [...new Set(r)]);
-        let curLeaks = countLeaks(yakuList, cur, resolver, judge);
+        let curCtrl = makeController(yakuList, cur, resolver);
+        let curLeaks = countLeaks(yakuList, cur, resolver, judge, Infinity, curCtrl);
         let curGap = gapPenalty(cur, pools);
+        let curReach = reachScore(reachableRates(yakuList, cur, curCtrl, judge, REACH_STEP));
         let best = cur.map((r) => [...r]);
         let bestLeaks = curLeaks;
         let bestGap = curGap;
+        let bestReach = curReach;
         const t0 = Date.now();
-        console.log(`\n[${chapter}] 初期 ②=${curLeaks} 間隔=${curGap}`);
+        console.log(
+          `\n[${chapter}] 初期 ②=${curLeaks} 間隔=${curGap} 到達=${curReach.toFixed(4)}` +
+            (REACH_MODE ? ` (reachモード・主ライン ${PRIMARY_PAYLINE.id})` : ''),
+        );
 
         const rng = makeRng(20260727);
-        for (let iter = 0; iter < MAX_ITER && bestLeaks > 0; iter++) {
+        // reach モードは②＝0でも打ち切らない（そこからが本番なので）。
+        for (let iter = 0; iter < MAX_ITER && (REACH_MODE || bestLeaks > 0); iter++) {
           const next = cur.map((r) => [...r]);
           const i = Math.floor(rng() * 3);
           if (rng() < 0.5) {
@@ -218,23 +341,40 @@ describe.skipIf(!RUN)('リール配列の再最適化', () => {
           if (!valid(next[i], pools[i])) continue;
 
           const T = 6 * Math.pow(0.02 / 6, iter / MAX_ITER);
-          const leaks = countLeaks(yakuList, next, resolver, judge, curLeaks + 40);
+          const nextCtrl = makeController(yakuList, next, resolver);
+          const leaks = countLeaks(yakuList, next, resolver, judge, curLeaks + 40, nextCtrl);
           const gap = gapPenalty(next, pools);
-          const d = (leaks - curLeaks) * 100 + (gap - curGap);
+          const reach = reachScore(
+            reachableRates(yakuList, next, nextCtrl, judge, REACH_STEP),
+          );
+          // reach モードでは②を**ハード制約**にし（1件でも大ペナルティ）、
+          // その上で到達率を上げる。既定モードは従来どおり②＋間隔。
+          const d = REACH_MODE
+            ? (leaks - curLeaks) * 100000 - (reach - curReach) * 10000
+            : (leaks - curLeaks) * 100 + (gap - curGap);
           if (d < 0 || rng() < Math.exp(-d / (T * 100))) {
             cur = next;
             curLeaks = leaks;
             curGap = gap;
-            if (leaks < bestLeaks || (leaks === bestLeaks && gap < bestGap)) {
+            curReach = reach;
+            const improved = REACH_MODE
+              ? leaks === 0 && (bestLeaks > 0 || reach > bestReach)
+              : leaks < bestLeaks || (leaks === bestLeaks && gap < bestGap);
+            if (improved) {
               best = next.map((r) => [...r]);
               bestLeaks = leaks;
               bestGap = gap;
-              console.log(`  iter=${iter} ②=${leaks} 間隔=${gap} (${((Date.now() - t0) / 1000).toFixed(0)}s)`);
+              bestReach = reach;
+              console.log(
+                `  iter=${iter} ②=${leaks} 間隔=${gap} 到達=${reach.toFixed(4)} (${((Date.now() - t0) / 1000).toFixed(0)}s)`,
+              );
             }
           }
         }
 
-        console.log(`[${chapter}] 結果 ②=${bestLeaks} 間隔=${bestGap} ${((Date.now() - t0) / 1000).toFixed(0)}s`);
+        console.log(
+          `[${chapter}] 結果 ②=${bestLeaks} 間隔=${bestGap} 到達=${bestReach.toFixed(4)} ${((Date.now() - t0) / 1000).toFixed(0)}s`,
+        );
         if (bestLeaks === 0) {
           const out = {
             mode: chapter,

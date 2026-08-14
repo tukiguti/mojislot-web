@@ -37,14 +37,63 @@ export type PaylineId =
   | 'diag_tlbr'
   | 'diag_bltr';
 
-/** 5 本のペイライン：横3本 + 斜め2本。 */
-export const PAYLINES: readonly Payline[] = [
+/** ライン形の定義（全5本）。**有効ラインはこの中から選ぶ**。 */
+const ALL_PAYLINES: readonly Payline[] = [
   { id: 'top', name: '上段', cells: [[0, 0], [0, 1], [0, 2]] },
   { id: 'middle', name: '中段', cells: [[1, 0], [1, 1], [1, 2]] },
   { id: 'bottom', name: '下段', cells: [[2, 0], [2, 1], [2, 2]] },
   { id: 'diag_tlbr', name: '右下がり', cells: [[0, 0], [1, 1], [2, 2]] },
   { id: 'diag_bltr', name: '右上がり', cells: [[2, 0], [1, 1], [0, 2]] },
 ];
+
+// node の型を入れていないので globalThis 経由で読む（ブラウザでは undefined）。
+const ENV = (globalThis as { process?: { env?: Record<string, string | undefined> } })
+  .process?.env;
+
+/**
+ * 有効ライン＝**払い出しの判定対象**。ここに揃えば成立する。
+ *
+ * 5本のまま。判定を1本に絞ると引き込みの対象範囲が7コマ→5コマに縮み、
+ * 下手な人ほど取りこぼす（実測で初心者 -8pt・腕の開き1.87→2.11倍）。
+ * 検証用に `PAYLINE_SET` で絞れるようにしてあるが、本番は既定の5本。
+ */
+const PAYLINE_SET = ENV?.PAYLINE_SET?.split(',');
+
+export const PAYLINES: readonly Payline[] = PAYLINE_SET
+  ? ALL_PAYLINES.filter((l) => PAYLINE_SET.includes(l.id))
+  : ALL_PAYLINES;
+
+/** ペイラインの行番号 0/1/2 → 可視位置。 */
+export const ROW_VERTICAL: readonly Vertical[] = ['top', 'middle', 'bottom'];
+
+/**
+ * **主ライン**＝制御が狙う唯一のライン。判定（`PAYLINES`）とは役割が違う。
+ *
+ * 引き込みも停止テーブル生成も告知も、すべてこの1本だけを見る。他のラインへ
+ * 逃がす分岐を持たないので、制御は「主ラインへ寄せられるか」の一問一答になる。
+ *
+ * 判定は5ラインのままなので、**狙わなかったラインで偶然揃った分は払い出される**。
+ * 制御を単純にしても取りこぼしにならない、という非対称がこの構成の狙い。
+ *
+ * 基準がバラバラだと、第1停止が主ラインを狙っていないのに第2・第3が主ラインへ
+ * 揃えようとする、という噛み合わせ事故が起きる（実際それで機械割が32.7%まで
+ * 落ちた）。だから制御側の基準はすべてここを参照する。
+ */
+const PRIMARY_ID = ENV?.PRIMARY_LINE ?? 'middle';
+
+export const PRIMARY_PAYLINE: Payline =
+  PAYLINES.find((l) => l.id === PRIMARY_ID) ?? PAYLINES[0];
+
+/** 主ラインがそのリールで要求する行番号（0=top / 1=middle / 2=bottom）。 */
+export function primaryRowIndexOf(reelIndex: number): number {
+  const cell = PRIMARY_PAYLINE.cells.find(([, col]) => col === reelIndex);
+  return cell ? cell[0] : 1;
+}
+
+/** 主ラインがそのリールで要求する行。 */
+export function primaryRowOf(reelIndex: number): Vertical {
+  return ROW_VERTICAL[primaryRowIndexOf(reelIndex)];
+}
 
 const VERTICAL_OFFSET: Record<Vertical, number> = {
   top: 1, // pos + 1

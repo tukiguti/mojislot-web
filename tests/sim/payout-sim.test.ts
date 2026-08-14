@@ -21,7 +21,14 @@ import {
 import { StopTableLookup } from '../../src/core/StopTable';
 import { StopController } from '../../src/core/StopController';
 import { ReachEyes } from '../../src/core/ReachEyes';
-import { PAYLINES, type Grid3x3, type Vertical } from '../../src/core/Paylines';
+import {
+  PAYLINES,
+  primaryRowIndexOf,
+  primaryRowOf,
+  visibleAt,
+  type Grid3x3,
+  type Vertical,
+} from '../../src/core/Paylines';
 import {
   PayoutSchema,
   TuningSchema,
@@ -431,11 +438,14 @@ function runChapter(
       if (sym === undefined) {
         basePos = Math.floor(rng() * N);
       } else {
+        // 狙うのは「その図柄が**主ラインの行**に来る位置」。中段固定にすると、
+        // 主ラインが斜めの時に正確な人ほど主ラインから外れる（神が初心者を下回った原因）。
+        const row = primaryRowOf(idx);
         const start = Math.floor(rng() * N);
         let intended = start;
         for (let d = 0; d < N; d++) {
           const p = (start + d) % N;
-          if (cells[p] === sym) { intended = p; break; }
+          if (visibleAt(cells, p, row) === sym) { intended = p; break; }
         }
         const err = Math.round(gauss() * sigmaCells);
         basePos = (((intended + err) % N) + N) % N;
@@ -515,25 +525,26 @@ function runChapter(
       }
     }
 
-    // 誤告知の計測：ボーナスフラグでないのに中段へ専用図柄が出たか
+    // 誤告知の計測：ボーナスフラグでないのに主ラインへ専用図柄が出たか
+    const onPrimary = (r: number): string => grid[primaryRowIndexOf(r)][r];
     const isBonusFlag =
       !!heldYaku || !!carried || role.kind === 'reg' || role.kind === 'big';
     if (!isBonusFlag) {
       res.nonBonusSpins++;
-      if ([0, 1, 2].some((r) => reachEyes.isBonusOnlyAtMiddle(r, grid[1][r]))) {
+      if ([0, 1, 2].some((r) => reachEyes.isBonusOnlyOnPrimary(r, onPrimary(r)))) {
         res.falseTellSpins++;
       }
       const firstReel = seq[0];
-      if (reachEyes.isBonusOnlyAtMiddle(firstReel, grid[1][firstReel])) {
+      if (reachEyes.isBonusOnlyOnPrimary(firstReel, onPrimary(firstReel))) {
         res.falseTellFirst++;
       }
     }
     if (carried) {
       res.carriedSpins++;
       if (hits.length === 0 && reachEyes.detect(grid) !== null) res.carriedReach++;
-      // 一発リーチ目：**第1停止**の中段がボーナス専用図柄なら、その場で確定告知になる。
+      // 一発リーチ目：**第1停止**の主ラインがボーナス専用図柄なら、その場で確定告知になる。
       const fr = seq[0];
-      if (reachEyes.isBonusOnlyAtMiddle(fr, grid[1][fr])) res.carriedMiddleTell++;
+      if (reachEyes.isBonusOnlyOnPrimary(fr, onPrimary(fr))) res.carriedMiddleTell++;
     }
     const isPremiumNow = hits.some((h) => h.yaku.category === 'premium');
     const isRegNow = !isPremiumNow && hits.some((h) => h.yaku.category === 'bonus');

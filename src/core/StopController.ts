@@ -5,11 +5,8 @@ import {
   type VisibleColumn,
 } from '../productions/SlipResolver';
 import { TenpaiDetector, type TenpaiLine } from '../productions/TenpaiDetector';
-import { PAYLINES, type Vertical } from './Paylines';
+import { PAYLINES, PRIMARY_PAYLINE, ROW_VERTICAL, primaryRowOf } from './Paylines';
 import type { StopTableLookup } from './StopTable';
-
-/** ペイラインの行 0/1/2 → 可視位置。 */
-const ROW_VERTICAL: readonly Vertical[] = ['top', 'middle', 'bottom'];
 
 /**
  * 停止制御（実機のリール制御）。1リール停止時のスベリコマ数を決める**唯一の実装**。
@@ -172,17 +169,18 @@ export class StopController {
       if (tabled !== null) return tabled;
     }
 
-    // 第1・第2停止（および最終でテンパイが無い時）：当選役の図柄を有効ラインへ。
-    // **ライン単位で引き込む**。役×ラインごとに、そのラインが要求する行（上/中/下）へ
-    // 寄せられるかを見て、停止済みリールがそのラインと矛盾していれば候補から外す。
+    // 第1・第2停止（および最終でテンパイが無い時）：当選役を**主ラインへ**寄せる。
     //
-    // **中段ラインが第一候補で、上下段・斜めは中段に届かない時だけの逃げ道**にする。
-    // 中段の優先を外すと中段が特別な位置でなくなり、示唆の発展（当選図柄が中段に
-    // 来たら役を明かす）と中段告知（持ち越し中の一発リーチ目）が両方壊れる。
-    return (
-      this.pickLine(targets, req, ctx, (l) => l.id === 'middle') ??
-      this.pickLine(targets, req, ctx, (l) => l.id !== 'middle')
-    );
+    // 狙い先を1本に固定するのがこの設計の要。制御が「主ラインへ届くか」の
+    // 一問一答になり、停止テーブルも役×押下位置の一次元で書ける。
+    // 他のラインへ逃がす分岐を持つと、テーブルの中身が「どのラインを選んだか」に
+    // 依存して読めなくなる。
+    //
+    // 引き込みの対象範囲は7コマ→5コマに縮むが、その分は**リール配列側で取り返す**
+    // （主ラインへの到達率を目的関数にして焼き直す。実測で0.5→0.95）。
+    //
+    // 判定は5ラインのままなので、狙わなかったラインで偶然揃った分は払い出される。
+    return this.pickLine(targets, req, ctx, (l) => l.id === PRIMARY_PAYLINE.id);
   }
 
   /** 条件に合うペイラインだけを対象に引き込む。カテゴリ優先→近い順。 */
@@ -252,7 +250,7 @@ export class StopController {
       const score =
         CAT_RANK[l.yaku.category] * 100 +
         (this.pullInCells - slip) * 4 +
-        (l.vertical === 'middle' ? 1 : 0);
+        (l.vertical === primaryRowOf(finalIdx) ? 1 : 0);
       if (score > bestScore) {
         bestScore = score;
         bestSlip = slip;

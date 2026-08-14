@@ -77,6 +77,7 @@ import {
   getVisibleCell,
   getVisibleCellIndex,
   PAYLINES,
+  primaryRowOf,
   type Vertical,
 } from './core/Paylines';
 import { PaylineIndicators } from './render/PaylineIndicators';
@@ -487,6 +488,10 @@ export async function bootstrap() {
   };
   const initialReelGlyphs = reelGlyphsOn;
   applyReelGlyphs(initialReelGlyphs);
+
+  // コマ番号（0..20）の表示。デバッグ表示ONの時だけ出す。
+  // 押した位置と停止位置の差＝引き込みコマ数を、画面上で数えられるようにする。
+  for (const v of views) v.setShowCellIndices(debugVisible);
 
   // ペイラインインジケーター（リール左脇外側に1セットのみ。左右ミラーは冗長なので片側へ）
   const reelHeight = CELL_HEIGHT * VISIBLE_CELLS;
@@ -1625,7 +1630,10 @@ export async function bootstrap() {
       isFirstStop &&
       !reachEyeShown &&
       currentEffect === 'none' &&
-      reachEyes.isBonusOnlyAtMiddle(idx, getVisibleCell(engine, 'middle'))
+      reachEyes.isBonusOnlyOnPrimary(
+        idx,
+        getVisibleCell(engine, primaryRowOf(idx)),
+      )
     ) {
       reachEyeShown = true;
       views[idx].startTenpaiFlash(true);

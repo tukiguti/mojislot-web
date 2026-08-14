@@ -13,7 +13,7 @@ import { StopController } from '../../src/core/StopController';
 import { StopTableLookup } from '../../src/core/StopTable';
 import { SlipResolver, type VisibleColumn } from '../../src/productions/SlipResolver';
 import { TenpaiDetector } from '../../src/productions/TenpaiDetector';
-import type { Grid3x3 } from '../../src/core/Paylines';
+import { primaryRowOf, visibleAt, type Grid3x3 } from '../../src/core/Paylines';
 
 /**
  * 役の到達性監査：**当選した役がちゃんと揃えられるか**。
@@ -99,14 +99,17 @@ describe('役の到達性監査：当選した役が狙って揃うか', () => {
         return grid(stopped as VisibleColumn[]);
       };
 
-      // ボーナス役：その文字が中段に来る位置だけを総当たり（＝狙って押した時）
+      // ボーナス役：その文字が**主ライン**へ来る位置だけを総当たり（＝狙って押した時）。
+      // 中段固定で数えると、主ラインが斜めの時に「狙うはずのない位置」を試すことになる。
       for (const y of [...yakuList.bonusYaku, ...yakuList.premiumYaku]) {
         const role = yakuList.internalRoles.find(
           (r) => r.displayYakuId === y.id && !r.freeze,
         );
         const flagKey = role?.id ?? y.id;
         const posList = y.symbols.map((s, i) =>
-          cells[i].map((c, p) => (c === s ? p : -1)).filter((p) => p >= 0),
+          cells[i]
+            .map((_, p) => (visibleAt(cells[i], p, primaryRowOf(i)) === s ? p : -1))
+            .filter((p) => p >= 0),
         );
         let hit = 0;
         let tried = 0;

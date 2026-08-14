@@ -3,7 +3,13 @@ import { readFileSync, writeFileSync, mkdirSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { dirname, resolve } from 'node:path';
 import { SlipResolver, type VisibleColumn } from '../../src/productions/SlipResolver';
-import type { Vertical } from '../../src/core/Paylines';
+import {
+  PAYLINES,
+  ROW_VERTICAL,
+  primaryRowOf,
+  visibleAt,
+  type Vertical,
+} from '../../src/core/Paylines';
 import {
   YakuListSchema,
   ReelConfigSchema,
@@ -115,7 +121,10 @@ export function computeFirstStopSlip(
     }
     return best;
   };
-  return pick(['middle']) ?? pick(['top', 'bottom']) ?? 0;
+  // **主ラインが要求する行だけ**を狙う（StopController と同じ規則）。
+  // 逃げ道を持たないので、テーブルの値が「主ラインへ何コマ寄せたか」だけを意味する。
+  // 基準がずれると第2・第3の引き込みと噛み合わない（初回測定が32.7%まで落ちた原因）。
+  return pick([primaryRowOf(reel)]) ?? 0;
 }
 
 describe.skipIf(!RUN)('停止テーブル生成', () => {
@@ -144,12 +153,13 @@ describe.skipIf(!RUN)('停止テーブル生成', () => {
             const slip = computeFirstStopSlip(
               resolver, targets, cells, reel, press, tuning.assist.pullInCells,
             );
-            // ボーナス専用図柄を中段に残さない（＝中段に出たらボーナス確定になる）。
-            // 引き込みが決まっている場合は中段が当選役の図柄なので、ここには入らない。
+            // ボーナス専用図柄を**主ライン上**に残さない（＝出たらボーナス確定になる）。
+            // 引き込みが決まっている場合は主ラインが当選役の図柄なので、ここには入らない。
             if (forbidden.size === 0) return slip;
+            const row = primaryRowOf(reel);
             for (let d = 0; d <= tuning.assist.pullInCells; d++) {
               const cand = (slip + d) % (tuning.assist.pullInCells + 1);
-              if (!forbidden.has(cells[(press + cand) % n])) return cand;
+              if (!forbidden.has(visibleAt(cells, (press + cand) % n, row))) return cand;
             }
             return slip; // 窓内すべて専用図柄（配列的にあり得ないが保険）
           });

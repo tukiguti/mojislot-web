@@ -55,12 +55,15 @@ export class ReachEyes {
   }
 
   /**
-   * 停止したリールの中段が「ボーナス専用図柄」か＝**その場でボーナス確定**。
-   * 停止テーブルが非ボーナスフラグではこれを中段に残さないよう組んであるので、
-   * 中段に出た時点で確定になる（実機の中段告知と同じ一発リーチ目）。
+   * 停止したリールの**主ライン上**が「ボーナス専用図柄」か＝その場でボーナス確定。
+   * 停止テーブルが非ボーナスフラグではこれを主ラインに残さないよう組んであるので、
+   * 出た時点で確定になる（実機の一発リーチ目と同じ）。
+   *
+   * 行を引数に取らないのは、主ラインが斜めだとリールごとに見る行が変わるため。
+   * 呼び出し側が `primaryRowOf(reel)` で取った図柄を渡す。
    */
-  isBonusOnlyAtMiddle(reel: number, middleSymbol: string): boolean {
-    return this.bonusOnly[reel]?.has(middleSymbol) ?? false;
+  isBonusOnlyOnPrimary(reel: number, symbolOnPrimary: string): boolean {
+    return this.bonusOnly[reel]?.has(symbolOnPrimary) ?? false;
   }
 
   /** この出目がリーチ目なら確定するボーナス種別、違えば null。 */

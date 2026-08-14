@@ -13,14 +13,15 @@ import { StopController } from '../../src/core/StopController';
 import { StopTableLookup } from '../../src/core/StopTable';
 import { SlipResolver, type VisibleColumn } from '../../src/productions/SlipResolver';
 import { TenpaiDetector } from '../../src/productions/TenpaiDetector';
+import { primaryRowOf, visibleAt } from '../../src/core/Paylines';
 
 /**
- * 1確（中段告知）の監査：**非ボーナスフラグで誤告知が出ないこと**。
+ * 1確（一発リーチ目）の監査：**非ボーナスフラグで誤告知が出ないこと**。
  *
- * 第1停止したリールの中段に「ボーナス役にしか使われない図柄」が止まったら、
- * その場でボーナス確定——というのが1確（`main.ts` の `stopReel` が
- * `reachEyes.isBonusOnlyAtMiddle` で判定している）。告知が成立する前提は
- * **非ボーナスフラグではその図柄を第1停止の中段に置かない**の一点で、これが
+ * 第1停止したリールの**主ライン上**に「ボーナス役にしか使われない図柄」が
+ * 止まったら、その場でボーナス確定——というのが1確（`main.ts` の `stopReel` が
+ * `reachEyes.isBonusOnlyOnPrimary` で判定している）。告知が成立する前提は
+ * **非ボーナスフラグではその図柄を第1停止の主ラインに置かない**の一点で、これが
  * 崩れると「確定と言われたのに何も来ない」という一番やってはいけない嘘になる。
  *
  * 担保しているのは停止テーブル（`data/stops/*.json`）だが、**保証ではなく
@@ -118,9 +119,14 @@ describe('1確の監査：非ボーナスフラグで中段告知が誤爆しな
               flagYakuIds: flag.ids,
               flagKey: flag.key,
             });
-            const middle = cells[reel][(press + slip) % N];
+            // 主ライン上の図柄を見る（斜めならリールごとに行が変わる）。
+            const middle = visibleAt(
+              cells[reel],
+              (press + slip) % N,
+              primaryRowOf(reel),
+            );
             combos++;
-            if (reachEyes.isBonusOnlyAtMiddle(reel, middle)) {
+            if (reachEyes.isBonusOnlyOnPrimary(reel, middle)) {
               chapterMisfires++;
               if (misfires.length < 40) {
                 misfires.push({

@@ -133,6 +133,9 @@ export class ReelView {
   private readonly cellSpriteGlyphTex: (Texture | null)[] = [];
   /** リールに文字を表示するか（既定 false＝図柄のみ） */
   private showGlyphs = false;
+  /** コマ番号を出すか（既定OFF）。目押しの検証と引き込みコマ数の確認に使う。 */
+  private showCellIndices = false;
+  private readonly cellIndexLabels: Text[] = [];
   /** ハイライト中にスプライトセルへ重ねる色枠グロー（解除時に除去） */
   private readonly cellGlows: (Graphics | null)[] = [];
   /** 各セルの本来の色（ハイライト解除時に戻す用） */
@@ -209,6 +212,8 @@ export class ReelView {
     maskWrapper.addChild(cellsContainer);
 
     this.cellSymbols = [...engine.strip.cells];
+    /** 文字ごとの出現数。コマラベルの「ま2」の 2 を振るのに使う。 */
+    const symbolSeen = new Map<string, number>();
     for (const symbol of engine.strip.cells) {
       // セル単位のコンテナ：背景タイル + 文字
       const cell = new Container();
@@ -272,6 +277,32 @@ export class ReelView {
         text.y = 0;
         cell.addChild(text);
       }
+
+      // コマの識別。「7 ま2」＝リール上の7番目のコマで、その文字としては2つ目。
+      //
+      // 通し番号（0..20）は押した位置と停止位置の差＝引き込みコマ数を数えるため。
+      // 文字ごとの連番は「同じ ま でもどの ま か」を区別するため——同じ文字が
+      // 複数コマあるので、通し番号だけだと配列表と突き合わせるのに一手間かかる。
+      // 既定は非表示。ゲーム中は数字が視線を奪うので、必要な時だけ出す。
+      const cellIndex = this.cellContainers.length;
+      const nth = (symbolSeen.get(symbol) ?? 0) + 1;
+      symbolSeen.set(symbol, nth);
+      const indexLabel = new Text({
+        text: `${cellIndex} ${symbol}${nth}`,
+        style: {
+          fill: 0xffe08a,
+          fontSize: 11,
+          fontFamily: 'ui-monospace, SFMono-Regular, Menlo, monospace',
+          fontWeight: '700',
+          stroke: { color: 0x000000, width: 4, alpha: 0.9 },
+        },
+      });
+      indexLabel.anchor.set(0, 0.5);
+      indexLabel.x = 5;
+      indexLabel.y = -CELL_HEIGHT / 2 + 11;
+      indexLabel.visible = this.showCellIndices;
+      cell.addChild(indexLabel);
+      this.cellIndexLabels.push(indexLabel);
 
       this.cellOriginalColors.push(originalColor);
       this.cellStyles.push(style);
@@ -391,6 +422,15 @@ export class ReelView {
       const next = show && glyph ? glyph : plain;
       if (next) sp.texture = next;
     }
+  }
+
+  /**
+   * コマ番号の表示を切り替える。
+   * 押下位置と停止位置の差＝引き込みコマ数を目で数えられるようにするためのもの。
+   */
+  setShowCellIndices(show: boolean): void {
+    this.showCellIndices = show;
+    for (const label of this.cellIndexLabels) label.visible = show;
   }
 
   /** STOP 押下後の停止バウンス（軽い縦振動） */

@@ -21,7 +21,7 @@ import { SlipResolver, type VisibleColumn } from '../../src/productions/SlipReso
 import { TenpaiDetector } from '../../src/productions/TenpaiDetector';
 import { BonusZone } from '../../src/productions/BonusZone';
 import { BonusSession } from '../../src/productions/BonusSession';
-import { visibleAt, type Grid3x3 } from '../../src/core/Paylines';
+import { primaryRowOf, visibleAt, type Grid3x3 } from '../../src/core/Paylines';
 
 /**
  * BET → レバー → 3リール停止 → 配当 → ボーナス突入 → 消化 → 終了リザルト
@@ -93,10 +93,14 @@ const findYaku = (id: string): Yaku =>
     ...yakuList.singleYaku,
   ].find((y) => y.id === id)!;
 
-/** 中段が sym になる押下位置。狙い打ちの再現に使う。 */
+/**
+ * **主ライン上**が sym になる押下位置。狙い打ちの再現に使う。
+ * 中段固定にすると、主ラインが斜めの時に狙うはずのない位置を押すことになる。
+ */
 const posForMiddle = (reel: number, sym: string): number => {
+  const row = primaryRowOf(reel);
   for (let p = 0; p < CELLS; p++) {
-    if (visibleAt(strips[reel].cells, p, 'middle') === sym) return p;
+    if (visibleAt(strips[reel].cells, p, row) === sym) return p;
   }
   throw new Error(`リール${reel}に「${sym}」が無い`);
 };
