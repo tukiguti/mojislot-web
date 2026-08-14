@@ -254,6 +254,12 @@ function reachableRates(
   controller: StopController,
   judge: YakuJudge,
   step: number,
+  /**
+   * ボーナス中として測る。許可リストに1枚役（こぼし先）が加わるので、当選役の
+   * 引き込みが1枚役に横取りされないかまで含めて評価できる。ボーナス中は純増が
+   * 通常時の10倍以上あり出玉の主戦場なので、ここを見ないと目的関数が実態とずれる。
+   */
+  asBonus = false,
 ): number[] {
   const yakus = [
     ...yakuList.coreYaku,
@@ -266,13 +272,17 @@ function reachableRates(
       (r) => r.displayYakuId === y.id && !r.freeze,
     );
     const flagKey = role?.id ?? y.id;
+    // ボーナス中は1枚役が「こぼし先」として許可リストに加わる（設計: 31章）。
+    const flagIds = asBonus
+      ? [y.id, ...yakuList.singleYaku.map((s) => s.id)]
+      : [y.id];
     let hit = 0;
     let tried = 0;
     for (let p0 = 0; p0 < N; p0 += step) {
       for (let p1 = 0; p1 < N; p1 += step) {
         for (let p2 = 0; p2 < N; p2 += step) {
           tried++;
-          const grid = playPress(controller, reels, [p0, p1, p2], [y.id], flagKey);
+          const grid = playPress(controller, reels, [p0, p1, p2], flagIds, flagKey);
           if (judge.judgeAll(grid).hits.some((h) => h.yaku.id === y.id)) hit++;
         }
       }
@@ -281,14 +291,36 @@ function reachableRates(
   });
 }
 
+/** 各役の当選率（通常時）。到達率の重みに使う。 */
+function yakuWeights(yakuList: YakuList, yakus: readonly Yaku[]): number[] {
+  return yakus.map((y) =>
+    yakuList.internalRoles
+      .filter((r) => r.displayYakuId === y.id)
+      .reduce((a, r) => a + (r.rate?.default ?? 0), 0),
+  );
+}
+
 /**
  * 到達率からスコアを作る（**大きいほど良い**）。
- * 平均だけだと一部の役が極端に狙いにくいまま放置されるので最小値を重く見る
- * （28章の「どの役も同じくらい狙いやすい」を配列側で担保する）。
+ *
+ * **当選率で重み付けする。** 等価に扱うと、出現率0.09%のBIGを伸ばして16.8%の
+ * 小役を犠牲にする、という最適化が起きる。実際それで下段主ラインの配列が
+ * 「無重みスコアは互角なのに機械割が2割低い」状態になった（頻出小役 31%→26%・
+ * 稀なBIG 52%→64%）。小役4種で全体の約50%を占めるので、ここが出玉を決める。
+ *
+ * 最小値も少し見る。全部を重み任せにすると、稀な役が極端に狙えないまま放置され、
+ * 「当たったのに揃わない」という体験が残る（28章の「どの役も同じくらい狙いやすい」）。
  */
-function reachScore(rates: readonly number[]): number {
-  const avg = rates.reduce((a, b) => a + b, 0) / rates.length;
-  return avg + 2 * Math.min(...rates);
+function reachScore(
+  rates: readonly number[],
+  weights: readonly number[],
+): number {
+  const total = weights.reduce((a, b) => a + b, 0);
+  const weighted =
+    total > 0
+      ? rates.reduce((a, r, i) => a + r * weights[i], 0) / total
+      : rates.reduce((a, b) => a + b, 0) / rates.length;
+  return weighted + 0.5 * Math.min(...rates);
 }
 
 /** 図柄の最大間隔の合計（小さいほど引き込みが届きやすい）。 */
@@ -344,7 +376,18 @@ describe.skipIf(!RUN)('リール配列の再最適化', () => {
           yakuList, cur, resolver, judge, Infinity, curCtrl, SCAN_ORDERS, SCAN_STEP,
         );
         let curGap = gapPenalty(cur, pools);
-        let curReach = reachScore(reachableRates(yakuList, cur, curCtrl, judge, REACH_STEP));
+        // 到達率の重み（当選率）は配列を変えても不変なので一度だけ作る。
+        const scoreYakus = [
+          ...yakuList.coreYaku,
+          ...yakuList.cherryYaku,
+          ...yakuList.bonusYaku,
+          ...yakuList.premiumYaku,
+        ];
+        const weights = yakuWeights(yakuList, scoreYakus);
+        let curReach = reachScore(
+          reachableRates(yakuList, cur, curCtrl, judge, REACH_STEP),
+          weights,
+        );
         let best = cur.map((r) => [...r]);
         let bestLeaks = curLeaks;
         let bestGap = curGap;
@@ -354,6 +397,34 @@ describe.skipIf(!RUN)('リール配列の再最適化', () => {
           `\n[${chapter}] 初期 ②=${curLeaks} 間隔=${curGap} 到達=${curReach.toFixed(4)}` +
             (REACH_MODE ? ` (reachモード・主ライン ${PRIMARY_PAYLINE.id})` : ''),
         );
+        if (process.env.OPT_DETAIL === '2') {
+          // 通常時とボーナス中で到達率がどう違うかを見る。ボーナス中は純増が
+          // 10倍以上あるので、ここが落ちていると出玉に直結する。
+          const nml = reachableRates(yakuList, cur, curCtrl, judge, REACH_STEP);
+          const bns = reachableRates(yakuList, cur, curCtrl, judge, REACH_STEP, true);
+          const avg = (a: number[]) => a.reduce((x, y2) => x + y2, 0) / a.length;
+          console.log(
+            `  通常時 平均${(avg(nml) * 100).toFixed(1)}%  ` +
+              `ボーナス中 平均${(avg(bns) * 100).toFixed(1)}%`,
+          );
+        }
+        if (process.env.OPT_DETAIL === '1') {
+          // 役ごとの到達率。平均が同じでも「どの役が弱いか」で出玉は変わる
+          // （小役は頻出・BIGは稀なので、重みが違う）。
+          const detail = [
+            ...yakuList.coreYaku,
+            ...yakuList.cherryYaku,
+            ...yakuList.bonusYaku,
+            ...yakuList.premiumYaku,
+          ];
+          const rates = reachableRates(yakuList, cur, curCtrl, judge, REACH_STEP);
+          console.log(
+            '  ' +
+              detail
+                .map((y, i) => `${y.name}:${(rates[i] * 100).toFixed(0)}%`)
+                .join(' '),
+          );
+        }
 
         const rng = makeRng(20260727);
         // reach モードは②＝0でも打ち切らない（そこからが本番なので）。
@@ -378,6 +449,7 @@ describe.skipIf(!RUN)('リール配列の再最適化', () => {
           const gap = gapPenalty(next, pools);
           const reach = reachScore(
             reachableRates(yakuList, next, nextCtrl, judge, REACH_STEP),
+            weights,
           );
           // reach モードでは②を**ハード制約**にし（1件でも大ペナルティ）、
           // その上で到達率を上げる。既定モードは従来どおり②＋間隔。
