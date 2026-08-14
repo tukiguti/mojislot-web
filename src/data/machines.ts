@@ -139,12 +139,36 @@ export const islandOfMachine = (m: Machine): Island =>
 export const chapterIdOfMachine = (m: Machine): string => {
   const island = islandOfMachine(m);
   if (island.trial) return island.chapterIds[m.seat - 1] ?? island.chapterIds[0];
+  // リミックス島は座るたびにランダムな島から始まる（以降はボーナスごとに入れ替わる）。
+  if (m.islandId === REMIX_ISLAND_ID) return nextRemixStage(null);
   return island.chapterIds[0];
 };
 
 /** 試打コーナーの台か（設定6固定・ランキングの比較条件で既定除外）。 */
 export const isTrialMachine = (m: Machine): boolean =>
   islandOfMachine(m).trial === true;
+
+/** リミックス島の台か（ボーナスごとにステージ＝島が入れ替わる）。 */
+export const isRemixMachine = (m: Machine): boolean =>
+  m.islandId === REMIX_ISLAND_ID;
+
+/**
+ * リミックス島の次ステージ。**直前と違う島**から選ぶ。
+ *
+ * 同じ島が続くとリミックスの趣旨（毎ボーナスごとに配列を覚え直す）が成立しない。
+ * 出玉の見返りは「覚え直しのコストを払っている」ことが前提なので、
+ * ここで同じ島を引くと払っていないのに貰えることになる。
+ */
+export function nextRemixStage(
+  current: string | null,
+  rand: () => number = Math.random,
+): string {
+  const stages = ISLANDS.find((i) => i.id === REMIX_ISLAND_ID)?.chapterIds ?? [];
+  if (stages.length === 0) return current ?? CHAPTERS[0].id;
+  const pool = stages.filter((id) => id !== current);
+  const from = pool.length > 0 ? pool : stages;
+  return from[Math.min(from.length - 1, Math.floor(rand() * from.length))];
+}
 
 /**
  * 選んだ台。設定（1〜6）とデータカウンターは**章ではなく台ごと**に決まるので、

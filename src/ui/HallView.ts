@@ -5,7 +5,6 @@ import {
   SEATS_PER_ISLAND,
   chapterIdOfMachine,
   getCurrentMachine,
-  REMIX_ISLAND_ID,
   islandById,
   isTrialMachine,
   machinesOfIsland,
@@ -110,8 +109,11 @@ function yakuOf(chapterId: string): YakuList {
 
 const wordOf = (symbols: readonly string[]): string => symbols.join('');
 
-/** 着席できない島か。いまはステージ切替が未実装のリミックス島だけ。 */
-const closed = (island: Island): boolean => island.id === REMIX_ISLAND_ID;
+/**
+ * 着席できない島か。
+ * 〔2026-08-15〕リミックス島のステージ切替を実装したので、いまは全島に座れる。
+ */
+const closed = (_island: Island): boolean => false;
 
 /**
  * 島の役（小役4・チェリー・REG・BIG2）。配当表と筐体の図柄に使う。

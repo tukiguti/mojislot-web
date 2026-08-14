@@ -106,7 +106,9 @@ import {
 import {
   chapterIdOfMachine,
   getCurrentMachine,
+  isRemixMachine,
   isTrialMachine,
+  nextRemixStage,
 } from './data/machines';
 import './style.css';
 
@@ -169,28 +171,28 @@ export async function bootstrap() {
 
   // 打つ台はホール（HallView）で確定済み。章は台から引くので両者がずれない。
   const machine = getCurrentMachine();
-  const chapterId = chapterIdOfMachine(machine);
-  const chapter = CHAPTERS.find((c) => c.id === chapterId) ?? getCurrentChapter();
+  let chapterId = chapterIdOfMachine(machine);
+  let chapter = CHAPTERS.find((c) => c.id === chapterId) ?? getCurrentChapter();
 
   // 島ごとのアート（public/art/）。
   // ※ body の島背景パネルは一旦オフ（必要になったら has-chapter-bg を復活させる）。
   const ART_BASE = `${import.meta.env.BASE_URL}art/`;
 
-  const reelConfig = ReelConfigSchema.parse(chapter.reelData);
+  let reelConfig = ReelConfigSchema.parse(chapter.reelData);
   // 設定（1〜6）はその日その台で決まる。プレイヤーには見せず、
   // データと示唆演出から推測させる（設計: MachineSetting）。
   // **章ではなく台ごと**。同じ島の4台が同じ設定だと、台を選び分ける意味が消える。
   const machineSetting = settingForMachine(machine, new Date());
-  const yakuList = applySetting(
+  let yakuList = applySetting(
     YakuListSchema.parse(chapter.yakuData),
     machineSetting,
   );
   const payout = PayoutSchema.parse(payoutDataRaw);
-  const quizList = QuizListSchema.parse(chapter.quizData);
+  let quizList = QuizListSchema.parse(chapter.quizData);
   // 停止テーブル（第1停止＝実機のリール制御表）。手編集可・無ければ既定制御へフォールバック。
-  const stopTable = new StopTableLookup(StopTableSchema.parse(chapter.stopData));
+  let stopTable = new StopTableLookup(StopTableSchema.parse(chapter.stopData));
   // リーチ目表（ボーナスフラグでしか出ない出目）。持ち越し中の察知に使う。
-  const reachEyes = new ReachEyes(
+  let reachEyes = new ReachEyes(
     ReachEyeTableSchema.parse(chapter.reachData),
     yakuList,
   );
@@ -214,12 +216,12 @@ export async function bootstrap() {
     ...yakuList.cherryYaku,
   ];
   /** 内部役テーブル（停止テーブルのキー解決に使う）。 */
-  const allRolesFlat = yakuList.internalRoles;
+  let allRolesFlat = yakuList.internalRoles;
 
-  const judge = new YakuJudge(yakuList);
+  let judge = new YakuJudge(yakuList);
   const calc = new PayoutCalc(payout);
   // 全停止時の「何が揃って何枚か」の確定。表示・音は含まない純粋な計算。
-  const roundResolver = new RoundResolver({
+  let roundResolver = new RoundResolver({
     judge,
     calc,
     reachEyes,
@@ -230,7 +232,7 @@ export async function bootstrap() {
   const scheduler = new EffectScheduler(effectRates.default);
   const jinState = new JinState();
   const quizState = new QuizState();
-  const slipResolver = new SlipResolver(yakuList, {
+  let slipResolver = new SlipResolver(yakuList, {
     assistMaxCells: tuning.assist.pullInCells,
   });
   const bonusZone = new BonusZone({
@@ -242,12 +244,12 @@ export async function bootstrap() {
   const bonusSession = new BonusSession(bonusZone);
   const sfx = new SfxEngine();
   const bgm = new BgmEngine();
-  const tenpaiDetector = new TenpaiDetector(yakuList);
-  const nearMissDetector = new NearMissDetector(yakuList);
+  let tenpaiDetector = new TenpaiDetector(yakuList);
+  let nearMissDetector = new NearMissDetector(yakuList);
   const playStats = new PlayStats();
-  const zukanState = new ZukanState(yakuList, chapterId);
+  let zukanState = new ZukanState(yakuList, chapterId);
   const challengeTracker = new ChallengeTracker();
-  const zukanOverlay = new ZukanOverlay(
+  let zukanOverlay = new ZukanOverlay(
     zukanState,
     yakuList,
     playStats,
@@ -430,7 +432,7 @@ export async function bootstrap() {
   const reelY = LIQUID_AREA_H + REEL_PEEK + FRAME_PAD;
 
   // 役単位のカラー解決：同じ役の3文字（左/中/右）が同じ色になる
-  const colorResolver = new SymbolColorResolver(yakuList);
+  let colorResolver = new SymbolColorResolver(yakuList);
 
   /**
    * カットインの背景。役が `cutinArt` を持っていればその一枚絵、無ければ役色から
@@ -447,14 +449,20 @@ export async function bootstrap() {
 
   // 章ごとの図柄画像（あれば）を読み込む。画像が無い章・plain設定・読込失敗時は空マップが返り、
   // ReelView も右の配列表も従来の色タイル＋文字にフォールバックする（詳細は render/ReelArt.ts）。
-  const {
+  // ステージ切替（リミックス島）で作り直すので let。
+  let {
     textures: symbolTextures,
     texturesPlain: symbolTexturesPlain,
     tileUrlWithVer,
     tilePlainUrlWithVer,
   } = await loadSymbolArt(chapterId, yakuList, ART_BASE);
   // 右パネルの図柄セル（文字ON/OFFで背景画像を差し替えるため保持）
-  const stripGlyphCells: { el: HTMLElement; glyph: string; plain: string }[] = [];
+  let stripGlyphCells: { el: HTMLElement; glyph: string; plain: string }[] = [];
+  /**
+   * 右パネル「リール配列」の中身を作る。実体は下（パネルのDOMが揃ってから）で代入する。
+   * ステージ切替でリールが入れ替わったら呼び直す。
+   */
+  let renderReelStrips: () => void = () => {};
   let reelGlyphsOn = localStorage.getItem('reelShowGlyphs') === '1';
 
   for (let i = 0; i < REEL_COUNT; i++) {
@@ -559,7 +567,7 @@ export async function bootstrap() {
   /** AUTOをOFFにした後、現在ゲームを全停止まで消化している最中か。 */
   let autoFinishing = false;
 
-  const internalRoleLottery = new InternalRoleLottery(yakuList, Math.random);
+  let internalRoleLottery = new InternalRoleLottery(yakuList, Math.random);
 
   // 示唆の期待度tier色 → 画面tint(hex) / ジンの煽り台詞。
   const SHISA_TINT: Record<ShisaTierColor, number> = {
@@ -664,7 +672,7 @@ export async function bootstrap() {
   applyEffect('none');
 
   // 演出が本当の内部役を表せるかの判定と、示唆が示す候補役の逆算。
-  const eligibility = new EffectEligibility({
+  let eligibility = new EffectEligibility({
     yakuList,
     quizzes: quizList.quizzes,
     shisaTiers: tuning.assist.shisaTiers,
@@ -1235,7 +1243,19 @@ export async function bootstrap() {
     // ここは別経路の情報で、1回のボーナスで一気に確度が上がることがある。
     const endScreen = drawEndScreen(machineSetting, Math.random);
     const hint = endScreen.label ? `　${endScreen.label}` : '';
-    showResult(`${label} 終了  獲得 +${payout}枚${hint}`, 'premium');
+    // リミックス島はここでステージが入れ替わる。**次の島を先に知らせる**——
+    // 黙って変えると「配列を覚え直す準備」ができず、ただ理不尽になる。
+    const nextStage = isRemixMachine(machine)
+      ? nextRemixStage(chapterId)
+      : null;
+    const nextName = nextStage
+      ? (CHAPTERS.find((c) => c.id === nextStage)?.name ?? nextStage)
+      : null;
+    showResult(
+      `${label} 終了  獲得 +${payout}枚${hint}` +
+        (nextName ? `　▶ 次は「${nextName}」` : ''),
+      'premium',
+    );
     sfx.winMulti(kind === 'reg' ? 2 : 4); // 既存ファンファーレを締めに流用
     // 示唆が出た時だけ画面の色を変える＝「何か出た」と気づける
     const flashColor =
@@ -1261,6 +1281,16 @@ export async function bootstrap() {
       shakeBody(endScreen.kind === 'max' ? 520 : 260);
     }
     jinSpeech.say('premium');
+
+    // 告知を読ませてから入れ替える。リールは全停止しているので差し替えて安全。
+    if (nextStage) {
+      window.setTimeout(() => {
+        void swapStage(nextStage).then(() => {
+          renderReelStrips();
+          showResult(`ステージ「${nextName}」`, 'premium');
+        });
+      }, 1500);
+    }
   };
 
   // ボーナス中の再当選（おかわり）= 残り回数に加算（上乗せ）。突入演出より軽い演出で伝える。
@@ -1541,13 +1571,121 @@ export async function bootstrap() {
    * ゲーム本体・監査テスト・出玉シミュレーターが同じ実装を使う。
    * ここは「今どの役が出目に出てよいか」をゲーム状態から組み立てて渡すだけ。
    */
-  const stopController = new StopController({
+  let stopController = new StopController({
     yakuList,
     slipResolver,
     tenpaiDetector,
     stopTable,
     pullInCells: PULL_IN_CELLS,
   });
+
+  /**
+   * ステージ（＝島）を差し替える。**リミックス島専用**。
+   *
+   * リール配列・役・停止テーブル・リーチ目・クイズ・図柄・図鑑が丸ごと入れ替わるので、
+   * それらに依存するオブジェクトを作り直す。ページをリロードしても同じことはできるが、
+   * それだと戦の記録（投資・回転数）が切れるので動的に差し替える。
+   *
+   * 依存する変数は `let` にしてある。クロージャは変数そのものを参照するので、
+   * ここで再代入すれば数百ある参照箇所を書き換えずに新しい実体へ切り替わる。
+   *
+   * **リールが回っている間は呼ばない**（停止制御の途中で配列が変わると出目が壊れる）。
+   */
+  const swapStage = async (nextChapterId: string): Promise<void> => {
+    chapterId = nextChapterId;
+    chapter = CHAPTERS.find((c) => c.id === chapterId) ?? chapter;
+
+    // --- データ層 ---
+    reelConfig = ReelConfigSchema.parse(chapter.reelData);
+    yakuList = applySetting(
+      YakuListSchema.parse(chapter.yakuData),
+      machineSetting,
+    );
+    quizList = QuizListSchema.parse(chapter.quizData);
+    stopTable = new StopTableLookup(StopTableSchema.parse(chapter.stopData));
+    reachEyes = new ReachEyes(
+      ReachEyeTableSchema.parse(chapter.reachData),
+      yakuList,
+    );
+    allRolesFlat = yakuList.internalRoles;
+
+    // --- ロジック層（yakuList に依存するもの）---
+    judge = new YakuJudge(yakuList);
+    slipResolver = new SlipResolver(yakuList, {
+      assistMaxCells: tuning.assist.pullInCells,
+    });
+    tenpaiDetector = new TenpaiDetector(yakuList);
+    nearMissDetector = new NearMissDetector(yakuList);
+    colorResolver = new SymbolColorResolver(yakuList);
+    internalRoleLottery = new InternalRoleLottery(yakuList, Math.random);
+    roundResolver = new RoundResolver({
+      judge,
+      calc,
+      reachEyes,
+      singlePayout: payout.baseMultiplier.single,
+      bitaMultiplier: payout.bitaMultiplier,
+    });
+    eligibility = new EffectEligibility({
+      yakuList,
+      quizzes: quizList.quizzes,
+      shisaTiers: tuning.assist.shisaTiers,
+      reelCount: REEL_COUNT,
+    });
+    stopController = new StopController({
+      yakuList,
+      slipResolver,
+      tenpaiDetector,
+      stopTable,
+      pullInCells: PULL_IN_CELLS,
+    });
+
+    // --- 図鑑（島ごとの記録なので作り直す。innerHTML で組むので旧DOMとリスナは消える）---
+    zukanState = new ZukanState(yakuList, chapterId);
+    zukanOverlay = new ZukanOverlay(
+      zukanState,
+      yakuList,
+      playStats,
+      challengeTracker,
+      {
+        premium: payout.baseMultiplier.premium,
+        bonus: payout.baseMultiplier.bonus,
+        cherry: payout.baseMultiplier.cherry,
+        spinsPerBig: tuning.bonus.spinsPerBig,
+        spinsPerReg: tuning.bonus.spinsPerReg,
+      },
+    );
+
+    // --- 描画層（図柄は非同期ロード）---
+    const art = await loadSymbolArt(chapterId, yakuList, ART_BASE);
+    symbolTextures = art.textures;
+    symbolTexturesPlain = art.texturesPlain;
+    tileUrlWithVer = art.tileUrlWithVer;
+    tilePlainUrlWithVer = art.tilePlainUrlWithVer;
+    for (const v of views) {
+      app.stage.removeChild(v.container);
+      v.container.destroy({ children: true });
+    }
+    engines.length = 0;
+    views.length = 0;
+    for (let i = 0; i < REEL_COUNT; i++) {
+      const engine = new ReelEngine(reelConfig.reels[i]);
+      const reelIdx = i;
+      const view = new ReelView(
+        engine,
+        (symbol) => colorResolver.colorFor(reelIdx, symbol),
+        (symbol) => colorResolver.tierFor(reelIdx, symbol),
+        (symbol) => art.texturesPlain.get(`${reelIdx}:${symbol}`) ?? null,
+        (symbol) => art.textures.get(`${reelIdx}:${symbol}`) ?? null,
+      );
+      view.container.x = startX + i * (CELL_WIDTH + REEL_GAP);
+      view.container.y = reelY;
+      app.stage.addChild(view.container);
+      view.setShowGlyphs(reelGlyphsOn);
+      view.setShowCellIndices(debugVisible);
+      engines.push(engine);
+      views.push(view);
+    }
+  };
 
   const resolveStopSlip = (
     idx: number,
@@ -2324,35 +2462,41 @@ export async function bootstrap() {
   const stripColumns = Array.from(
     document.querySelectorAll<HTMLElement>('#reel-strip-panel .strip-column'),
   );
-  stripColumns.forEach((col, idx) => {
-    const cellsEl = col.querySelector<HTMLElement>('.cells');
-    if (!cellsEl) return;
-    cellsEl.innerHTML = '';
-    // リールは「上から下へ流れる」＝ 視覚的にトップにある cell index が大きい。
-    // パネルもそれに合わせて、index 降順で上から下に並べる（reverse）。
-    // 元 index は data-index に保持し、ハイライト処理で参照する。
-    const cells = engines[idx].strip.cells;
-    for (let i = cells.length - 1; i >= 0; i--) {
-      const symbol = cells[i];
-      const cell = document.createElement('div');
-      cell.className = 'strip-cell';
-      const tileUrl = tileUrlWithVer(idx, symbol);
-      const plainUrl = tilePlainUrlWithVer(idx, symbol);
-      if (tileUrl && plainUrl) {
-        // 図柄画像をそのまま縮小表示。文字ON/OFF で文字あり/なし版を差し替え。
-        cell.classList.add('has-art');
-        cell.style.backgroundImage = `url("${reelGlyphsOn ? tileUrl : plainUrl}")`;
-        stripGlyphCells.push({ el: cell, glyph: tileUrl, plain: plainUrl });
-      } else {
-        // 画像が無い章：従来の役単位カラー＋白文字
-        cell.textContent = symbol;
-        cell.style.background = colorResolver.cssFor(idx, symbol);
-        cell.style.color = '#fff';
+  // 実体を上で宣言した変数へ入れる。ステージ切替（リミックス島）で呼び直すため。
+  renderReelStrips = () => {
+    // 図柄セルの参照は作り直す（古いDOMは innerHTML で捨てられる）。
+    stripGlyphCells = [];
+    stripColumns.forEach((col, idx) => {
+      const cellsEl = col.querySelector<HTMLElement>('.cells');
+      if (!cellsEl) return;
+      cellsEl.innerHTML = '';
+      // リールは「上から下へ流れる」＝ 視覚的にトップにある cell index が大きい。
+      // パネルもそれに合わせて、index 降順で上から下に並べる（reverse）。
+      // 元 index は data-index に保持し、ハイライト処理で参照する。
+      const cells = engines[idx].strip.cells;
+      for (let i = cells.length - 1; i >= 0; i--) {
+        const symbol = cells[i];
+        const cell = document.createElement('div');
+        cell.className = 'strip-cell';
+        const tileUrl = tileUrlWithVer(idx, symbol);
+        const plainUrl = tilePlainUrlWithVer(idx, symbol);
+        if (tileUrl && plainUrl) {
+          // 図柄画像をそのまま縮小表示。文字ON/OFF で文字あり/なし版を差し替え。
+          cell.classList.add('has-art');
+          cell.style.backgroundImage = `url("${reelGlyphsOn ? tileUrl : plainUrl}")`;
+          stripGlyphCells.push({ el: cell, glyph: tileUrl, plain: plainUrl });
+        } else {
+          // 画像が無い章：従来の役単位カラー＋白文字
+          cell.textContent = symbol;
+          cell.style.background = colorResolver.cssFor(idx, symbol);
+          cell.style.color = '#fff';
+        }
+        cell.dataset.index = String(i);
+        cellsEl.appendChild(cell);
       }
-      cell.dataset.index = String(i);
-      cellsEl.appendChild(cell);
-    }
-  });
+    });
+  };
+  renderReelStrips();
 
   const updateStripHighlight = () => {
     stripColumns.forEach((col, idx) => {
