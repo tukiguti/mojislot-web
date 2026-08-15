@@ -22,6 +22,16 @@ import { BonusZone } from './productions/BonusZone';
 import { BonusSession } from './productions/BonusSession';
 import { applySetting, applySettingToEffects } from './productions/MachineSetting';
 import { REMIX, applyRemixBoost } from './productions/RemixBoost';
+import {
+  EFFECT_STATUS,
+  EFFECT_STATUS_CLASSES,
+  SHISA_SPEECH,
+  SHISA_TINT,
+  STREAK_TIERS,
+  STREAK_TIER_CLASSES,
+  endScreenFlashColor,
+  streakTierOf,
+} from './productions/EffectPresentation';
 import { settingForMachine } from './productions/HallPolicy';
 import { recordSpin as recordMachineSpin } from './productions/MachineData';
 import { drawEndScreen } from './productions/SettingHint';
@@ -41,6 +51,9 @@ import {
   flashScreen,
   spawnConfetti,
   shakeBody,
+  showCoinBurst,
+  showCoinFloat,
+  showSecretToast,
   showPremiumCutin,
   type CutinBackdrop,
   showMultiHitBadge,
@@ -58,7 +71,7 @@ import {
   clearFreezeBanner,
   showRankUpBadge,
 } from './ui/Effects';
-import { JinSpeech, type JinSpeechEvent } from './ui/JinSpeech';
+import { JinSpeech } from './ui/JinSpeech';
 import { ChallengeTracker } from './productions/Challenges';
 import { showMissionToast } from './ui/MissionToast';
 import { SettingsOverlay } from './ui/SettingsOverlay';
@@ -93,7 +106,6 @@ import {
   type Yaku,
   type YakuList,
   type ShisaTier,
-  type ShisaTierColor,
   type InternalRoleState,
 } from './data/schemas';
 import payoutDataRaw from '../data/payouts/default.json';
@@ -620,21 +632,6 @@ export async function bootstrap() {
 
   let internalRoleLottery = new InternalRoleLottery(yakuList, Math.random);
 
-  // 示唆の期待度tier色 → 画面tint(hex) / ジンの煽り台詞。
-  const SHISA_TINT: Record<ShisaTierColor, number> = {
-    blue: 0x66ccff,
-    green: 0x4ade80,
-    red: 0xff3b30,
-    gold: 0xffcc33,
-    rainbow: 0xff66cc,
-  };
-  const SHISA_SPEECH: Record<ShisaTierColor, JinSpeechEvent> = {
-    blue: 'shisaWeak',
-    green: 'shisaWeak',
-    red: 'shisaBonus',
-    gold: 'shisaPremium',
-    rainbow: 'shisaPremium',
-  };
   interface EffectOptions {
     targetYaku?: Yaku | null;
     shisaTier?: ShisaTier | null;
@@ -653,20 +650,16 @@ export async function bootstrap() {
       currentShisaTier ? SHISA_TINT[currentShisaTier.color] : undefined,
     );
 
-    effectStatusEl.classList.remove(
-      'shisa',
-      'quiz',
-      'aim',
-      'tier-blue',
-      'tier-green',
-      'tier-red',
-      'tier-gold',
-      'tier-rainbow',
-    );
+    // ラベル・クラス・ジンの表情は対応表から引く（EffectPresentation）。
+    // 分岐ごとに書いていた頃は、色や演出を足すたびに揃えて直す必要があった。
+    const view = EFFECT_STATUS[effect];
+    effectStatusEl.classList.remove(...EFFECT_STATUS_CLASSES);
+    effectStatusEl.textContent = view.label;
+    if (view.statusClass) effectStatusEl.classList.add(view.statusClass);
+    jinState.set(view.jin);
+
     if (effect === 'shisa' && currentShisaTier) {
-      effectStatusEl.textContent = '示唆';
-      effectStatusEl.classList.add('shisa', `tier-${currentShisaTier.color}`);
-      jinState.set('shisa');
+      effectStatusEl.classList.add(`tier-${currentShisaTier.color}`);
       sfx.shisa();
       jinSpeech.say(SHISA_SPEECH[currentShisaTier.color]);
       // 示唆はカテゴリしか示さない＝候補を全部並べて「どれかな…？」と迷わせる。
@@ -683,9 +676,6 @@ export async function bootstrap() {
         });
       }
     } else if (effect === 'quiz') {
-      effectStatusEl.textContent = 'クイズ';
-      effectStatusEl.classList.add('quiz');
-      jinState.set('quiz');
       // 回答操作なし方式：まず問題だけを出し、答えの役を引き込み対象にする（操作はaim相当）。
       // 答えと成立結果は全停止後に QuizState.resolve() で表示する。
       const quiz = options.targetYaku
@@ -694,9 +684,6 @@ export async function bootstrap() {
       if (quiz) quizState.reveal(quiz, yakuList);
       sfx.quiz();
     } else if (effect === 'aim') {
-      effectStatusEl.textContent = '狙え！';
-      effectStatusEl.classList.add('aim');
-      jinState.set('shisa');
       // レバーONで決めた内部役をそのまま予告する。aimは候補選定時点で3文字役に限定済み。
       const targetYaku = options.targetYaku;
       if (!targetYaku) return;
@@ -715,9 +702,6 @@ export async function bootstrap() {
       });
       sfx.shisa(); // 既存の示唆 SE を流用
       jinSpeech.say('shisa');
-    } else {
-      effectStatusEl.textContent = '通常';
-      jinState.set('idle');
     }
   };
   applyEffect('none');
@@ -1021,65 +1005,18 @@ export async function bootstrap() {
     }
   });
 
-  function showSecretToast(text: string): void {
-    const el = document.createElement('div');
-    el.className = 'secret-toast';
-    el.textContent = text;
-    document.body.appendChild(el);
-    requestAnimationFrame(() => el.classList.add('show'));
-    window.setTimeout(() => el.classList.remove('show'), 3500);
-    window.setTimeout(() => el.remove(), 4000);
-  }
-
-  // 役成立時の +N フロート
-  const showCoinFloat = (amount: number, premium: boolean) => {
-    const el = document.createElement('div');
-    el.className = 'coin-float' + (premium ? ' premium' : '');
-    el.textContent = `+${amount}`;
-    document.body.appendChild(el);
-    const rect = coinEl.getBoundingClientRect();
-    el.style.left = `${rect.left + rect.width + 6}px`;
-    el.style.top = `${rect.top}px`;
-    requestAnimationFrame(() => el.classList.add('rise'));
-    window.setTimeout(() => el.remove(), 1400);
-  };
-
-  /** 大配当時：🪙 を画面下に向かって複数飛ばす（カジノっぽい演出） */
-  const showCoinBurst = (count: number) => {
-    const startRect = cabinetEl.getBoundingClientRect();
-    const cx = startRect.left + startRect.width / 2;
-    const cy = startRect.top + startRect.height / 2;
-    for (let i = 0; i < count; i++) {
-      const el = document.createElement('div');
-      el.className = 'coin-burst';
-      el.textContent = '🪙';
-      document.body.appendChild(el);
-      const startJitter = (Math.random() - 0.5) * 80;
-      el.style.left = `${cx + startJitter}px`;
-      el.style.top = `${cy}px`;
-      const angle = (Math.random() - 0.5) * Math.PI; // -90°..90°（下方向）
-      const distance = 220 + Math.random() * 180;
-      const dx = Math.sin(angle) * distance;
-      const dy = Math.cos(angle) * distance + 100;
-      window.setTimeout(() => {
-        el.style.transform = `translate(${dx}px, ${dy}px) rotate(${(Math.random() - 0.5) * 720}deg)`;
-        el.classList.add('fly');
-      }, i * 35);
-      window.setTimeout(() => el.remove(), 1700 + i * 35);
-    }
-  };
+  /** コイン表示の横に「+N」を出す。 */
+  const showCoinFloatAt = (amount: number, premium: boolean) =>
+    showCoinFloat(coinEl, amount, premium);
+  /** 筐体の中心からコインを撒く。 */
+  const showCoinBurstAt = (count: number) => showCoinBurst(cabinetEl, count);
 
   // 章名をヘッダー（演出ステータス上）に出すため、effectStatus の title に
   // 章説明を入れておく（ホバーで確認）
   effectStatusEl.title = `${chapter.name}：${chapter.description}`;
 
   // 連チャン表示（倍率も併記）＋ cabinet の連チャンオーラ
-  // 連チャン昇格演出: オーラ4段の見た目用しきい値（配当の streakTiers とは独立のビジュアル）。
-  // 段が上がった瞬間にランクアップ演出(フラッシュ＋紙吹雪＋SE)を出す。12連以上は最上段で表現。
-  const STREAK_TIER_THRESHOLDS = [2, 5, 8, 12];
-  const STREAK_TIER_CLASS = ['streak-aura', 'streak-aura-hot', 'streak-aura-fever', 'streak-aura-max'];
-  const STREAK_TIER_COLOR = ['#ffd700', '#ff8a00', '#ff3366', '#c060ff'];
-  const streakTierOf = (s: number) => STREAK_TIER_THRESHOLDS.filter((th) => s >= th).length; // 0..4
+  // 連チャン昇格演出。段の定義は EffectPresentation.STREAK_TIERS。
   let prevStreakTier = 0;
   const updateStreakUI = (streak: number) => {
     if (streak >= 2) {
@@ -1092,11 +1029,11 @@ export async function bootstrap() {
       streakStatusEl.textContent = '';
     }
     const tier = streakTierOf(streak);
-    cabinetEl.classList.remove(...STREAK_TIER_CLASS);
-    if (tier >= 1) cabinetEl.classList.add(STREAK_TIER_CLASS[tier - 1]);
+    cabinetEl.classList.remove(...STREAK_TIER_CLASSES);
+    if (tier >= 1) cabinetEl.classList.add(STREAK_TIERS[tier - 1].className);
     // 昇格した瞬間（段が上がった時）にランクアップ演出
     if (tier > prevStreakTier && tier >= 1) {
-      const color = STREAK_TIER_COLOR[tier - 1];
+      const color = STREAK_TIERS[tier - 1].color;
       flashScreen({ color, alpha: 0.45, durMs: 340 });
       spawnConfetti(18 + tier * 16);
       sfx.winMulti(Math.min(5, tier + 1));
@@ -1223,8 +1160,8 @@ export async function bootstrap() {
       // 役成立SE＋中央ハイライト＋コインフロート＋紙吹雪少々
       sfx.winCore();
       for (const v of views) v.highlightCenter(1400);
-      showCoinFloat(24, false);
-      showCoinBurst(5);
+      showCoinFloatAt(24, false);
+      showCoinBurstAt(5);
       jinSpeech.say('win');
     },
     triggerTenpaiSe: () => {
@@ -1326,22 +1263,8 @@ export async function bootstrap() {
       'premium',
     );
     sfx.winMulti(kind === 'reg' ? 2 : 4); // 既存ファンファーレを締めに流用
-    // 示唆が出た時だけ画面の色を変える＝「何か出た」と気づける
-    const flashColor =
-      endScreen.kind === 'max'
-        ? '#b06bff'
-        : endScreen.kind === 'high'
-          ? '#ffd700'
-          : endScreen.kind === 'even'
-            ? '#6ee0d0'
-            : // 奇数示唆は偶数と別色にする。同じ色だと「月が出た」までしか
-              // 伝わらず、6が消えたのか残ったのかが読めない
-              endScreen.kind === 'odd'
-              ? '#f0a860'
-              : kind === 'reg'
-              ? '#cdd6e0'
-              : '#ffd700';
-    flashScreen({ color: flashColor, alpha: 0.6, durMs: 380 });
+    // 示唆が出た時だけ画面の色を変える＝「何か出た」と気づける（色は EffectPresentation）。
+    flashScreen({ color: endScreenFlashColor(endScreen.kind, kind), alpha: 0.6, durMs: 380 });
     spawnConfetti(kind === 'reg' ? 40 : 80);
     if (endScreen.kind !== 'normal') {
       // 示唆つきは余韻を足す。強いほど派手に。
@@ -2126,17 +2049,17 @@ export async function bootstrap() {
           }
         }
         // コイン獲得 +N フロート表示
-        if (win > 0) showCoinFloat(win, isPremium);
+        if (win > 0) showCoinFloatAt(win, isPremium);
         // 大配当はコインバースト（プレミアム=多め / レギュラー=中程度）
-        if (isPremium) showCoinBurst(28);
-        else if (isRegular) showCoinBurst(16);
-        else if (win >= 50) showCoinBurst(12);
-        else if (win >= 24) showCoinBurst(5);
+        if (isPremium) showCoinBurstAt(28);
+        else if (isRegular) showCoinBurstAt(16);
+        else if (win >= 50) showCoinBurstAt(12);
+        else if (win >= 24) showCoinBurstAt(5);
         // 予告役的中（狙え／クイズ正解）は配当の大小に関わらず、達成感のコインバーストを別途出す
-        if (noticeBonus > 0) showCoinBurst(10);
+        if (noticeBonus > 0) showCoinBurstAt(10);
         // ビタ押し成立は配当の大小に関わらず祝う（技術が報われた瞬間）
         if (outcome.bitaBonus > 0) {
-          showCoinBurst(12);
+          showCoinBurstAt(12);
           sfx.bita();
         }
         // プレミアム成立でビッグボーナス突入＋全画面演出

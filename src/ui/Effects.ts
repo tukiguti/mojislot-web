@@ -495,6 +495,64 @@ export function stopBonusSparkle(): void {
   }
 }
 
+/**
+ * 役成立時の「+N」フロート。`anchor`（コイン表示）の右横から浮き上がる。
+ *
+ * 出力先は body 固定。液晶ホストに入れるとクリップされて、
+ * 液晶の外に置いてあるコイン表示の横まで届かない。
+ */
+export function showCoinFloat(
+  anchor: HTMLElement,
+  amount: number,
+  premium: boolean,
+): void {
+  const el = document.createElement('div');
+  el.className = 'coin-float' + (premium ? ' premium' : '');
+  el.textContent = `+${amount}`;
+  document.body.appendChild(el);
+  const rect = anchor.getBoundingClientRect();
+  el.style.left = `${rect.left + rect.width + 6}px`;
+  el.style.top = `${rect.top}px`;
+  requestAnimationFrame(() => el.classList.add('rise'));
+  window.setTimeout(() => el.remove(), 1400);
+}
+
+/** 大配当時：🪙 を `anchor`（筐体）の中心から下方向へ複数飛ばす。 */
+export function showCoinBurst(anchor: HTMLElement, count: number): void {
+  const startRect = anchor.getBoundingClientRect();
+  const cx = startRect.left + startRect.width / 2;
+  const cy = startRect.top + startRect.height / 2;
+  for (let i = 0; i < count; i++) {
+    const el = document.createElement('div');
+    el.className = 'coin-burst';
+    el.textContent = '🪙';
+    document.body.appendChild(el);
+    const startJitter = (Math.random() - 0.5) * 80;
+    el.style.left = `${cx + startJitter}px`;
+    el.style.top = `${cy}px`;
+    const angle = (Math.random() - 0.5) * Math.PI; // -90°..90°（下方向）
+    const distance = 220 + Math.random() * 180;
+    const dx = Math.sin(angle) * distance;
+    const dy = Math.cos(angle) * distance + 100;
+    window.setTimeout(() => {
+      el.style.transform = `translate(${dx}px, ${dy}px) rotate(${(Math.random() - 0.5) * 720}deg)`;
+      el.classList.add('fly');
+    }, i * 35);
+    window.setTimeout(() => el.remove(), 1700 + i * 35);
+  }
+}
+
+/** 隠し章の解除など、ゲーム進行の外側の知らせ。3.5秒で自然に消える。 */
+export function showSecretToast(text: string): void {
+  const el = document.createElement('div');
+  el.className = 'secret-toast';
+  el.textContent = text;
+  document.body.appendChild(el);
+  requestAnimationFrame(() => el.classList.add('show'));
+  window.setTimeout(() => el.classList.remove('show'), 3500);
+  window.setTimeout(() => el.remove(), 4000);
+}
+
 function escape(s: string): string {
   return s
     .replace(/&/g, '&amp;')
