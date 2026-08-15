@@ -777,15 +777,14 @@ export async function bootstrap() {
     role: InternalRoleResult,
     effect: EffectType,
     source: RoundSource,
-    reuseRoundNumber = false,
   ) => {
     const yaku = internalRoleLottery.yakuFor(role);
     const shisaTier =
       effect === 'shisa' && yaku ? eligibility.pickTier(yaku, Math.random) : null;
-    const nextRoundNumber =
-      reuseRoundNumber && currentRound ? currentRound.roundNumber : ++roundNumber;
+    // 回転中の差し替えを廃したので、レバーONごとに必ず新しい番号になる
+    // （以前はデバッグの即時差し替えだけが同じ番号を使い回していた）。
     currentRound = createRoundContext({
-      roundNumber: nextRoundNumber,
+      roundNumber: ++roundNumber,
       internalRole: role,
       effect,
       source,
@@ -813,16 +812,34 @@ export async function bootstrap() {
         yaku !== null && eligibility.canRepresent(effect, yaku),
     });
 
+  /**
+   * デバッグ：演出を強制する。**必ず次のレバーへの予約**にする。
+   *
+   * 以前は回転中に押すと現在のゲームを差し替えていたが、レバーONを1ゲームの確定点と
+   * する作りと食い違う。すでに止めたリールがある状態で内部役だけ挿げ替わるので、
+   * 引き込みの前提が崩れて出目が壊れる。他の強制（フラグ・遅れ・フリーズ）は
+   * すべて予約なので、ここだけ即時なのも一貫していなかった。
+   *
+   * 確定告知ランプ点灯中とフリーズ中は受け付けない。どちらも進行が固定されていて
+   * 演出は none のまま回るので、無理に差し込むと**実際には起こらない組み合わせ**を
+   * 見せることになる（遅れのデバッグで同じ判断をしている）。
+   */
   const forceDebugEffect = (effect: ForcedEffect, label: string) => {
-    const anySpinning = engines.some((engine) => engine.state.get() === 'spinning');
-    if (!anySpinning) {
-      pendingDebugEffect = effect;
-      showResult(`${label}を次のレバーに予約`, 'win');
+    if (freezeActive) {
+      showResult('フリーズ中は予約できません', 'none');
       return;
     }
-    const role = drawDebugRole(effect);
-    activateRound(role, effect, 'debug', true);
-    if (autoMode) setupAutoTarget();
+    if (announcedBonus) {
+      showResult('確定ランプ点灯中は演出が出ません', 'none');
+      return;
+    }
+    // 予約済みの上へ重ねた時は、黙って消さずに差し替えたことを伝える。
+    const replaced = pendingDebugEffect !== null && pendingDebugEffect !== effect;
+    pendingDebugEffect = effect;
+    showResult(
+      replaced ? `${label}へ差し替え（次のレバー）` : `${label}を次のレバーに予約`,
+      'win',
+    );
   };
 
   // コイン残量に応じてヘッダー色を警告状態に
@@ -1192,18 +1209,14 @@ export async function bootstrap() {
     },
     triggerAnnounceLamp: () => {
       // 確定告知ランプを即点灯（種別は内部抽選＝伏せ）。以降、目押しで揃えに行くと回収。
+      //
+      // **回っている最中のゲームは差し替えない。** すでに止めたリールがある状態で
+      // 内部役だけ挿げ替えると引き込みの前提が崩れて出目が壊れる。点灯だけしておけば、
+      // 次のレバーから `announcedBonus` の分岐が毎ゲーム確定役を回すので回収できる。
       if (!announcedBonus && !bonusZone.isActive() && !freezeActive) {
         announceBonus();
         const anySpinning = engines.some((engine) => engine.state.get() === 'spinning');
-        if (anySpinning && announcedRole) {
-          activateRound(
-            internalRoleLottery.forYaku(announcedRole),
-            'none',
-            'announce',
-            true,
-          );
-          if (autoMode) setupAutoTarget();
-        }
+        if (anySpinning) showResult('点灯。次のレバーから回収できます', 'win');
       }
     },
     triggerWinTest: () => {
@@ -1457,6 +1470,13 @@ export async function bootstrap() {
 
     if (forcedFreezeRole) {
       activateRound(forcedFreezeRole, 'none', 'freeze');
+    } else if (pendingDebugEffect) {
+      // デバッグの予約は**確定ランプ・持ち越しより先に消費する**。後ろに置くと、
+      // ランプ点灯中や持ち越し中に押した予約が何ゲームも積み残されたまま、
+      // 忘れた頃に発火する（押した本人には上書きされたように見える）。
+      const effect = pendingDebugEffect;
+      pendingDebugEffect = null;
+      activateRound(drawDebugRole(effect), effect, 'debug');
     } else if (announcedBonus && announcedRole) {
       activateRound(
         internalRoleLottery.forYaku(announcedRole),
@@ -1484,10 +1504,6 @@ export async function bootstrap() {
           : 'none',
         'debug',
       );
-    } else if (pendingDebugEffect) {
-      const effect = pendingDebugEffect;
-      pendingDebugEffect = null;
-      activateRound(drawDebugRole(effect), effect, 'debug');
     } else if (heldBonusYaku) {
       // 持ち越し中：フラグは生きているが**演出は出ない**（実機Aタイプ）。
       // 小役は全部蹴られるので出目が普段と変わる＝それがリーチ目になる。
