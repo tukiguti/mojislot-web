@@ -3797,3 +3797,111 @@ to {
   border-color: #fff7aa;
   color: var(--gold);
 }
+
+/* ============================================================
+   見やすさ（アクセシビリティ）
+   ルート要素のクラスで分岐する。状態は productions/Accessibility.ts。
+
+   方針は「情報を減らさない」こと。動き・光・色を弱めるかわりに、
+   それらが運んでいた意味は文字とバッジで残す。
+   ============================================================ */
+
+/* --- 動きを減らす ---
+   繰り返し光る／揺れる／回るものを止める。**リールの回転は Pixi 側**なので
+   ここでは触らない（あれは演出ではなく操作対象そのもの）。
+   出現アニメは消さずに一瞬にする——消すと要素が出てこないものがあるため。 */
+.a11y-reduce-motion #bonus-status,
+.a11y-reduce-motion #cabinet.bonus,
+.a11y-reduce-motion .announce-lamp,
+.a11y-reduce-motion .freeze-overlay,
+.a11y-reduce-motion .premium-cutin-rays,
+.a11y-reduce-motion .premium-cutin-label,
+.a11y-reduce-motion .aim-notice-label,
+.a11y-reduce-motion .aim-arrow,
+.a11y-reduce-motion .aim-reel-symbol,
+.a11y-reduce-motion .multi-hit-badge,
+.a11y-reduce-motion #streak-status,
+.a11y-reduce-motion #coin-display.critical,
+.a11y-reduce-motion #cabinet[class*='streak-aura'],
+.a11y-reduce-motion #stage-status.changed {
+  animation: none !important;
+}
+/* 出現系は残すが一瞬で終わらせる（終端の姿は保たれる） */
+.a11y-reduce-motion .premium-cutin,
+.a11y-reduce-motion .premium-cutin-symbol,
+.a11y-reduce-motion .rankup-badge,
+.a11y-reduce-motion .entry-charge,
+.a11y-reduce-motion .bonus-banner,
+.a11y-reduce-motion .shisa-cand,
+.a11y-reduce-motion .secret-toast {
+  animation-duration: 0.01ms !important;
+  animation-iteration-count: 1 !important;
+}
+.a11y-reduce-motion body.shake {
+  animation: none !important;
+}
+
+/* --- 光を弱める ---
+   フラッシュは JS 側で alpha を下げてある。ここではグローを落とす。
+   色そのものは変えない（色で意味を分けている箇所があるため）。 */
+.a11y-dim #bonus-status,
+.a11y-dim #streak-status,
+.a11y-dim #rescue-status,
+.a11y-dim .announce-lamp,
+.a11y-dim .premium-cutin,
+.a11y-dim .multi-hit-badge,
+.a11y-dim .rankup-badge {
+  box-shadow: none !important;
+  text-shadow: none !important;
+}
+.a11y-dim #cabinet[class*='streak-aura'] {
+  box-shadow: none !important;
+}
+.a11y-dim .premium-cutin-rays {
+  opacity: 0.25;
+}
+
+/* --- 色に頼らない表示 ---
+   色だけで意味を運んでいた箇所に、形か文字を足す。
+   ビタ押しのリップルは金／赤の色差だけだったので、ビタ側を二重の輪にする。 */
+.a11y-color-safe .btn-ripple.bita {
+  border-width: 4px;
+  border-style: double;
+}
+/* 差枚のプラス／マイナスは符号が付いているが、色を薄い人向けに太さも変える */
+.a11y-color-safe .ctr-logrow .c-sa.plus,
+.a11y-color-safe #unit-sahmai.plus {
+  text-decoration: underline;
+}
+
+/* --- 消音中の視覚通知 ---
+   音でしか出ていない手応えを短いバッジで出す。液晶の下辺に小さく置き、
+   出目を隠さない位置にする。 */
+.sound-cue {
+  position: absolute;
+  left: 50%;
+  bottom: 10px;
+  transform: translateX(-50%) translateY(6px);
+  z-index: 70;
+  padding: 2px 10px;
+  border-radius: 3px;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 2px;
+  color: #0c0a0d;
+  background: rgba(240, 238, 232, 0.9);
+  opacity: 0;
+  transition: opacity 0.12s ease-out, transform 0.12s ease-out;
+  pointer-events: none;
+}
+.sound-cue.show {
+  opacity: 1;
+  transform: translateX(-50%) translateY(0);
+}
+.sound-cue.bita {
+  color: #1a1100;
+  background: linear-gradient(180deg, #ffe566 0%, #ffc400 100%);
+}
+.a11y-reduce-motion .sound-cue {
+  transition: none;
+}

@@ -10,6 +10,25 @@ export function setEffectHost(el: HTMLElement): void {
   effectHost = el;
 }
 
+/**
+ * 見やすさの設定のうち、**JSで止めないと効かない**もの。
+ *
+ * CSSでアニメーションを0秒にしても、紙吹雪やコインは要素が生成されて終端の姿で
+ * 画面に残ってしまう。数を作らないのはここでしか判断できない。
+ * `Accessibility` を直接 import すると演出→設定→演出の循環になるので、
+ * main.ts から流し込む形にしている。
+ */
+let a11yReduceMotion = false;
+let a11yDim = false;
+export function setEffectA11y(opts: {
+  reduceMotion: boolean;
+  dim: boolean;
+}): void {
+  a11yReduceMotion = opts.reduceMotion;
+  a11yDim = opts.dim;
+  if (a11yReduceMotion || a11yDim) stopBonusSparkle();
+}
+
 const CONFETTI_COLORS = [
   '#ffd700',
   '#ff66cc',
@@ -26,7 +45,9 @@ export function flashScreen(opts: {
   durMs?: number;
 } = {}): void {
   const color = opts.color ?? '#ffffff';
-  const alpha = opts.alpha ?? 0.7;
+  // 光を弱める設定では**消さずに薄くする**。フラッシュは「何か出た」の合図を
+  // 兼ねているので、消すと示唆が出たことに気づけなくなる。
+  const alpha = (opts.alpha ?? 0.7) * (a11yDim ? 0.3 : 1);
   const durMs = opts.durMs ?? 280;
   const el = document.createElement('div');
   el.className = 'screen-flash';
@@ -42,6 +63,7 @@ export function flashScreen(opts: {
 
 /** 紙吹雪を画面上から降らせる */
 export function spawnConfetti(count = 80): void {
+  if (a11yReduceMotion) return;
   const container = document.createElement('div');
   container.className = 'confetti-container';
   effectHost.appendChild(container);
@@ -62,6 +84,7 @@ export function spawnConfetti(count = 80): void {
 
 /** body 全体を一時的に揺らす（cabinet の bonus アニメと干渉しない） */
 export function shakeBody(durMs = 500): void {
+  if (a11yReduceMotion) return;
   document.body.classList.add('shake');
   window.setTimeout(() => document.body.classList.remove('shake'), durMs);
 }
@@ -430,13 +453,15 @@ export function hideShisaNotice(): void {
 export function spawnButtonRipple(
   buttonEl: HTMLElement,
   color = '#ffd700',
+  /** 追加クラス。色以外の見分け（`bita` は二重の輪）に使う。 */
+  extraClass?: string,
 ): void {
   const rect = buttonEl.getBoundingClientRect();
   const cx = rect.left + rect.width / 2;
   const cy = rect.top + rect.height / 2;
   const size = Math.max(rect.width, rect.height) * 1.6;
   const ripple = document.createElement('div');
-  ripple.className = 'btn-ripple';
+  ripple.className = extraClass ? `btn-ripple ${extraClass}` : 'btn-ripple';
   ripple.style.left = `${cx - size / 2}px`;
   ripple.style.top = `${cy - size / 2}px`;
   ripple.style.width = `${size}px`;
@@ -456,6 +481,8 @@ let bonusSparkleTimer: number | null = null;
 let bonusSparkleContainer: HTMLElement | null = null;
 
 export function startBonusSparkle(): void {
+  // 画面全体で粒が湧き続けるので、動きにも光にも当たる。どちらの設定でも出さない。
+  if (a11yReduceMotion || a11yDim) return;
   if (bonusSparkleTimer !== null) return;
   bonusSparkleContainer = document.createElement('div');
   bonusSparkleContainer.className = 'bonus-sparkle-layer';
@@ -519,6 +546,7 @@ export function showCoinFloat(
 
 /** 大配当時：🪙 を `anchor`（筐体）の中心から下方向へ複数飛ばす。 */
 export function showCoinBurst(anchor: HTMLElement, count: number): void {
+  if (a11yReduceMotion) return;
   const startRect = anchor.getBoundingClientRect();
   const cx = startRect.left + startRect.width / 2;
   const cy = startRect.top + startRect.height / 2;

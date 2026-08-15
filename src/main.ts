@@ -22,6 +22,7 @@ import { BonusZone } from './productions/BonusZone';
 import { BonusSession } from './productions/BonusSession';
 import { applySetting, applySettingToEffects } from './productions/MachineSetting';
 import { REMIX, applyRemixBoost } from './productions/RemixBoost';
+import { TIER_COLOR_NAME, a11y } from './productions/Accessibility';
 import {
   EFFECT_STATUS,
   EFFECT_STATUS_CLASSES,
@@ -60,6 +61,7 @@ import {
   startBonusSparkle,
   stopBonusSparkle,
   spawnButtonRipple,
+  setEffectA11y,
   showAimNotice,
   hideAimNotice,
   showShisaNotice,
@@ -428,6 +430,35 @@ export async function bootstrap() {
   requireEl('game-area').appendChild(lcdFx);
   setEffectHost(lcdFx);
 
+  // 見やすさの設定のうち、CSSでは止めきれないもの（紙吹雪やコインの生成）を
+  // 演出側へ流し込む。設定は開いたまま切り替えられるので購読しておく。
+  const pushEffectA11y = () => {
+    const s = a11y.get();
+    setEffectA11y({ reduceMotion: s.reduceMotion, dim: s.dim });
+  };
+  pushEffectA11y();
+  a11y.settings.subscribe(pushEffectA11y);
+
+  /**
+   * 消音中の視覚通知。音でしか出ていない手応え（ビタ・テンパイ）を液晶の下辺に短く出す。
+   * **消音していて、かつ設定がONの時だけ**。音が鳴っているなら二重になるので出さない。
+   */
+  const soundCueEl = document.createElement('div');
+  soundCueEl.className = 'sound-cue';
+  lcdFx.appendChild(soundCueEl);
+  let soundCueTimer: number | null = null;
+  const showSoundCue = (text: string, kind?: 'bita') => {
+    if (!a11y.get().soundCue || !sfx.isMuted()) return;
+    if (soundCueTimer !== null) window.clearTimeout(soundCueTimer);
+    soundCueEl.className = kind ? `sound-cue ${kind}` : 'sound-cue';
+    soundCueEl.textContent = text;
+    requestAnimationFrame(() => soundCueEl.classList.add('show'));
+    soundCueTimer = window.setTimeout(() => {
+      soundCueEl.classList.remove('show');
+      soundCueTimer = null;
+    }, 700);
+  };
+
   // 確定告知ランプ（GOGOランプ風）。点灯=ボーナス確定・種別は伏せて「?」表示。
   const announceLampEl = document.createElement('div');
   announceLampEl.id = 'announce-lamp';
@@ -660,6 +691,12 @@ export async function bootstrap() {
 
     if (effect === 'shisa' && currentShisaTier) {
       effectStatusEl.classList.add(`tier-${currentShisaTier.color}`);
+      // 色に頼らない設定では色名を添える。示唆は**色がそのまま候補の範囲**なので、
+      // 色が読めないと「示唆が出た」までしか伝わらない。
+      if (a11y.get().colorSafe) {
+        const name = TIER_COLOR_NAME[currentShisaTier.color];
+        if (name) effectStatusEl.textContent = `${view.label}・${name}`;
+      }
       sfx.shisa();
       jinSpeech.say(SHISA_SPEECH[currentShisaTier.color]);
       // 示唆はカテゴリしか示さない＝候補を全部並べて「どれかな…？」と迷わせる。
@@ -1758,17 +1795,21 @@ export async function bootstrap() {
     // 押下の精度情報を保存（役成立時の bita 集計で参照）
     lastPressErrorMs[idx] = result.errorMs;
     lastSlipCells[idx] = slipCells;
-    if (result.errorMs <= BITA_MS) {
+    const bita = result.errorMs <= BITA_MS;
+    if (bita) {
       sfx.bita();
+      showSoundCue('ビタ', 'bita');
     } else {
       sfx.stop();
     }
     views[idx].triggerStopBounce();
     flashButton(stopBtns[idx]);
-    // ビタ押し成功時のみ、強めの金色リップル。それ以外は控えめな赤
+    // ビタ押し成功時のみ、強めの金色リップル。それ以外は控えめな赤。
+    // 色だけの差だったので、色に頼らない設定では bita 側を二重の輪にする（CSS）。
     spawnButtonRipple(
       stopBtns[idx],
-      result.errorMs <= BITA_MS ? '#ffd700' : '#ff5566',
+      bita ? '#ffd700' : '#ff5566',
+      bita ? 'bita' : undefined,
     );
 
     // 1確（いっかく）＝第1停止だけでボーナスが確定する出目。中段にボーナス専用図柄が
@@ -1856,6 +1897,7 @@ export async function bootstrap() {
         views[tenpai.missingReelIndex].startTenpaiFlash(tenpai.hasPremium);
         if (tenpai.hasPremium) sfx.tenpaiPremium();
         else sfx.tenpai();
+        showSoundCue('テンパイ');
         jinSpeech.say('tenpai');
       }
     }

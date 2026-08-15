@@ -3,6 +3,7 @@ import type { CoinWallet } from '../core/CoinWallet';
 import type { PlayStats } from '../productions/PlayStats';
 import type { ZukanState } from '../productions/ZukanState';
 import type { ChallengeTracker } from '../productions/Challenges';
+import { a11y, type A11ySettings } from '../productions/Accessibility';
 
 /**
  * 設定モーダル：ミッション/表示/リセット/（任意で）デバッグ操作を集約。
@@ -36,6 +37,45 @@ export interface DebugActions {
 }
 
 /** リール速度の保存キー（main.ts の reelSpeed() と共有）。 */
+
+/** 見やすさの4項目。説明は「何が変わるか」を具体で書く（体感で選べるように）。 */
+const A11Y_ROWS: {
+  key: keyof A11ySettings;
+  title: string;
+  sub: string;
+}[] = [
+  {
+    key: 'reduceMotion',
+    title: '動きを減らす',
+    sub: '揺れ・紙吹雪・コイン撒き・光の周回を止めます。リールの回転とブラーはそのままです。',
+  },
+  {
+    key: 'dim',
+    title: '光を弱める',
+    sub: '全画面フラッシュを薄くし、グローとスパークルを落とします。示唆の色は残ります。',
+  },
+  {
+    key: 'colorSafe',
+    title: '色に頼らない表示',
+    sub: '示唆の色に色名を添え、ビタ押しのリップルを二重の輪にします。',
+  },
+  {
+    key: 'soundCue',
+    title: '消音中に音の合図を出す',
+    sub: '♪ をオフにしている間、ビタ押しとテンパイを画面の下に文字で出します。',
+  },
+];
+
+const a11yRow = (r: (typeof A11Y_ROWS)[number]): string => {
+  const on = a11y.get()[r.key];
+  return `
+    <label class="hall-toggle a11y-toggle">
+      <span class="hall-toggle-text"><b>${r.title}</b><i>${r.sub}</i></span>
+      <input type="checkbox" data-a11y="${r.key}" ${on ? 'checked' : ''}>
+      <span class="hall-toggle-switch"></span>
+    </label>`;
+};
+
 export const REEL_SPEED_KEY = 'mojislot.reelSpeed.v1';
 /** モーションブラー強さの保存キー。 */
 export const MOTION_BLUR_KEY = 'mojislot.motionBlur.v1';
@@ -116,6 +156,11 @@ export class SettingsOverlay {
           <div class="settings-note">実機の残像を再現します。強いほど滑らかに見えますが、図柄は読みにくくなります。</div>
         </div>
         <div class="settings-section">
+          <div class="settings-section-label">見やすさ</div>
+          ${A11Y_ROWS.map((r) => a11yRow(r)).join('')}
+          <div class="settings-note">どれも<b>情報は減りません</b>。動き・光・色を弱めるかわりに、それらが伝えていたことは文字とバッジで残します。</div>
+        </div>
+        <div class="settings-section">
           <div class="settings-section-label">リセット</div>
           <div class="zukan-reset">
             <button class="reset-coin" type="button">コインを${this.initialCoins}に戻す</button>
@@ -153,6 +198,15 @@ export class SettingsOverlay {
 
     const closeBtn = this.root.querySelector<HTMLButtonElement>('.settings-close')!;
     closeBtn.addEventListener('click', () => this.close());
+
+    // 見やすさの4トグル。押した瞬間に効く（試して選ぶものなので確認を挟まない）。
+    for (const input of this.root.querySelectorAll<HTMLInputElement>(
+      '.a11y-toggle input',
+    )) {
+      const key = input.dataset.a11y as keyof A11ySettings | undefined;
+      if (!key) continue;
+      input.addEventListener('change', () => a11y.set(key, input.checked));
+    }
 
     // リール速度スライダー：ドラッグ中も即時反映（回転中のリールにも流す）。
     const speedSlider = this.root.querySelector<HTMLInputElement>('.speed-slider')!;
