@@ -2,6 +2,7 @@ import { setMotionBlurStrength } from '../render/ReelView';
 import type { CoinWallet } from '../core/CoinWallet';
 import type { PlayStats } from '../productions/PlayStats';
 import type { ZukanState } from '../productions/ZukanState';
+import type { QuizStats } from '../productions/QuizStats';
 import type { ChallengeTracker } from '../productions/Challenges';
 import { a11y, type A11ySettings } from '../productions/Accessibility';
 
@@ -116,7 +117,13 @@ export class SettingsOverlay {
     private readonly wallet: CoinWallet,
     private readonly initialCoins: number,
     private readonly playStats: PlayStats,
-    private readonly zukanState: ZukanState,
+    /**
+     * 図鑑とクイズ成績は**その時のもの**を取りに行く。
+     * リミックス台はボーナスごとにステージが変わって作り直されるので、
+     * 起動時の実体を握ったままだと「全データをリセット」が前のステージの記録を消す。
+     */
+    private readonly getZukanState: () => ZukanState,
+    private readonly getQuizStats: () => QuizStats,
     private readonly challengeTracker: ChallengeTracker,
     private readonly debugVisible: boolean,
     private readonly defaultReelSpeed: number = 24,
@@ -249,7 +256,8 @@ export class SettingsOverlay {
     const resetAllBtn = this.root.querySelector<HTMLButtonElement>('.reset-all')!;
     resetAllBtn.addEventListener('click', () => {
       if (!window.confirm('図鑑・統計・ミッション・コインを全てリセットしますか？')) return;
-      this.zukanState.reset();
+      this.getZukanState().reset();
+      this.getQuizStats().reset();
       this.playStats.reset();
       this.challengeTracker.reset();
       this.wallet.reset(this.initialCoins);

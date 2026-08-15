@@ -955,8 +955,83 @@ body.has-chapter-bg {
 .zukan-missions.collapsed .zukan-missions-toggle {
   transform: rotate(-90deg);
 }
-.zukan-missions.collapsed .zukan-missions-list {
+.zukan-missions.collapsed .zukan-missions-list,
+.zukan-missions.collapsed .zukan-quiz-list {
   display: none;
+}
+
+/* === クイズの問題別成績 ===
+   苦手な順に並ぶ。率の色は「読める母数があるか」を先に伝える——
+   1回外しただけの0%を赤で出すと、本当に苦手な問題が埋もれる。 */
+.zukan-quiz-progress {
+  margin-left: auto;
+  margin-right: 8px;
+  font-size: 11px;
+  color: #8c8377;
+}
+.quiz-stat-note,
+.quiz-stat-empty {
+  padding: 4px 8px 8px;
+  font-size: 10px;
+  color: #888;
+  line-height: 1.5;
+}
+.quiz-stat-note b {
+  color: #aaa;
+}
+.quiz-stat-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 5px 8px;
+  margin-bottom: 3px;
+  background: rgba(255, 255, 255, 0.03);
+  border-left: 3px solid #3a3244;
+  border-radius: 0 4px 4px 0;
+}
+.quiz-stat-q {
+  flex: 1;
+  min-width: 0;
+  font-size: 11px;
+  line-height: 1.45;
+  color: #ddd;
+}
+.quiz-stat-num {
+  flex: none;
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+.quiz-stat-rate {
+  display: block;
+  font-size: 14px;
+  font-weight: bold;
+}
+.quiz-stat-seen {
+  display: block;
+  font-size: 10px;
+  color: #8c8377;
+}
+.quiz-stat-row.weak {
+  border-left-color: #ff5566;
+}
+.quiz-stat-row.weak .quiz-stat-rate {
+  color: #ff8877;
+}
+.quiz-stat-row.mid {
+  border-left-color: #ffaa44;
+}
+.quiz-stat-row.mid .quiz-stat-rate {
+  color: #ffc46a;
+}
+.quiz-stat-row.good {
+  border-left-color: #4ade80;
+}
+.quiz-stat-row.good .quiz-stat-rate {
+  color: #7ee6a0;
+}
+/* 母数不足。率は出すが色は付けない（読める数字ではないため） */
+.quiz-stat-row.thin .quiz-stat-rate {
+  color: #6a6a72;
 }
 .mission-row {
   padding: 5px 8px;

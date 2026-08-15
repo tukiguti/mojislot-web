@@ -3,7 +3,8 @@ import {
   remixOverallCompletion,
   type ZukanState,
 } from '../productions/ZukanState';
-import type { YakuList } from '../data/schemas';
+import type { Quiz, YakuList } from '../data/schemas';
+import { MIN_SAMPLES, type QuizStats } from '../productions/QuizStats';
 import type { PlayStats } from '../productions/PlayStats';
 import {
   CHALLENGES,
@@ -21,6 +22,7 @@ export class ZukanOverlay {
   private readonly summaryEl: HTMLElement;
   private readonly statsEl: HTMLElement;
   private readonly missionsListEl: HTMLElement;
+  private readonly quizListEl: HTMLElement;
   private visible = false;
 
   constructor(
@@ -28,6 +30,10 @@ export class ZukanOverlay {
     private readonly yakuList: YakuList,
     private readonly playStats: PlayStats,
     private readonly challengeTracker: ChallengeTracker,
+    /** クイズの問題別成績（苦手な問題を見つけるため）。 */
+    private readonly quizStats: QuizStats,
+    /** この章の全問題。未出題の問題は伏せるので、母数として使う。 */
+    private readonly quizzes: readonly Quiz[],
     /**
      * ボーナスとチェリーの払い出し。BIG・REG・チェリーは役に `payout` を持たず
      * `baseMultiplier` 側で決まるので、表示のためにここへ渡す。
@@ -61,6 +67,14 @@ export class ZukanOverlay {
           </button>
           <div class="zukan-missions-list"></div>
         </div>
+        <div class="zukan-missions zukan-quizstats collapsed">
+          <button class="zukan-missions-header" type="button">
+            <span class="zukan-missions-label">クイズの成績</span>
+            <span class="zukan-quiz-progress"></span>
+            <span class="zukan-missions-toggle">▼</span>
+          </button>
+          <div class="zukan-quiz-list"></div>
+        </div>
         <div class="zukan-list"></div>
         <div class="zukan-hint">[Z] で閉じる ／ 設定は ⚙ ボタンへ</div>
       </div>
@@ -68,6 +82,7 @@ export class ZukanOverlay {
     this.summaryEl = this.root.querySelector('.zukan-summary')!;
     this.statsEl = this.root.querySelector('.zukan-stats')!;
     this.missionsListEl = this.root.querySelector('.zukan-missions-list')!;
+    this.quizListEl = this.root.querySelector('.zukan-quiz-list')!;
     this.listEl = this.root.querySelector('.zukan-list')!;
     const closeBtn = this.root.querySelector<HTMLButtonElement>('.zukan-close')!;
     closeBtn.addEventListener('click', () => this.close());
@@ -80,6 +95,18 @@ export class ZukanOverlay {
       const nowCollapsed = !missionsEl.classList.contains('collapsed');
       missionsEl.classList.toggle('collapsed', nowCollapsed);
       ZukanOverlay.saveMissionsCollapsed(nowCollapsed);
+    });
+
+    // クイズの成績は既定で畳んでおく。打っている最中に開くものではなく、
+    // 「また同じ問題を落とした」と思った時に見に行くもの。
+    const quizEl = this.root.querySelector<HTMLElement>('.zukan-quizstats')!;
+    quizEl
+      .querySelector<HTMLButtonElement>('.zukan-missions-header')!
+      .addEventListener('click', () =>
+        quizEl.classList.toggle('collapsed'),
+      );
+    quizStats.counts.subscribe(() => {
+      if (this.visible) this.render();
     });
 
     state.counts.subscribe(() => {
@@ -283,6 +310,47 @@ export class ZukanOverlay {
         </div>
       `;
     }).join('');
+
+    this.renderQuizStats();
+  }
+
+  /**
+   * クイズの問題別成績。**苦手な順**に並べる。
+   *
+   * 全体の的中率だけでは「どの問題で落としているか」が分からず、同じ問題をまた
+   * 落とすのを止めようがなかった。クイズは答えの役を引き込み対象にする演出なので、
+   * 外す＝取りこぼし＝出玉。潰せる苦手は潰せたほうがよい。
+   *
+   * 未出題の問題は出さない。出会う前に問題文を読めてしまうと、その1問が演出として死ぬ。
+   */
+  private renderQuizStats(): void {
+    const rows = this.quizStats.weakest(this.quizzes);
+    const cov = this.quizStats.coverage(this.quizzes);
+    const progressEl = this.root.querySelector<HTMLElement>('.zukan-quiz-progress');
+    if (progressEl) progressEl.textContent = `${cov.seen} / ${cov.total} 問`;
+
+    if (rows.length === 0) {
+      this.quizListEl.innerHTML = `
+        <div class="quiz-stat-empty">まだクイズ演出に出会っていません。出題された問題だけがここに並びます。</div>`;
+      return;
+    }
+
+    this.quizListEl.innerHTML =
+      `<div class="quiz-stat-note">苦手な順。<b>${MIN_SAMPLES}回未満は率が読めない</b>ので下にまとめてあります。</div>` +
+      rows
+        .map((r) => {
+          const pct = Math.round(r.rate * 100);
+          const cls = !r.reliable ? 'thin' : pct < 50 ? 'weak' : pct < 80 ? 'mid' : 'good';
+          return `
+        <div class="quiz-stat-row ${cls}">
+          <div class="quiz-stat-q">${escapeHtml(r.quiz.question)}</div>
+          <div class="quiz-stat-num">
+            <span class="quiz-stat-rate">${pct}%</span>
+            <span class="quiz-stat-seen">${r.correct} / ${r.seen} 回</span>
+          </div>
+        </div>`;
+        })
+        .join('');
   }
 }
 

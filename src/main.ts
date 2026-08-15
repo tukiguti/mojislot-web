@@ -22,6 +22,7 @@ import { BonusZone } from './productions/BonusZone';
 import { BonusSession } from './productions/BonusSession';
 import { applySetting, applySettingToEffects } from './productions/MachineSetting';
 import { REMIX, applyRemixBoost } from './productions/RemixBoost';
+import { QuizStats } from './productions/QuizStats';
 import { TIER_COLOR_NAME, a11y } from './productions/Accessibility';
 import {
   EFFECT_STATUS,
@@ -278,12 +279,18 @@ export async function bootstrap() {
   // リミックス台の記録は島の図鑑と別勘定にする（設計: 31章 §4）。
   const zukanScope = remix ? REMIX_ZUKAN_SCOPE : undefined;
   let zukanState = new ZukanState(yakuList, chapterId, zukanScope);
+  // クイズの成績は**章ごとに1つ**。図鑑と違ってリミックス台でも分けない——
+  // 図鑑を分けたのは「集める」目標を別に立てるためで、こちらは苦手を潰すための
+  // 記録なので、打った場所で分断すると用を成さない。
+  let quizStats = new QuizStats(chapterId);
   const challengeTracker = new ChallengeTracker();
   let zukanOverlay = new ZukanOverlay(
     zukanState,
     yakuList,
     playStats,
     challengeTracker,
+    quizStats,
+    quizList.quizzes,
     {
       premium: payout.baseMultiplier.premium,
       bonus: payout.baseMultiplier.bonus,
@@ -298,7 +305,9 @@ export async function bootstrap() {
     wallet,
     payout.initialCoins,
     playStats,
-    zukanState,
+    // ステージ切替で作り直されるので、実体ではなく取り出し方を渡す。
+    () => zukanState,
+    () => quizStats,
     challengeTracker,
     debugVisible,
     tuning.reelSpeed,
@@ -1682,11 +1691,14 @@ export async function bootstrap() {
 
     // --- 図鑑（島ごとの記録なので作り直す。innerHTML で組むので旧DOMとリスナは消える）---
     zukanState = new ZukanState(yakuList, chapterId, zukanScope);
+    quizStats = new QuizStats(chapterId);
     zukanOverlay = new ZukanOverlay(
       zukanState,
       yakuList,
       playStats,
       challengeTracker,
+      quizStats,
+      quizList.quizzes,
       {
         premium: payout.baseMultiplier.premium,
         bonus: payout.baseMultiplier.bonus,
@@ -1922,6 +1934,8 @@ export async function bootstrap() {
       const { streakAfter, streakMult, noticeBonus, win, reachKind } = outcome;
       const quizTargetYakuId =
         currentEffect === 'quiz' ? quizState.targetYakuId() : null;
+      // 問題IDは resolve で消えるので、判定の前に控える。
+      const quizId = currentEffect === 'quiz' ? (quizState.current.get()?.id ?? null) : null;
       // 確定告知ランプ点灯中にボーナス（BIG/REG）が揃ったら回収完了＝消灯。
       if (announcedBonus && (isPremium || isRegular)) clearAnnounceLamp();
       // ボーナスフラグの持ち越し（実機Aタイプ）。
@@ -1970,6 +1984,7 @@ export async function bootstrap() {
         const quizMatched = hits.some((h) => h.yaku.id === quizTargetYakuId);
         quizState.resolve(quizMatched);
         playStats.recordQuiz(quizMatched);
+        if (quizId) quizStats.record(quizId, quizMatched);
         if (quizMatched) sfx.quizCorrect();
         else sfx.quizWrong();
       }
