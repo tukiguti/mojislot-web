@@ -1,0 +1,44 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 240 320" width="240" height="320">
+  <!--
+    不正解。眉を八の字、目を半目、口をへの字。責める顔ではなく一緒に残念がる顔（14章の上達応援型）。
+
+    表情差は**形そのものを変える**。旧ジンは目のサイズを 6/8/9px で描き分けていて、
+    直径180pxの中の数pxは離れると読めなかった（33章）。眉・目・口の3つを全部動かす。
+    CSSクラスは使わない（属性で書く。理由は base.svg のコメント参照）。
+  -->
+
+  <!-- 眉：八の字。ここが「困っている」の主役 -->
+  <g fill="none" stroke="#1e1712" stroke-width="5" stroke-linecap="round">
+    <path d="M74 86 C 84 80, 100 74, 111 72" />
+    <path d="M166 86 C 156 80, 140 74, 129 72" />
+  </g>
+
+  <!-- 目：半目。上まぶたを下ろして白目の面積を減らす -->
+  <g stroke="#1e1712" stroke-width="4.5" stroke-linejoin="round">
+    <ellipse fill="#ffffff" cx="93"  cy="122" rx="16" ry="15" />
+    <ellipse fill="#ffffff" cx="147" cy="122" rx="16" ry="15" />
+  </g>
+  <ellipse fill="#3b6ea5" cx="93"  cy="124" rx="10" ry="11" />
+  <ellipse fill="#3b6ea5" cx="147" cy="124" rx="10" ry="11" />
+  <ellipse fill="#16243a" cx="93"  cy="125" rx="5"  ry="6" />
+  <ellipse fill="#16243a" cx="147" cy="125" rx="5"  ry="6" />
+  <circle fill="#ffffff" cx="89"  cy="120" r="3" />
+  <circle fill="#ffffff" cx="143" cy="120" r="3" />
+  <!-- 上まぶた -->
+  <g fill="#1e1712" stroke="#1e1712" stroke-width="3" stroke-linejoin="round">
+    <path d="M77 118 C 83 108, 103 108, 109 118 C 100 112, 86 112, 77 118 Z" />
+    <path d="M131 118 C 137 108, 157 108, 163 118 C 154 112, 140 112, 131 118 Z" />
+  </g>
+
+  <!-- ほお：青ざめ側（正解の赤と色で対にする） -->
+  <ellipse fill="#9ecbe8" opacity="0.5" cx="70"  cy="144" rx="13" ry="8" />
+  <ellipse fill="#9ecbe8" opacity="0.5" cx="170" cy="144" rx="13" ry="8" />
+
+  <!-- 口：への字 -->
+  <path fill="none" stroke="#1e1712" stroke-width="5.5" stroke-linecap="round"
+        d="M105 158 C 112 150, 128 150, 135 158" />
+
+  <!-- 汗。1粒だけ。多いとギャグに寄りすぎる -->
+  <path fill="#8ec9f0" stroke="#1e1712" stroke-width="3.5" stroke-linejoin="round"
+        d="M190 60 C 182 76, 180 85, 187 90 C 194 95, 202 90, 201 82 C 200 75, 195 67, 190 60 Z" />
+</svg>

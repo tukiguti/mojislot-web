@@ -1,0 +1,36 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 240 320" width="240" height="320">
+  <!--
+    正解。目を閉じて笑う（∪）。出題（見開き）とは目の形が別物なので小さくても読める。
+
+    表情差は**形そのものを変える**。旧ジンは目のサイズを 6/8/9px で描き分けていて、
+    直径180pxの中の数pxは離れると読めなかった（33章）。眉・目・口の3つを全部動かす。
+    CSSクラスは使わない（属性で書く。理由は base.svg のコメント参照）。
+  -->
+
+  <!-- 眉：ゆるく上向き -->
+  <g fill="none" stroke="#1e1712" stroke-width="5" stroke-linecap="round">
+    <path d="M76 76 C 86 68, 102 68, 111 74" />
+    <path d="M164 76 C 154 68, 138 68, 129 74" />
+  </g>
+
+  <!-- 目：閉じて笑う。白目を描かないので形の差が最大になる -->
+  <g fill="none" stroke="#1e1712" stroke-width="6.5" stroke-linecap="round">
+    <path d="M76 124 C 84 106, 102 106, 110 124" />
+    <path d="M130 124 C 138 106, 156 106, 164 124" />
+  </g>
+
+  <!-- ほお：正解なので濃く -->
+  <ellipse fill="#ff8a8a" opacity="0.7" cx="68"  cy="142" rx="15" ry="9" />
+  <ellipse fill="#ff8a8a" opacity="0.7" cx="172" cy="142" rx="15" ry="9" />
+
+  <!-- 口：大きく開けて笑う -->
+  <path fill="#7a2f36" stroke="#1e1712" stroke-width="4.5" stroke-linejoin="round"
+        d="M98 144 C 106 170, 134 170, 142 144 C 128 151, 112 151, 98 144 Z" />
+  <path fill="#ff7b8a" d="M111 158 C 116 165, 124 165, 129 158 C 124 155, 116 155, 111 158 Z" />
+
+  <!-- きらめき。正解の手応えを顔の外側で足す -->
+  <g fill="#ffd45e" stroke="#1e1712" stroke-width="3.5" stroke-linejoin="round">
+    <path d="M206 36 L212 50 L226 56 L212 62 L206 76 L200 62 L186 56 L200 50 Z" />
+    <path d="M32 78 L36 87 L45 91 L36 95 L32 104 L28 95 L19 91 L28 87 Z" />
+  </g>
+</svg>
