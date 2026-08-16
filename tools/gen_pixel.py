@@ -26,26 +26,46 @@ W, H = 48, 56
 OUT = pathlib.Path(__file__).resolve().parent.parent / "public" / "art" / "kotoha"
 
 # 文字 → RGBA。'.' は透過。
+#
+# **ランプ（暗→明の段）を素材ごとに作り、色相をずらす。** 明度だけ下げると色が濁る
+# ので、暗い側は青〜赤へ、明るい側は黄へ寄せる。肌の影は赤味を足すと血色が残る。
+# 光源は**左上ひとつ**に固定（外周を一律に暗くする「ピロー塗り」はしない）。
 PALETTE: dict[str, tuple[int, int, int, int]] = {
     ".": (0, 0, 0, 0),
-    "K": (0x3A, 0x2A, 0x24, 255),   # 輪郭（黒ではなく焦茶。真っ黒はステッカーの色）
-    "H": (0xE9, 0xBD, 0x6E, 255),   # 髪
-    "h": (0xC9, 0x91, 0x3F, 255),   # 髪の影
-    "L": (0xFF, 0xF0, 0xC8, 255),   # 髪のハイライト（天使の輪）
-    "S": (0xFF, 0xE0, 0xCB, 255),   # 肌
-    "s": (0xF2, 0xC5, 0xAE, 255),   # 肌の影
-    "W": (0xFF, 0xFF, 0xFF, 255),   # 白目・ハイライト
-    "E": (0x4A, 0x8F, 0xD8, 255),   # 虹彩
-    "D": (0x12, 0x20, 0x3A, 255),   # 瞳
-    "M": (0x8C, 0x3A, 0x41, 255),   # 口の中
-    "m": (0xFF, 0x7B, 0x8A, 255),   # 舌
-    "C": (0xF7, 0xF5, 0xEF, 255),   # 服
-    "c": (0xE2, 0xDE, 0xD2, 255),   # 服の影
-    "R": (0xE2, 0x56, 0x6B, 255),   # リボン
-    "r": (0xC3, 0x3C, 0x52, 255),   # リボンの影
-    "B": (0xFF, 0x9A, 0x9A, 255),   # ほお
-    "b": (0x8E, 0xC9, 0xF0, 255),   # 汗・青ざめ
-    "Y": (0xFF, 0xD4, 0x5E, 255),   # 「？」やきらめき
+    # 輪郭。K=影側、k=光側（色トレス）。一律の黒はステッカーの色になる
+    "K": (0x4A, 0x2F, 0x28, 255),
+    "k": (0x6B, 0x44, 0x36, 255),
+    # 髪 2 → h → H → L → l
+    "2": (0x8F, 0x5A, 0x2E, 255),
+    "h": (0xC0, 0x80, 0x37, 255),
+    "H": (0xE8, 0xB2, 0x5C, 255),
+    "L": (0xF7, 0xD6, 0x8F, 255),
+    "l": (0xFF, 0xF3, 0xCF, 255),
+    # 肌 d → s → S（影ほど赤い）
+    "d": (0xD9, 0x9A, 0x86, 255),
+    "s": (0xF4, 0xBF, 0xA6, 255),
+    "S": (0xFF, 0xE3, 0xCE, 255),
+    # 目
+    "W": (0xFF, 0xFF, 0xFF, 255),
+    "e": (0x7F, 0xC4, 0xF2, 255),
+    "E": (0x3D, 0x86, 0xCF, 255),
+    "D": (0x16, 0x23, 0x3F, 255),
+    # 口
+    "M": (0x93, 0x34, 0x3F, 255),
+    "m": (0xFF, 0x8E, 0x9C, 255),
+    # 服 n → c → C（影は青紫へ）
+    "n": (0xC9, 0xC4, 0xD2, 255),
+    "c": (0xE4, 0xE0, 0xE6, 255),
+    "C": (0xF9, 0xF7, 0xF2, 255),
+    # リボン
+    "r": (0xA8, 0x2E, 0x45, 255),
+    "R": (0xE0, 0x50, 0x68, 255),
+    "p": (0xFF, 0x8A, 0x9C, 255),
+    # 差し色
+    "B": (0xFF, 0x9A, 0x9A, 255),
+    "b": (0x8E, 0xC9, 0xF0, 255),
+    "Y": (0xFF, 0xD4, 0x5E, 255),
+    "y": (0xFF, 0xEF, 0xAD, 255),
 }
 
 
@@ -70,6 +90,64 @@ def compose(*layers: list[list[str]]) -> list[list[str]]:
             for x in range(W):
                 if layer[y][x] != ".":
                     out[y][x] = layer[y][x]
+    return out
+
+
+def shade(grid: list[list[str]]) -> list[list[str]]:
+    """光源（左上）に合わせて影を落とす。**材質ごとに形へ沿わせる**。
+
+    最初は「左上からの距離」1本で落としたら、顔と服を**斜め一直線**の継ぎ目が
+    横切って、面ではなく照明のグラデーションに見えた。影は形に付くものなので、
+    髪は右側、肌は前髪の下とあご下、服は右の回り込み、と部位ごとに置く。
+
+    手で1ドットずつ置くとムラが出るので規則で落とし、例外だけマップ側で直す。
+    """
+    out = [row[:] for row in grid]
+    for y in range(H):
+        for x in range(W):
+            ch = grid[y][x]
+            if ch == "H":
+                if x >= 36:
+                    out[y][x] = "2"          # 右端の回り込み
+                elif x >= 30:
+                    out[y][x] = "h"          # 右側
+                elif y <= 12 and x <= 19:
+                    out[y][x] = "L"          # 左上の艶
+            elif ch == "S":
+                if y <= 20:
+                    out[y][x] = "s"          # 前髪の落ち影
+                elif x >= 29:
+                    out[y][x] = "s"          # 右の回り込み
+                elif y >= 35:
+                    out[y][x] = "s"          # あご下
+            elif ch == "C":
+                if x >= 37:
+                    out[y][x] = "n"
+                elif x >= 31 or x <= 11:
+                    out[y][x] = "c"          # 右の回り込みと左の折り返し
+            elif ch == "R":
+                if y >= 13:
+                    out[y][x] = "r"
+    return out
+
+
+def selout(grid: list[list[str]]) -> list[list[str]]:
+    """**内側の境界線**だけを明るい線へ差し替える（色トレス）。
+
+    最初はシルエットの縁を明るくしたら、暗い液晶の上で輪郭が溶けて形が消えた。
+    色トレスは内部の線に効くもので、外周は暗いまま残す。影側（右）の内部線も
+    暗いままにしないと、暗部でコントラストが失われる。
+    """
+    out = [row[:] for row in grid]
+    for y in range(1, H - 1):
+        for x in range(1, W - 1):
+            if grid[y][x] != "K":
+                continue
+            if "." in (grid[y - 1][x], grid[y + 1][x], grid[y][x - 1], grid[y][x + 1]):
+                continue          # シルエットの縁
+            if x >= 30:
+                continue          # 影側は暗いまま
+            out[y][x] = "k"
     return out
 
 
@@ -101,13 +179,13 @@ BASE = parse([
     ".........KHHHHHHLLLLLLLLLHHHHHHHHHHHHHK.........",  # 7
     ".........KHHHHHHHLLLLLLHHHHHHHHHHHHHHHK.........",  # 8
     ".........KHHHHHHHHHHHHHHHHHHHHHHHHHHHHK.........",  # 9
-    ".........KHHHHHHHHHHHHHHHHHHHHHHHHHHHHK.........",  # 10
-    "........KRRRKHHHHHHHHHHHHHHHHHHHHHHHHHK.........",  # 11
-    ".......KRRRRRKHHHHHHHHHHHHHHHHHHHHHHHHK.........",  # 12
-    ".......KrRRRrKHHHHHHHHHHHHHHHHHHHHHHHHK.........",  # 13
-    ".......KRRRRRKHHHHHHHHHHHHHHHHHHHHHHHHK.........",  # 14
-    "........KRRRKHHHHHHHHHHHHHHHHHHHHHHHHHK.........",  # 15
-    ".........KHHHHHHHHHHHHHHHHHHHHHHHHHHHHK.........",  # 16
+    "......KK.KHKKHHHHHHHHHHHHHHHHHHHHHHHHHK.........",  # 10
+    ".....KRRKRKRRKHHHHHHHHHHHHHHHHHHHHHHHHK.........",  # 11
+    ".....KRRRKRRRKHHHHHHHHHHHHHHHHHHHHHHHHK.........",  # 12
+    ".....KRRRpRRRKHHHHHHHHHHHHHHHHHHHHHHHHK.........",  # 13
+    ".....KRRRKRRRKHHHHHHHHHHHHHHHHHHHHHHHHK.........",  # 14
+    "......KRKRKRKHHHHHHHHHHHHHHHHHHHHHHHHHK.........",  # 15
+    ".......K.KHKHHHHHHHHHHHHHHHHHHHHHHHHHHK.........",  # 16
     ".........KHHHHHHHHHHHHHHHHHHHHHHHHHHHHK.........",  # 17
     ".........KHHHHHHHHHHHHHHHHHHHHHHHHHHHHK.........",  # 18
     ".........KHHHHKSSSSSSSSSHHSSSSSSSKHHHHK.........",  # 19
@@ -347,10 +425,12 @@ def main() -> int:
     args = ap.parse_args()
 
     OUT.mkdir(parents=True, exist_ok=True)
-    to_png(BASE, OUT / "px_base.png", args.scale)
+    base = selout(shade(BASE))
+    to_png(base, OUT / "px_base.png", args.scale)
     for name, face in FACES.items():
         to_png(face, OUT / f"px_face_{name}.png", args.scale)
-        to_png(compose(BASE, face), OUT / f"px_{name}.png", args.scale)
+        # 顔は shade を通さない。目や口に影が乗ると表情が濁る
+        to_png(compose(base, face), OUT / f"px_{name}.png", args.scale)
     print(f"{W}x{H} → {OUT}（倍率 {args.scale}）")
 
     if args.sheet:
@@ -363,7 +443,7 @@ def main() -> int:
         sh = pad * 3 + H * big + H * small
         sheet = Image.new("RGBA", (sw, sh), bg)
         for i, name in enumerate(FACES):
-            g = compose(BASE, FACES[name])
+            g = compose(base, FACES[name])
             im = Image.new("RGBA", (W, H))
             im.putdata([PALETTE[g[y][x]] for y in range(H) for x in range(W)])
             sheet.alpha_composite(im.resize((W * big, H * big), Image.NEAREST),
