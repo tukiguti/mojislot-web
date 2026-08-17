@@ -474,6 +474,8 @@ def eye_style(name: str) -> list[list[str]]:
         "droop": ["..KKKK", "KKKKKK", "KWEEEK", "KWEEDK", "KKKK.."],
         # 大きめ。1行深くして虹彩を増やす。
         "big":   [".KKKK.", "KKKKKK", "KWEEEK", "KWEEEK", "KWEEDK", ".KKKK."],
+        # 男性。**背を低く、まつ毛を1段に**。ここを変えないと女性の顔のまま
+        "male":  ["KKKKKK", "KWEEEK", "KEEDDK", ".KKKK."],
     }
     g = [["."] * W for _ in range(H)]
     rows = shapes[name]
@@ -485,7 +487,7 @@ def eye_style(name: str) -> list[list[str]]:
 
 def hair_style(name: str) -> list[list[str]]:
     """髪型を差し替えた素体。シルエットが変わる差分だけを扱う。"""
-    g = [list(row) for row in BASE]
+    g = [list(row) for row in BASE_PLAIN]
     HAIRC = ("H", "h", "2", "L", "l")
 
     def clear_hair(y0: int) -> None:
@@ -558,7 +560,101 @@ def hair_style(name: str) -> list[list[str]]:
                             g[ny][nx] = "K"
         return g
 
+    if name == "short":
+        # 耳の高さで切る。前髪はそのまま、横と後ろだけ落とす
+        clear_hair(30)
+        cap(29)
+        return g
+
+    if name == "spiky":
+        # 短髪＋毛先が横へ跳ねる。**上へ伸ばす余白が無い**（頭頂が1行目）ので、
+        # トゲは耳の高さから横へ出す。上に置くと画面外へ切れて浮いた点になる
+        clear_hair(30)
+        cap(29)
+        for cy, ln in ((21, 6), (26, 8), (31, 5)):
+            for dy in (-1, 0, 1):
+                for i in range(ln - abs(dy) * 2):
+                    for x in (8 - i, 39 + i):
+                        if 0 <= x < W and g[cy + dy][x] == ".":
+                            g[cy + dy][x] = "H"
+        for y in range(17, 32):
+            for x in range(W):
+                if g[y][x] == "H":
+                    for ny, nx in ((y - 1, x), (y + 1, x), (y, x - 1), (y, x + 1)):
+                        if 0 <= ny < H and 0 <= nx < W and g[ny][nx] == ".":
+                            g[ny][nx] = "K"
+        return g
+
     raise ValueError(name)
+
+
+# ── リボンは別レイヤーへ切り出す ──────────────────────────────────────────
+# 素体に直接描くと、リボンを外したい変種（男性版など）で下の髪を復元できない。
+def _split_ribbon() -> tuple[list[list[str]], list[list[str]]]:
+    plain = [row[:] for row in BASE]
+    ribbon = [["."] * W for _ in range(H)]
+    for y in range(10, 19):
+        for x in range(3, 15):
+            ch = BASE[y][x]
+            if ch in ("R", "r", "p") or (ch == "K" and x < 9):
+                ribbon[y][x] = ch
+                plain[y][x] = "." if x < 9 else "H"
+            elif ch == "K" and 9 <= x <= 13 and BASE[y][x - 1] in ("R", "r", "p", "K"):
+                ribbon[y][x] = ch
+                plain[y][x] = "K" if x == 9 else "H"
+    return plain, ribbon
+
+
+BASE_PLAIN, RIBBON = _split_ribbon()
+
+
+def square_jaw(g: list[list[str]]) -> list[list[str]]:
+    """あごの絞りを1段下げて角ばらせる（男性版）。丸いままだと少年に見えない。"""
+    out = [row[:] for row in g]
+    for y in (36, 35, 34, 33):
+        out[y] = g[y - 1][:]
+    return out
+
+
+def build(hair: str = "long", male: bool = False) -> list[list[str]]:
+    """髪型と体つきを組み合わせた素体（陰影・色トレスまで通す）。"""
+    g = hair_style(hair)
+    if male:
+        g = square_jaw(g)
+    else:
+        g = compose(g, RIBBON)
+    return selout(shade(g))
+
+
+def face_layer(name: str, eye: str = "round", male: bool = False) -> list[list[str]]:
+    """表情レイヤー。男性版は眉を太く低くする（ここを変えないと女性の顔のまま）。"""
+    src = {"ask": ASK, "correct": CORRECT, "wrong": WRONG}[name]
+    f = [row[:] for row in src]
+    if male and eye == "round":
+        eye = "male"
+    if eye != "round" and name == "ask":
+        for y in range(23, 29):
+            f[y] = list("." * W)
+        f = compose(f, eye_style(eye if eye != "male" else "male"))
+        if eye == "male":
+            # 4行なので1行下げて、顔の中心線との関係を保つ
+            shifted = [["."] * W for _ in range(H)]
+            for y in range(23, 28):
+                shifted[y + 1] = f[y][:]
+                f[y] = ["."] * W
+            f = compose(f, shifted)
+    if male:
+        for y in range(20, 23):
+            for x in range(W):
+                if f[y][x] == "h":
+                    f[y][x] = "."
+        for x in range(16, 22):
+            f[21][x] = "2"
+            f[22][x] = "2"
+        for x in range(26, 32):
+            f[21][x] = "2"
+            f[22][x] = "2"
+    return f
 
 
 def main() -> int:
@@ -648,10 +744,20 @@ def main() -> int:
         sheet(items, 4, d / "kotoha_eyes.png")
 
         items = []
-        for name in ("long", "bob", "parted", "twin"):
-            g = selout(shade(hair_style(name)))
-            items.append((tile(compose(g, ASK), cur), name))
-        sheet(items, 4, d / "kotoha_hair.png")
+        for name in ("long", "bob", "parted", "twin", "short", "spiky"):
+            items.append((tile(compose(build(name), ASK), cur), name))
+        sheet(items, 3, d / "kotoha_hair.png")
+
+        # 男女 × 髪型。男性版は眉を太く、あごを角ばらせ、リボンを外す
+        items = []
+        for male, hairs in ((False, ("long", "bob", "short")),
+                            (True, ("short", "spiky", "parted"))):
+            for hname in hairs:
+                g = build(hname, male=male)
+                f = face_layer("ask", male=male)
+                items.append((tile(compose(g, f), cur),
+                              ("M " if male else "F ") + hname))
+        sheet(items, 3, d / "kotoha_people.png")
     return 0
 
 
