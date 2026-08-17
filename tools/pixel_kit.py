@@ -119,6 +119,9 @@ def main() -> int:
     ap.add_argument("-o", "--out", type=pathlib.Path, help="等倍PNGの書き出し先")
     ap.add_argument("--preview", type=pathlib.Path, help="確認用プレビューの書き出し先")
     ap.add_argument("--sheet", type=pathlib.Path, help="複数マップを並べた一覧")
+    ap.add_argument(
+        "--scale", type=int, default=4, help="一覧の倍率（既定4・実寸で見るなら3）"
+    )
     ap.add_argument("--palette", action="store_true", help="使える文字と色を一覧する")
     args = ap.parse_args()
 
@@ -130,7 +133,7 @@ def main() -> int:
         ap.error("マップを1つ以上指定してください")
 
     if args.sheet:
-        sheet(args.maps, args.sheet)
+        sheet(args.maps, args.sheet, args.scale)
         print(f"一覧 → {args.sheet}")
         return 0
 

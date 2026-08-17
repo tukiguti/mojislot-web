@@ -40,7 +40,7 @@ export const QUIZMASTERS: Readonly<Record<string, Quizmaster>> = {
   hiragana_food: {
     art: 'sushi_taisho',
     name: '寿司屋の大将',
-    faces: ['ask'],
+    faces: ['ask', 'correct', 'wrong'],
     lines: {
       ask: ['へい、一問いくよ！', 'こいつは何だい？', '目ぇ利くかい？'],
       correct: ['お見事！', 'いい舌してるねぇ', 'そうこなくちゃ'],
@@ -51,7 +51,7 @@ export const QUIZMASTERS: Readonly<Record<string, Quizmaster>> = {
   katakana_animal: {
     art: 'zookeeper',
     name: '動物園の飼育員',
-    faces: ['ask'],
+    faces: ['ask', 'correct', 'wrong'],
     lines: {
       ask: ['この子、わかる？', 'はい、問題！', 'よく見てね'],
       correct: ['正解！さすが！', 'よく知ってるね', 'その通り！'],
@@ -62,7 +62,7 @@ export const QUIZMASTERS: Readonly<Record<string, Quizmaster>> = {
   hiragana_verb: {
     art: 'teacher',
     name: '国語の教師',
-    faces: ['ask'],
+    faces: ['ask', 'correct', 'wrong'],
     lines: {
       ask: ['では、問題です', 'これ、わかりますか？', '落ち着いて考えて'],
       correct: ['よくできました', 'その通りです', 'しっかり読めていますね'],
@@ -73,7 +73,7 @@ export const QUIZMASTERS: Readonly<Record<string, Quizmaster>> = {
   yasai: {
     art: 'greengrocer',
     name: '八百屋の店主',
-    faces: ['ask'],
+    faces: ['ask', 'correct', 'wrong'],
     lines: {
       ask: ['さあ、一丁いくよ！', 'これ何だと思う？', '当ててみな！'],
       correct: ['大当たりィ！', 'いいねぇ、目が高い！', 'そうそう、それ！'],
@@ -84,7 +84,7 @@ export const QUIZMASTERS: Readonly<Record<string, Quizmaster>> = {
   security: {
     art: 'engineer',
     name: 'セキュリティエンジニア',
-    faces: ['ask'],
+    faces: ['ask', 'correct', 'wrong'],
     lines: {
       ask: ['……これ、わかる？', '一問だけ、いい？', 'ちょっと確認ね'],
       correct: ['お、正解', 'よく知ってるね', 'それで合ってる'],
