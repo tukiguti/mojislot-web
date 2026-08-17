@@ -2216,15 +2216,15 @@ body.shake {
   margin-top: 8px;
 }
 
-/* === ジンの吹き出し === */
-.jin-speech {
+/* === 出題者の吹き出し === */
+.speech-bubble {
   position: absolute;
-  /* スマスロ風に左下のジンの頭上へ。% 指定で canvas 拡縮に追随させる。
-     ジンは左下（中心 x≒20%、頭頂 ≒38%）に居るので、その直上に小さく出す。
-     中央のクイズ問題文／カットインに被らないよう、左カラム内（max-width 44%）に収める。 */
-  top: 30%;
-  left: 6%;
-  max-width: 44%;
+  /* 出題者（左下・144×168）の頭上へ。% 指定で canvas 拡縮に追随させる。
+     液晶は 600×400 で、出題者の頭頂は y≒222/732≒30%、中心 x≒88/600≒15%。
+     中央〜右のクイズ問題文に被らないよう、左カラム内（max-width 40%）に収める。 */
+  top: 22%;
+  left: 4%;
+  max-width: 40%;
   background: rgba(255, 255, 255, 0.96);
   color: #222;
   padding: 6px 12px;
@@ -2244,11 +2244,11 @@ body.shake {
     0 3px 10px rgba(0, 0, 0, 0.45),
     0 0 0 2px var(--gold);
 }
-.jin-speech.show {
+.speech-bubble.show {
   opacity: 1;
   transform: translateY(0) scale(1);
 }
-.jin-speech::after {
+.speech-bubble::after {
   content: '';
   position: absolute;
   bottom: -8px;
@@ -2259,7 +2259,7 @@ body.shake {
   border-right: 8px solid transparent;
   border-top: 10px solid var(--gold);
 }
-.jin-speech::before {
+.speech-bubble::before {
   content: '';
   position: absolute;
   bottom: -5px;

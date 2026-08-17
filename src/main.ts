@@ -27,7 +27,6 @@ import { TIER_COLOR_NAME, a11y } from './productions/Accessibility';
 import {
   EFFECT_STATUS,
   EFFECT_STATUS_CLASSES,
-  SHISA_SPEECH,
   SHISA_TINT,
   STREAK_TIERS,
   STREAK_TIER_CLASSES,
@@ -74,12 +73,12 @@ import {
   clearFreezeBanner,
   showRankUpBadge,
 } from './ui/Effects';
-import { JinSpeech } from './ui/JinSpeech';
+import { SpeechBubble } from './ui/SpeechBubble';
 import { ChallengeTracker } from './productions/Challenges';
 import { showMissionToast } from './ui/MissionToast';
 import { SettingsOverlay } from './ui/SettingsOverlay';
-import { JinState } from './productions/JinState';
-import { JinView } from './render/JinView';
+import { QUIZMASTER_SCALE, QuizmasterView } from './render/QuizmasterView';
+import { pickLine, quizmasterFor } from './data/quizmasters';
 import { EffectVisual } from './render/EffectVisual';
 import { QuizState } from './productions/QuizState';
 import { QuizQuestionView } from './render/QuizQuestionView';
@@ -259,8 +258,9 @@ export async function bootstrap() {
   });
   const wallet = new CoinWallet(payout.initialCoins);
   const scheduler = new EffectScheduler(effectRates.default);
-  const jinState = new JinState();
   const quizState = new QuizState();
+  /** 直前のクイズがニアミス（1コマずれ）だったか。出題者の不正解台詞を差し替えるのに使う。 */
+  let quizNearMiss = false;
   let slipResolver = new SlipResolver(yakuList, {
     assistMaxCells: tuning.assist.pullInCells,
   });
@@ -412,25 +412,21 @@ export async function bootstrap() {
   });
   app.stage.addChild(effectVisual.bgLayer);
 
-  // ジンはスマスロ風に「演出液晶の左下」に小さく配置する。
-  // 中央〜上部の広い空間はカットイン・演出のために空けておく。
-  const JIN_SCALE = 0.62;
-  const JIN_X = 118; // 左寄せ（縮小後の半幅ぶん内側に置く）
-  const JIN_FOOT_Y = LIQUID_AREA_H - 12; // 足元＝液晶下端付近（リール直上）
+  // クイズの出題者は実機のサブ液晶の作法に倣い「液晶の左下」に置く。
+  // 中央〜上部はカットイン・演出のために空けておく。
+  // 絵は 48×56 のドット絵を3倍した 144×168（QUIZMASTER_SCALE）。
+  const MASTER_W = 48 * QUIZMASTER_SCALE;
+  const MASTER_H = 56 * QUIZMASTER_SCALE;
+  const MASTER_X = 16 + MASTER_W / 2;
+  const MASTER_Y = LIQUID_AREA_H - 10 - MASTER_H / 2;
 
-  // 液晶下端をうっすら明るく（ジンの足元に光を当てたような感じ）。左下のジンに合わせる。
-  const liquidFloor = new Graphics();
-  liquidFloor.ellipse(JIN_X, JIN_FOOT_Y, 96, 16);
-  liquidFloor.fill({ color: 0xffd700, alpha: 0.09 });
-  app.stage.addChild(liquidFloor);
-
-  // ジン（マスコット）配置。container は原点中心描画なので、足元が JIN_FOOT_Y に来るよう
-  // 中心を半身ぶん上げる（従来の中心-床=102px を scale 倍して算出）。
-  const jinView = new JinView(jinState);
-  jinView.container.scale.set(JIN_SCALE);
-  jinView.container.x = JIN_X;
-  jinView.container.y = JIN_FOOT_Y - 102 * JIN_SCALE;
-  app.stage.addChild(jinView.container);
+  const quizmasterView = new QuizmasterView({
+    artBase: ART_BASE,
+    x: MASTER_X,
+    y: MASTER_Y,
+  });
+  app.stage.addChild(quizmasterView.container);
+  void quizmasterView.setChapter(chapterId);
 
   // 液晶内の演出ホスト。全画面 DOM 演出（フラッシュ/紙吹雪/カットイン/キラキラ/HIT）を
   // ここに出して液晶外へはみ出させない（overflow:hidden）。
@@ -475,23 +471,41 @@ export async function bootstrap() {
   announceLampEl.innerHTML = `<div class="lamp-dome"></div><div class="lamp-text">確定</div><div class="lamp-kind">?</div>`;
   requireEl('game-area').appendChild(announceLampEl);
 
-  // ジンのセリフ吹き出し（DOM, 演出エリア内）。ジン本体の可視制御と同じ信号で抑制する。
-  const jinSpeech = new JinSpeech(requireEl('game-area'));
+  // 出題者の吹き出し（DOM, 演出エリア内）。出題者が出ている間しか使わない。
+  const speech = new SpeechBubble(requireEl('game-area'));
 
-  // クイズ中はジンを隠して、ここにクイズ文章を大きく出す
+  // クイズ文章。出題者を左下に置くので、問題文は右へ寄せて被りを避ける。
   const quizQuestionView = new QuizQuestionView(quizState, {
     width: CANVAS_W,
     height: LIQUID_AREA_H,
+    insetLeft: MASTER_W + 16,
   });
   quizQuestionView.container.x = CANVAS_W / 2;
   quizQuestionView.container.y = LIQUID_AREA_H / 2;
   app.stage.addChild(quizQuestionView.container);
 
-  // クイズ表示中はマスコットを隠す。同時にセリフ吹き出しも抑制し、問題文への被りを防ぐ。
+  /**
+   * 出題者の出入りはクイズの局面ひとつで決まる。
+   *  - shown（出題〜停止中）: 出題の顔＋出題の台詞
+   *  - resolved（全停止後）: 的中なら正解の顔、外れなら不正解の顔
+   *  - inactive: 引っ込む
+   *
+   * 呼び出し側に散らさず1箇所に寄せてある。ジンの頃は台詞を各分岐から呼んでいて、
+   * 示唆の色を作り直した時に**呼び忘れた台詞が5つ残った**（[33] §5）。
+   */
   quizState.phase.subscribe((phase) => {
-    const idle = phase === 'inactive';
-    jinView.container.visible = idle;
-    jinSpeech.setSuppressed(!idle);
+    const master = quizmasterFor(chapterId);
+    if (phase === 'inactive' || !master) {
+      quizmasterView.hide();
+      speech.hide();
+      return;
+    }
+    const face =
+      phase === 'shown' ? 'ask' : quizState.matched.get() ? 'correct' : 'wrong';
+    quizmasterView.show(face);
+    // 絵は3表情のまま、ニアミスは台詞だけで差をつける。
+    const line = face === 'wrong' && quizNearMiss ? 'near' : face;
+    if (quizmasterView.isVisible()) speech.show(pickLine(master, line));
   });
 
   // リールエリアの背景帯
@@ -596,7 +610,6 @@ export async function bootstrap() {
     for (const engine of engines) engine.tick(now);
     for (const view of views) view.update(now);
     leftIndicators.update(now);
-    jinView.update(now);
     effectVisual.update();
   });
 
@@ -690,13 +703,12 @@ export async function bootstrap() {
       currentShisaTier ? SHISA_TINT[currentShisaTier.color] : undefined,
     );
 
-    // ラベル・クラス・ジンの表情は対応表から引く（EffectPresentation）。
+    // ラベルとクラスは対応表から引く（EffectPresentation）。
     // 分岐ごとに書いていた頃は、色や演出を足すたびに揃えて直す必要があった。
     const view = EFFECT_STATUS[effect];
     effectStatusEl.classList.remove(...EFFECT_STATUS_CLASSES);
     effectStatusEl.textContent = view.label;
     if (view.statusClass) effectStatusEl.classList.add(view.statusClass);
-    jinState.set(view.jin);
 
     if (effect === 'shisa' && currentShisaTier) {
       effectStatusEl.classList.add(`tier-${currentShisaTier.color}`);
@@ -707,7 +719,6 @@ export async function bootstrap() {
         if (name) effectStatusEl.textContent = `${view.label}・${name}`;
       }
       sfx.shisa();
-      jinSpeech.say(SHISA_SPEECH[currentShisaTier.color]);
       // 示唆はカテゴリしか示さない＝候補を全部並べて「どれかな…？」と迷わせる。
       // 第1・第2停止で内部役の図柄が中段に来たら escalateShisa() が「狙え！」へ発展させる。
       const cands = options.shisaCandidates ?? [];
@@ -747,7 +758,6 @@ export async function bootstrap() {
         reelTopYFrac: reelY / CANVAS_H,
       });
       sfx.shisa(); // 既存の示唆 SE を流用
-      jinSpeech.say('shisa');
     }
   };
   applyEffect('none');
@@ -1130,7 +1140,6 @@ export async function bootstrap() {
     shakeBody(kind === 'reg' ? 400 : 600);
     window.setTimeout(() => {
       showBonusBanner(kind);
-      jinSpeech.say('premium');
     }, 1300);
   };
 
@@ -1208,11 +1217,9 @@ export async function bootstrap() {
       for (const v of views) v.highlightCenter(1400);
       showCoinFloatAt(24, false);
       showCoinBurstAt(5);
-      jinSpeech.say('win');
     },
     triggerTenpaiSe: () => {
       sfx.tenpai();
-      jinSpeech.say('tenpai');
       // どれか1リールに枠フラッシュ
       views[2].startTenpaiFlash(false);
       window.setTimeout(() => views[2].stopTenpaiFlash(), 2500);
@@ -1318,7 +1325,6 @@ export async function bootstrap() {
       window.setTimeout(() => spawnConfetti(extra), 260);
       shakeBody(endScreen.kind === 'max' ? 520 : 260);
     }
-    jinSpeech.say('premium');
 
     // 告知を読ませてから入れ替える。リールは全停止しているので差し替えて安全。
     // **告知を出す時点で入力を止める**——1.5秒の間に次のゲームが始まると、
@@ -1346,7 +1352,6 @@ export async function bootstrap() {
     sfx.winMulti(3); // 既存ファンファーレを上乗せ用に流用
     flashScreen({ color: kind === 'reg' ? '#cdd6e0' : '#ffe680', alpha: 0.7, durMs: 320 });
     spawnConfetti(50);
-    jinSpeech.say('premium');
   };
 
   const resetForNextSpin = () => {
@@ -1400,8 +1405,6 @@ export async function bootstrap() {
     resultEl.classList.remove('visible');
     flashButton(betBtn);
     sfx.bet();
-    // BET 時のセリフは時々（25%）
-    if (Math.random() < 0.25) jinSpeech.say('bet');
     // レバーON後の演出抽選に使うレートを、ボーナス > 救済 > 通常で準備する。
     if (announcedBonus) {
       scheduler.setRates({ none: 1, shisa: 0, quiz: 0, aim: 0 });
@@ -1708,7 +1711,9 @@ export async function bootstrap() {
       },
     );
 
-    // --- 描画層（図柄は非同期ロード）---
+    // --- 描画層（図柄と出題者は非同期ロード）---
+    // 出題者は島ごとに別人なので、台が替われば絵も替わる（[14] §2）。
+    await quizmasterView.setChapter(chapterId);
     const art = await loadSymbolArt(chapterId, yakuList, ART_BASE);
     symbolTextures = art.textures;
     symbolTexturesPlain = art.texturesPlain;
@@ -1850,7 +1855,6 @@ export async function bootstrap() {
       reachEyeShown = true;
       views[idx].startTenpaiFlash(true);
       sfx.tenpaiPremium();
-      jinSpeech.say('premium');
     }
 
     // 示唆 →「狙え！」への発展。
@@ -1889,7 +1893,6 @@ export async function bootstrap() {
           arrowReels: engines.map((e) => e.state.get() === 'spinning'),
         });
         sfx.shisa();
-        jinSpeech.say('shisa');
       }
     }
 
@@ -1910,7 +1913,6 @@ export async function bootstrap() {
         if (tenpai.hasPremium) sfx.tenpaiPremium();
         else sfx.tenpai();
         showSoundCue('テンパイ');
-        jinSpeech.say('tenpai');
       }
     }
 
@@ -1960,7 +1962,6 @@ export async function bootstrap() {
         // 読ませる遊びなので、答えを書いてしまうと成立しない。
         for (const v of views) v.startTenpaiFlash(reachKind !== 'reg');
         sfx.tenpaiPremium();
-        jinSpeech.say('tenpai');
       }
       // チェリー昇格。チェリーが**実際に揃った**時だけ抽選し、当たれば確定告知ランプを
       // 点灯＝次ゲーム以降ボーナス確定。成立表示の余韻を残してから点灯させ、
@@ -1982,6 +1983,18 @@ export async function bootstrap() {
       }
       if (quizTargetYakuId) {
         const quizMatched = hits.some((h) => h.yaku.id === quizTargetYakuId);
+        // 「1コマずれていれば揃っていた」を出題者の台詞に載せる。**resolve より先に**
+        // 出しておく（resolve が吹き出しを出すので、後から立てても間に合わない）。
+        quizNearMiss =
+          !quizMatched &&
+          nearMissDetector.detect(
+            middleSymbols,
+            engines.map((e) => e.strip),
+            engines.map((e) => {
+              const total = e.strip.cells.length;
+              return ((Math.round(e.position) % total) + total) % total;
+            }),
+          ).length > 0;
         quizState.resolve(quizMatched);
         playStats.recordQuiz(quizMatched);
         if (quizId) quizStats.record(quizId, quizMatched);
@@ -2062,7 +2075,6 @@ export async function bootstrap() {
           `${yakuLabel}！ +${win}${bonusTag}${streakTag}${lineTag}${noticeTag}${bitaTag}`,
           cls,
         );
-        jinState.set('cheer');
         // 図鑑には揃ったユニーク役を全部記録
         const recorded = new Set<string>();
         for (const h of hits) {
@@ -2149,26 +2161,12 @@ export async function bootstrap() {
             spawnConfetti(40);
             shakeBody(280);
           }
-          jinSpeech.say('win');
         } else {
           sfx.winCore();
-          jinSpeech.say('win');
         }
       } else {
-        // ハズレ・ニアミス時は結果テキストを出さない（演出のみ）
-        // ニアミスはマスコットのセリフだけで示唆
-        const positions = engines.map((e) => {
-          const t = e.strip.cells.length;
-          return ((Math.round(e.position) % t) + t) % t;
-        });
-        const nearMisses = nearMissDetector.detect(
-          middleSymbols,
-          engines.map((e) => e.strip),
-          positions,
-        );
-        if (nearMisses.length > 0) jinSpeech.say('near');
-        else jinSpeech.say('miss');
-        jinState.set('miss');
+        // ハズレ・ニアミス時は結果テキストを出さない（演出のみ）。
+        // ニアミスの通知はクイズの不正解台詞へ移した（上の quizState.resolve のところ）。
         if (!quizTargetYakuId) sfx.miss();
       }
 
@@ -2263,7 +2261,6 @@ export async function bootstrap() {
     requestAnimationFrame(() => announceLampEl.classList.add('lit'));
     sfx.lamp();
     flashScreen({ color: '#fff3a0', alpha: 0.8, durMs: 280 });
-    jinSpeech.say('premium');
   };
   /**
    * チェリー昇格の点灯待ち。全停止直後ではなく少し置いてから点けることで、
