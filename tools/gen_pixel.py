@@ -152,9 +152,11 @@ def selout(grid: list[list[str]]) -> list[list[str]]:
     return out
 
 
-def to_png(grid: list[list[str]], path: pathlib.Path, scale: int) -> None:
+def to_png(grid: list[list[str]], path: pathlib.Path, scale: int,
+           override: dict | None = None) -> None:
+    pal = {**PALETTE, **(override or {})}
     img = Image.new("RGBA", (W, H))
-    img.putdata([PALETTE[grid[y][x]] for y in range(H) for x in range(W)])
+    img.putdata([pal[grid[y][x]] for y in range(H) for x in range(W)])
     if scale != 1:
         img = img.resize((W * scale, H * scale), Image.NEAREST)
     img.save(path)
@@ -417,12 +419,156 @@ WRONG = parse([
 FACES = {"ask": ASK, "correct": CORRECT, "wrong": WRONG}
 
 
+# ──────────────────────────────────────────────────────────────────────────
+# バリエーション。**色は差分だけ、形はマップを差し替える**。
+# 見比べて選ぶためのもので、決まったら既定へ畳む。
+# ──────────────────────────────────────────────────────────────────────────
+
+def rgb(s: str) -> tuple[int, int, int, int]:
+    return (int(s[0:2], 16), int(s[2:4], 16), int(s[4:6], 16), 255)
+
+
+def hair(a: str, b: str, c: str, d: str, e: str) -> dict[str, tuple[int, int, int, int]]:
+    """髪のランプ（最暗→影→基本→明→天使の輪）。"""
+    return {"2": rgb(a), "h": rgb(b), "H": rgb(c), "L": rgb(d), "l": rgb(e)}
+
+
+def eyes(iris: str, light: str, pupil: str = "16233F") -> dict[str, tuple[int, int, int, int]]:
+    return {"E": rgb(iris), "e": rgb(light), "D": rgb(pupil)}
+
+
+# 輪郭は髪の明るさに合わせて変える。地色（#2A1830）より暗くないと形が消えるが、
+# 明るい髪なら茶系の輪郭のほうが馴染む。
+OL_DARK = {"K": rgb("14121C"), "k": rgb("3A3550")}
+OL_WARM = {"K": rgb("4A2F28"), "k": rgb("6B4436")}
+
+COLOR_SETS: dict[str, dict] = {
+    "black_blue":  {**hair("1E242F", "2A3243", "3B455E", "515D7C", "9AA6CC"), **eyes("3D86CF", "7FC4F2"), **OL_DARK},
+    "black_amber": {**hair("1E242F", "2A3243", "3B455E", "515D7C", "9AA6CC"), **eyes("D8912B", "F5CE72", "3A2410"), **OL_DARK},
+    "black_ruby":  {**hair("1E242F", "2A3243", "3B455E", "515D7C", "9AA6CC"), **eyes("C0394B", "F07A88", "3A0E16"), **OL_DARK},
+    "navy_cyan":   {**hair("141C30", "1E2B4A", "2E4270", "44608F", "8FB4D8"), **eyes("46C8D8", "9FE8F0"), **OL_DARK},
+    "brown_amber": {**hair("2A1C14", "3E2A1C", "5A3E28", "7A5738", "BFA07A"), **eyes("D8912B", "F5CE72", "3A2410"), **OL_WARM},
+    "ash_violet":  {**hair("2A2630", "3D3746", "574F63", "756B82", "BDB2C4"), **eyes("9A6FD0", "C8A8F0"), **OL_DARK},
+    "blonde_blue": {**hair("8F5A2E", "C08037", "E8B25C", "F7D68F", "FFF3CF"), **eyes("3D86CF", "7FC4F2"), **OL_WARM},
+    "auburn_green":{**hair("3A1A18", "5A2622", "7E3830", "A6544A", "D89A8A"), **eyes("4FA860", "8FD89A"), **OL_WARM},
+}
+
+
+def _put(grid: list[list[str]], y: int, col: int, s: str) -> None:
+    for i, ch in enumerate(s):
+        if ch != ".":
+            grid[y][col + i] = ch
+
+
+def eye_style(name: str) -> list[list[str]]:
+    """目だけを差し替えるレイヤー。左右対称に置く（右目は左右反転）。
+
+    この解像度では**形を変えるしかない**。1ドットのサイズ差は読めない。
+    """
+    shapes = {
+        # 丸目。標準。
+        "round": [".KKKK.", "KKKKKK", "KWEEEK", "KWEEDK", ".KKKK."],
+        # つり目。外側（左目なら左）が上がる。
+        "sharp": ["KKKK..", "KKKKKK", "KWEEEK", ".KEEDK", "..KKK."],
+        # たれ目。外側が下がる。
+        "droop": ["..KKKK", "KKKKKK", "KWEEEK", "KWEEDK", "KKKK.."],
+        # 大きめ。1行深くして虹彩を増やす。
+        "big":   [".KKKK.", "KKKKKK", "KWEEEK", "KWEEEK", "KWEEDK", ".KKKK."],
+    }
+    g = [["."] * W for _ in range(H)]
+    rows = shapes[name]
+    for i, r in enumerate(rows):
+        _put(g, 23 + i, 16, r)
+        _put(g, 23 + i, 26, r[::-1])
+    return g
+
+
+def hair_style(name: str) -> list[list[str]]:
+    """髪型を差し替えた素体。シルエットが変わる差分だけを扱う。"""
+    g = [list(row) for row in BASE]
+    HAIRC = ("H", "h", "2", "L", "l")
+
+    def clear_hair(y0: int) -> None:
+        for y in range(y0, H):
+            for x in range(W):
+                if g[y][x] in HAIRC:
+                    g[y][x] = "."
+
+    def cap(y: int) -> None:
+        """その行の髪の下に切り口の線を引く。"""
+        for x in range(W):
+            if g[y][x] in HAIRC and g[y + 1][x] == ".":
+                g[y + 1][x] = "K"
+
+    if name == "long":
+        return g
+
+    if name == "bob":
+        # あごの高さで切りそろえ、毛先を外へ広げる。
+        # **長さだけ変えても差が出ない**（肩から下はシャツに隠れる）ので、
+        # 顔まわりのシルエットを変えるしかない。
+        clear_hair(35)
+        for y in range(28, 35):
+            grow = (y - 27) // 2 + 1
+            for dx in range(grow):
+                for x in (9 - 1 - dx, 38 + 1 + dx):
+                    if 0 <= x < W and g[y][x] == ".":
+                        g[y][x] = "H"
+        cap(34)
+        for y in range(27, 36):
+            for x in range(W):
+                if g[y][x] == "H":
+                    for ny, nx in ((y - 1, x), (y, x - 1), (y, x + 1)):
+                        if 0 <= ny < H and 0 <= nx < W and g[ny][nx] == ".":
+                            g[ny][nx] = "K"
+        return g
+
+    if name == "parted":
+        # 中央分け。おでこを少しだけ出す。開けすぎると生え際が後退して見える
+        for y in range(15, 19):
+            half = 3 + (y - 15)          # 下ほど広く開く
+            for x in range(24 - half, 24 + half):
+                g[y][x] = "S"
+            g[y][23 - half] = "K"
+            g[y][24 + half] = "K"
+        for y in range(12, 15):          # 分け目
+            g[y][23] = "h"
+            g[y][24] = "h"
+        return g
+
+    if name == "twin":
+        # 耳の高さで二つ結び。**頭の外へはっきり出す**。
+        # 横髪の延長として少し広げるだけでは、ロングとの差が読めなかった。
+        for y in range(22, 42):
+            if y < 25:
+                w = y - 21
+            elif y < 37:
+                w = 5
+            else:
+                w = max(0, 5 - (y - 36))
+            for dx in range(w):
+                for x in (8 - dx, 39 + dx):
+                    if 0 <= x < W and g[y][x] in (".", "C", "c", "n"):
+                        g[y][x] = "H"
+        for y in range(21, 43):
+            for x in range(W):
+                if g[y][x] == "H":
+                    for ny, nx in ((y - 1, x), (y + 1, x), (y, x - 1), (y, x + 1)):
+                        if 0 <= ny < H and 0 <= nx < W and g[ny][nx] == ".":
+                            g[ny][nx] = "K"
+        return g
+
+    raise ValueError(name)
+
+
 def main() -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("--scale", type=int, default=1,
                     help="書き出し倍率。1なら等倍（表示側で拡大する前提）")
     ap.add_argument("--sheet", metavar="PATH",
                     help="確認用の一覧PNGを書き出す（6倍と実寸3倍を並べる）")
+    ap.add_argument("--variants", metavar="DIR",
+                    help="色・目・髪型のバリエーション比較シートを書き出す")
     args = ap.parse_args()
 
     OUT.mkdir(parents=True, exist_ok=True)
@@ -454,6 +600,58 @@ def main() -> int:
         out = pathlib.Path(args.sheet)
         sheet.save(out)
         print(f"一覧 → {out}")
+
+    if args.variants:
+        d = pathlib.Path(args.variants)
+        d.mkdir(parents=True, exist_ok=True)
+        bg = (0x2A, 0x18, 0x30, 255)
+        s = 4  # 4倍。粗さを見つつ一覧に収まる大きさ
+
+        def tile(grid, override=None):
+            pal = {**PALETTE, **(override or {})}
+            im = Image.new("RGBA", (W, H))
+            im.putdata([pal[grid[y][x]] for y in range(H) for x in range(W)])
+            return im.resize((W * s, H * s), Image.NEAREST)
+
+        def sheet(items, cols, path):
+            """items = [(画像, ラベル)]。ラベルはASCII（PILの既定フォントは和文が出ない）。"""
+            from PIL import ImageDraw
+            rows = (len(items) + cols - 1) // cols
+            pad, lab = 12, 16
+            iw, ih = W * s, H * s + lab
+            im = Image.new("RGBA", (pad + cols * (iw + pad), pad + rows * (ih + pad)), bg)
+            dr = ImageDraw.Draw(im)
+            for i, (tileimg, label) in enumerate(items):
+                x = pad + (i % cols) * (iw + pad)
+                y = pad + (i // cols) * (ih + pad)
+                im.alpha_composite(tileimg, (x, y))
+                dr.text((x + 2, y + W * 0 + H * s + 2), label, fill=(0xC8, 0xBC, 0xD8, 255))
+            im.save(path)
+            print(f"  {path}")
+
+        base_l = selout(shade(BASE))
+        ask = compose(base_l, ASK)
+        sheet([(tile(ask, ov), name) for name, ov in COLOR_SETS.items()],
+              4, d / "kotoha_colors.png")
+
+        # 目は現行の色（黒髪×青）で比較する
+        cur = COLOR_SETS["black_blue"]
+        items = []
+        for name in ("round", "sharp", "droop", "big"):
+            face = compose(ASK, eye_style(name))
+            # 差し替えた目が元の目と重ならないよう、元の目の行を消してから重ねる
+            f = [r[:] for r in ASK]
+            for y in range(23, 29):
+                f[y] = list("." * W)
+            f = compose(f, eye_style(name))
+            items.append((tile(compose(base_l, f), cur), name))
+        sheet(items, 4, d / "kotoha_eyes.png")
+
+        items = []
+        for name in ("long", "bob", "parted", "twin"):
+            g = selout(shade(hair_style(name)))
+            items.append((tile(compose(g, ASK), cur), name))
+        sheet(items, 4, d / "kotoha_hair.png")
     return 0
 
 
