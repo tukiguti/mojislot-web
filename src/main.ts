@@ -78,6 +78,7 @@ import { ChallengeTracker } from './productions/Challenges';
 import { showMissionToast } from './ui/MissionToast';
 import { SettingsOverlay } from './ui/SettingsOverlay';
 import { QUIZMASTER_SCALE, QuizmasterView } from './render/QuizmasterView';
+import { LcdBackground } from './render/LcdBackground';
 import { pickLine, quizmasterFor, type Quizmaster } from './data/quizmasters';
 import { VoiceEngine } from './audio/VoiceEngine';
 import { EffectVisual } from './render/EffectVisual';
@@ -418,6 +419,25 @@ export async function bootstrap() {
   liquidBg.fill(liquidGrad);
   app.stage.addChild(liquidBg);
 
+  /**
+   * 液晶の背景（島の情景・ドット絵）。グラデーションの上へ重ねる。
+   * 情景を描いた島だけ出る（未着手の島は従来どおりグラデーションのまま）。
+   */
+  const lcdBg = new LcdBackground({
+    artBase: ART_BASE,
+    // 島ID → コマ数（`tools/gen_lcd_bg.py` の SCENES と揃える）。
+    // ここに無い島は背景なしで動く（従来どおりグラデーションのまま）。
+    frameCounts: {
+      hiragana_food: 3,
+      katakana_animal: 3,
+      hiragana_verb: 3,
+      yasai: 3,
+      security: 3,
+    },
+  });
+  app.stage.addChild(lcdBg.container);
+  void lcdBg.setChapter(chapterId);
+
   // 演出ビジュアル（液晶＋リール背景の色味、フラッシュ）
   const effectVisual = new EffectVisual({
     width: CANVAS_W,
@@ -467,6 +487,8 @@ export async function bootstrap() {
   const pushEffectA11y = () => {
     const s = a11y.get();
     setEffectA11y({ reduceMotion: s.reduceMotion, dim: s.dim });
+    // 背景は**消さずに止める**。消すと空白を埋めるという目的そのものが失われる
+    lcdBg.setPaused(s.reduceMotion);
   };
   pushEffectA11y();
   a11y.settings.subscribe(pushEffectA11y);
@@ -641,6 +663,7 @@ export async function bootstrap() {
     for (const engine of engines) engine.tick(now);
     for (const view of views) view.update(now);
     leftIndicators.update(now);
+    lcdBg.update(now);
     effectVisual.update();
   });
 
@@ -1745,6 +1768,7 @@ export async function bootstrap() {
     // --- 描画層（図柄と出題者は非同期ロード）---
     // 出題者は島ごとに別人なので、台が替われば絵も替わる（[14] §2）。
     await quizmasterView.setChapter(chapterId);
+    await lcdBg.setChapter(chapterId);
     loadVoices();
     const art = await loadSymbolArt(chapterId, yakuList, ART_BASE);
     symbolTextures = art.textures;
