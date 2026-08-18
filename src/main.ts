@@ -134,6 +134,8 @@ const REEL_GAP = 16;
 const REEL_COUNT = 3;
 // デバッグ等で明示指定できる演出。
 type ForcedEffect = Exclude<EffectType, 'none'>;
+/** ステージチェンジの確率（1ゲームあたり）。情景3種を10ゲームに1度ほど入れ替える。 */
+const STAGE_CHANGE_RATE = 1 / 10;
 const CANVAS_W = 600;
 const CANVAS_H = 732;
 // 液晶エリア（演出液晶＋マスコット領域）の高さ。
@@ -425,14 +427,14 @@ export async function bootstrap() {
    */
   const lcdBg = new LcdBackground({
     artBase: ART_BASE,
-    // 島ID → コマ数（`tools/gen_lcd_bg.py` の SCENES と揃える）。
+    // 島ID → [情景の数, 1情景あたりのコマ数]（`tools/gen_lcd_bg.py` の SCENES と揃える）。
     // ここに無い島は背景なしで動く（従来どおりグラデーションのまま）。
-    frameCounts: {
-      hiragana_food: 3,
-      katakana_animal: 3,
-      hiragana_verb: 3,
-      yasai: 3,
-      security: 3,
+    scenes: {
+      hiragana_food: [3, 3],
+      katakana_animal: [3, 3],
+      hiragana_verb: [3, 3],
+      yasai: [3, 3],
+      security: [3, 3],
     },
   });
   app.stage.addChild(lcdBg.container);
@@ -1477,6 +1479,14 @@ export async function bootstrap() {
     if (stageSwapping) return;
     if (leverBtn.disabled) return;
     if (!betPlaced) return;
+
+    /**
+     * ステージチェンジ。**内部役とも結果とも無関係に**抽選するので、
+     * 変わったことから当たりは読めない。リールが回り出す瞬間に切り替えると、
+     * 目がリールへ移っている間に済むので唐突に見えない。
+     */
+    if (Math.random() < STAGE_CHANGE_RATE) lcdBg.changeScene();
+
     // レバーONを1ゲームの確定点とし、内部役→対応できる演出の順に決める。
     // フリーズ／確定ランプは通常抽選より優先し、強制役もRoundContextへ保存する。
     stopOrder = [];
