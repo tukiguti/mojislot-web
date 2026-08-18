@@ -162,7 +162,7 @@ src/
 ├── render/          # Pixi 描画層（ReelView/EffectVisual/JinView 等）
 ├── ui/              # DOM UI 層（Effects/SettingsOverlay/ZukanOverlay 等）
 ├── card/            # 図鑑・統計・セーブ（カード）のコーデック/管理
-├── audio/           # 効果音・BGM（Web Audio 合成）
+├── audio/           # 効果音・BGM（Web Audio 合成）＋ 出題者のボイス（VOICEVOX の m4a）
 ├── router/          # 画面ルーティング
 ├── data/            # JSON ロード + Zod 検証（schemas/chapters）
 └── lib/             # 汎用ユーティリティ（Observable 等）

@@ -143,6 +143,19 @@ const LIQUID_AREA_H =
   CANVAS_H - (CELL_HEIGHT * VISIBLE_CELLS + REEL_PEEK * 2 + FRAME_PAD * 2);
 
 /**
+ * 液晶の高さの比を CSS へ渡す。DOM演出（カットイン・フラッシュ・BONUSバナー）は
+ * この比で液晶に重なる。
+ *
+ * CSS 側にも同じ値を書いていたが、**リールのチラ見せと枠余白が入って液晶が縮んだ時に
+ * CSS だけ取り残され**、DOM演出が液晶の下端を32pxはみ出してリールに被っていた。
+ * ここから流し込めば、`LIQUID_AREA_H` を動かすだけで両方が揃う。
+ */
+document.documentElement.style.setProperty(
+  '--lcd-ratio',
+  String(LIQUID_AREA_H / CANVAS_H),
+);
+
+/**
  * 複数ペイラインで揃った役の一覧を文字列要約。
  * 例: [みかん, みかん, すしや] → "みかん×2 ＋ すしや"
  */
