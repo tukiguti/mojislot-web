@@ -31,6 +31,7 @@ import {
 import payoutDataRaw from '../../data/payouts/default.json';
 import tuningDataRaw from '../../data/tuning/default.json';
 import './hall.css';
+import { creditHtml } from '../data/credits';
 
 /**
  * ホール（台を選ぶ）。入口 → 島 → 寄り の3段階で打つ台を決める。
@@ -665,6 +666,7 @@ export function mountHallView(cb: HallViewCallbacks): HallViewHandle {
         <div class="hall-enter">
           <div class="hall-enter-btn" data-act="enter" role="button" tabindex="0">入 場 す る</div>
           <span class="hall-enter-hint">Enter / クリックで入場　—　場内は ← → で島、1–4 で台、Enter で決定</span>
+          ${creditHtml()}
         </div>
       </div>`;
   };
@@ -718,6 +720,7 @@ export function mountHallView(cb: HallViewCallbacks): HallViewHandle {
             <div class="hall-counterlink" data-act="ranking" role="button" tabindex="0">ランキング</div>
           </div>
           <span class="hall-enter-hint">島は左右スワイプ／台をタップで詳細</span>
+          ${creditHtml('hall-credit sm')}
         </div>
       </div>`;
   };
@@ -1250,6 +1253,7 @@ export function mountHallView(cb: HallViewCallbacks): HallViewHandle {
                 : `<div class="hall-sit" data-act="sit" role="button" tabindex="0">この台に座る　Enter</div>`
             }
             <div class="hall-seat-another" data-act="back" role="button" tabindex="0">別の台を見る</div>
+            ${creditHtml('hall-credit seat')}
           </div>
         </div>
       </div>`;
