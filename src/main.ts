@@ -78,7 +78,8 @@ import { ChallengeTracker } from './productions/Challenges';
 import { showMissionToast } from './ui/MissionToast';
 import { SettingsOverlay } from './ui/SettingsOverlay';
 import { QUIZMASTER_SCALE, QuizmasterView } from './render/QuizmasterView';
-import { pickLine, quizmasterFor } from './data/quizmasters';
+import { pickLine, quizmasterFor, type Quizmaster } from './data/quizmasters';
+import { VoiceEngine } from './audio/VoiceEngine';
 import { EffectVisual } from './render/EffectVisual';
 import { QuizState } from './productions/QuizState';
 import { QuizQuestionView } from './render/QuizQuestionView';
@@ -428,6 +429,19 @@ export async function bootstrap() {
   app.stage.addChild(quizmasterView.container);
   void quizmasterView.setChapter(chapterId);
 
+  // 出題者のボイス。島ごとに別人なので、現在の島のぶんだけ先読みする。
+  const voice = new VoiceEngine(`${import.meta.env.BASE_URL}audio/`);
+  /** その出題者が持つ全台詞のファイル名（`ask_0` 等）。先読みに渡す。 */
+  const voiceClipsOf = (master: Quizmaster): string[] =>
+    Object.entries(master.lines).flatMap(([scene, lines]) =>
+      lines.map((_, i) => `${scene}_${i}`),
+    );
+  const loadVoices = () => {
+    const master = quizmasterFor(chapterId);
+    if (master) voice.preload(chapterId, voiceClipsOf(master));
+  };
+  loadVoices();
+
   // 液晶内の演出ホスト。全画面 DOM 演出（フラッシュ/紙吹雪/カットイン/キラキラ/HIT）を
   // ここに出して液晶外へはみ出させない（overflow:hidden）。
   const lcdFx = document.createElement('div');
@@ -505,7 +519,11 @@ export async function bootstrap() {
     quizmasterView.show(face);
     // 絵は3表情のまま、ニアミスは台詞だけで差をつける。
     const line = face === 'wrong' && quizNearMiss ? 'near' : face;
-    if (quizmasterView.isVisible()) speech.show(pickLine(master, line));
+    if (!quizmasterView.isVisible()) return;
+    // 字幕とボイスは**同じ添字**で引く（別々に選ぶと違う台詞が鳴る）。
+    const { text, index } = pickLine(master, line);
+    speech.show(text);
+    voice.play(line, index);
   });
 
   // リールエリアの背景帯
@@ -1714,6 +1732,7 @@ export async function bootstrap() {
     // --- 描画層（図柄と出題者は非同期ロード）---
     // 出題者は島ごとに別人なので、台が替われば絵も替わる（[14] §2）。
     await quizmasterView.setChapter(chapterId);
+    loadVoices();
     const art = await loadSymbolArt(chapterId, yakuList, ART_BASE);
     symbolTextures = art.textures;
     symbolTexturesPlain = art.texturesPlain;
@@ -2517,6 +2536,7 @@ export async function bootstrap() {
     bgm.init(); // mute トグルを user gesture として BGM も起動
     sfx.toggleMute();
     bgm.setMuted(sfx.isMuted());
+    voice.setMuted(sfx.isMuted());
     updateMuteUI();
   });
   updateMuteUI();
@@ -2654,6 +2674,7 @@ export async function bootstrap() {
       bgm.init();
       sfx.toggleMute();
       bgm.setMuted(sfx.isMuted());
+      voice.setMuted(sfx.isMuted());
       updateMuteUI();
       return;
     }

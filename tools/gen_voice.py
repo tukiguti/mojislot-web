@@ -1,18 +1,27 @@
 #!/usr/bin/env python3
-"""コトハのボイスを VOICEVOX で生成する。
-
-コトハはクイズの出題者（設計: 14章 / 33章）。出題・正解・不正解の3場面で喋る。
-台詞は「上達応援型」——落としたのはプレイヤーなので、責めずに一緒に残念がる。
+"""出題者5人のボイスを VOICEVOX で生成する。
 
 使い方:
     VOICEVOX.app を起動してから
-    python3 tools/gen_voice.py            # 生成して public/audio/kotoha/ へ
-    python3 tools/gen_voice.py --wav-only # m4a へ変換せず wav のまま残す（音の確認用）
+    python3 tools/gen_voice.py                 # 全員ぶん生成
+    python3 tools/gen_voice.py hiragana_food   # 1人だけ
+    python3 tools/gen_voice.py --wav-only      # m4a へ変換せず wav で残す（音の確認用）
+
+**台詞は `data/quizmaster-lines.json` を読む**。ゲーム側（`src/data/quizmasters.ts`）が
+同じファイルを読むので、字幕と声がずれない。ここに台詞を直書きしてはいけない。
+
+出力は `public/audio/quizmaster/<章ID>/<場面>_<添字>.m4a`。添字は JSON の配列の位置と
+そろえてある——ゲームは台詞を選んだ添字でそのままファイルを引く。
+
+## 声の割り当て
+
+人ごとに話者を変える（島ごとに別人なので声も別人）。**場面ごとにスタイルも変える**——
+同じ話者の喜び・悲しみを使うと、声の同一性を保ったまま感情が乗る。
+スタイルが1つしかない話者はそのまま使う。
 
 前提:
   - VOICEVOX のローカルAPI（既定 http://127.0.0.1:50021）が生きていること
-  - 変換は macOS 標準の afconvert（ffmpeg は入れない）。wav のままだと1本100KB近くあり、
-    9本で1MB近い。スロットの初期ロードは5MB以下が目安なので、ここは削っておく。
+  - 変換は macOS 標準の afconvert（ffmpeg は入れない）。wav のままだと1本100KB近い
 """
 
 from __future__ import annotations
@@ -27,30 +36,24 @@ import urllib.parse
 import urllib.request
 
 HOST = "http://127.0.0.1:50021"
+ROOT = pathlib.Path(__file__).resolve().parent.parent
+LINES_JSON = ROOT / "data" / "quizmaster-lines.json"
+OUT_ROOT = ROOT / "public" / "audio" / "quizmaster"
 
-# 冥鳴ひまり（ノーマル）。`GET /speakers` の styles[].id が話者ID。
-SPEAKER = 14
+SCENES = ("ask", "correct", "wrong", "near")
 
-OUT_DIR = pathlib.Path(__file__).resolve().parent.parent / "public" / "audio" / "kotoha"
-
-# 場面ごとに3パターン。毎回同じだと2回目から耳に障るので振る。
-# 出題は問いかけなので語尾を上げる（enable_interrogative_upspeak）。
-LINES: dict[str, list[tuple[str, str]]] = {
-    "ask": [
-        ("ask_1", "問題です！"),
-        ("ask_2", "これ、わかるかな？"),
-        ("ask_3", "いくよ、集中して！"),
-    ],
-    "correct": [
-        ("correct_1", "正解！さすがだね！"),
-        ("correct_2", "やったね！"),
-        ("correct_3", "うんうん、その調子！"),
-    ],
-    "wrong": [
-        ("wrong_1", "あー、惜しい！"),
-        ("wrong_2", "残念。次いこう！"),
-        ("wrong_3", "うーん、おしかったね"),
-    ],
+# 章ID → (話者の名前, {場面: スタイルID})。IDは `GET /speakers` の styles[].id。
+VOICES: dict[str, tuple[str, dict[str, int]]] = {
+    # 寿司屋の大将（50代・威勢がいい）。豪快な低音。スタイルは1つ
+    "hiragana_food": ("麒ヶ島宗麟", {"ask": 53, "correct": 53, "wrong": 53, "near": 53}),
+    # 動物園の飼育員（20代・快活）。喜び／悲しみが揃っている
+    "katakana_animal": ("玄野武宏", {"ask": 11, "correct": 39, "wrong": 41, "near": 41}),
+    # 国語の教師（30代女性・丁寧）。落ち着いた成人女性
+    "hiragana_verb": ("WhiteCUL", {"ask": 23, "correct": 24, "wrong": 25, "near": 25}),
+    # 八百屋の店主（40代・声が大きい）。出題から熱血で押す
+    "yasai": ("青山龍星", {"ask": 81, "correct": 83, "wrong": 85, "near": 85}),
+    # セキュリティエンジニア（30代・ぼそぼそ）。抑えた低音。スタイルは1つ
+    "security": ("雀松朱司", {"ask": 52, "correct": 52, "wrong": 52, "near": 52}),
 }
 
 
@@ -63,22 +66,21 @@ def post(path: str, params: dict[str, object], body: bytes | None = None) -> byt
         return res.read()
 
 
-def synth(text: str, *, question: bool) -> bytes:
+def synth(text: str, speaker: int, *, question: bool) -> bytes:
     """音声クエリ → 合成。クエリを挟むのは速度や抑揚を触れるようにするため。"""
-    query = json.loads(post("/audio_query", {"speaker": SPEAKER, "text": text}))
-    # 少しゆっくり・気持ち高めにする。液晶の文字を読みながら聞くので、
-    # 素の速度だと出題文を読み終える前に喋り終わってしまう。
+    query = json.loads(post("/audio_query", {"speaker": speaker, "text": text}))
+    # 少しゆっくりにする。液晶の文字を読みながら聞くので、素の速度だと
+    # 読み終える前に喋り終わってしまう。
     query["speedScale"] = 0.95
-    query["pitchScale"] = 0.02
     return post(
         "/synthesis",
-        {"speaker": SPEAKER, "enable_interrogative_upspeak": str(question).lower()},
+        {"speaker": speaker, "enable_interrogative_upspeak": str(question).lower()},
         json.dumps(query).encode("utf-8"),
     )
 
 
 def to_m4a(wav: pathlib.Path, m4a: pathlib.Path) -> None:
-    """AAC(m4a)へ。48kbps モノラルで、短い台詞なら1本10KB前後に収まる。"""
+    """AAC(m4a)へ。48kbps モノラルで、短い台詞なら1本15KB前後に収まる。"""
     subprocess.run(
         ["afconvert", "-f", "m4af", "-d", "aac", "-b", "48000",
          "--mix", "-c", "1", str(wav), str(m4a)],
@@ -89,6 +91,7 @@ def to_m4a(wav: pathlib.Path, m4a: pathlib.Path) -> None:
 
 def main() -> int:
     ap = argparse.ArgumentParser()
+    ap.add_argument("chapters", nargs="*", help="生成する章ID（既定は全員）")
     ap.add_argument("--wav-only", action="store_true", help="m4a へ変換せず wav を残す")
     args = ap.parse_args()
 
@@ -99,24 +102,32 @@ def main() -> int:
         print(f"VOICEVOX に繋がりません（{HOST}）。VOICEVOX.app を起動してください。",
               file=sys.stderr)
         return 1
-    print(f"VOICEVOX {version} / speaker={SPEAKER}（冥鳴ひまり）")
+    print(f"VOICEVOX {version}")
 
-    OUT_DIR.mkdir(parents=True, exist_ok=True)
+    all_lines = json.loads(LINES_JSON.read_text(encoding="utf-8"))
+    targets = args.chapters or list(VOICES)
     total = 0
-    for scene, items in LINES.items():
-        for name, text in items:
-            wav = OUT_DIR / f"{name}.wav"
-            wav.write_bytes(synth(text, question=scene == "ask"))
-            if args.wav_only:
-                size = wav.stat().st_size
-            else:
-                m4a = OUT_DIR / f"{name}.m4a"
-                to_m4a(wav, m4a)
-                wav.unlink()
-                size = m4a.stat().st_size
-            total += size
-            print(f"  {name:<10} {size / 1024:6.1f} KB  「{text}」")
-    print(f"合計 {total / 1024:.1f} KB → {OUT_DIR}")
+    for chapter in targets:
+        if chapter not in VOICES:
+            raise SystemExit(f"{chapter} の声が未割り当て（{', '.join(VOICES)}）")
+        name, styles = VOICES[chapter]
+        out_dir = OUT_ROOT / chapter
+        out_dir.mkdir(parents=True, exist_ok=True)
+        print(f"{chapter}（{name}）")
+        for scene in SCENES:
+            for i, text in enumerate(all_lines[chapter][scene]):
+                wav = out_dir / f"{scene}_{i}.wav"
+                wav.write_bytes(synth(text, styles[scene], question=scene == "ask"))
+                if args.wav_only:
+                    size = wav.stat().st_size
+                else:
+                    m4a = out_dir / f"{scene}_{i}.m4a"
+                    to_m4a(wav, m4a)
+                    wav.unlink()
+                    size = m4a.stat().st_size
+                total += size
+                print(f"  {scene}_{i}  {size / 1024:6.1f} KB  「{text}」")
+    print(f"合計 {total / 1024:.1f} KB → {OUT_ROOT}")
     return 0
 
 
