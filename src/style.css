@@ -60,27 +60,32 @@
   padding: 0;
 }
 
-/* タッチデバイス対応：
- *  - touch-action: manipulation で ダブルタップ拡大の 300ms 遅延を排除
- *  - tap-highlight-color: 既定の青いタップハイライトを抑止（自前で :active 演出済み）
- *  - user-select: ボタンの長押しで文字選択になるのを防止
+/* タッチデバイス対応。**アプリ全体に掛ける**。
+ *
+ *  - `user-select` / `-webkit-touch-callout`: 長押しで「コピー／検索」のメニューが
+ *    出るのを止める。以前はボタン等にだけ掛けていたので、**持メダルのような
+ *    ただの文字**が選択されてプレイを邪魔していた。スロットは同じ場所を何度も
+ *    押すので、選択できる文字が画面に1つでもあると必ず踏む
+ *  - `touch-action: manipulation`: ダブルタップ拡大の 300ms 遅延を排除
+ *  - `-webkit-tap-highlight-color`: 既定の青いタップハイライトを抑止
+ *    （押した手応えは `:active` で自前に付けてある）
+ *
+ * 入力欄だけは選択を戻す。会員カードの名前は、選択もカーソル移動もできないと直せない。
  */
-button,
-.zukan-row,
-.mission-row,
-.chapter-btn,
-.hall-toggle,
-.hall-guide-row,
-.hall-machine,
-.ctr-chip {
+body {
+  min-height: 100vh;
   touch-action: manipulation;
   -webkit-tap-highlight-color: transparent;
   user-select: none;
   -webkit-user-select: none;
+  -webkit-touch-callout: none;
 }
 
-body {
-  min-height: 100vh;
+input,
+textarea {
+  user-select: text;
+  -webkit-user-select: text;
+  -webkit-touch-callout: default;
 }
 
 /* === ビュー（ホール / ゲーム / ランキング / 会員カード）===
@@ -632,7 +637,6 @@ body.has-chapter-bg {
     0 0 1px var(--gold-hi),
     0 0 6px rgba(224, 53, 155, 0.45);
   margin-top: 3px; /* 電飾列のぶん下げる */
-  user-select: none;
 }
 
 /* === ヘッダー === */
@@ -1214,7 +1218,6 @@ body.has-chapter-bg {
   align-items: center;
   gap: 10px;
   cursor: pointer;
-  user-select: none;
   padding: 6px 4px;
   border-radius: 6px;
   transition: background 120ms;
@@ -1436,7 +1439,6 @@ body.has-chapter-bg {
   font-size: 22px;
   pointer-events: none;
   z-index: 95;
-  user-select: none;
   will-change: transform, opacity;
   transition:
     transform 1.4s cubic-bezier(0.22, 1, 0.36, 1),
