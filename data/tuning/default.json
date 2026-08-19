@@ -92,5 +92,14 @@
       "reg": 0.45,
       "big": 0.6
     }
+  },
+  "pace": {
+    "leverWaitMs": 2000,
+    "resultMs": {
+      "none": 420,
+      "win": 820,
+      "quiz": 1400,
+      "bonusEnd": 1200
+    }
   }
 }

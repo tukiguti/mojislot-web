@@ -239,6 +239,8 @@ export async function bootstrap() {
   );
   // 演出レート・補助・フリーズ等の調整値（散在していた定数を集約）。data/tuning/default.json。
   const tuning = TuningSchema.parse(tuningDataRaw);
+  /** 1ゲームの間合い（結果を読ませる間・レバーのウェイト）。 */
+  const pace = tuning.pace;
   /** ボーナスのゲーム数。リミックス島だけ長い（覚え直しの見返り）。 */
   const bonusSpins = remix
     ? { big: REMIX.spinsPerBig, reg: REMIX.spinsPerReg }
@@ -358,6 +360,12 @@ export async function bootstrap() {
   // pendingFreeze: デバッグボタンで「次のレバーでフリーズ」を予約するフラグ。
   let freezeActive = false;
   let pendingFreeze = false;
+  /**
+   * ウェイトが明ける時刻（`performance.now()` 基準）。実機のウェイトに相当し、
+   * **前回のレバーONから** `pace.leverWaitMs` が経つまで次のレバーを受け付けない。
+   * リールを止めている時間に吸収されるので、普通に打つ分には待ちを感じない。
+   */
+  let leverWaitUntil = 0;
   /** 遅れの「間」の最中。まだどのリールも回っていないのでレバーとBETを塞ぐ。 */
   let spinPending = false;
   /**
@@ -1325,7 +1333,12 @@ export async function bootstrap() {
       !wallet.canBet(calc.bet) ||
       betPlaced;
     leverBtn.disabled =
-      !betPlaced || anySpinning || allStopped || spinPending || stageSwapping;
+      !betPlaced ||
+      anySpinning ||
+      allStopped ||
+      spinPending ||
+      stageSwapping ||
+      performance.now() < leverWaitUntil;
     stopBtns.forEach((btn, i) => {
       btn.disabled = engines[i].state.get() !== 'spinning';
     });
@@ -1479,6 +1492,13 @@ export async function bootstrap() {
     if (stageSwapping) return;
     if (leverBtn.disabled) return;
     if (!betPlaced) return;
+    if (performance.now() < leverWaitUntil) return;
+
+    // 次ゲームのウェイトを張り、明ける時刻にボタンを開け直す。
+    // **リールを止めて待たせてはいけない**——回り出しが遅れると「遅れ」演出と
+    // 見分けが付かず、遅れが持つ「何かが当たっている」という情報を壊す。
+    leverWaitUntil = performance.now() + pace.leverWaitMs;
+    window.setTimeout(updateButtons, pace.leverWaitMs + 16);
 
     /**
      * ステージチェンジ。**内部役とも結果とも無関係に**抽選するので、
@@ -2243,7 +2263,19 @@ export async function bootstrap() {
         window.setTimeout(() => showBonusResult(runEnd.payout, runEnd.kind), 900);
       }
 
-      window.setTimeout(resetForNextSpin, 1200);
+      /**
+       * 全停止から次のBETを受け付けるまでの間。**読むものの量で決める**。
+       * 以前は一律1200msで、何も起きていないゲームでも必ず1.2秒待たされていた。
+       * クイズは答えと的中を読む必要があるので長く、ハズレは読むものが無いので短い。
+       */
+      const resultMs = runEnd
+        ? pace.resultMs.bonusEnd
+        : quizTargetYakuId
+          ? pace.resultMs.quiz
+          : win > 0
+            ? pace.resultMs.win
+            : pace.resultMs.none;
+      window.setTimeout(resetForNextSpin, resultMs);
     }
   };
 

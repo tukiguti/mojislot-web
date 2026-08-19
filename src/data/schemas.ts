@@ -531,6 +531,39 @@ export const TuningSchema = z.object({
   /** 突入直前の「溜め」演出の長さ（ms）。 */
   entryChargeMs: z.number().nonnegative().default(650),
   /**
+   * 1ゲームの間合い。
+   *
+   * `resultMs` は**全停止から次のBETを受け付けるまで**の間で、結果を読ませるための時間。
+   * 以前は一律1200msで、何も起きていないゲームでも必ず1.2秒待たされていた。
+   * 読むものの量で分ける——クイズは答えと的中を読む必要があり、ハズレは何もない。
+   *
+   * `leverWaitMs` は実機のウェイトに相当し、**前回のレバーONから**この時間が経つまで
+   * 次のレバーを受け付けない。リールを止めている時間に吸収されるので、
+   * 普通に打つ分には待ちを感じない。速く打った時だけ効く。
+   *
+   * **ウェイト中はレバーのボタンを塞ぐ**（リールを止めて待たせるのではなく）。
+   * 回り出しを遅らせると「遅れ」演出と見分けが付かず、遅れが持つ
+   * 「何かが当たっている」という情報（信頼度72%）を壊してしまう。
+   */
+  pace: z
+    .object({
+      leverWaitMs: z.number().nonnegative(),
+      resultMs: z.object({
+        /** 何も起きなかったゲーム。 */
+        none: z.number().nonnegative(),
+        /** 役が成立したゲーム（ハイライトとコインを見せる）。 */
+        win: z.number().nonnegative(),
+        /** クイズが出たゲーム（答えと的中を読む）。 */
+        quiz: z.number().nonnegative(),
+        /** ボーナスの区間が終わったゲーム（リザルトへ繋ぐ）。 */
+        bonusEnd: z.number().nonnegative(),
+      }),
+    })
+    .default({
+      leverWaitMs: 2000,
+      resultMs: { none: 420, win: 820, quiz: 1400, bonusEnd: 1200 },
+    }),
+  /**
    * 遅れ演出。レバーONからリールが回り出すまで一瞬の間を置く。
    *
    * **ハズレでは絶対に出さない**（`miss` と `single` の率は0）。何が当たっているかは
