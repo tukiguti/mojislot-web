@@ -537,17 +537,15 @@ export const TuningSchema = z.object({
    * 以前は一律1200msで、何も起きていないゲームでも必ず1.2秒待たされていた。
    * 読むものの量で分ける——クイズは答えと的中を読む必要があり、ハズレは何もない。
    *
-   * `leverWaitMs` は実機のウェイトに相当し、**前回のレバーONから**この時間が経つまで
-   * 次のレバーを受け付けない。リールを止めている時間に吸収されるので、
-   * 普通に打つ分には待ちを感じない。速く打った時だけ効く。
+   * `spinUpMs` は**レバーONからリールが定速になるまで**の加速時間。実機はこの間
+   * 停止ボタンを受け付けない。ここが「リールウェイト」として体感される部分で、
+   * レバーやBETを塞ぐのとは別物。
    *
-   * **ウェイト中はレバーのボタンを塞ぐ**（リールを止めて待たせるのではなく）。
-   * 回り出しを遅らせると「遅れ」演出と見分けが付かず、遅れが持つ
-   * 「何かが当たっている」という情報（信頼度72%）を壊してしまう。
+   * 加速中に目押しはできないので、加速の形が出目に効くことはない。
    */
   pace: z
     .object({
-      leverWaitMs: z.number().nonnegative(),
+      spinUpMs: z.number().nonnegative(),
       resultMs: z.object({
         /** 何も起きなかったゲーム。 */
         none: z.number().nonnegative(),
@@ -560,7 +558,7 @@ export const TuningSchema = z.object({
       }),
     })
     .default({
-      leverWaitMs: 2000,
+      spinUpMs: 480,
       resultMs: { none: 420, win: 820, quiz: 1400, bonusEnd: 1200 },
     }),
   /**

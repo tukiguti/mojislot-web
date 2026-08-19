@@ -360,12 +360,6 @@ export async function bootstrap() {
   // pendingFreeze: デバッグボタンで「次のレバーでフリーズ」を予約するフラグ。
   let freezeActive = false;
   let pendingFreeze = false;
-  /**
-   * ウェイトが明ける時刻（`performance.now()` 基準）。実機のウェイトに相当し、
-   * **前回のレバーONから** `pace.leverWaitMs` が経つまで次のレバーを受け付けない。
-   * リールを止めている時間に吸収されるので、普通に打つ分には待ちを感じない。
-   */
-  let leverWaitUntil = 0;
   /** 遅れの「間」の最中。まだどのリールも回っていないのでレバーとBETを塞ぐ。 */
   let spinPending = false;
   /**
@@ -1333,14 +1327,13 @@ export async function bootstrap() {
       !wallet.canBet(calc.bet) ||
       betPlaced;
     leverBtn.disabled =
-      !betPlaced ||
-      anySpinning ||
-      allStopped ||
-      spinPending ||
-      stageSwapping ||
-      performance.now() < leverWaitUntil;
+      !betPlaced || anySpinning || allStopped || spinPending || stageSwapping;
+    // 停止ボタンは**リールが定速になるまで受け付けない**（実機と同じ）。
+    // ここが「リールウェイト」として体感される部分。
+    const now = performance.now();
     stopBtns.forEach((btn, i) => {
-      btn.disabled = engines[i].state.get() !== 'spinning';
+      btn.disabled =
+        engines[i].state.get() !== 'spinning' || !engines[i].isAtFullSpeed(now);
     });
 
     if (allIdle && !betPlaced) {
@@ -1492,13 +1485,6 @@ export async function bootstrap() {
     if (stageSwapping) return;
     if (leverBtn.disabled) return;
     if (!betPlaced) return;
-    if (performance.now() < leverWaitUntil) return;
-
-    // 次ゲームのウェイトを張り、明ける時刻にボタンを開け直す。
-    // **リールを止めて待たせてはいけない**——回り出しが遅れると「遅れ」演出と
-    // 見分けが付かず、遅れが持つ「何かが当たっている」という情報を壊す。
-    leverWaitUntil = performance.now() + pace.leverWaitMs;
-    window.setTimeout(updateButtons, pace.leverWaitMs + 16);
 
     /**
      * ステージチェンジ。**内部役とも結果とも無関係に**抽選するので、
@@ -1604,7 +1590,10 @@ export async function bootstrap() {
       !doFreeze && (forcedDelay || rollDelay(currentRound)) ? tuning.delay.ms : 0;
     const startSpin = () => {
       spinPending = false;
-      for (const engine of engines) engine.spin();
+      const spunAt = performance.now();
+      for (const engine of engines) engine.spin(pace.spinUpMs, spunAt);
+      // 定速に達したら停止ボタンを開ける。加速中は押しても受け付けない。
+      window.setTimeout(updateButtons, pace.spinUpMs + 32);
       if (autoMode) setupAutoTarget();
       updateButtons();
       if (doFreeze) runFreeze();
@@ -1865,6 +1854,8 @@ export async function bootstrap() {
     if (idx < 0 || idx >= REEL_COUNT) return;
     const engine = engines[idx];
     if (engine.state.get() !== 'spinning') return;
+    // 定速前は受け付けない。AUTO はボタンを介さずここへ来るので、ここでも塞ぐ。
+    if (!engine.isAtFullSpeed(performance.now())) return;
     // フリーズ演出の一時的な60コマ/秒ではなく、プレイヤーが選んだ通常速度を記録する。
     recordRunSpeed(reelSpeed());
     // 押し順役の判定はこの停止を含めて確定させるため、引き込み解決の前に順を記録する。

@@ -94,7 +94,7 @@
     }
   },
   "pace": {
-    "leverWaitMs": 2000,
+    "spinUpMs": 480,
     "resultMs": {
       "none": 420,
       "win": 820,
