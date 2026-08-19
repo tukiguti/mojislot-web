@@ -94,7 +94,7 @@
     }
   },
   "pace": {
-    "spinUpMs": 480,
+    "spinUpMs": 120,
     "resultMs": {
       "none": 420,
       "win": 820,
