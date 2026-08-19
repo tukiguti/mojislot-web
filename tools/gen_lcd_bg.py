@@ -1214,6 +1214,508 @@ def scene_security_cables(frame: int) -> Grid:
     return g
 
 
+# ── 寿司 v6: 回転レーン。皿が流れ続ける ──
+
+SUSHI7_COLORS = {
+    "d": "241C3A55",
+    "w": "3A2A20C8", "W": "4E392AC8",                    # カウンター
+    "b": "32303EC8", "B": "4A4858C8", "k": "2A2A3AC8",   # レーン
+    "p": "8A8A96C0", "P": "AEAEB8C0",                    # 皿
+    "t": "6A4A38C0", "T": "9A8A70C0", "r": "8A3038C0",   # ネタ
+    "l": "C8A050C0",
+}
+
+
+def scene_sushi_lane(frame: int) -> Grid:
+    g = blank()
+    dither(g, 0, 44, "d", top=0.9, bottom=0.3)
+    rect(g, 16, 8, 96, 26, "k")                          # 吊り看板
+    hline(g, 8, 16, 96, "l")
+    for x in range(24, 92, 13):
+        vline(g, x, 12, 22, "l")
+    rect(g, 0, 30, W - 1, 36, "w")                       # 鴨居
+    hline(g, 30, 0, W - 1, "W")
+    for i, x in enumerate((110, 130, 150, 170)):         # 短冊の品書き
+        rect(g, x, 36, x + 9, 41 + (i % 3) * 2, "W")
+        vline(g, x + 4, 38, 40 + (i % 3) * 2, "t")
+    rect(g, 0, 46, W - 1, 76, "b")                       # レーン
+    hline(g, 46, 0, W - 1, "B")
+    for y in range(52, 76, 8):                           # ベルトの継ぎ目
+        hline(g, y, 0, W - 1, "k")
+    # 皿が流れる。2系統を96px間隔でずらして置くと、輪が一周しても皿の種類が入れ替わらない
+    for base, neta, hgt in ((0, "t", 8), (48, "r", 11)):
+        off = cycle(base, frame, 8, 96)
+        for x in range(off - 96, W + 96, 96):
+            rect(g, x - 15, 62, x + 15, 65, "p")         # 皿
+            hline(g, 62, x - 15, x + 15, "P")
+            rect(g, x - 9, 62 - hgt, x + 9, 61, neta)    # ネタ
+            hline(g, 62 - hgt, x - 9, x + 9, "T")
+    rect(g, 0, 76, W - 1, H - 1, "w")                    # カウンター
+    hline(g, 76, 0, W - 1, "W")
+    for y in (94, 110, 126):
+        hline(g, y, 0, W - 1, "W")
+    for x in (28, 158):                                  # 湯呑み（台に接地）
+        rect(g, x - 6, 96, x + 6, 110, "t")
+        hline(g, 96, x - 6, x + 6, "T")
+    rect(g, 86, 100, 114, 106, "p")                      # 醤油皿
+    hline(g, 100, 86, 114, "P")
+    rect(g, 52, 92, 62, 110, "k")                        # 醤油差し
+    hline(g, 92, 52, 62, "B")
+    for x in (104, 132):                                 # 箸置き
+        rect(g, x - 8, 118, x + 8, 121, "T")
+    return g
+
+
+# ── 寿司 v7: 魚市場のセリ。仲買人が横切る ──
+
+SUSHI8_COLORS = {
+    "d": "241C3A55", "k": "2A2A3AD0", "K": "42425AC8",   # シャッター
+    "w": "3A2A20C8", "W": "4E392AC8",                    # セリ台
+    "s": "6A7280C0", "S": "8A94A0C0",                    # 発泡箱
+    "f": "545E74C0", "F": "8A9AB0C0",                    # 魚
+    "i": "6A8296A0", "p": "1A1626D0",                    # 氷・人影
+    "l": "E8D08AD0", "g": "302E3CC8",                    # 電球・土間
+}
+
+
+def scene_sushi_market(frame: int) -> Grid:
+    g = blank()
+    dither(g, 0, 18, "d", top=0.9, bottom=0.4)
+    rect(g, 0, 16, W - 1, 56, "k")                       # 奥のシャッター
+    for x in range(0, W, 5):
+        vline(g, x, 18, 54, "K")
+    for i, x in enumerate((40, 150)):                    # 吊り電球が揺れる
+        s = wave(i * 24, frame, 1, 3)
+        for y in range(0, 19):
+            g[y][max(0, min(W - 1, x + round(s * y / 19)))] = "k"
+        circle(g, x + s, 22, 4, "l")
+    rect(g, 0, 56, W - 1, 66, "w")                       # セリ台
+    hline(g, 56, 0, W - 1, "W")
+    rect(g, 0, 66, W - 1, H - 1, "g")                    # 土間
+    px = cycle(0, frame, 24, 288) - 50                   # 仲買人が横切る
+    if 0 < px < W:
+        # 細長いと柱に見える。**箱より背を低く・肩幅を広く**取って人にする
+        rect(g, max(0, px - 13), 34, min(W - 1, px + 13), 88, "p")
+        circle(g, px, 26, 10, "p")
+    for x, y, wd, hg in ((6, 80, 46, 18), (62, 84, 34, 14),
+                         (108, 78, 52, 20), (168, 86, 28, 12)):
+        rect(g, x, y, x + wd, y + hg, "s")               # 発泡箱（大きさを振る）
+        hline(g, y, x, x + wd, "S")
+        rect(g, x + 4, y - 4, x + wd - 4, y - 1, "i")    # 詰めた氷
+        rect(g, x + 9, y - 7, x + wd - 11, y - 4, "f")   # のぞく魚
+    fx, fy = 34, 118                                     # 土間に横たわる大物
+    for k in range(70):
+        h = round(8 * math.sin(math.pi * k / 70))
+        vline(g, fx + k, fy - h, fy + h, "f")
+    hline(g, fy - 3, fx + 10, fx + 58, "F")
+    for k in range(9):                                   # 尾びれ
+        vline(g, fx + 69 + k, fy - k, fy + k, "f")
+    circle(g, fx + 8, fy - 1, 2, "F")
+    return g
+
+
+# ── 動物 v6: ペンギンの水槽。水中を泳ぎ、泡が上がる ──
+
+ANIMAL7_COLORS = {
+    "d": "1E2A3A80", "w": "22364EC8", "W": "2E4A66C8",
+    "g": "3E6A88A0", "i": "5A7A96C0", "I": "8AB0C8C0",
+    "r": "3A3A48C8", "p": "191726D0", "P": "C0C8D4D0",
+    "b": "9AC0D0C0",
+}
+
+
+def draw_penguin(g: Grid, x: int, y: int, d: int, flap: int) -> None:
+    """横泳ぎのペンギン1羽。`d` は向き（+1 で右）。
+
+    **丸を重ねただけだと黒い塊にしか見えない**（実際に踏んだ）。腹の白を前寄りに
+    置いて、その上を羽で横切らせると初めて輪郭が立つ。
+    """
+    for k in range(-12, 13):                             # 胴（横長）
+        hh = round(7 * math.sqrt(max(0.0, 1 - (k / 12.0) ** 2)))
+        vline(g, x + d * k, y - hh, y + hh, "p")
+    for k in range(-5, 10):                              # 腹（前寄りの下半分）
+        hh = round(6 * math.sqrt(max(0.0, 1 - ((k - 2) / 8.0) ** 2)))
+        vline(g, x + d * k, y + 1, y + hh, "P")
+    circle(g, x + d * 13, y - 5, 5, "p")                 # 頭
+    b0, b1 = sorted((x + d * 16, x + d * 22))
+    rect(g, b0, y - 6, b1, y - 4, "P")                   # くちばし
+    g[max(0, y - 8)][max(0, min(W - 1, x + d * 14))] = "P"          # 目
+    for k in range(7):                                   # 羽が腹を横切る
+        vline(g, x + d * (4 - k), y + 1 + k, y + 3 + k, "p")
+    f0, f1 = sorted((x - d * 15, x - d * 9))
+    rect(g, f0, y + 4 + flap, f1, y + 6 + flap, "P")     # 足ひれ
+
+
+def scene_animal_penguin(frame: int) -> Grid:
+    g = blank()
+    dither(g, 0, 14, "d", top=0.9, bottom=0.4)
+    rect(g, 0, 14, W - 1, H - 1, "w")
+    for x in range(W):                                   # 水面が揺れる
+        y = 16 + wave(x, frame, 9, 2)
+        g[y][x] = "g"
+        rect(g, x, 0, x, y - 1, "d")
+    for y in range(32, H, 16):                           # 水の層
+        hline(g, y, 0, W - 1, "W")
+    for x0 in (26, 150):                                 # 差し込む光
+        for y in range(20, 82):
+            x = x0 + (y - 20) // 3
+            if 0 <= x < W:
+                g[y][x] = "g"
+                if x + 1 < W:
+                    g[y][x + 1] = "g"
+    rect(g, 0, 110, W - 1, H - 1, "i")                   # 氷の底
+    for cx, r in ((24, 16), (94, 12), (168, 18)):
+        circle(g, cx, 110, r, "I")
+    for cx, cy, r in ((58, 118, 10), (132, 120, 12)):
+        circle(g, cx, cy, r, "r")
+    for cx, y, ph in ((60, 46, 0), (134, 72, 5), (92, 96, 9)):
+        # 水槽の中を行き来する。横断させると12コマでは速すぎて泳ぎに見えない
+        sw = round(22 * math.sin((frame + ph) / FRAMES * math.tau))
+        draw_penguin(g, cx + sw, y, 1 if sw >= 0 else -1, 0 if frame % 4 < 2 else 3)
+    for i, x in enumerate((36, 78, 124, 174)):           # 泡
+        for k in range(4):
+            y = 108 - cycle(k * 24, frame, 8, 96)
+            if 20 < y < 110:
+                g[y][max(0, min(W - 1, x + wave(y, frame, 5, 2)))] = "b"
+    return g
+
+
+# ── 動物 v7: 園路。街灯が灯り、落ち葉が舞う ──
+
+ANIMAL8_COLORS = {
+    "d": "1E2A3A80", "t": "24382CC8", "T": "2E4636C8",
+    "q": "26402EC0", "Q": "31543CC0",
+    "p": "3A3630C8", "P": "504A40C8",                    # 道
+    "b": "4A3A28C8", "B": "5E4A34C8",                    # ベンチ・看板
+    "l": "8A8A70C0", "L": "E8D8A0E0",                    # 街灯
+    "f": "9A7A50A0",                                     # 落ち葉
+}
+
+
+def scene_animal_path(frame: int) -> Grid:
+    g = blank()
+    dither(g, 0, 50, "d", top=0.9, bottom=0.3)
+    for cx, cy, r in ((16, 40, 22), (66, 30, 18), (118, 38, 24), (182, 28, 20)):
+        vline(g, cx, cy, 92, "b")                        # 幹（道まで下ろす）
+        vline(g, cx + 1, cy, 92, "b")
+        circle(g, cx, cy, r, "t", "T")
+    for i, x in enumerate((44, 152)):                    # 街灯（道まで下ろす）
+        rect(g, x, 34, x + 1, 92, "l")
+        rect(g, x - 3, 88, x + 4, 92, "l")
+        rect(g, x - 7, 26, x + 8, 34, "L" if (i * 2 + frame) % 7 else "l")
+        hline(g, 26, x - 7, x + 8, "L")
+    rect(g, 0, 92, W - 1, H - 1, "p")                    # 園路
+    hline(g, 92, 0, W - 1, "P")
+    for y in range(100, H, 12):
+        hline(g, y, 0, W - 1, "P")
+    for x in range(0, W, 5):                             # 道端の草
+        vline(g, x, 92 - 4 - abs(wave(x, frame, 8, 2)), 92, "q")
+    bx = 96                                              # ベンチ（接地）
+    rect(g, bx - 26, 100, bx + 26, 104, "b")
+    hline(g, 100, bx - 26, bx + 26, "B")
+    rect(g, bx - 26, 88, bx + 26, 92, "b")
+    for dx in (-22, 22):
+        vline(g, bx + dx, 92, 114, "b")
+        vline(g, bx + dx + 1, 104, 114, "b")
+    rect(g, 166, 74, 194, 92, "b")                       # 案内看板
+    hline(g, 74, 166, 194, "B")
+    for y in (80, 86):
+        hline(g, y, 170, 190, "B")
+    vline(g, 180, 92, 112, "b")
+    for i in range(7):                                   # 落ち葉が舞い落ちる
+        y = cycle(i * 15, frame, 5, 60) + (i % 3) * 22
+        x = (i * 31 + 9) % W + wave(y, frame + i, 6, 4)
+        if 8 < y < 92 and 0 <= x < W:
+            g[y][x] = "f"
+            if x + 1 < W:
+                g[y][x + 1] = "f"
+    return g
+
+
+# ── 動詞 v6: 体育館。舞台の幕が揺れ、人影が横切る ──
+
+VERB7_COLORS = {
+    "d": "241C3A55", "w": "3A3448C8", "W": "50486AC8",
+    "l": "5A6A8AA0", "L": "7A8AAEB0",
+    "c": "5A2A38C0", "C": "78394BC0", "k": "2A2438D0",
+    "b": "5A4A34C8", "B": "72603FC8",                    # 床
+    "o": "C87A48D0", "p": "1E1A2AD0",
+}
+
+
+def scene_verb_gym(frame: int) -> Grid:
+    g = blank()
+    rect(g, 0, 0, W - 1, 86, "w")
+    dither(g, 0, 30, "d", top=0.8, bottom=0.3)
+    for x in range(10, W - 20, 32):                      # 高窓
+        rect(g, x, 8, x + 20, 26, "l")
+        hline(g, 8, x, x + 20, "L")
+        vline(g, x + 10, 8, 26, "w")
+    rect(g, 0, 40, 74, 86, "k")                          # 舞台
+    hline(g, 40, 0, 74, "W")
+    for i, x in enumerate(range(0, 74, 7)):              # 幕が揺れる
+        s = wave(i * 6, frame, 2, 2)
+        vline(g, max(0, min(73, x + s)), 42, 78, "C" if i % 2 else "c")
+        vline(g, max(0, min(73, x + s + 1)), 42, 78, "c")
+    vline(g, 168, 44, 86, "W")                           # バスケットゴール
+    vline(g, 169, 44, 86, "W")
+    rect(g, 146, 28, 180, 46, "W")
+    rect(g, 149, 31, 177, 43, "w")
+    rect(g, 152, 46, 168, 48, "o")
+    rect(g, 92, 32, 138, 54, "k")                        # 得点板
+    hline(g, 32, 92, 138, "W")
+    for i, x in enumerate((98, 118)):
+        rect(g, x, 38, x + 14, 48, "L" if (i + frame // 3) % 2 else "l")
+    for k in range(4):                                   # 跳び箱（床に接地）
+        rect(g, 88 - k * 2, 86 - (k + 1) * 6, 118 + k * 2, 86 - k * 6,
+             "b" if k % 2 else "B")
+    rect(g, 0, 86, W - 1, H - 1, "b")                    # 床
+    hline(g, 86, 0, W - 1, "B")
+    for y in range(92, H, 9):
+        hline(g, y, 0, W - 1, "B")
+    for a in range(0, 360, 3):                           # コートのライン
+        ex = 104 + round(46 * math.cos(math.radians(a)))
+        ey = 114 + round(13 * math.sin(math.radians(a)))
+        if 0 <= ex < W and 88 < ey < H:
+            g[ey][ex] = "L"
+    hline(g, 92, 0, W - 1, "L")
+    px = cycle(0, frame, 24, 288) - 44                   # 人影が横切る
+    if 0 < px < W:
+        rect(g, max(0, px - 8), 58, min(W - 1, px + 8), 94, "p")
+        circle(g, px, 52, 7, "p")
+        rect(g, max(0, px - 14), 94, min(W - 1, px + 14), 96, "k")
+    return g
+
+
+# ── 動詞 v7: プール。水面が流れ、コースロープが上下する ──
+
+VERB8_COLORS = {
+    "d": "241C3A55", "w": "3A3448C8", "W": "50486AC8",
+    "l": "5A6A8AA0", "L": "7A8AAEB0",
+    "t": "56606EC0", "T": "838C9AC0",                    # プールサイド
+    "b": "24485EC8", "B": "356A88B0", "g": "6A96ACA0",   # 水
+    "r": "7A4A48C0", "R": "9A8258C0",                    # コースロープの浮き
+}
+
+
+def scene_verb_pool(frame: int) -> Grid:
+    g = blank()
+    rect(g, 0, 0, W - 1, 38, "w")
+    dither(g, 0, 26, "d", top=0.85, bottom=0.3)
+    for x in range(8, W - 24, 44):                       # 奥の高窓
+        rect(g, x, 6, x + 26, 24, "l")
+        hline(g, 6, x, x + 26, "L")
+        vline(g, x + 13, 6, 24, "w")
+    rect(g, 0, 38, W - 1, 56, "t")                       # プールサイド
+    hline(g, 38, 0, W - 1, "T")
+    for x in (22, 62, 102, 142, 182):                    # スタート台（接地）
+        rect(g, x - 7, 26, x + 7, 38, "T")
+        rect(g, x - 7, 34, x + 7, 38, "w")               # 前面を暗くして箱にする
+        vline(g, x - 7, 26, 33, "w")
+    rect(g, 0, 56, W - 1, H - 1, "b")                    # 水
+    hline(g, 56, 0, W - 1, "w")
+    for i, y in enumerate(range(66, H, 12)):             # 水面のきらめきが流れる
+        off = cycle(i * 9, frame, 3, 36)
+        for x in range(off - 36, W, 36):
+            rect(g, max(0, x), y, min(W - 1, x + 12), y, "B")
+    for row, y in enumerate((82, 112)):                  # コースロープが上下する
+        for i, x in enumerate(range(0, W, 10)):
+            dy = wave(x + row * 6, frame, 8, 1)
+            rect(g, x, y + dy, x + 6, y + dy + 2, "R" if i % 4 == 0 else "r")
+    for i in range(7):                                   # 水面の光
+        x = (i * 27 + 6) % W
+        y = 60 + (i % 2) * 6
+        d = wave(x, frame, 4, 1)
+        rect(g, x, y + d, x + 5, y + d, "g")
+    return g
+
+
+# ── 八百屋 v6: 軒先の吊るし売り。束が揺れる ──
+
+YASAI7_COLORS = {
+    "d": "241C3A55", "k": "2A2438D0", "K": "3E3A50C8",
+    "w": "4A3A28C8", "W": "5E4A34C8",
+    "o": "8A6A3AC0", "O": "A88A50C0",                    # 吊るした束
+    "g": "2E5A3CC0", "p": "6A2A44C0", "y": "7A5A2AC0",
+}
+
+
+def scene_yasai_hang(frame: int) -> Grid:
+    g = blank()
+    rect(g, 0, 0, W - 1, 12, "k")                        # 庇
+    rect(g, 0, 12, W - 1, 17, "K")                       # 梁
+    dither(g, 17, 66, "d", top=0.85, bottom=0.3)
+    for i, x in enumerate((28, 80, 130, 176)):           # 吊るした束が揺れる
+        s = wave(i * 18, frame, 1, 3)
+        for y in range(17, 36):
+            g[y][max(0, min(W - 1, x + round(s * (y - 17) / 19)))] = "k"
+        for k in range(4):                               # 束（玉が重なる）
+            circle(g, x + s, 40 + k * 9, 7 + (i + k) % 3, "o", "O")
+        hline(g, 36, x + s - 6, x + s + 6, "K")           # 縛り目
+    rect(g, 0, 70, W - 1, 100, "w")                      # 奥の棚
+    hline(g, 70, 0, W - 1, "W")
+    hline(g, 86, 0, W - 1, "W")
+    for row, y in enumerate((72, 88)):
+        x = 4
+        while x < W - 16:
+            wd = 8 + ((x * 3 + row * 7) % 5) * 6          # 幅も高さもまばらに振る
+            hg = 6 + ((x // 4 + row) % 3) * 3
+            rect(g, x, y + 13 - hg, x + wd, y + 12, ("g", "y", "p")[(x + row) % 3])
+            x += wd + 5 + ((x + row * 2) % 4) * 4
+    rect(g, 0, 100, W - 1, H - 1, "k")                   # 土間
+    for x, wd, hg in ((6, 44, 20), (58, 32, 16), (98, 50, 24), (156, 36, 18)):
+        y = H - 2 - hg                                   # 木箱（接地・大きさを振る）
+        rect(g, x, y, x + wd, y + hg, "w")
+        hline(g, y, x, x + wd, "W")
+        rect(g, x + 5, y + 4, x + wd - 5, y + 10, ("g", "y")[(x // 7) % 2])
+    return g
+
+
+# ── 八百屋 v7: ビニールハウス。霧が流れ、苗が揺れる ──
+
+YASAI8_COLORS = {
+    "d": "241C3A70", "a": "3A4A5AC0", "A": "5A7280C0",   # 骨組み
+    "s": "4A3A28C8", "S": "5E4A34C8",                    # 畝
+    "g": "2E5A3CC0", "G": "3E7A50C0",
+    "m": "8AA0B0A0",                                     # 霧
+}
+
+
+def scene_yasai_house(frame: int) -> Grid:
+    g = blank()
+    dither(g, 0, 102, "d", top=0.85, bottom=0.25)
+    arches = ((98, 78), (74, 60), (52, 42), (32, 26))
+    for i, (rx, ry) in enumerate(arches):
+        ch = "A" if i == 0 else "a"                      # 手前のアーチほど明るく
+        for a in range(181):
+            ex = 100 + round(rx * math.cos(math.radians(a)))
+            ey = 102 - round(ry * math.sin(math.radians(a)))
+            if 0 <= ex < W and 0 <= ey < H:
+                g[ey][ex] = ch
+                if ey + 1 < H:
+                    g[ey + 1][ex] = ch
+    rx, ry = arches[0]
+    for x in (16, 52, 148, 184):                         # 縦の支柱（地面まで）
+        dx = (x - 100) / rx
+        vline(g, x, 102 - round(ry * math.sqrt(max(0.0, 1 - dx * dx))), 102, "a")
+    for y in (46, 76):                                   # 母屋（アーチを繋ぐ）
+        dy = (102 - y) / ry
+        half = round(rx * math.sqrt(max(0.0, 1 - dy * dy)))
+        hline(g, y, 100 - half, 100 + half, "a")
+    for i in range(4):                                   # 霧が横に流れる
+        off = cycle(i * 6, frame, 6, 72)
+        for x in range(off - 72, W, 72):
+            for k in range(5):
+                mx, my = x + k * 14, 30 + i * 15 + (k % 2) * 5
+                if 0 <= mx < W - 10 and 0 <= my < H:
+                    hline(g, my, mx, mx + 4 + k, "m")
+    rect(g, 0, 102, W - 1, H - 1, "s")                   # 地面
+    for y in range(108, H, 10):                          # 畝
+        hline(g, y, 0, W - 1, "S")
+    for i in range(30):                                  # 苗が揺れる
+        x = (i * 17 + 5) % W
+        base = 108 + (i % 3) * 9
+        h = 5 + (i * 7) % 9
+        px = max(0, min(W - 1, x + wave(x, frame, 9, 1)))
+        vline(g, px, base - h, base, "g")
+        g[base - h][px] = "G"
+        if px + 2 < W:
+            g[base - h + 2][px + 2] = "g"
+    return g
+
+
+# ── セキュリティ v6: ログの滝。文字の列が降り続ける ──
+
+SEC7_COLORS = {
+    "d": "241C3A55", "a": "2C4A3EC0", "g": "489878D0", "G": "9AE0B8E0",
+    "k": "2A2A40D0", "K": "45426AC8",
+}
+
+
+def scene_security_logs(frame: int) -> Grid:
+    g = blank()
+    dither(g, 0, H - 1, "d", top=0.5, bottom=0.2)
+    for col, x in enumerate(range(3, W - 6, 9)):
+        speed = 2 + col % 3                              # 列ごとに落ちる速さを変える
+        period = speed * FRAMES
+        off = cycle(col * 7, frame, speed, period)
+        for y in range(off - period, H - 16, period):
+            if y < 2:
+                continue
+            # 明るさは**位置で**決める。並び順で決めると輪の切れ目で色が飛ぶ
+            ch = "G" if y > 88 else ("g" if y > 40 else "a")
+            wd = 2 + ((y // 6 + col) % 4)
+            hline(g, y, x, x + wd, ch)
+    rect(g, 0, H - 16, W - 1, H - 1, "k")                # 手前の机
+    hline(g, H - 16, 0, W - 1, "K")
+    for x in range(16, W - 24, 5):
+        rect(g, x, H - 10, x + 3, H - 7, "K")
+    return g
+
+
+# ── セキュリティ v7: 基板のクローズアップ。信号が箔を走る ──
+
+SEC8_COLORS = {
+    "b": "1E3A30D0", "B": "2A5040C0",                    # 基板
+    "l": "8A7A48C0", "L": "C0B078C0",                    # 銅箔・ランド
+    "k": "22222ED0", "K": "44445EC8",                    # チップ
+    "c": "3A3A50D0", "C": "5A5A74C0",                    # コンデンサ
+    "g": "5FE0A0FF", "y": "FFC65EFF",
+}
+BOARD_PATHS = (
+    ((4, 20), (72, 20), (72, 58), (152, 58), (152, 30), (196, 30)),
+    ((6, 112), (88, 112), (88, 82), (196, 82)),
+    ((30, 40), (30, 98), (124, 98), (124, 128), (196, 128)),
+)
+
+
+def trace_cells(pts: tuple) -> list[tuple[int, int]]:
+    """折れ線の通過セル。**光を走らせる経路**をそのまま箔として描く。"""
+    cells: list[tuple[int, int]] = []
+    for (x0, y0), (x1, y1) in zip(pts, pts[1:]):
+        steps = max(abs(x1 - x0), abs(y1 - y0))
+        for s in range(steps + 1):
+            cells.append((x0 + (x1 - x0) * s // steps, y0 + (y1 - y0) * s // steps))
+    return cells
+
+
+def scene_security_board(frame: int) -> Grid:
+    g = blank()
+    rect(g, 0, 0, W - 1, H - 1, "b")
+    for i in range(26):                                  # 基板のムラ
+        x, y = (i * 43 + 7) % W, (i * 31 + 5) % H
+        rect(g, x, y, x + 3, y + 1, "B")
+    for i, pts in enumerate(BOARD_PATHS):
+        cells = trace_cells(pts)
+        for x, y in cells:
+            g[y][x] = "l"
+            if y + 1 < H:
+                g[y + 1][x] = "l"
+        for n in range(0, len(cells), 47 + i * 9):       # ランド
+            circle(g, cells[n][0], cells[n][1], 2, "L")
+        pos = round((frame + i * 4) % FRAMES / FRAMES * (len(cells) - 1))
+        for k in range(6):                               # 信号が走る
+            x, y = cells[max(0, pos - k * 3)]
+            for dy in (0, 1):
+                if y + dy < H:
+                    g[y + dy][x] = "g" if k < 2 else "y" if k < 3 else "l"
+    for x, y, wd, hg in ((44, 34, 44, 30), (128, 96, 40, 24)):
+        rect(g, x, y, x + wd, y + hg, "k")               # チップ
+        hline(g, y, x, x + wd, "K")
+        rect(g, x + 6, y + 6, x + wd - 6, y + hg - 8, "k")
+        hline(g, y + 6, x + 6, x + wd - 6, "K")
+        for lx in range(x + 4, x + wd - 3, 6):           # 足
+            vline(g, lx, y - 3, y - 1, "L")
+            vline(g, lx, y + hg + 1, y + hg + 3, "L")
+    for i, (cx, cy, r) in enumerate(((166, 50, 9), (100, 22, 6), (66, 116, 8))):
+        circle(g, cx, cy, r, "c", "C")                   # コンデンサ
+        hline(g, cy - r // 2, cx - r + 1, cx + r - 1, "C")
+    for i, (x, y) in enumerate(((14, 62), (184, 108), (108, 60))):
+        g[y][x] = "g" if (i * 3 + frame) % 5 else "y"    # 表示灯
+        g[y][x + 1] = g[y][x]
+    return g
+
+
 # 章ID → 情景の一覧。**それぞれが動く映像**で、プレイ中に移り変わる。
 SCENES: dict[str, list[tuple]] = {
     "hiragana_food": [
@@ -1223,6 +1725,8 @@ SCENES: dict[str, list[tuple]] = {
         (scene_sushi_kitchen, SUSHI4_COLORS, FRAMES),
         (scene_sushi_ice, SUSHI5_COLORS, FRAMES),
         (scene_sushi_room, SUSHI6_COLORS, FRAMES),
+        (scene_sushi_lane, SUSHI7_COLORS, FRAMES),
+        (scene_sushi_market, SUSHI8_COLORS, FRAMES),
     ],
     "katakana_animal": [
         (scene_animal, ANIMAL_COLORS, FRAMES),
@@ -1231,6 +1735,8 @@ SCENES: dict[str, list[tuple]] = {
         (scene_animal_aviary, ANIMAL4_COLORS, FRAMES),
         (scene_animal_beast, ANIMAL5_COLORS, FRAMES),
         (scene_animal_rain, ANIMAL6_COLORS, FRAMES),
+        (scene_animal_penguin, ANIMAL7_COLORS, FRAMES),
+        (scene_animal_path, ANIMAL8_COLORS, FRAMES),
     ],
     "hiragana_verb": [
         (scene_verb, VERB_COLORS, FRAMES),
@@ -1239,6 +1745,8 @@ SCENES: dict[str, list[tuple]] = {
         (scene_verb_yard, VERB4_COLORS, FRAMES),
         (scene_verb_office, VERB5_COLORS, FRAMES),
         (scene_verb_dusk, VERB6_COLORS, FRAMES),
+        (scene_verb_gym, VERB7_COLORS, FRAMES),
+        (scene_verb_pool, VERB8_COLORS, FRAMES),
     ],
     "yasai": [
         (scene_yasai, YASAI_COLORS, FRAMES),
@@ -1247,6 +1755,8 @@ SCENES: dict[str, list[tuple]] = {
         (scene_yasai_fridge, YASAI4_COLORS, FRAMES),
         (scene_yasai_truck, YASAI5_COLORS, FRAMES),
         (scene_yasai_arcade, YASAI6_COLORS, FRAMES),
+        (scene_yasai_hang, YASAI7_COLORS, FRAMES),
+        (scene_yasai_house, YASAI8_COLORS, FRAMES),
     ],
     "security": [
         (scene_security, SECURITY_COLORS, FRAMES),
@@ -1255,6 +1765,8 @@ SCENES: dict[str, list[tuple]] = {
         (scene_security_net, SEC4_COLORS, FRAMES),
         (scene_security_cctv, SEC5_COLORS, FRAMES),
         (scene_security_cables, SEC6_COLORS, FRAMES),
+        (scene_security_logs, SEC7_COLORS, FRAMES),
+        (scene_security_board, SEC8_COLORS, FRAMES),
     ],
 }
 
