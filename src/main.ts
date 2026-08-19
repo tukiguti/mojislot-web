@@ -430,11 +430,11 @@ export async function bootstrap() {
     // 島ID → [情景の数, 1情景あたりのコマ数]（`tools/gen_lcd_bg.py` の SCENES と揃える）。
     // ここに無い島は背景なしで動く（従来どおりグラデーションのまま）。
     scenes: {
-      hiragana_food: [3, 3],
-      katakana_animal: [3, 3],
-      hiragana_verb: [3, 3],
-      yasai: [3, 3],
-      security: [3, 3],
+      hiragana_food: [3, 12],
+      katakana_animal: [3, 12],
+      hiragana_verb: [3, 12],
+      yasai: [3, 12],
+      security: [3, 12],
     },
   });
   app.stage.addChild(lcdBg.container);

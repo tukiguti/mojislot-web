@@ -13,10 +13,10 @@ import { Assets, Container, Sprite, Texture } from 'pixi.js';
 
 /** 元絵の倍率。出題者（`QUIZMASTER_SCALE`）と揃える。 */
 const SCALE = 3;
-/** コマの送り。速いと目に付き、遅いと止まって見える。 */
-const FRAME_MS = 620;
+/** コマの送り。12コマで約1.7秒の輪になる。速いと目に付き、遅いと止まって見える。 */
+const FRAME_MS = 140;
 /** 絵を作り直すたびに上げる（同名PNGのキャッシュ対策）。 */
-const ART_VER = '1';
+const ART_VER = '2';
 
 export interface LcdBackgroundOptions {
   artBase: string;
