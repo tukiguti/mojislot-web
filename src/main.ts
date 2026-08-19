@@ -1595,10 +1595,13 @@ export async function bootstrap() {
     const startSpin = () => {
       spinPending = false;
       const spunAt = performance.now();
-      for (const engine of engines) engine.spin(pace.spinUpMs, spunAt);
+      // 加速はリールごとに少しずつ変える。揃って回り出すと機械に見えない。
+      engines.forEach((engine, i) =>
+        engine.spin(pace.spinUpMs[i % pace.spinUpMs.length], spunAt),
+      );
       // 停止を受け付けるまでの待ち。**加速し切っていないリールは物理的に
       // 止められない**ので、待ちは加速時間より短くできない（大きい方を採る）。
-      const lockMs = Math.max(pace.spinUpMs, pace.stopLockMs);
+      const lockMs = Math.max(...pace.spinUpMs, pace.stopLockMs);
       stopLockUntil = spunAt + lockMs;
       window.setTimeout(updateButtons, lockMs + 32);
       if (autoMode) setupAutoTarget();

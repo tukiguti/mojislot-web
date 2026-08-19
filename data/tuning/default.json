@@ -94,8 +94,12 @@
     }
   },
   "pace": {
-    "spinUpMs": 120,
-    "stopLockMs": 120,
+    "spinUpMs": [
+      110,
+      150,
+      125
+    ],
+    "stopLockMs": 450,
     "resultMs": {
       "none": 420,
       "win": 820,
