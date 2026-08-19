@@ -690,32 +690,571 @@ def scene_security_office(frame: int) -> Grid:
     return g
 
 
+# ── 寿司 v3: 厨房の奥。蒸籠の湯気と換気扇 ──
+
+SUSHI4_COLORS = {
+    "d": "241C3A55", "w": "3A2A20C8", "W": "4E392AC8",
+    "k": "2A2A3AC8", "K": "44445EC8",
+    "p": "5A5A6EC0", "P": "76768AC0",      # 鍋・寸胴
+    "s": "9AA8C0A0", "f": "3A3A4AD0",      # 湯気・換気扇の枠
+    "t": "6A4A38C0",
+}
+
+
+def scene_sushi_kitchen(frame: int) -> Grid:
+    g = blank()
+    dither(g, 0, 40, "d", top=0.9, bottom=0.3)
+    rect(g, 0, 12, W - 1, 16, "k")                     # 吊り棚
+    for x in range(8, W, 18):
+        rect(g, x, 4, x + 10, 12, "K")
+    fx, fy = 162, 44                                   # 換気扇。羽根が回る
+    rect(g, 120, 20, W - 1, 30, "f")                   # レンジフード
+    hline(g, 20, 120, W - 1, "K")
+    rect(g, fx - 24, fy - 24, fx + 24, fy + 24, "f")
+    rect(g, fx - 20, fy - 20, fx + 20, fy + 20, "k")
+    for b in range(4):
+        a = (frame / FRAMES + b / 4) * math.tau
+        for r in range(3, 19):
+            g[fy + round(r * math.sin(a))][fx + round(r * math.cos(a))] = "K"
+    for i, x in enumerate((26, 66, 106)):              # 蒸籠を積む
+        for k in range(3):
+            y = 74 - k * 9
+            rect(g, x - 15, y, x + 15, y + 8, "w")
+            hline(g, y, x - 15, x + 15, "W")
+        for k in range(3):                             # 湯気
+            y = 48 - cycle(k * 12 + i * 4, frame, 3, 36)
+            if 12 < y < 48:
+                g[y][x + wave(y, frame, 4, 2)] = "s"
+    rect(g, 132, 80, 176, 98, "p")                     # 寸胴
+    hline(g, 80, 132, 176, "P")
+    rect(g, 0, 100, W - 1, H - 1, "w")                 # 調理台
+    hline(g, 100, 0, W - 1, "W")
+    for x in range(0, W, 26):
+        vline(g, x, 100, H - 1, "t")
+    return g
+
+
+# ── 寿司 v4: 氷の台。水滴が落ちる ──
+
+SUSHI5_COLORS = {
+    "d": "241C3A55", "i": "5A7A96C0", "I": "8AB0C8C0",   # 氷
+    "w": "3A2A20C8", "W": "4E392AC8",
+    "t": "6A4A38C0", "T": "9A8A70C0", "r": "8A3038C0",   # ネタ
+    "b": "9AC0D0C0", "g": "3E4E60A0",
+}
+
+
+def scene_sushi_ice(frame: int) -> Grid:
+    g = blank()
+    dither(g, 0, 34, "d", top=0.9, bottom=0.3)
+    rect(g, 0, 34, W - 1, 44, "w")                     # 台の縁
+    hline(g, 34, 0, W - 1, "W")
+    rect(g, 0, 44, W - 1, 96, "i")                     # 氷
+    for i in range(70):                                # 氷の粒
+        x = (i * 37 + 11) % W
+        y = 46 + (i * 23) % 48
+        g[y][x] = "I" if (i + frame // 4) % 5 else "i"
+    for i, x in enumerate(range(18, W - 14, 34)):      # 並べたネタ
+        rect(g, x - 12, 56 + (i % 2) * 14, x + 12, 66 + (i % 2) * 14, "r" if i % 2 else "T")
+        hline(g, 56 + (i % 2) * 14, x - 12, x + 12, "t")
+    rect(g, 0, 96, W - 1, H - 1, "w")
+    hline(g, 96, 0, W - 1, "W")
+    for i, x in enumerate((34, 110, 172)):             # 水滴が落ちる
+        y = 96 + cycle(i * 12, frame, 3, 36) - 34
+        if 96 < y < H - 2:
+            g[y][x] = "b"
+            g[y + 1][x] = "b"
+    return g
+
+
+# ── 寿司 v5: 座敷。障子に影が映る ──
+
+SUSHI6_COLORS = {
+    "d": "241C3A55", "s": "6A6250C0", "S": "8A8068C0",   # 障子
+    "k": "3A2E24D0",                                     # 桟
+    "p": "2A2438D0",                                     # 影
+    "w": "3A2A20C8", "W": "4E392AC8",
+    "l": "C8A050C0", "L": "F0C878E0",                    # 行灯
+}
+
+
+def scene_sushi_room(frame: int) -> Grid:
+    g = blank()
+    dither(g, 0, 18, "d", top=0.9, bottom=0.4)
+    rect(g, 10, 18, W - 11, 92, "s")                   # 障子
+    # 障子の向こうを人影が通る。**紙越しなので輪郭がぼやける想定で大きめに置く**
+    px = cycle(0, frame, 24, 288) - 44
+    if 8 < px < W - 8:
+        rect(g, max(12, px - 12), 40, min(W - 13, px + 12), 90, "p")
+        circle(g, px, 34, 9, "p")
+    for x in range(10, W - 10, 22):
+        vline(g, x, 18, 92, "k")
+    for y in range(18, 93, 18):
+        hline(g, y, 10, W - 11, "k")
+    rect(g, 8, 92, W - 9, 96, "k")
+    for i, cx in enumerate((26, 174)):                 # 行灯
+        rect(g, cx - 9, 62, cx + 9, 92, "L" if (i + frame // 2) % 5 else "l")
+        rect(g, cx - 10, 60, cx + 10, 62, "k")
+        rect(g, cx - 10, 92, cx + 10, 94, "k")
+    rect(g, 0, 96, W - 1, H - 1, "w")                  # 畳
+    for y in range(102, H, 12):
+        hline(g, y, 0, W - 1, "W")
+    return g
+
+
+# ── 動物 v3: 鳥小屋。羽ばたきと舞う羽 ──
+
+ANIMAL4_COLORS = {
+    "d": "1E2A3A80", "n": "3A3A4AD0", "N": "4E4E60D0",   # 金網・止まり木
+    "b": "6A5A48D0", "B": "8A7458D0",                    # 鳥
+    "f": "9A9A80A0",                                     # 羽
+    "q": "26402EC0", "a": "3E3A34C8",
+}
+
+
+def scene_animal_aviary(frame: int) -> Grid:
+    g = blank()
+    dither(g, 0, 60, "d", top=0.9, bottom=0.25)
+    for x in range(0, W, 8):                            # 金網
+        vline(g, x, 0, 96, "n")
+    for y in range(0, 97, 8):
+        hline(g, y, 0, W - 1, "n")
+    for i, (x, y) in enumerate(((30, 52), (96, 38), (156, 60))):   # 止まり木
+        rect(g, x - 24, y, x + 24, y + 3, "N")
+        flap = 3 if (frame + i * 4) % 6 < 3 else 0      # 羽ばたく
+        circle(g, x, y - 6, 5, "b")
+        circle(g, x + 4, y - 8, 3, "B")
+        rect(g, x - 9, y - 8 - flap, x - 4, y - 6 - flap, "b")
+        rect(g, x + 5, y - 8 - flap, x + 10, y - 6 - flap, "b")
+    for i in range(5):                                  # 羽が舞い落ちる
+        y = cycle(i * 24, frame, 2, 24) + (i % 3) * 30
+        x = (i * 41 + 13) % W + wave(y, frame + i, 5, 3)
+        if 0 <= x < W and y < 96:
+            g[y][x] = "f"
+    rect(g, 0, 96, W - 1, H - 1, "a")
+    for x in range(0, W, 5):
+        vline(g, x, 96 - 4 - wave(x, frame, 8, 1), 96, "q")
+    return g
+
+
+# ── 動物 v4: 大型獣の獣舎。ゆっくり揺れる影 ──
+
+ANIMAL5_COLORS = {
+    "d": "1E2A3A80", "s": "3A3448C8", "S": "4E486AC8",   # 岩壁
+    "b": "302A3ED0", "B": "45405AD0",                    # 獣
+    "a": "3E3A34C8", "q": "26402EC0", "w": "5A4A30C0",   # 藁
+}
+
+
+def scene_animal_beast(frame: int) -> Grid:
+    g = blank()
+    dither(g, 0, 40, "d", top=0.9, bottom=0.3)
+    rect(g, 0, 40, W - 1, 96, "s")                      # 岩壁
+    for i in range(24):
+        x = (i * 29) % W
+        y = 44 + (i * 13) % 46
+        rect(g, x, y, x + 7, y + 4, "S")
+    sway = round(3 * math.sin(frame / FRAMES * math.tau))
+    circle(g, 86 + sway, 78, 27, "b", "B")              # 胴
+    circle(g, 46 + sway * 2, 60, 14, "b", "B")          # 頭
+    circle(g, 54 + sway * 2, 50, 9, "B")                # 耳（輪郭を作るのに効く）
+    for k in range(16):                                 # 鼻が垂れて揺れる
+        g[62 + k][34 + sway * 2 + round(4 * math.sin((k + frame) / 7))] = "b"
+        g[62 + k][35 + sway * 2 + round(4 * math.sin((k + frame) / 7))] = "b"
+    for dx in (-16, 0, 16):                             # 脚
+        rect(g, 76 + dx + sway, 92, 82 + dx + sway, 104, "b")
+    rect(g, 0, 100, W - 1, H - 1, "a")
+    for x in range(0, W, 7):                            # 藁
+        y = 104 + (x // 7 % 3) * 6
+        rect(g, x, y, x + 5, y + 1, "w")
+    for x in range(0, W, 5):
+        vline(g, x, 100 - 3, 100, "q")
+    return g
+
+
+# ── 動物 v5: 雨の日。雨が降り水たまりに波紋 ──
+
+ANIMAL6_COLORS = {
+    "d": "1E2A3A90", "r": "6A80A0A0", "R": "90A8C0C0",   # 雨
+    "t": "24382CC8", "T": "2E4636C8",
+    "a": "3E3A34C8", "p": "35506AC0", "P": "5A7A96C0",   # 水たまり
+    "q": "26402EC0",
+}
+
+
+def scene_animal_rain(frame: int) -> Grid:
+    g = blank()
+    dither(g, 0, 70, "d", top=0.95, bottom=0.4)
+    for cx, cy, r in ((30, 56, 16), (110, 50, 20), (176, 58, 14)):
+        circle(g, cx, cy, r, "t", "T")
+    rect(g, 0, 92, W - 1, H - 1, "a")
+    for i, (x, y, w_) in enumerate(((40, 108, 26), (120, 118, 34), (176, 104, 18))):
+        rect(g, x - w_, y, x + w_, y + 6, "p")          # 水たまり
+        ring = (frame + i * 4) % 12                     # 波紋が広がる
+        if ring < 8:
+            rect(g, x - ring * 3, y + 2, x + ring * 3, y + 2, "P")
+    for i in range(46):                                 # 雨
+        speed = 2 + i % 2
+        y = cycle(i * 7, frame, speed * 2, speed * 2 * FRAMES) % 120
+        x = (i * 31 + 5) % W
+        g[y][x] = "R" if i % 5 == 0 else "r"
+        if y + 1 < H:
+            g[y + 1][x] = "r"
+    for x in range(0, W, 6):
+        vline(g, x, 92 - 4, 92, "q")
+    return g
+
+
+# ── 動詞 v3: 校庭。遠くの校舎とボール ──
+
+VERB4_COLORS = {
+    "d": "1E2A3A80", "b": "3A3A50C8", "B": "50506EC8",   # 校舎
+    "l": "5A6A8AA0", "t": "24382CC8", "T": "2E4636C8",
+    "a": "4A4230C8", "A": "5E5440C8",                    # 地面
+    "o": "C87A48D0",                                     # ボール
+    "p": "2A2438C0",
+}
+
+
+def scene_verb_yard(frame: int) -> Grid:
+    g = blank()
+    dither(g, 0, 40, "d", top=0.9, bottom=0.25)
+    rect(g, 8, 22, 96, 78, "b")                         # 校舎
+    hline(g, 22, 8, 96, "B")
+    for y in range(28, 76, 12):
+        for x in range(12, 94, 12):
+            rect(g, x, y, x + 8, y + 7, "l")
+    for cx, cy, r in ((132, 54, 16), (168, 60, 12), (196, 50, 14)):
+        circle(g, cx, cy, r, "t", "T")
+    rect(g, 0, 84, W - 1, H - 1, "a")                   # 地面
+    for y in range(90, H, 11):
+        hline(g, y, 0, W - 1, "A")
+    bx = cycle(0, frame, 16, 192) + 4                   # ボールが弾む
+    bh = abs(round(18 * math.sin(frame / FRAMES * math.tau * 2)))
+    if bx < W - 4:
+        circle(g, bx, 80 - bh, 4, "o")
+        rect(g, bx - 5, 84, bx + 5, 85, "p")            # 影
+    return g
+
+
+# ── 動詞 v4: 職員室。時計の針が回る ──
+
+VERB5_COLORS = {
+    "d": "241C3A55", "w": "3A3448C8", "W": "50486AC8",
+    "p": "8A8270C0", "P": "AAA290C0",                    # 書類
+    "c": "C8C0A8D0", "k": "2A2438D0",                    # 時計
+    "t": "2E2A3EC8", "T": "423C56C8",
+    "l": "E0C878C0",
+}
+
+
+def scene_verb_office(frame: int) -> Grid:
+    g = blank()
+    dither(g, 0, 22, "d", top=0.9, bottom=0.4)
+    rect(g, 0, 20, W - 1, 84, "w")                      # 壁と棚
+    # 書類は**まばらに・太く・高さを振って**置く。細かく等間隔に並べると
+    # キーボードに見えた（実際にそうなった）
+    for row, y in enumerate(range(26, 82, 14)):
+        hline(g, y, 0, W - 1, "W")
+        x = 4
+        while x < W - 14:
+            wdt = 9 + ((x + row * 7) % 3) * 6
+            hgt = 8 + ((x // 5 + row) % 3) * 2
+            rect(g, x, y + 12 - hgt, x + wdt, y + 11, "p" if (x + row) % 2 else "P")
+            x += wdt + 4 + ((x + row) % 3) * 3
+    cx, cy = 168, 40                                    # 時計。針が回る
+    circle(g, cx, cy, 13, "c")
+    circle(g, cx, cy, 11, "k")
+    a = frame / FRAMES * math.tau
+    for r in range(9):
+        g[cy - round(r * math.cos(a))][cx + round(r * math.sin(a))] = "c"
+    for r in range(6):
+        g[cy - round(r * math.cos(a / 12))][cx + round(r * math.sin(a / 12))] = "c"
+    rect(g, 0, 88, W - 1, H - 1, "t")                   # 机
+    hline(g, 88, 0, W - 1, "T")
+    for i, x in enumerate((24, 96, 160)):
+        for k in range(3 + i):
+            rect(g, x - 14, 86 - k * 3, x + 14, 88 - k * 3, "P" if k % 2 else "p")
+    if frame % 6 < 3:
+        rect(g, 60, 92, 78, 94, "l")                    # 端末の光
+    return g
+
+
+# ── 動詞 v5: 夕暮れの教室。影が伸びる ──
+
+VERB6_COLORS = {
+    "d": "3A2438A0", "s": "C87A48C0", "S": "E8A868D0",   # 夕日
+    "w": "4A3A50C8", "l": "A06A5AB0", "L": "D89870C0",
+    "b": "24382EC8", "B": "36503EC8",
+    "t": "3A2E42C8", "T": "56486AC8", "p": "2A1E30C0",
+}
+
+
+def scene_verb_dusk(frame: int) -> Grid:
+    g = blank()
+    dither(g, 0, 30, "d", top=0.9, bottom=0.3)
+    for i, x in enumerate((110, 152)):                  # 窓
+        rect(g, x, 16, x + 34, 80, "w")
+        rect(g, x + 2, 18, x + 32, 78, "L" if (i + frame // 3) % 2 else "l")
+        vline(g, x + 16, 18, 78, "w")
+        hline(g, 46, x + 2, x + 32, "w")
+    circle(g, 146, 56, 9, "S")                          # 沈む夕日
+    circle(g, 146, 56, 6, "s")
+    rect(g, 6, 20, 96, 72, "B")                         # 黒板
+    rect(g, 9, 23, 93, 69, "b")
+    rect(g, 0, 88, W - 1, H - 1, "t")                   # 床
+    for i, x in enumerate(range(4, 110, 34)):           # 机と伸びる影
+        rect(g, x, 92, x + 26, 100, "T")
+        shade = 10 + round(6 * math.sin(frame / FRAMES * math.tau))
+        rect(g, x - shade, 100, x + 26 - shade, 104, "p")
+    return g
+
+
+# ── 八百屋 v3: 冷蔵ケース。蛍光灯が明滅し霜が流れる ──
+
+YASAI4_COLORS = {
+    "d": "241C3A55", "k": "2A2A3AD0", "K": "44445EC8",
+    "G": "3E5A6AA0", "F": "7A98A8A0",                    # ガラス・霜
+    "g": "2E5A3CC0", "o": "7A5A2AC0", "p": "6A2A44C0",
+    "l": "8A9AA0C0", "L": "D8E8F0E0",                    # 蛍光灯
+    "w": "4A3A28C8",
+}
+
+
+def scene_yasai_fridge(frame: int) -> Grid:
+    g = blank()
+    dither(g, 0, 16, "d", top=0.9, bottom=0.4)
+    for i, x in enumerate((20, 110)):                   # 蛍光灯
+        lit = "L" if (i * 2 + frame) % 11 else "l"
+        rect(g, x, 10, x + 70, 13, lit)
+    for i, x in enumerate((6, 104)):                    # 冷蔵ケース2台
+        rect(g, x, 20, x + 88, 108, "k")
+        rect(g, x + 3, 23, x + 85, 105, "G")
+        for row, y in enumerate(range(28, 100, 24)):    # 棚の野菜
+            hline(g, y + 20, x + 4, x + 84, "K")
+            for k, bx in enumerate(range(x + 8, x + 82, 18)):
+                rect(g, bx, y + 6, bx + 13, y + 18, ("g", "o", "p")[(k + row + i) % 3])
+        for k in range(6):                              # 霜が伝う
+            fy = 24 + cycle(k * 14, frame, 7, 84) % 80
+            g[min(104, fy)][x + 10 + k * 13] = "F"
+    rect(g, 0, 108, W - 1, H - 1, "w")
+    return g
+
+
+# ── 八百屋 v4: 荷下ろし。軽トラと人影 ──
+
+YASAI5_COLORS = {
+    "d": "241C3A55", "t": "4A5A6AC8", "T": "64788AC8",   # トラック
+    "k": "2A2438D0", "w": "4A3A28C8", "W": "5E4A34C8",
+    "g": "2E5A3CC0", "o": "7A5A2AC0",
+    "l": "E8D08AD0", "p": "1A1626D0",
+}
+
+
+def scene_yasai_truck(frame: int) -> Grid:
+    g = blank()
+    dither(g, 0, 40, "d", top=0.9, bottom=0.3)
+    rect(g, 10, 38, 104, 84, "t")                       # 荷台
+    hline(g, 38, 10, 104, "T")
+    rect(g, 104, 48, 148, 84, "t")                      # 運転席
+    rect(g, 110, 54, 142, 70, "k")
+    hline(g, 48, 104, 148, "T")
+    for i, cx in enumerate((36, 128)):                  # 車輪が回る
+        circle(g, cx, 92, 11, "k")
+        a = frame / FRAMES * math.tau
+        for r in range(-8, 9):
+            g[92 + round(r * math.sin(a))][cx + round(r * math.cos(a))] = "T"
+    rect(g, 150, 78, 166, 86, "l")                      # ヘッドライトの光
+    for row, y in enumerate((44, 62)):                  # 荷台の木箱
+        for x in range(16, 100, 30):
+            rect(g, x, y, x + 26, y + 16, "w")
+            hline(g, y, x, x + 26, "W")
+            rect(g, x + 4, y + 4, x + 22, y + 10, ("g", "o")[(row + x) % 2])
+    px = cycle(0, frame, 24, 288) - 60                  # 運ぶ人影
+    if 0 < px < W:
+        rect(g, max(0, px - 8), 92, min(W - 1, px + 8), 118, "p")
+        circle(g, px, 86, 7, "p")
+    rect(g, 0, 118, W - 1, H - 1, "k")
+    return g
+
+
+# ── 八百屋 v5: 雨の商店街。アーケードと水たまり ──
+
+YASAI6_COLORS = {
+    "d": "241C3A70", "a": "3A3448C8", "A": "50486AC8",   # アーケード
+    "r": "6A2A2ED0", "c": "C8BCA8B0",
+    "w": "4A3A28C8", "g": "2E5A3CC0", "o": "7A5A2AC0",
+    "n": "6A80A0A0",                                     # 雨
+    "p": "35506AC0", "P": "5A7A96C0",
+}
+
+
+def scene_yasai_arcade(frame: int) -> Grid:
+    g = blank()
+    rect(g, 0, 0, W - 1, 20, "a")                       # アーケードの屋根
+    for x in range(0, W, 16):
+        rect(g, x, 0, x + 7, 20, "A")
+    dither(g, 20, 60, "d", top=0.85, bottom=0.3)
+    for i, x in enumerate((6, 108)):                    # 店先2軒
+        rect(g, x, 26, x + 84, 34, "c")
+        for k in range(x, x + 84, 18):
+            rect(g, k, 26, k + 8, 34, "r")
+        for row, y in enumerate((74, 96)):
+            for bx in range(x + 2, x + 80, 28):
+                rect(g, bx, y, bx + 24, y + 14, "w")
+                rect(g, bx + 4, y + 3, bx + 20, y + 9, ("g", "o")[(row + bx) % 2])
+    for i in range(30):                                 # 屋根の切れ目から雨
+        y = 20 + cycle(i * 9, frame, 6, 72) % 90
+        x = (i * 43 + 9) % W
+        if 20 < y < 112:
+            g[y][x] = "n"
+    for i, (x, y, w_) in enumerate(((44, 120, 30), (144, 116, 24))):
+        rect(g, x - w_, y, x + w_, y + 6, "p")          # 水たまり
+        ring = (frame + i * 6) % 12
+        if ring < 8:
+            rect(g, x - ring * 3, y + 2, x + ring * 3, y + 2, "P")
+    return g
+
+
+# ── セキュリティ v3: ネットワーク図。線をパケットが流れる ──
+
+SEC4_COLORS = {
+    "d": "241C3A55", "l": "2E4A5AC0", "L": "44708AC0",   # 結線
+    "n": "3A4A6AD0", "N": "5A7A9AD0",                    # ノード
+    "g": "5FE0A0FF", "y": "FFC65EFF",
+    "t": "32304AC8",
+}
+NET_NODES = ((28, 34), (100, 22), (172, 40), (58, 76), (140, 82), (100, 108))
+NET_LINKS = ((0, 1), (1, 2), (0, 3), (1, 4), (2, 4), (3, 5), (4, 5), (3, 4))
+
+
+def scene_security_net(frame: int) -> Grid:
+    g = blank()
+    dither(g, 0, H - 1, "d", top=0.5, bottom=0.15)
+    for a, b in NET_LINKS:                              # 結線
+        (x0, y0), (x1, y1) = NET_NODES[a], NET_NODES[b]
+        steps = max(abs(x1 - x0), abs(y1 - y0))
+        for s in range(steps + 1):
+            g[y0 + (y1 - y0) * s // steps][x0 + (x1 - x0) * s // steps] = "l"
+    for i, (a, b) in enumerate(NET_LINKS):              # パケットが流れる
+        (x0, y0), (x1, y1) = NET_NODES[a], NET_NODES[b]
+        t_ = ((frame + i * 3) % FRAMES) / FRAMES
+        px, py = round(x0 + (x1 - x0) * t_), round(y0 + (y1 - y0) * t_)
+        for dx, dy in ((0, 0), (1, 0), (0, 1), (1, 1)):
+            if 0 <= py + dy < H and 0 <= px + dx < W:
+                g[py + dy][px + dx] = "g" if i % 3 else "y"
+    for i, (x, y) in enumerate(NET_NODES):              # ノード
+        circle(g, x, y, 9, "n", "N")
+        circle(g, x, y, 4, "L" if (i + frame // 2) % 4 else "l")
+    rect(g, 0, H - 8, W - 1, H - 1, "t")
+    return g
+
+
+# ── セキュリティ v4: 監視モニタの壁。走査線が流れる ──
+
+SEC5_COLORS = {
+    "d": "241C3A55", "k": "2A2A40D0", "K": "3E3E58C8",
+    "s": "24343ED0", "S": "3A5060C0",                    # 画面
+    "c": "6A98A8C0",                                     # 走査線
+    "g": "5FE0A0FF", "t": "32304AC8",
+}
+
+
+def scene_security_cctv(frame: int) -> Grid:
+    g = blank()
+    dither(g, 0, 12, "d", top=0.9, bottom=0.4)
+    for row in range(3):
+        for col in range(5):
+            x, y = 4 + col * 39, 10 + row * 38
+            rect(g, x, y, x + 35, y + 34, "k")
+            rect(g, x + 2, y + 2, x + 33, y + 32, "s")
+            n = row * 5 + col
+            for k in range(3):                          # 画面の中身（適当な影）
+                bx = x + 6 + ((n * 7 + k * 11) % 20)
+                by = y + 8 + ((n * 5 + k * 9) % 18)
+                rect(g, bx, by, bx + 6, by + 8, "S")
+            sy = y + 2 + cycle(n * 3, frame, 3, 36) % 30   # 走査線
+            hline(g, sy, x + 2, x + 33, "c")
+            if (n + frame) % 9 == 0:
+                rect(g, x + 30, y + 4, x + 31, y + 5, "g")   # 録画ランプ
+    rect(g, 0, H - 12, W - 1, H - 1, "t")
+    hline(g, H - 12, 0, W - 1, "K")
+    return g
+
+
+# ── セキュリティ v5: 配線室。ケーブルの束とインジケータ ──
+
+SEC6_COLORS = {
+    "d": "241C3A55", "k": "2A2A40D0", "K": "3E3E58C8",
+    "b": "3A4A6AC8", "o": "6A4A30C8", "r": "6A3040C8",   # ケーブル3色
+    "g": "5FE0A0FF", "y": "FFC65EFF", "a": "36624EE0",
+    "t": "32304AC8", "p": "1E2438C0",
+}
+
+
+def scene_security_cables(frame: int) -> Grid:
+    g = blank()
+    dither(g, 0, 20, "d", top=0.9, bottom=0.4)
+    rect(g, 0, 16, W - 1, 24, "k")                      # ケーブルラック
+    for i in range(32):                                 # 垂れ下がるケーブル
+        x = 4 + i * 6
+        col = ("b", "o", "r")[i % 3]
+        depth = 40 + (i * 13) % 46
+        for y in range(24, depth):
+            g[y][min(W - 1, x + round(2 * math.sin((y + i * 3) / 9)))] = col
+        circle(g, x, depth, 2, col)
+    rect(g, 0, 92, W - 1, H - 1, "p")                   # パッチパネル
+    for row, y in enumerate(range(96, H - 4, 12)):
+        rect(g, 6, y, W - 7, y + 8, "k")
+        hline(g, y, 6, W - 7, "K")
+        for k, x in enumerate(range(10, W - 12, 9)):    # ポートのランプ
+            n = row * 21 + k
+            g[y + 4][x] = "g" if (n * 5 + frame * 7) % 11 == 0 else (
+                "y" if (n * 3 + frame * 5) % 29 == 0 else "a")
+    return g
+
+
 # 章ID → 情景の一覧。**それぞれが動く映像**で、プレイ中に移り変わる。
 SCENES: dict[str, list[tuple]] = {
     "hiragana_food": [
         (scene_sushi, SUSHI_COLORS, FRAMES),
         (scene_sushi_front, SUSHI2_COLORS, FRAMES),
         (scene_sushi_tank, SUSHI3_COLORS, FRAMES),
+        (scene_sushi_kitchen, SUSHI4_COLORS, FRAMES),
+        (scene_sushi_ice, SUSHI5_COLORS, FRAMES),
+        (scene_sushi_room, SUSHI6_COLORS, FRAMES),
     ],
     "katakana_animal": [
         (scene_animal, ANIMAL_COLORS, FRAMES),
         (scene_animal_rocks, ANIMAL2_COLORS, FRAMES),
         (scene_animal_water, ANIMAL3_COLORS, FRAMES),
+        (scene_animal_aviary, ANIMAL4_COLORS, FRAMES),
+        (scene_animal_beast, ANIMAL5_COLORS, FRAMES),
+        (scene_animal_rain, ANIMAL6_COLORS, FRAMES),
     ],
     "hiragana_verb": [
         (scene_verb, VERB_COLORS, FRAMES),
         (scene_verb_library, VERB2_COLORS, FRAMES),
         (scene_verb_hall, VERB3_COLORS, FRAMES),
+        (scene_verb_yard, VERB4_COLORS, FRAMES),
+        (scene_verb_office, VERB5_COLORS, FRAMES),
+        (scene_verb_dusk, VERB6_COLORS, FRAMES),
     ],
     "yasai": [
         (scene_yasai, YASAI_COLORS, FRAMES),
         (scene_yasai_market, YASAI2_COLORS, FRAMES),
         (scene_yasai_field, YASAI3_COLORS, FRAMES),
+        (scene_yasai_fridge, YASAI4_COLORS, FRAMES),
+        (scene_yasai_truck, YASAI5_COLORS, FRAMES),
+        (scene_yasai_arcade, YASAI6_COLORS, FRAMES),
     ],
     "security": [
         (scene_security, SECURITY_COLORS, FRAMES),
         (scene_security_console, SEC2_COLORS, FRAMES),
         (scene_security_office, SEC3_COLORS, FRAMES),
+        (scene_security_net, SEC4_COLORS, FRAMES),
+        (scene_security_cctv, SEC5_COLORS, FRAMES),
+        (scene_security_cables, SEC6_COLORS, FRAMES),
     ],
 }
 
