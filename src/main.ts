@@ -360,6 +360,11 @@ export async function bootstrap() {
   // pendingFreeze: デバッグボタンで「次のレバーでフリーズ」を予約するフラグ。
   let freezeActive = false;
   let pendingFreeze = false;
+  /**
+   * 停止ボタンを受け付けるようになる時刻。レバーONからの待ちで、
+   * 実機の「定速になるまで止められない」に相当する（[31] §11）。
+   */
+  let stopLockUntil = 0;
   /** 遅れの「間」の最中。まだどのリールも回っていないのでレバーとBETを塞ぐ。 */
   let spinPending = false;
   /**
@@ -1328,12 +1333,11 @@ export async function bootstrap() {
       betPlaced;
     leverBtn.disabled =
       !betPlaced || anySpinning || allStopped || spinPending || stageSwapping;
-    // 停止ボタンは**リールが定速になるまで受け付けない**（実機と同じ）。
-    // ここが「リールウェイト」として体感される部分。
-    const now = performance.now();
+    // 停止ボタンは**待ちが明けるまで受け付けない**（実機の「定速になるまで
+    // 止められない」に相当）。ここが「リールウェイト」として体感される部分。
+    const locked = performance.now() < stopLockUntil;
     stopBtns.forEach((btn, i) => {
-      btn.disabled =
-        engines[i].state.get() !== 'spinning' || !engines[i].isAtFullSpeed(now);
+      btn.disabled = engines[i].state.get() !== 'spinning' || locked;
     });
 
     if (allIdle && !betPlaced) {
@@ -1592,8 +1596,11 @@ export async function bootstrap() {
       spinPending = false;
       const spunAt = performance.now();
       for (const engine of engines) engine.spin(pace.spinUpMs, spunAt);
-      // 定速に達したら停止ボタンを開ける。加速中は押しても受け付けない。
-      window.setTimeout(updateButtons, pace.spinUpMs + 32);
+      // 停止を受け付けるまでの待ち。**加速し切っていないリールは物理的に
+      // 止められない**ので、待ちは加速時間より短くできない（大きい方を採る）。
+      const lockMs = Math.max(pace.spinUpMs, pace.stopLockMs);
+      stopLockUntil = spunAt + lockMs;
+      window.setTimeout(updateButtons, lockMs + 32);
       if (autoMode) setupAutoTarget();
       updateButtons();
       if (doFreeze) runFreeze();
@@ -1854,8 +1861,8 @@ export async function bootstrap() {
     if (idx < 0 || idx >= REEL_COUNT) return;
     const engine = engines[idx];
     if (engine.state.get() !== 'spinning') return;
-    // 定速前は受け付けない。AUTO はボタンを介さずここへ来るので、ここでも塞ぐ。
-    if (!engine.isAtFullSpeed(performance.now())) return;
+    // 待ちが明ける前は受け付けない。AUTO はボタンを介さずここへ来るので、ここでも塞ぐ。
+    if (performance.now() < stopLockUntil) return;
     // フリーズ演出の一時的な60コマ/秒ではなく、プレイヤーが選んだ通常速度を記録する。
     recordRunSpeed(reelSpeed());
     // 押し順役の判定はこの停止を含めて確定させるため、引き込み解決の前に順を記録する。

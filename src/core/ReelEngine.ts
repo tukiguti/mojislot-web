@@ -30,9 +30,8 @@ export class ReelEngine {
    *
    * @param rampMs 定速までの加速にかける時間（ms）。実機はレバーONから
    *   リールが定速になるまで停止操作を受け付けない。0 なら即定速（シミュレータ用）。
-   * @param nowMs レバーONの時刻。**定速になる時刻はここで確定させる**——
-   *   最初の tick で決めると、タブが背景に回って ticker が止まっている間は
-   *   いつまでも定速にならず、停止ボタンが開かなくなる（実際に踏んだ）。
+   * @param nowMs レバーONの時刻。加速の終わりをここで確定させる。最初の tick で
+   *   決めると、タブが背景に回って ticker が止まっている間は加速が終わらない。
    */
   spin(rampMs = 0, nowMs = 0): void {
     if (this.state.get() === 'spinning') return;
@@ -40,12 +39,6 @@ export class ReelEngine {
     this.lastTickMs = null;
     this.rampMs = rampMs;
     this.spunUpAt = rampMs > 0 ? nowMs + rampMs : null;
-  }
-
-  /** 加速が終わって定速になったか。停止操作を受け付けてよいかの判断に使う。 */
-  isAtFullSpeed(nowMs: number): boolean {
-    if (this.state.get() !== 'spinning' || this.rampMs <= 0) return true;
-    return this.spunUpAt === null || nowMs >= this.spunUpAt;
   }
 
   setSpeed(speed: number): void {
