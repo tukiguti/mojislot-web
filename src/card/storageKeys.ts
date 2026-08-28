@@ -14,7 +14,6 @@ export const FIXED_KEYS = {
   challengesEnabled: 'mojislot.challengesEnabled.v1',
   chapter: 'mojislot.chapter.v1',
   secretUnlocked: 'mojislot.secretUnlocked.v1',
-  reelGlyphs: 'reelShowGlyphs',
   zukanMissionsCollapsed: 'mojislot.zukanMissionsCollapsed.v1',
   memberId: 'mojislot.memberId.v1',
   memberName: 'mojislot.memberName.v1',

@@ -56,17 +56,6 @@ const TILE_STYLES: Record<SymbolTier, TileStyle> = {
   filler: { padX: 35, padY: 28, radius: 12, strokeWidth: 1.5, strokeAlpha: 0.45, innerFrame: null, fontSize: 36 },
 };
 
-/**
- * 図柄スプライト（画像タイル）の階層別スケール。1.0 = セル(130x100)ぴったり。
- * 画像自体に枠が描かれているので控えめに差をつける（強い柄ほど大きく＝デカい）。
- */
-const SPRITE_SCALE: Record<SymbolTier, number> = {
-  premium: 0.9, // 枠つき・ほぼセルいっぱい（横長図柄が幅130pxで左右の縁に接して切れるのを防ぐ余白）
-  bonus: 0.88, // 枠つき・やや大（premiumのすぐ下）
-  core: 0.7, // 枠なし・はっきり小さく（強弱を size で明確に区別）
-  filler: 0.58,
-};
-
 const VIEW_HEIGHT = CELL_HEIGHT * VISIBLE_CELLS;
 const PAYLINE_Y = CELL_HEIGHT * 1.5;
 /**
@@ -124,15 +113,10 @@ export class ReelView {
   private readonly cellContainers: Container[] = [];
   /** 各セルの背景タイル Graphics（色タイル時のみ・スプライト時は null） */
   private readonly cellTiles: (Graphics | null)[] = [];
-  /** 各セルの図柄スプライト（画像タイル時のみ・色タイル時は null） */
+  /** 各セルのドット文字スプライト（フォント描画へ落ちた時は null） */
   private readonly cellSprites: (Sprite | null)[] = [];
   /** 各スプライトの基準スケール（ハイライトのスケール演出から戻す用） */
   private readonly cellSpriteBaseScale: number[] = [];
-  /** 各スプライトの文字なし/文字ありテクスチャ（設定トグルで差し替え） */
-  private readonly cellSpritePlainTex: (Texture | null)[] = [];
-  private readonly cellSpriteGlyphTex: (Texture | null)[] = [];
-  /** リールに文字を表示するか（既定 false＝図柄のみ） */
-  private showGlyphs = false;
   /** コマ番号を出すか（既定OFF）。目押しの検証と引き込みコマ数の確認に使う。 */
   private showCellIndices = false;
   private readonly cellIndexLabels: Text[] = [];
@@ -165,10 +149,8 @@ export class ReelView {
     private readonly engine: ReelEngine,
     private readonly colorForSymbol: SymbolColorFn,
     private readonly tierForSymbol: SymbolTierFn = () => 'core',
-    // 既定表示（文字なし＝図柄のみ）
-    private readonly textureForSymbol: SymbolTextureFn = () => null,
-    // 設定ON時の表示（文字あり）
-    private readonly textureGlyphForSymbol: SymbolTextureFn = () => null,
+    /** その文字のドット文字テクスチャ（無ければ null＝フォントで描く） */
+    private readonly glyphForSymbol: SymbolTextureFn = () => null,
   ) {
     this.container = new Container();
 
@@ -221,39 +203,30 @@ export class ReelView {
       const tier = this.tierForSymbol(symbol);
       const style = TILE_STYLES[tier];
       const originalColor = this.colorForSymbol(symbol);
-      const texture = this.textureForSymbol(symbol); // 既定＝文字なし
-      const glyphTexture = this.textureGlyphForSymbol(symbol); // 設定ON＝文字あり
+      // **地の四角は描かない。** 役色は文字そのものに乗せる（tint）。
+      // 色タイルは色の面積が大きいぶん文字が背景の一部に見えてしまい、
+      // 「文字を読んで押す」という遊びの主役が入れ替わる。
+      this.cellTiles.push(null);
 
-      if (texture) {
-        // 図柄画像モード：既定は文字なし版を表示（設定でテクスチャを差し替え）
-        const sprite = new Sprite(this.showGlyphs && glyphTexture ? glyphTexture : texture);
+      const glyphTexture = this.glyphForSymbol(symbol);
+      if (glyphTexture) {
+        // 44x34 のドット文字をセル幅いっぱい（=3倍）に置く。液晶の背景・出題者・
+        // バナーと同じ粒度になる。補間は読み込み側で nearest に落としてある
+        const sprite = new Sprite(glyphTexture);
         sprite.anchor.set(0.5);
-        // セル(CELL_WIDTH×CELL_HEIGHT)に収め、強さ階層で控えめに大小をつける
-        const fit = Math.min(
-          CELL_WIDTH / texture.width,
-          CELL_HEIGHT / texture.height,
-        );
-        const scale = fit * SPRITE_SCALE[tier];
+        const scale = CELL_WIDTH / glyphTexture.width;
         sprite.scale.set(scale);
         sprite.x = CELL_WIDTH / 2;
         sprite.y = 0;
+        // 白の字面へ役色を掛ける＝**文字の中だけが色づく**。縁はほぼ黒のままなので
+        // 暗いリール地の上でも輪郭が残る
+        sprite.tint = originalColor;
         cell.addChild(sprite);
         this.cellSprites.push(sprite);
         this.cellSpriteBaseScale.push(scale);
-        this.cellSpritePlainTex.push(texture);
-        this.cellSpriteGlyphTex.push(glyphTexture);
-        this.cellTiles.push(null);
       } else {
-        // 従来モード：色タイル＋文字（強さ階層でサイズ・縁飾り・文字サイズ可変）
-        const tile = new Graphics();
-        this.drawTile(tile, originalColor, style);
-        cell.addChild(tile);
-        this.cellTiles.push(tile);
-        this.cellSprites.push(null);
-        this.cellSpriteBaseScale.push(0);
-        this.cellSpritePlainTex.push(null);
-        this.cellSpriteGlyphTex.push(null);
-
+        // ドット文字が無い文字はフォントで描く。全章の全文字が揃っていることは
+        // 監査テストが見ているので、本番でここへ落ちることは無い
         const text = new Text({
           text: symbol,
           style: {
@@ -263,19 +236,14 @@ export class ReelView {
               '"Hiragino Mincho ProN", "Yu Mincho", "MS PMincho", serif',
             fontWeight: '900',
             stroke: { color: 0x000000, width: 5, alpha: 0.85 },
-            dropShadow: {
-              color: 0x000000,
-              alpha: 0.5,
-              angle: Math.PI / 4,
-              distance: 1,
-              blur: 2,
-            },
           },
         });
         text.anchor.set(0.5);
         text.x = CELL_WIDTH / 2;
         text.y = 0;
         cell.addChild(text);
+        this.cellSprites.push(null);
+        this.cellSpriteBaseScale.push(0);
       }
 
       // コマの識別。「7 ま2」＝リール上の7番目のコマで、その文字としては2つ目。
@@ -409,21 +377,6 @@ export class ReelView {
   }
 
   /**
-   * リールに文字を表示するか切り替える。
-   * true=文字あり版テクスチャ / false=図柄のみ（既定）。スプライトのテクスチャを差し替える。
-   */
-  setShowGlyphs(show: boolean): void {
-    this.showGlyphs = show;
-    for (let i = 0; i < this.cellSprites.length; i++) {
-      const sp = this.cellSprites[i];
-      if (!sp) continue;
-      const glyph = this.cellSpriteGlyphTex[i];
-      const plain = this.cellSpritePlainTex[i];
-      const next = show && glyph ? glyph : plain;
-      if (next) sp.texture = next;
-    }
-  }
-
   /**
    * コマ番号の表示を切り替える。
    * 押下位置と停止位置の差＝引き込みコマ数を目で数えられるようにするためのもの。
@@ -465,32 +418,6 @@ export class ReelView {
     this.bg.stroke({ width: strokeWidth, color: strokeColor });
   }
 
-  /** タイル背景を指定色・指定スタイル（強さ階層）で描く（共通ロジック） */
-  private drawTile(tile: Graphics, color: number, style: TileStyle): void {
-    tile.clear();
-    const x = style.padX;
-    const y = -CELL_HEIGHT / 2 + style.padY;
-    const w = CELL_WIDTH - style.padX * 2;
-    const h = CELL_HEIGHT - style.padY * 2;
-    tile
-      .roundRect(x, y, w, h, style.radius)
-      .fill({ color })
-      .stroke({ width: style.strokeWidth, color: 0x000000, alpha: style.strokeAlpha });
-    // 強い柄（premium/bonus）は内側に金/銀のアクセント縁を重ねて格を出す
-    if (style.innerFrame !== null) {
-      const inset = 4;
-      tile
-        .roundRect(
-          x + inset,
-          y + inset,
-          w - inset * 2,
-          h - inset * 2,
-          Math.max(2, style.radius - 3),
-        )
-        .stroke({ width: 2, color: style.innerFrame, alpha: 0.9 });
-    }
-  }
-
   /**
    * 指定セル（リール内の周回 index）のタイルを役色で塗り替え、durMs 後に元に戻す。
    * 役成立時に、3 リールにまたがる構成文字をまとめて同色化するための公開 API。
@@ -513,8 +440,6 @@ export class ReelView {
         this.cellContainers[i].addChild(glow);
         this.cellGlows[i] = glow;
         sprite.scale.set(this.cellSpriteBaseScale[i] * 1.07);
-      } else if (this.cellTiles[i]) {
-        this.drawTile(this.cellTiles[i]!, color, this.cellStyles[i]);
       }
     }
     this.highlightTimer = window.setTimeout(() => {
@@ -538,8 +463,6 @@ export class ReelView {
       const sprite = this.cellSprites[i];
       if (sprite) {
         sprite.scale.set(this.cellSpriteBaseScale[i]);
-      } else if (this.cellTiles[i]) {
-        this.drawTile(this.cellTiles[i]!, this.cellOriginalColors[i], this.cellStyles[i]);
       }
     }
     this.highlightedIndexes = [];

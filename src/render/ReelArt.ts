@@ -1,108 +1,79 @@
 import { Assets, Texture } from 'pixi.js';
-import type { Yaku } from '../data/schemas';
 
-// ART_VER: 図柄を作り直すたびに上げる（同名 webp のブラウザキャッシュ対策）。
-const ART_VER = '18';
-// 図柄画像を持つ章。ここに無い章は色タイル＋文字で描く。
-const CHAPTERS_WITH_SYMBOL_ART = new Set<string>([
-  'hiragana_food',
-  'katakana_animal',
-  'yasai',
-  'hiragana_verb',
-  'security',
-]);
-
-export interface SymbolArt {
-  /** 文字あり版テクスチャ（設定ON）。key=`${reelIdx}:${symbol}` */
-  textures: Map<string, Texture>;
-  /** 文字なし版テクスチャ＝図柄のみ（既定）。key=`${reelIdx}:${symbol}` */
-  texturesPlain: Map<string, Texture>;
-  /** 右パネル用：文字あり版の URL（?v= 付き）。無ければ null */
-  tileUrlWithVer(reelIdx: number, symbol: string): string | null;
-  /** 右パネル用：文字なし版（_plain）の URL（?v= 付き）。無ければ null */
-  tilePlainUrlWithVer(reelIdx: number, symbol: string): string | null;
-}
-
-interface YakuListLike {
-  premiumYaku: Yaku[];
-  coreYaku: Yaku[];
-  cherryYaku: Yaku[];
-  bonusYaku: Yaku[];
-}
+// ART_VER: ドット文字を作り直すたびに上げる（同名 PNG のブラウザキャッシュ対策）。
+const ART_VER = '21';
 
 /**
- * 章ごとの図柄画像を読み込み、(reelIdx, symbol) -> Texture / URL を「色と同じ先勝ち順」で構築する。
- * 画像が無い章・遊ぶ設定が plain・読込失敗時は空のマップを返し、
- * 呼び出し側（ReelView / 右パネル）は従来の色タイル＋文字へフォールバックする。
+ * リールの**ドット文字**を読み込む。
+ *
+ * 〔2026-08-29〕役ごとの図柄画像（生成画像・全島で9.4MB）は**廃止した**。
+ * 理由は2つ。
+ *
+ *  - **腐る**。役を作り直した時に絵だけ前の役のまま残った（寿司島は7枚とも不一致）。
+ *    外部の画像生成へ投げ直さないと直せないので、誰も直さなかった
+ *  - **コンセプトを壊す**。絵でセルを見分けられると、文字を読まずに押せてしまう
+ *
+ * 代わりに文字そのものをドット絵にする。生成は `tools/gen_glyphs.py`。液晶の背景・
+ * 出題者・バナーと同じ3倍表示に揃えてあり（44x34 を 130x100 のセルへ）、
+ * 文字は配列データから作るので**配列を変えれば自動で追随する**。
+ *
+ * 字は**リールごとに別ファイル**。同じ文字でもリールによって属する役の強さが変わり
+ * （寿司島の「し」は左でしゃけ＝ボーナス、右でいわし＝小役）、大きさが違うため。
  */
-export async function loadSymbolArt(
-  chapterId: string,
-  yakuList: YakuListLike,
-  artBase: string,
-): Promise<SymbolArt> {
-  const tileUrls = new Map<string, string>(); // 文字あり版の素URL
-  const textures = new Map<string, Texture>();
-  const texturesPlain = new Map<string, Texture>();
+export interface GlyphArt {
+  /** `${リール}:${文字}` → Texture。無ければ undefined（呼び出し側はフォント描画へ落ちる） */
+  textures: Map<string, Texture>;
+  /** 右パネル用の URL（?v= 付き）。無ければ null */
+  urlFor(reel: number, symbol: string): string | null;
+}
 
-  // リール絵柄スタイル（遊ぶ設定）：image=図柄画像 / plain=色タイル＋文字。
-  // **既定は plain**（文字のみ）。図柄画像を作り直し中で、絵で識別できてしまうと
-  // 「文字を見てビタ押しする」というコンセプトが崩れるため、明示的に image を
-  // 選んだ時だけ画像を読み込む。
-  const useArtImages = localStorage.getItem('mojislot.reelArt.v1') === 'image';
-  if (useArtImages && CHAPTERS_WITH_SYMBOL_ART.has(chapterId)) {
-    const orderedForArt = [
-      ...yakuList.premiumYaku,
-      ...yakuList.coreYaku,
-      ...yakuList.cherryYaku,
-      ...yakuList.bonusYaku,
-    ];
-    for (const y of orderedForArt) {
-      if (y.noArt) continue; // 画像を持たない役（例：もも）は色＋文字で描く
-      // チェリーは2文字（symbols.length=2）。存在する文字だけ対象にする
-      for (let r = 0; r < y.symbols.length; r++) {
-        const key = `${r}:${y.symbols[r]}`;
-        if (!tileUrls.has(key)) {
-          tileUrls.set(key, `${artBase}symbols/${chapterId}/${y.id}_${r}.webp`);
-        }
-      }
+/** ファイル名はコードポイント。日本語のままだとURLエンコードの差で事故る（生成側と対）。 */
+function nameOf(reel: number, symbol: string): string {
+  return (
+    `r${reel}_u` +
+    [...symbol]
+      .map((c) => (c.codePointAt(0) ?? 0).toString(16).padStart(4, '0'))
+      .join('-')
+  );
+}
+
+export async function loadGlyphArt(
+  chapterId: string,
+  /** リールごとの文字（`reels[i].cells`）。同じ文字でもリールで絵が違う */
+  reelSymbols: readonly (readonly string[])[],
+  artBase: string,
+): Promise<GlyphArt> {
+  const urls = new Map<string, string>();
+  reelSymbols.forEach((cells, reel) => {
+    for (const s of new Set(cells)) {
+      urls.set(`${reel}:${s}`, `${artBase}glyphs/${chapterId}/${nameOf(reel, s)}.png`);
     }
-    try {
-      const glyphUrls = [...new Set(tileUrls.values())];
-      const plainUrls = glyphUrls.map((u) => u.replace(/\.webp$/, '_plain.webp'));
-      // 一部記号のアートが欠けても全体を壊さない（allSettled）。
-      // 欠けた記号はテクスチャ未設定＋URL削除で、その記号だけ色＋文字に落とす。
-      await Promise.allSettled(
-        [...glyphUrls, ...plainUrls].map((u) => Assets.load(`${u}?v=${ART_VER}`)),
-      );
-      for (const [key, url] of [...tileUrls]) {
-        const glyphTex = Assets.get(`${url}?v=${ART_VER}`) as Texture | undefined;
-        const plainTex = Assets.get(
-          `${url.replace(/\.webp$/, '_plain.webp')}?v=${ART_VER}`,
-        ) as Texture | undefined;
-        if (glyphTex && plainTex) {
-          textures.set(key, glyphTex);
-          texturesPlain.set(key, plainTex);
-        } else {
-          tileUrls.delete(key); // アート欠落 → 右の配列表も色＋文字へ
-        }
+  });
+  const textures = new Map<string, Texture>();
+  try {
+    // 1文字欠けても全体を壊さない。欠けた文字だけフォント描画へ落ちる
+    await Promise.allSettled(
+      [...urls.values()].map((u) => Assets.load(`${u}?v=${ART_VER}`)),
+    );
+    for (const [key, url] of [...urls]) {
+      const tex = Assets.get(`${url}?v=${ART_VER}`) as Texture | undefined;
+      if (!tex) {
+        urls.delete(key);
+        continue;
       }
-    } catch (err) {
-      console.warn('図柄画像の読み込みに失敗。色タイルにフォールバックします', err);
-      textures.clear();
-      texturesPlain.clear();
-      tileUrls.clear();
+      // **補間させない。** 3倍に伸ばすので、滑らかに補間するとドットが溶ける
+      tex.source.scaleMode = 'nearest';
+      textures.set(key, tex);
     }
+  } catch (err) {
+    console.warn('ドット文字の読み込みに失敗。フォント描画へ落とします', err);
+    textures.clear();
+    urls.clear();
   }
 
-  // 文字あり版 / 文字なし版(_plain) の URL（右パネル用）
-  const tileUrlWithVer = (reelIdx: number, symbol: string): string | null => {
-    const u = tileUrls.get(`${reelIdx}:${symbol}`);
+  const urlFor = (reel: number, symbol: string): string | null => {
+    const u = urls.get(`${reel}:${symbol}`);
     return u ? `${u}?v=${ART_VER}` : null;
   };
-  const tilePlainUrlWithVer = (reelIdx: number, symbol: string): string | null => {
-    const u = tileUrls.get(`${reelIdx}:${symbol}`);
-    return u ? `${u.replace(/\.webp$/, '_plain.webp')}?v=${ART_VER}` : null;
-  };
-
-  return { textures, texturesPlain, tileUrlWithVer, tilePlainUrlWithVer };
+  return { textures, urlFor };
 }

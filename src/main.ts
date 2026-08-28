@@ -1,7 +1,7 @@
 import { Application, FillGradient, Graphics } from 'pixi.js';
 import { ReelEngine } from './core/ReelEngine';
 import { ReelView, CELL_WIDTH, CELL_HEIGHT, VISIBLE_CELLS, REEL_PEEK, FRAME_PAD } from './render/ReelView';
-import { loadSymbolArt } from './render/ReelArt';
+import { loadGlyphArt } from './render/ReelArt';
 import { RunTimer } from './ui/RunTimer';
 import { SymbolColorResolver } from './render/SymbolStyle';
 import { YakuJudge } from './core/YakuJudge';
@@ -599,23 +599,19 @@ export async function bootstrap() {
     imageUrl: yaku.cutinArt ? `${ART_BASE}${yaku.cutinArt}` : undefined,
   });
 
-  // 章ごとの図柄画像（あれば）を読み込む。画像が無い章・plain設定・読込失敗時は空マップが返り、
-  // ReelView も右の配列表も従来の色タイル＋文字にフォールバックする（詳細は render/ReelArt.ts）。
-  // ステージ切替（リミックス島）で作り直すので let。
-  let {
-    textures: symbolTextures,
-    texturesPlain: symbolTexturesPlain,
-    tileUrlWithVer,
-    tilePlainUrlWithVer,
-  } = await loadSymbolArt(chapterId, yakuList, ART_BASE);
-  // 右パネルの図柄セル（文字ON/OFFで背景画像を差し替えるため保持）
-  let stripGlyphCells: { el: HTMLElement; glyph: string; plain: string }[] = [];
+  // 章ごとのドット文字を読み込む。読めなかった文字だけフォント描画へ落ちる
+  // （詳細は render/ReelArt.ts）。ステージ切替（リミックス島）で作り直すので let。
+  const reelSymbols = () => reelConfig.reels.map((r) => r.cells);
+  let { textures: glyphTextures, urlFor: glyphUrlFor } = await loadGlyphArt(
+    chapterId,
+    reelSymbols(),
+    ART_BASE,
+  );
   /**
    * 右パネル「リール配列」の中身を作る。実体は下（パネルのDOMが揃ってから）で代入する。
    * ステージ切替でリールが入れ替わったら呼び直す。
    */
   let renderReelStrips: () => void = () => {};
-  let reelGlyphsOn = localStorage.getItem('reelShowGlyphs') === '1';
 
   for (let i = 0; i < REEL_COUNT; i++) {
     const engine = new ReelEngine(reelConfig.reels[i]);
@@ -624,9 +620,7 @@ export async function bootstrap() {
       engine,
       (symbol) => colorResolver.colorFor(reelIdx, symbol),
       (symbol) => colorResolver.tierFor(reelIdx, symbol),
-      // 既定は文字なし版（図柄のみ）。設定ONで文字あり版に差し替え
-      (symbol) => symbolTexturesPlain.get(`${reelIdx}:${symbol}`) ?? null,
-      (symbol) => symbolTextures.get(`${reelIdx}:${symbol}`) ?? null,
+      (symbol) => glyphTextures.get(`${reelIdx}:${symbol}`) ?? null,
     );
     view.container.x = startX + i * (CELL_WIDTH + REEL_GAP);
     view.container.y = reelY;
@@ -634,20 +628,6 @@ export async function bootstrap() {
     engines.push(engine);
     views.push(view);
   }
-
-  // リール文字表示トグル（既定OFF＝図柄のみ／設定でON）。localStorage に永続化。
-  // リール本体・右の「リール配列」パネルの両方を連動させる。
-  const REEL_GLYPHS_KEY = 'reelShowGlyphs';
-  const applyReelGlyphs = (show: boolean) => {
-    reelGlyphsOn = show;
-    localStorage.setItem(REEL_GLYPHS_KEY, show ? '1' : '0');
-    for (const v of views) v.setShowGlyphs(show);
-    for (const c of stripGlyphCells) {
-      c.el.style.backgroundImage = `url("${show ? c.glyph : c.plain}")`;
-    }
-  };
-  const initialReelGlyphs = reelGlyphsOn;
-  applyReelGlyphs(initialReelGlyphs);
 
   // コマ番号（0..20）の表示。デバッグ表示ONの時だけ出す。
   // 押した位置と停止位置の差＝引き込みコマ数を、画面上で数えられるようにする。
@@ -811,7 +791,7 @@ export async function bootstrap() {
         // 各文字を実リールのセル色に合わせる（左/中/右）
         colors: targetYaku.symbols.map((s, i) => colorResolver.cssFor(i, s)),
         yakuName: targetYaku.name,
-        imageUrl: `${ART_BASE}aim_text.webp`,
+        imageUrl: `${ART_BASE}ui/aim.png`,
         hasPremium: targetYaku.category === 'premium',
         // 現行 canvas 寸法に基づくリール座標比（旧ハードコードのズレを解消）
         reelCentersXFrac: [0, 1, 2].map(
@@ -1177,8 +1157,11 @@ export async function bootstrap() {
 
   // BONUS! バナー
   const showBonusBanner = (kind: 'big' | 'reg' = 'big') => {
-    const text = kind === 'reg' ? 'REGULAR!' : 'BIG BONUS!';
-    bonusBannerEl.innerHTML = `<div class="bonus-banner-text${kind === 'reg' ? ' reg' : ''}">${text}</div>`;
+    // 文字はドット絵の一枚絵。液晶の中（背景・出題者）と同じ粒度に揃えるため、
+    // Webフォント＋グラデーションのCSS描画から差し替えた（生成: tools/gen_banner.py）
+    const src = kind === 'reg' ? 'ui/regular.png' : 'ui/big_bonus.png';
+    bonusBannerEl.innerHTML =
+      `<img class="bonus-banner-img${kind === 'reg' ? ' reg' : ''}" alt="" src="${ART_BASE}${src}">`;
     bonusBannerEl.hidden = false;
     window.setTimeout(() => {
       bonusBannerEl.hidden = true;
@@ -1798,11 +1781,9 @@ export async function bootstrap() {
     await quizmasterView.setChapter(chapterId);
     await lcdBg.setChapter(chapterId);
     loadVoices();
-    const art = await loadSymbolArt(chapterId, yakuList, ART_BASE);
-    symbolTextures = art.textures;
-    symbolTexturesPlain = art.texturesPlain;
-    tileUrlWithVer = art.tileUrlWithVer;
-    tilePlainUrlWithVer = art.tilePlainUrlWithVer;
+    const art = await loadGlyphArt(chapterId, reelSymbols(), ART_BASE);
+    glyphTextures = art.textures;
+    glyphUrlFor = art.urlFor;
     for (const v of views) {
       app.stage.removeChild(v.container);
       v.container.destroy({ children: true });
@@ -1816,13 +1797,11 @@ export async function bootstrap() {
         engine,
         (symbol) => colorResolver.colorFor(reelIdx, symbol),
         (symbol) => colorResolver.tierFor(reelIdx, symbol),
-        (symbol) => art.texturesPlain.get(`${reelIdx}:${symbol}`) ?? null,
         (symbol) => art.textures.get(`${reelIdx}:${symbol}`) ?? null,
       );
       view.container.x = startX + i * (CELL_WIDTH + REEL_GAP);
       view.container.y = reelY;
       app.stage.addChild(view.container);
-      view.setShowGlyphs(reelGlyphsOn);
       view.setShowCellIndices(debugVisible);
       engines.push(engine);
       views.push(view);
@@ -1972,7 +1951,7 @@ export async function bootstrap() {
           symbols: target.symbols,
           colors: target.symbols.map((s, i) => colorResolver.cssFor(i, s)),
           yakuName: target.name,
-          imageUrl: `${ART_BASE}aim_text.webp`,
+          imageUrl: `${ART_BASE}ui/aim.png`,
           hasPremium: target.category === 'premium',
           reelCentersXFrac: [0, 1, 2].map(
             (i) => (startX + i * (CELL_WIDTH + REEL_GAP) + CELL_WIDTH / 2) / CANVAS_W,
@@ -2650,8 +2629,6 @@ export async function bootstrap() {
   );
   // 実体を上で宣言した変数へ入れる。ステージ切替（リミックス島）で呼び直すため。
   renderReelStrips = () => {
-    // 図柄セルの参照は作り直す（古いDOMは innerHTML で捨てられる）。
-    stripGlyphCells = [];
     stripColumns.forEach((col, idx) => {
       const cellsEl = col.querySelector<HTMLElement>('.cells');
       if (!cellsEl) return;
@@ -2664,17 +2641,17 @@ export async function bootstrap() {
         const symbol = cells[i];
         const cell = document.createElement('div');
         cell.className = 'strip-cell';
-        const tileUrl = tileUrlWithVer(idx, symbol);
-        const plainUrl = tilePlainUrlWithVer(idx, symbol);
-        if (tileUrl && plainUrl) {
-          // 図柄画像をそのまま縮小表示。文字ON/OFF で文字あり/なし版を差し替え。
+        // 役単位の色の上にドット文字を重ねる。リール本体と同じ見た目にする。
+        // **background の一括指定は使わない**——インラインで一括指定すると
+        // スタイルシート側の background-repeat / size / position まで初期値へ戻り、
+        // ドット文字が敷き詰められる（実際に踏んだ）
+        cell.style.backgroundColor = colorResolver.cssFor(idx, symbol);
+        const glyphUrl = glyphUrlFor(idx, symbol);
+        if (glyphUrl) {
           cell.classList.add('has-art');
-          cell.style.backgroundImage = `url("${reelGlyphsOn ? tileUrl : plainUrl}")`;
-          stripGlyphCells.push({ el: cell, glyph: tileUrl, plain: plainUrl });
+          cell.style.backgroundImage = `url("${glyphUrl}")`;
         } else {
-          // 画像が無い章：従来の役単位カラー＋白文字
           cell.textContent = symbol;
-          cell.style.background = colorResolver.cssFor(idx, symbol);
           cell.style.color = '#fff';
         }
         cell.dataset.index = String(i);
