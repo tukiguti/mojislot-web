@@ -10,7 +10,7 @@
         "し"
       ],
       "category": "core",
-      "payout": 3
+      "payout": 2
     },
     {
       "id": "sanma",
@@ -21,7 +21,7 @@
         "ま"
       ],
       "category": "core",
-      "payout": 5
+      "payout": 4
     },
     {
       "id": "katsuo",
@@ -32,7 +32,7 @@
         "お"
       ],
       "category": "core",
-      "payout": 7
+      "payout": 6
     },
     {
       "id": "maguro",
@@ -43,7 +43,7 @@
         "ろ"
       ],
       "category": "core",
-      "payout": 9
+      "payout": 8
     }
   ],
   "premiumYaku": [
