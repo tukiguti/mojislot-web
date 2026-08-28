@@ -95,7 +95,6 @@ import {
   getVisibleCell,
   getVisibleCellIndex,
   PAYLINES,
-  primaryRowOf,
   type Vertical,
 } from './core/Paylines';
 import { PaylineIndicators } from './render/PaylineIndicators';
@@ -1934,14 +1933,17 @@ export async function bootstrap() {
       isFirstStop &&
       !reachEyeShown &&
       currentEffect === 'none' &&
-      reachEyes.isBonusOnlyOnPrimary(
-        idx,
-        getVisibleCell(engine, primaryRowOf(idx)),
-      )
+      reachEyes.detectFirst(idx, {
+        top: getVisibleCell(engine, 'top'),
+        middle: getVisibleCell(engine, 'middle'),
+        bottom: getVisibleCell(engine, 'bottom'),
+      }) !== null
     ) {
       reachEyeShown = true;
       views[idx].startTenpaiFlash(true);
       sfx.tenpaiPremium();
+      // リーチ目が出たらランプで必ず伝える（読めなくても取りこぼさない）。
+      announceReachEye();
     }
 
     // 示唆 →「狙え！」への発展。
@@ -2044,11 +2046,12 @@ export async function bootstrap() {
       }
       if (reachKind && heldBonusYaku) {
         // 全リール停止後の出目が**リーチ目**（ボーナス成立時にしか出ない並び）だった。
-        // 枠を光らせて「今の出目はただのハズレじゃない」とだけ伝える。種別（REG/BIG）は
-        // 伏せたまま＝出目を読める人だけが分かる。**文字は出さない**。
-        // 読ませる遊びなので、答えを書いてしまうと成立しない。
+        // 枠を光らせて「今の出目はただのハズレじゃない」と伝える。**文字は出さない**。
+        // 種別（REG/BIG）はランプ側でも伏せたままなので、読める人が先に分かる。
         for (const v of views) v.startTenpaiFlash(reachKind !== 'reg');
         sfx.tenpaiPremium();
+        // リーチ目が出たらランプで必ず伝える（読めなくても取りこぼさない）。
+        announceReachEye();
       }
       // チェリー昇格。チェリーが**実際に揃った**時だけ抽選し、当たれば確定告知ランプを
       // 点灯＝次ゲーム以降ボーナス確定。成立表示の余韻を残してから点灯させ、
@@ -2361,6 +2364,26 @@ export async function bootstrap() {
     sfx.lamp();
     flashScreen({ color: '#fff3a0', alpha: 0.8, durMs: 280 });
   };
+  /**
+   * **リーチ目が出た → 確定告知ランプを点ける。**
+   *
+   * リーチ目は「そのフラグの時にしか制御上あり得ない出目」なので、出た時点で
+   * ボーナスは確定している。読める人だけが分かる、では取りこぼす人が出るので、
+   * ランプで必ず伝える。**種別は抽選し直さない**——すでに立っているフラグを
+   * そのまま確定させる（抽選し直すと、点いた種別と持ち越し中の役が食い違う）。
+   */
+  const announceReachEye = () => {
+    if (announcedBonus || bonusZone.isActive()) return;
+    const held = heldBonusYaku ?? currentInternalYaku();
+    if (!held || (held.category !== 'premium' && held.category !== 'bonus')) return;
+    announcedBonus = held.category === 'premium' ? 'big' : 'reg';
+    announcedRole = held;
+    announceLampEl.hidden = false;
+    requestAnimationFrame(() => announceLampEl.classList.add('lit'));
+    sfx.lamp();
+    flashScreen({ color: '#fff3a0', alpha: 0.8, durMs: 280 });
+  };
+
   /**
    * チェリー昇格の点灯待ち。全停止直後ではなく少し置いてから点けることで、
    * チェリー成立の表示を見せてから「チェリーが呼んだ」と読める間を作る。

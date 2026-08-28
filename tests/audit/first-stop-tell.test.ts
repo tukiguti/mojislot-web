@@ -119,14 +119,18 @@ describe('1確の監査：非ボーナスフラグで中段告知が誤爆しな
               flagYakuIds: flag.ids,
               flagKey: flag.key,
             });
-            // 主ライン上の図柄を見る（斜めならリールごとに行が変わる）。
-            const middle = visibleAt(
-              cells[reel],
-              (press + slip) % N,
-              primaryRowOf(reel),
-            );
+            // **停止形（窓の3文字）が第1停止の確定目かどうか**で見る。
+            // 「専用図柄が特定の行に来たか」ではない——告知の定義を到達可能性に
+            // 変えたので、監査もそちらに合わせる（行や主ラインには依存しない）。
+            const pos = (press + slip) % N;
+            const col = {
+              top: visibleAt(cells[reel], pos, 'top'),
+              middle: visibleAt(cells[reel], pos, 'middle'),
+              bottom: visibleAt(cells[reel], pos, 'bottom'),
+            };
+            const middle = col.middle;
             combos++;
-            if (reachEyes.isBonusOnlyOnPrimary(reel, middle)) {
+            if (reachEyes.detectFirst(reel, col) !== null) {
               chapterMisfires++;
               if (misfires.length < 40) {
                 misfires.push({

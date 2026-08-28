@@ -124,10 +124,12 @@ export function computeFirstStopSlip(
     }
     return best;
   };
-  // **主ラインが要求する行だけ**を狙う（StopController と同じ規則）。
-  // 逃げ道を持たないので、テーブルの値が「主ラインへ何コマ寄せたか」だけを意味する。
-  // 基準がずれると第2・第3の引き込みと噛み合わない（初回測定が32.7%まで落ちた原因）。
-  return pick([primaryRowOf(reel)]) ?? 0;
+  // **行は狙わない。** 図柄が窓のどこかへ来る最小のスベリを選ぶ（StopController と同じ規則）。
+  //
+  // 実機の制御は「押し位置＋0〜4のどれで止めるか」を選ぶだけで、どの行・どのラインに
+  // 来るかは関心事ではない。行を指定すると、滑りが前方向にしか効かないぶん
+  // **主ラインの行によって取りこぼしが変わる**という実機に無い非対称が生まれる。
+  return pick(ROW_VERTICAL) ?? 0;
 }
 
 describe.skipIf(!RUN)('停止テーブル生成', () => {
@@ -142,6 +144,28 @@ describe.skipIf(!RUN)('停止テーブル生成', () => {
         assistMaxCells: tuning.assist.pullInCells,
       });
 
+      /** その位置で止めたときの窓（上中下）を1つの文字列にしたもの。 */
+      const colKey = (cells: readonly string[], pos: number): string =>
+        `${visibleAt(cells, pos, 'top')}${visibleAt(cells, pos, 'middle')}${visibleAt(cells, pos, 'bottom')}`;
+
+      /**
+       * **リーチ目にする形**：中段にボーナス専用図柄が来た停止。
+       *
+       * 実機のリーチ目は「フラグ無しでは制御上あり得ない出目」だが、**あり得ない状態は
+       * 制御が作る**。ハズレの第1停止は押した位置で止まるので、放っておけばどの形も
+       * ハズレで出てしまい、1リールで確定する出目は原理的に生まれない（実際に全滅した）。
+       *
+       * そこで実機と同じく **非ボーナス側にこの形を避けさせ（蹴り）、ボーナス側は
+       * 引き込めなかった時にここへ寄せる**。行ではなく「中段の図柄」で定義するので
+       * 主ラインには依存しない。
+       */
+      // REACH_SCOPE=window で「窓のどこかに専用図柄」を確定目とみなす。中段限定だと
+      // ボーナス図柄を中段へ寄せる必要があり、第1リールの中段は5本中1本（中段ライン）
+      // にしか乗らないぶん揃える経路を削ってしまう。
+      const isReachCol = (reel: number, pos: number): boolean =>
+        bonusOnlySymbols(yakuList, reel).has(visibleAt(cells0(reel), pos, 'middle'));
+      const cells0 = (reel: number): readonly string[] => reels[reel];
+
       const firstStop: Record<string, number[][]> = {};
       for (const role of yakuList.internalRoles) {
         const targets = flagYakusFor(yakuList, role.id);
@@ -149,22 +173,47 @@ describe.skipIf(!RUN)('停止テーブル生成', () => {
         firstStop[role.id] = [0, 1, 2].map((reel) => {
           const cells = reels[reel];
           const n = cells.length;
-          const forbidden = isBonusFlag
-            ? new Set<string>()
-            : bonusOnlySymbols(yakuList, reel);
           return Array.from({ length: n }, (_, press) => {
             const slip = computeFirstStopSlip(
               resolver, targets, cells, reel, press, tuning.assist.pullInCells,
             );
-            // ボーナス専用図柄を**主ライン上**に残さない（＝出たらボーナス確定になる）。
-            // 引き込みが決まっている場合は主ラインが当選役の図柄なので、ここには入らない。
-            if (forbidden.size === 0) return slip;
-            const row = primaryRowOf(reel);
+            if (!isBonusFlag) {
+              // 非ボーナス：リーチ目の形を**避ける**（蹴り）。これが無いと
+              // 「ボーナスの時にしか出ない」が成立せず、告知が嘘になる。
+              for (let d = 0; d <= tuning.assist.pullInCells; d++) {
+                const cand = (slip + d) % (tuning.assist.pullInCells + 1);
+                if (!isReachCol(reel, (press + cand) % n)) return cand;
+              }
+              return slip; // 窓内すべて該当（配列的にあり得ないが保険）
+            }
+            // ボーナス側の優先順位:
+            //   ① 図柄を**中段**へ引き込む → 揃えに行きつつ、それ自体が確定目になる
+            //   ② 窓のどこかへ引き込む     → 揃えに行く
+            //   ③ 引き込めない            → リーチ目の形へ寄せる（下の分岐）
+            // ①を先に見るのが要。②で済ませると図柄が上下段に散り、確定目が出る機会を
+            // みすみす捨てることになる（実測で告知が5.6%までしか戻らなかった）。
+            const symOf = (y: (typeof targets)[number]) => y.symbols[reel];
+            const at = (p: number, v: 'top' | 'middle' | 'bottom') => visibleAt(cells, p, v);
+            // 図柄を**中段へ寄せる**優先は入れない。第1リールの中段は5本中1本
+            // （中段ライン）にしか乗らないので、揃える経路を削る。実測で持ち越しが
+            // 593G→892G と1.5倍に延び、機械割も 126.8%→125.9% に落ちた。
+            const pos = (press + slip) % n;
+            const pulledIn = targets.some((y) => {
+              const sym = symOf(y);
+              return (
+                sym !== undefined &&
+                (['top', 'middle', 'bottom'] as const).some((v) => at(pos, v) === sym)
+              );
+            });
+            if (pulledIn) return slip;
+            // **引き込めなかった＝取りこぼし。ここでリーチ目を出す。**
+            // 実機のリーチ目は「フラグが立っているのにボーナス図柄を引き込めなかった時」
+            // に出る制御の副産物なので、この局面でだけ非ボーナスに無い停止形へ寄せる。
             for (let d = 0; d <= tuning.assist.pullInCells; d++) {
               const cand = (slip + d) % (tuning.assist.pullInCells + 1);
-              if (!forbidden.has(visibleAt(cells, (press + cand) % n, row))) return cand;
+              if (isReachCol(reel, (press + cand) % n)) return cand;
             }
-            return slip; // 窓内すべて専用図柄（配列的にあり得ないが保険）
+            return slip; // 窓内にリーチ目の形が無い＝この押下位置では出せない
           });
         });
       }
@@ -184,6 +233,14 @@ describe.skipIf(!RUN)('停止テーブル生成', () => {
         middle: visibleAt(cells, pos, 'middle'),
         bottom: visibleAt(cells, pos, 'bottom'),
       });
+
+      // --- リーチ目への寄せは入れない ---
+      // 「ボーナスが揃わない時に残りのリールをリーチ目へ寄せる」制御を作って測ったが、
+      // ほぼ無効だった（初心者 31.0%→31.9%、他の腕は変化なし）。理由は構造的で、
+      // 寄せられるのは**払い出しが何も無い出目**だけなのに、0枚の出目はハズレでも
+      // 出せる（ハズレの制御は押した位置で止まる）ためリーチ目になり得ない。
+      // 実際に出ているリーチ目は逆で、**小役が揃っているのにボーナスでしか出ない形**。
+      // これは制御が自然に作るので、寄せる必要が無い。
       /**
        * その内部役の許可リスト。ボーナス中だけ**1枚役（こぼし先）**が加わる。
        * 当選役を引き込めなかった最終停止で拾いに行くための受け皿で、

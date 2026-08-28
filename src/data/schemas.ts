@@ -340,7 +340,20 @@ export type StopTable = z.infer<typeof StopTableSchema>;
  */
 export const ReachEyeTableSchema = z.object({
   mode: z.string(),
+  /** 3リール停止後の出目（3×3グリッド）→ 確定するボーナス種別。 */
   eyes: z.record(z.string(), z.enum(['reg', 'big', 'both'])),
+  /**
+   * **第1停止1リールぶんの出目**（窓の3文字）→ 確定するボーナス種別。
+   *
+   * 「ボーナス専用図柄が特定の行に来たか」ではなく、`eyes` と同じく
+   * **到達可能性**で定義する。非ボーナスフラグでは制御上あり得ない停止形だけが
+   * ここに入るので、出れば確定＝嘘をつかない。
+   *
+   * 添字はリール番号（0=左）。省略時は第1停止の告知を出さない。
+   */
+  firstEyes: z
+    .array(z.record(z.string(), z.enum(['reg', 'big', 'both'])))
+    .optional(),
 });
 export type ReachEyeTable = z.infer<typeof ReachEyeTableSchema>;
 

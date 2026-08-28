@@ -57,6 +57,18 @@ import {
 const RUN = process.env.SIM === '1';
 /** リミックス島の上乗せを乗せて測る（覚え直しの取りこぼしは再現できないので上限値）。 */
 const REMIX_MODE = process.env.REMIX === '1';
+/**
+ * プレイヤーが狙い位置（図柄が窓の上端に来る位置）の手前何コマを狙うか。
+ *
+ * 滑りは前方向にしか効かないので、ピンポイントを狙うと押し遅れが一切救済されない。
+ * 手前を狙って残りを引き込みに委ねるのが正しい打ち方で、ゲーム本体のAUTOも
+ * そうしている（`AUTO_AIM_MARGIN`）。手前に取りすぎると今度は押し早が
+ * 救済されなくなる（実測: 手前1で137%・2で129%・3で102%）。
+ *
+ * ビタ押しの判定は別軸で、**引き込み無しで自力停止したか**を見ている。
+ * ここを変えてもビタの集計には影響しない。
+ */
+const AIM_MARGIN = Number(process.env.AIM_MARGIN ?? 2);
 const DIR = dirname(fileURLToPath(import.meta.url));
 const DATA = resolve(DIR, '../../data');
 const readJson = (p: string) => JSON.parse(readFileSync(p, 'utf-8'));
@@ -131,6 +143,10 @@ interface Result {
   carriedSpins: number;
   /** そのうち全体出目がリーチ目だったゲーム数 */
   carriedReach: number;
+  /** 第1リールにボーナス図柄が止まった持ち越しゲーム数 */
+  carriedSymOnFirst: number;
+  /** そのうち出目がリーチ目になったゲーム数 */
+  carriedSymOnFirstReach: number;
   /** そのうち「中段にボーナス専用図柄」が出たゲーム数（一発リーチ目） */
   carriedMiddleTell: number;
   /** 非ボーナスフラグなのに中段告知が出たゲーム数（＝誤告知） */
@@ -282,6 +298,7 @@ function runChapter(
     perYaku: new Map<string, [number, number]>(),
     shisaSpins: 0, shisaEscalated: 0, lampBonus: 0, cherryBonus: 0,
     carriedSpins: 0, carriedReach: 0, carriedMiddleTell: 0,
+    carriedSymOnFirst: 0, carriedSymOnFirstReach: 0,
     falseTellSpins: 0, falseTellFirst: 0, nonBonusSpins: 0,
   };
 
@@ -449,17 +466,25 @@ function runChapter(
       if (sym === undefined) {
         basePos = Math.floor(rng() * N);
       } else {
-        // 狙うのは「その図柄が**主ラインの行**に来る位置」。中段固定にすると、
-        // 主ラインが斜めの時に正確な人ほど主ラインから外れる（神が初心者を下回った原因）。
-        const row = primaryRowOf(idx);
+        // 狙うのは「その図柄が**窓の上端**に来る位置」の少し手前。
+        //
+        // 滑りは前方向にしか効かず、図柄は上段→中段→下段と降りて窓を抜ける。
+        // 上端を基準にすれば、押し遅れても中段・下段へ降りる余地が残り、
+        // 手前マージンぶんは押し早も引き込みが吸収する。
+        // **行を主ラインに合わせてはいけない**——制御が行を狙わなくなった以上、
+        // 主ラインの行を狙うのは損なだけで、主ラインごとの有利不利を作ってしまう。
+        const row: Vertical = 'top';
         const start = Math.floor(rng() * N);
         let intended = start;
         for (let d = 0; d < N; d++) {
           const p = (start + d) % N;
           if (visibleAt(cells, p, row) === sym) { intended = p; break; }
         }
+        // 引き込みは**前方向にしか効かない**ので、狙い位置ちょうどを狙うと
+        // 押し遅れが構造的に一切救済されない。ゲーム本体のAUTOと同じく
+        // 手前 AIM_MARGIN コマを狙い、残りの寄せを引き込みに委ねる。
         const err = Math.round(gauss() * sigmaCells);
-        basePos = (((intended + err) % N) + N) % N;
+        basePos = (((intended - AIM_MARGIN + err) % N) + N) % N;
       }
 
       // --- 停止制御（ゲーム本体と同じ StopController を使う）---
@@ -539,25 +564,48 @@ function runChapter(
     }
 
     // 誤告知の計測：ボーナスフラグでないのに主ラインへ専用図柄が出たか
-    const onPrimary = (r: number): string => grid[primaryRowIndexOf(r)][r];
+    /** そのリールの窓（上・中・下）。第1停止の確定目の判定に使う。 */
+    const colOf = (r: number) => ({
+      top: grid[0][r],
+      middle: grid[1][r],
+      bottom: grid[2][r],
+    });
     const isBonusFlag =
       !!heldYaku || !!carried || role.kind === 'reg' || role.kind === 'big';
     if (!isBonusFlag) {
       res.nonBonusSpins++;
-      if ([0, 1, 2].some((r) => reachEyes.isBonusOnlyOnPrimary(r, onPrimary(r)))) {
+      // 全停止後の出目がリーチ目になっていないか。第1停止用の表を最終位置の
+      // 全リールに当てる旧版は、止まった順も局面も無視していて意味が無かった。
+      if (reachEyes.detect(grid) !== null) {
         res.falseTellSpins++;
       }
       const firstReel = seq[0];
-      if (reachEyes.isBonusOnlyOnPrimary(firstReel, onPrimary(firstReel))) {
+      if (reachEyes.detectFirst(firstReel, colOf(firstReel)) !== null) {
         res.falseTellFirst++;
       }
     }
     if (carried) {
       res.carriedSpins++;
-      if (hits.length === 0 && reachEyes.detect(grid) !== null) res.carriedReach++;
+      // 払い出しの有無は問わない。**小役が揃っているのにボーナスフラグでしか
+      // 出ない形**は実機でも典型的なリーチ目で、むしろこちらが主流。
+      // 「0枚の時だけ」を条件にしていた頃はこの指標が0.0%に見えていた。
+      const isEye = reachEyes.detect(grid) !== null;
+      if (isEye) res.carriedReach++;
+      // 第1リールにボーナス図柄が止まったのに気づかなかった場合。ここでも出目が
+      // リーチ目になっていないと、揃わないまま素通りしてしまう。
+      const symL = carried.symbols[0];
+      const first = colOf(seq[0]);
+      if (
+        seq[0] === 0 &&
+        symL !== undefined &&
+        (first.top === symL || first.middle === symL || first.bottom === symL)
+      ) {
+        res.carriedSymOnFirst++;
+        if (isEye) res.carriedSymOnFirstReach++;
+      }
       // 一発リーチ目：**第1停止**の主ラインがボーナス専用図柄なら、その場で確定告知になる。
       const fr = seq[0];
-      if (reachEyes.isBonusOnlyOnPrimary(fr, onPrimary(fr))) res.carriedMiddleTell++;
+      if (reachEyes.detectFirst(fr, colOf(fr)) !== null) res.carriedMiddleTell++;
     }
     const isPremiumNow = hits.some((h) => h.yaku.category === 'premium');
     const isRegNow = !isPremiumNow && hits.some((h) => h.yaku.category === 'bonus');
@@ -611,14 +659,14 @@ function runChapter(
 
 describe.skipIf(!RUN)('出玉シミュレーション（新モデル）', () => {
   it('腕別の機械割・突入率・ボーナス平均を測る', () => {
-    const SPINS = 200000;
+    const SPINS = Number(process.env.SPINS ?? 200000);
     const lines: string[] = [];
-    lines.push('腕      機械割   通常時純増  ボ中純増  突入(1/G)  BIG平均  REG平均  示唆発展  ランプ  チェリー重複  持越G  中段告知  誤告知(全)  誤告知(第1)  ボ中こぼし  →1枚');
+    lines.push('腕      機械割   通常時純増  ボ中純増  突入(1/G)  BIG平均  REG平均  示唆発展  ランプ  チェリー重複  持越G  1確(第1)  出目告知  図柄止まり  その時の出目告知  誤告知(全停)  誤告知(第1)  ボ中こぼし  →1枚');
     for (const skill of SKILLS) {
       let bet = 0, win = 0, nbet = 0, nwin = 0, big = 0, reg = 0;
       let bspins = 0, bigPay = 0, regPay = 0;
       let spins = 0;
-      let shisaSpins = 0, shisaEsc = 0, lampB = 0, cherryB = 0, carS = 0, carR = 0, carM = 0, fT = 0, fT1 = 0, nb = 0;
+      let shisaSpins = 0, shisaEsc = 0, lampB = 0, cherryB = 0, carS = 0, carR = 0, carM = 0, fT = 0, fT1 = 0, nb = 0, symF = 0, symFR = 0;
       let bMiss = 0, bSpill = 0;
       CHAPTERS.forEach((ch, i) => {
         const r = runChapter(ch, skill, SPINS / CHAPTERS.length, 12345 + i * 977);
@@ -630,6 +678,7 @@ describe.skipIf(!RUN)('出玉シミュレーション（新モデル）', () => 
         shisaSpins += r.shisaSpins; shisaEsc += r.shisaEscalated;
         lampB += r.lampBonus; cherryB += r.cherryBonus;
         carS += r.carriedSpins; carR += r.carriedReach; carM += r.carriedMiddleTell;
+        symF += r.carriedSymOnFirst; symFR += r.carriedSymOnFirstReach;
         fT += r.falseTellSpins; fT1 += r.falseTellFirst; nb += r.nonBonusSpins;
         spins += r.spins;
       });
@@ -647,6 +696,9 @@ describe.skipIf(!RUN)('出玉シミュレーション（新モデル）', () => 
         `${(cherryB / Math.max(1, big + reg) * 100).toFixed(0).padStart(9)}% ` +
         `${carS.toString().padStart(6)} ` +
         `${((carM / Math.max(1, carS)) * 100).toFixed(1).padStart(7)}% ` +
+        `${((carR / Math.max(1, carS)) * 100).toFixed(1).padStart(7)}% ` +
+        `${symF.toString().padStart(8)} ` +
+        `${((symFR / Math.max(1, symF)) * 100).toFixed(1).padStart(13)}% ` +
         `${((fT / Math.max(1, nb)) * 100).toFixed(1).padStart(9)}% ` +
         `${fT1.toString().padStart(10)}件 ` +
         `${((bMiss / Math.max(1, bspins)) * 100).toFixed(1).padStart(9)}% ` +

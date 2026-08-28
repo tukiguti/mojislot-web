@@ -1,4 +1,11 @@
 import type { Grid3x3 } from './Paylines';
+
+/** リール1本の窓（上・中・下）。 */
+export interface VisibleColumn {
+  top: string;
+  middle: string;
+  bottom: string;
+}
 import type { ReachEyeTable } from '../data/schemas';
 
 /**
@@ -64,6 +71,19 @@ export class ReachEyes {
    */
   isBonusOnlyOnPrimary(reel: number, symbolOnPrimary: string): boolean {
     return this.bonusOnly[reel]?.has(symbolOnPrimary) ?? false;
+  }
+
+  /**
+   * **第1停止1リールぶん**の出目が確定目なら、そのボーナス種別。違えば null。
+   *
+   * 「ボーナス専用図柄が主ラインに来たか」ではなく、`detect` と同じく
+   * **非ボーナスフラグでは制御上あり得ない停止形か**で判定する。定義が到達可能性
+   * なので、出れば確定＝嘘をつかない（主ラインにも依存しない）。
+   */
+  detectFirst(reel: number, col: VisibleColumn): ReachKind | null {
+    const table = this.table?.firstEyes?.[reel];
+    if (!table) return null;
+    return table[`${col.top}${col.middle}${col.bottom}`] ?? null;
   }
 
   /** この出目がリーチ目なら確定するボーナス種別、違えば null。 */
