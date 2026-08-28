@@ -33,7 +33,8 @@ import { flagYakusFor, bonusOnlySymbols, computeFirstStopSlip } from './gen-stop
  * その時の役セットに対する解でしかない）。ここはその再探索を**リポジトリに残す**ためのもの。
  * 前回はスクリプトが残っておらず、役を変えるたびに手法から書き直す羽目になった。
  *
- * 目的関数 = ②の件数（主）＋ 図柄の最大間隔（副・引き込み到達性）。
+ * 目的関数 = ②の件数（主）＋ 横3ライン同時テンパイの件数（ハード制約・②と同じ重み）
+ * ＋ 図柄の最大間隔（副・引き込み到達性）。
  * 近傍 = 同一リール内のスワップ／文字の置換（枚数が動く）。制約 = 各文字が最低2枚。
  */
 
@@ -369,6 +370,36 @@ function gapPenalty(reels: string[][], pools: string[][]): number {
   return total;
 }
 
+/**
+ * 横3ライン同時テンパイの件数（第1×第2リールの全停止位置 21×21 のうち、
+ * 上段・中段・下段が**同時に**テンパイする位置の数）。**0 がハード制約**。
+ *
+ * 第1・第2リールで役の並び順が揃っていると、ある停止位置で3行が一斉にテンパイして
+ * 見た目が不自然になり、どのラインが生きているかを読む余地も消える（2本同時は残す）。
+ * ②（揃って見えるのに0枚）と同じで、出玉にもテストにも出ないまま静かに壊れるので、
+ * 焼きなましの目的関数でも②と同じ重みのハード制約として扱う。
+ * 監査は tests/audit/horizontal-tenpai.test.ts。
+ */
+function countTripleTenpai(yakuList: YakuList, reels: string[][]): number {
+  // 3文字役の「左＋中」の先頭2文字＝第3リール待ちのテンパイ形。
+  // 2文字役（チェリー）は左中だけで既に成立していてテンパイではないので数えない。
+  const prefixes = new Set(
+    [...yakuList.coreYaku, ...yakuList.premiumYaku, ...yakuList.bonusYaku]
+      .filter((y) => y.symbols.length >= 3)
+      .map((y) => `${y.symbols[0]} ${y.symbols[1]}`),
+  );
+  const rows: Vertical[] = ['top', 'middle', 'bottom'];
+  let triples = 0;
+  for (let p0 = 0; p0 < N; p0++) {
+    for (let p1 = 0; p1 < N; p1++) {
+      const a = visCol(reels[0], p0);
+      const b = visCol(reels[1], p1);
+      if (rows.every((r) => prefixes.has(`${a[r]} ${b[r]}`))) triples++;
+    }
+  }
+  return triples;
+}
+
 function valid(reel: string[], pool: string[]): boolean {
   const counts = new Map<string, number>();
   for (const c of reel) counts.set(c, (counts.get(c) ?? 0) + 1);
@@ -403,6 +434,7 @@ describe.skipIf(!RUN)('リール配列の再最適化', () => {
           yakuList, cur, resolver, judge, Infinity, curCtrl, SCAN_ORDERS, SCAN_STEP,
         );
         let curGap = gapPenalty(cur, pools);
+        let curTriples = countTripleTenpai(yakuList, cur);
         // 到達率の重み（当選率）は配列を変えても不変なので一度だけ作る。
         const scoreYakus = [
           ...yakuList.coreYaku,
@@ -419,9 +451,10 @@ describe.skipIf(!RUN)('リール配列の再最適化', () => {
         let bestLeaks = curLeaks;
         let bestGap = curGap;
         let bestReach = curReach;
+        let bestTriples = curTriples;
         const t0 = Date.now();
         console.log(
-          `\n[${chapter}] 初期 ②=${curLeaks} 間隔=${curGap} 到達=${curReach.toFixed(4)}` +
+          `\n[${chapter}] 初期 ②=${curLeaks} 3本同時=${curTriples} 間隔=${curGap} 到達=${curReach.toFixed(4)}` +
             (REACH_MODE ? ` (reachモード・主ライン ${PRIMARY_PAYLINE.id})` : ''),
         );
         if (process.env.OPT_DETAIL === '2') {
@@ -479,33 +512,42 @@ describe.skipIf(!RUN)('リール配列の再最適化', () => {
             reachableRates(yakuList, next, nextCtrl, judge, REACH_STEP),
             weights,
           );
+          const triples = countTripleTenpai(yakuList, next);
           // reach モードでは②を**ハード制約**にし（1件でも大ペナルティ）、
           // その上で到達率を上げる。既定モードは従来どおり②＋間隔。
+          // 横3ライン同時テンパイ（triples）は②と同じ重みのハード制約。
           const d = REACH_MODE
-            ? (leaks - curLeaks) * 100000 - (reach - curReach) * 10000
-            : (leaks - curLeaks) * 100 + (gap - curGap);
+            ? (leaks - curLeaks) * 100000 +
+              (triples - curTriples) * 100000 -
+              (reach - curReach) * 10000
+            : (leaks - curLeaks) * 100 +
+              (triples - curTriples) * 100 +
+              (gap - curGap);
           if (d < 0 || rng() < Math.exp(-d / (T * 100))) {
             cur = next;
             curLeaks = leaks;
             curGap = gap;
             curReach = reach;
+            curTriples = triples;
             const improved = REACH_MODE
-              ? leaks === 0 && (bestLeaks > 0 || reach > bestReach)
-              : leaks < bestLeaks || (leaks === bestLeaks && gap < bestGap);
+              ? leaks === 0 && triples === 0 && (bestLeaks > 0 || bestTriples > 0 || reach > bestReach)
+              : leaks + triples < bestLeaks + bestTriples ||
+                (leaks === bestLeaks && triples === bestTriples && gap < bestGap);
             if (improved) {
               best = next.map((r) => [...r]);
               bestLeaks = leaks;
               bestGap = gap;
               bestReach = reach;
+              bestTriples = triples;
               console.log(
-                `  iter=${iter} ②=${leaks} 間隔=${gap} 到達=${reach.toFixed(4)} (${((Date.now() - t0) / 1000).toFixed(0)}s)`,
+                `  iter=${iter} ②=${leaks} 3本同時=${triples} 間隔=${gap} 到達=${reach.toFixed(4)} (${((Date.now() - t0) / 1000).toFixed(0)}s)`,
               );
             }
           }
         }
 
         console.log(
-          `[${chapter}] 結果 ②=${bestLeaks} 間隔=${bestGap} 到達=${bestReach.toFixed(4)} ${((Date.now() - t0) / 1000).toFixed(0)}s`,
+          `[${chapter}] 結果 ②=${bestLeaks} 3本同時=${bestTriples} 間隔=${bestGap} 到達=${bestReach.toFixed(4)} ${((Date.now() - t0) / 1000).toFixed(0)}s`,
         );
         // 焼きなまし中は間引いて評価しているので、**採用する配列は全数・全押し順で
         // 検証し直す**。間引きで見逃した②がここで出たら書き出さない。
@@ -518,7 +560,11 @@ describe.skipIf(!RUN)('リール配列の再最適化', () => {
             `[${chapter}] 全数検証で②=${verified}（間引き評価では0だった）`,
           );
         }
-        if (verified === 0) {
+        // 横3ライン同時テンパイが残っている配列も書き出さない（②と同じ扱い）。
+        if (verified === 0 && bestTriples > 0) {
+          console.log(`[${chapter}] 横3ライン同時テンパイが${bestTriples}件残っている`);
+        }
+        if (verified === 0 && bestTriples === 0) {
           const out = {
             mode: chapter,
             reels: best.map((cells, i) => ({ id: reelCfg.reels[i].id, cells })),
@@ -533,7 +579,7 @@ describe.skipIf(!RUN)('リール配列の再最適化', () => {
           writeFileSync(`${DATA}/reels/${chapter}.json`, `${lines.join('\n')}\n`, 'utf-8');
           console.log(`[${chapter}] 書き出した`);
         } else {
-          console.log(`[${chapter}] ②が残ったので書き出さない`);
+          console.log(`[${chapter}] ②か横3ライン同時テンパイが残ったので書き出さない`);
         }
       }
     },
