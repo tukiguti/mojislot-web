@@ -10,7 +10,8 @@
         "う"
       ],
       "category": "core",
-      "payout": 2
+      "payout": 2,
+      "color": "#34c759"
     },
     {
       "id": "asobu",
@@ -21,7 +22,8 @@
         "ぶ"
       ],
       "category": "core",
-      "payout": 4
+      "payout": 4,
+      "color": "#ff9500"
     },
     {
       "id": "oyogu",
@@ -32,7 +34,8 @@
         "ぐ"
       ],
       "category": "core",
-      "payout": 6
+      "payout": 6,
+      "color": "#00c7be"
     },
     {
       "id": "hanasu",
@@ -43,7 +46,8 @@
         "す"
       ],
       "category": "core",
-      "payout": 8
+      "payout": 8,
+      "color": "#bf5af2"
     }
   ],
   "premiumYaku": [
