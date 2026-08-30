@@ -351,8 +351,6 @@ export async function bootstrap() {
   let currentShisaTier: ShisaTier | null = null;
   /** 示唆が「狙え！」へ発展済みか（1ゲーム1回だけ発展させる）。 */
   let shisaEscalated = false;
-  /** このゲームで既にリーチ目告知を出したか（1ゲーム1回）。 */
-  let reachEyeShown = false;
 
   // === フリーズ演出の状態 ===
   // freezeActive: シーケンス中は全ユーザー入力をブロックし、stopReel の引き込み/蹴りも無効化する。
@@ -876,7 +874,6 @@ export async function bootstrap() {
       cabinetEl.dataset.internalRole = `${role.kind}:${role.yakuId ?? '-'}`;
     }
     shisaEscalated = false;
-    reachEyeShown = false;
     applyEffect(effect, {
       targetYaku: yaku,
       shisaTier,
@@ -1907,23 +1904,10 @@ export async function bootstrap() {
     // 情報が増えず邪魔になるだけ。ボーナス中は none=0 で必ず演出が出るため、ここは通らない。
     //
     // 文字は出さない。実機でも出ないし、そもそも出目を読む遊びを文字で潰すことになる。
-    const isFirstStop = stopOrder.length === 1;
-    if (
-      isFirstStop &&
-      !reachEyeShown &&
-      currentEffect === 'none' &&
-      reachEyes.detectFirst(idx, {
-        top: getVisibleCell(engine, 'top'),
-        middle: getVisibleCell(engine, 'middle'),
-        bottom: getVisibleCell(engine, 'bottom'),
-      }) !== null
-    ) {
-      reachEyeShown = true;
-      views[idx].startTenpaiFlash(true);
-      sfx.tenpaiPremium();
-      // リーチ目が出たらランプで必ず伝える（読めなくても取りこぼさない）。
-      announceReachEye();
-    }
+    // 〔2026-08-30〕**1確は演出として出さない。** 停止形そのものは停止テーブルに
+    // 残っていて、「妙な位置にボーナス図柄が止まった」と気づいた人が狙える。
+    // ただしフラッシュもSEもランプも出さない——何度も打った人が自分で気づくものに留める。
+    // 取りこぼした事実は下の持ち越しで確定ランプが伝えるので、二重に知らせる必要も無い。
 
     // 示唆 →「狙え！」への発展。
     // 内部役の図柄がこの停止で**窓のどこかに**来た＝候補が1役に絞れたので、吹き出しを差し替える。
@@ -2021,6 +2005,12 @@ export async function bootstrap() {
           (flagged.category === 'premium' || flagged.category === 'bonus')
         ) {
           heldBonusYaku = flagged;
+          // 〔2026-08-30〕**こぼした時点で確定ランプを点ける**（第3停止の少し後）。
+          // ボーナスフラグがあったのに揃わなかった＝取りこぼしたという事実は、
+          // その場で分かってよい。以前は無告知のまま持ち越し、リーチ目を読める人だけが
+          // 察知する形だったが、読めない人はフラグを抱えたまま延々と気づかなかった
+          // （初心者の持ち越しが1900ゲーム続いていた）。
+          fireMissLamp();
         }
       }
       if (reachKind && heldBonusYaku) {
@@ -2029,8 +2019,8 @@ export async function bootstrap() {
         // 種別（REG/BIG）はランプ側でも伏せたままなので、読める人が先に分かる。
         for (const v of views) v.startTenpaiFlash(reachKind !== 'reg');
         sfx.tenpaiPremium();
-        // リーチ目が出たらランプで必ず伝える（読めなくても取りこぼさない）。
-        announceReachEye();
+        // ランプは上の持ち越しで既に点いている。ここは「今の出目はただのハズレでは
+        // ない」という手触りだけを返す。
       }
       // チェリー昇格。チェリーが**実際に揃った**時だけ抽選し、当たれば確定告知ランプを
       // 点灯＝次ゲーム以降ボーナス確定。成立表示の余韻を残してから点灯させ、
@@ -2384,8 +2374,31 @@ export async function bootstrap() {
     announceBonus(tuning.cherryBonus.bigRatio);
   };
 
+  /**
+   * 取りこぼしの確定ランプ。**第3リールが止まりきってから**点ける。
+   *
+   * 判定した瞬間に点けると、第3リールの停止バウンドと払い出しの表示に重なって
+   * 「何で点いたのか」が読み取れない。少し置いて、出目を見てから点く順にする。
+   *
+   * 待つのは380msで、何も起きないゲームの間合い（420ms）より短くしてある。
+   * これより長くすると次ゲームの回転中に点くことがあり、そのゲームの内部役は
+   * 関係ないので「点いたのに揃わない」と読めてしまう。
+   */
+  let missLampTimer: number | null = null;
+  const fireMissLamp = () => {
+    if (missLampTimer !== null) window.clearTimeout(missLampTimer);
+    missLampTimer = window.setTimeout(() => {
+      missLampTimer = null;
+      announceReachEye();
+    }, 380);
+  };
+
   /** ランプ消灯（ボーナス回収後）。 */
   const clearAnnounceLamp = () => {
+    if (missLampTimer !== null) {
+      window.clearTimeout(missLampTimer);
+      missLampTimer = null;
+    }
     announcedBonus = null;
     announcedRole = null;
     announceLampEl.classList.remove('lit');

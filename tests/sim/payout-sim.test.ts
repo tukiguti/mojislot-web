@@ -428,8 +428,10 @@ function runChapter(
       const cands = eligibility.candidatesFor(shisaTier, state);
       shisaGuess = cands.length > 0 ? cands[Math.floor(rng() * cands.length)] : yaku;
     }
-    // 持ち越しに気づけるか（リーチ目の読み）。腕が上がるほど気づく。
-    const carriedNoticed = !carried || rng() < skill.readReach;
+    // 〔2026-08-30〕**持ち越しは必ず気づく。** こぼした時点で確定ランプが点くので、
+    // リーチ目を読めるかどうかに依らない。以前は腕に応じた読みの成否でモデル化していた
+    // （初心者は2割しか気づけず、フラグを抱えたまま1900ゲーム打ち続けていた）。
+    const carriedNoticed = true;
     let escalated = false;
     let stopN = 0;
     for (const idx of seq) {
@@ -603,7 +605,8 @@ function runChapter(
         res.carriedSymOnFirst++;
         if (isEye) res.carriedSymOnFirstReach++;
       }
-      // 一発リーチ目：**第1停止**の主ラインがボーナス専用図柄なら、その場で確定告知になる。
+      // 第1停止の1リールだけで確定する停止形が出た割合。**告知はしない**
+      // （2026-08-30に演出をやめた）ので、これは「読める人が気づける機会」の頻度。
       const fr = seq[0];
       if (reachEyes.detectFirst(fr, colOf(fr)) !== null) res.carriedMiddleTell++;
     }
@@ -661,7 +664,7 @@ describe.skipIf(!RUN)('出玉シミュレーション（新モデル）', () => 
   it('腕別の機械割・突入率・ボーナス平均を測る', () => {
     const SPINS = Number(process.env.SPINS ?? 200000);
     const lines: string[] = [];
-    lines.push('腕      機械割   通常時純増  ボ中純増  突入(1/G)  BIG平均  REG平均  示唆発展  ランプ  チェリー重複  持越G  1確(第1)  出目告知  図柄止まり  その時の出目告知  誤告知(全停)  誤告知(第1)  ボ中こぼし  →1枚');
+    lines.push('腕      機械割   通常時純増  ボ中純増  突入(1/G)  BIG平均  REG平均  示唆発展  ランプ  チェリー重複  持越G  確定形(第1)  出目告知  図柄止まり  その時の出目告知  誤告知(全停)  誤告知(第1)  ボ中こぼし  →1枚');
     for (const skill of SKILLS) {
       let bet = 0, win = 0, nbet = 0, nwin = 0, big = 0, reg = 0;
       let bspins = 0, bigPay = 0, regPay = 0;
