@@ -76,7 +76,7 @@ import {
 import { SpeechBubble } from './ui/SpeechBubble';
 import { ChallengeTracker } from './productions/Challenges';
 import { showMissionToast } from './ui/MissionToast';
-import { SettingsOverlay, MISS_LAMP_DELAY_KEY } from './ui/SettingsOverlay';
+import { SettingsOverlay } from './ui/SettingsOverlay';
 import { QUIZMASTER_SCALE, QuizmasterView } from './render/QuizmasterView';
 import { LcdBackground } from './render/LcdBackground';
 import { pickLine, quizmasterFor, type Quizmaster } from './data/quizmasters';
@@ -1469,6 +1469,13 @@ export async function bootstrap() {
     if (leverBtn.disabled) return;
     if (!betPlaced) return;
 
+    // 「次ゲームのレバーで点く」プレミア。前ゲームでこぼした時に予約されている。
+    // レバーの瞬間に合わせて点けるので、点いた時点でBIG確定と分かる。
+    if (lampOnNextLever) {
+      lampOnNextLever = false;
+      announceReachEye();
+    }
+
     /**
      * ステージチェンジ。**内部役とも結果とも無関係に**抽選するので、
      * 変わったことから当たりは読めない。リールが回り出す瞬間に切り替えると、
@@ -1992,6 +1999,18 @@ export async function bootstrap() {
       const quizId = currentEffect === 'quiz' ? (quizState.current.get()?.id ?? null) : null;
       // 確定告知ランプ点灯中にボーナス（BIG/REG）が揃ったら回収完了＝消灯。
       if (announcedBonus && (isPremium || isRegular)) clearAnnounceLamp();
+      else if (announcedBonus && !bonusZone.isActive()) {
+        // **点いているのに揃わなかった。** 規定回数こぼしたら当選役を明かす。
+        //
+        // 目押しができる人は2回も見れば「引き込めているのに揃わない＝別の役だ」と
+        // 判別できる。できない人は「自分が外したのか、内部が別のBIGなのか」が
+        // 切り分けられず、延々と外し続ける。そこだけを救う。
+        announcedMisses += 1;
+        if (announcedMisses >= tuning.announceLamp.revealAfterMisses && announcedRole) {
+          const kindEl = announceLampEl.querySelector<HTMLElement>('.lamp-kind');
+          if (kindEl) kindEl.textContent = announcedRole.name;
+        }
+      }
       // ボーナスフラグの持ち越し（実機Aタイプ）。
       // 揃えば解除、こぼせば次ゲーム以降も保持し続ける（無告知＝リーチ目で察知する）。
       // 確定告知ランプは告知ありの別経路なので、そちらが点灯中は二重に持たない。
@@ -2002,15 +2021,21 @@ export async function bootstrap() {
         const flagged = currentInternalYaku();
         if (
           flagged &&
-          (flagged.category === 'premium' || flagged.category === 'bonus')
+          (flagged.category === 'premium' || flagged.category === 'bonus') &&
+          currentEffect === 'none'
         ) {
+          // 〔2026-08-31〕**持ち越すのは無演出のゲームで引いたボーナスだけ。**
+          // クイズ・狙え・示唆が出ていたゲームは「何を狙えばいいか」を教えてあるので、
+          // 揃えられなければそこで終わり——権利ごと消える。教わったうえで外したなら
+          // それは腕の問題で、技術介入がそのまま出玉に出る。そのぶん演出の出る確率を
+          // 上げてある（無演出 0.50→0.35）。
           heldBonusYaku = flagged;
           // 〔2026-08-30〕**こぼした時点で確定ランプを点ける**（第3停止の少し後）。
           // ボーナスフラグがあったのに揃わなかった＝取りこぼしたという事実は、
           // その場で分かってよい。以前は無告知のまま持ち越し、リーチ目を読める人だけが
           // 察知する形だったが、読めない人はフラグを抱えたまま延々と気づかなかった
           // （初心者の持ち越しが1900ゲーム続いていた）。
-          fireMissLamp();
+          fireMissLamp(flagged.category === 'premium');
         }
       }
       if (reachKind && heldBonusYaku) {
@@ -2380,24 +2405,42 @@ export async function bootstrap() {
    * 判定した瞬間に点けると、第3リールの停止バウンドと払い出しの表示に重なって
    * 「何で点いたのか」が読み取れない。少し置いて、出目を見てから点く順にする。
    *
-   * 既定は380msで、何も起きないゲームの間合い（420ms）より短くしてある。
-   * これより長くすると次ゲームの回転中に点くことがあり、そのゲームの内部役は
-   * 関係ないので「点いたのに揃わない」と読めてしまう。
-   * 値は設定のスライダーで 即点灯〜500ms から選べる。
+   * **点き方そのものが情報になる。** BIGを持っている時だけプレミアの点き方を抽選し、
+   * 即点灯・遅れ・次ゲームのレバーのどれかが出ればBIG確定になる（ジャグラーのランプと
+   * 同じ考え方）。REGは必ず通常の間で点くので、通常＝どちらもあり得る。
+   *
+   * 通常の間が420ms（何も起きないゲームの間合い）より短いのは、これより長いと
+   * 次ゲームの回転中に点くことがあり、そのゲームの内部役は関係ないので
+   * 「点いたのに揃わない」と読めてしまうため。**次レバーのプレミアだけは例外**で、
+   * わざとレバーの瞬間に合わせて点ける。
    */
   let missLampTimer: number | null = null;
-  const fireMissLamp = () => {
+  /** 次ゲームのレバーで点ける予約（プレミアの点き方）。 */
+  let lampOnNextLever = false;
+  /** 確定ランプ点灯中に取りこぼした回数（規定回数で当選役を明かす）。 */
+  let announcedMisses = 0;
+  const fireMissLamp = (isBig: boolean) => {
     if (missLampTimer !== null) window.clearTimeout(missLampTimer);
-    const raw = localStorage.getItem(MISS_LAMP_DELAY_KEY);
-    const ms = raw !== null && Number.isFinite(Number(raw)) ? Number(raw) : 380;
-    if (ms <= 0) {
+    const cfg = tuning.announceLamp;
+    let delay = cfg.missDelayMs;
+    if (isBig) {
+      const r = Math.random();
+      const p = cfg.premium;
+      if (r < p.instant) delay = 0;
+      else if (r < p.instant + p.late) delay = cfg.lateDelayMs;
+      else if (r < p.instant + p.late + p.nextLever) {
+        lampOnNextLever = true;
+        return;
+      }
+    }
+    if (delay <= 0) {
       announceReachEye();
       return;
     }
     missLampTimer = window.setTimeout(() => {
       missLampTimer = null;
       announceReachEye();
-    }, ms);
+    }, delay);
   };
 
   /** ランプ消灯（ボーナス回収後）。 */
@@ -2406,6 +2449,10 @@ export async function bootstrap() {
       window.clearTimeout(missLampTimer);
       missLampTimer = null;
     }
+    lampOnNextLever = false;
+    announcedMisses = 0;
+    const kindEl = announceLampEl.querySelector<HTMLElement>('.lamp-kind');
+    if (kindEl) kindEl.textContent = '?';
     announcedBonus = null;
     announcedRole = null;
     announceLampEl.classList.remove('lit');

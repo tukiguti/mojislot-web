@@ -616,8 +616,10 @@ function runChapter(
     if (pendingBonus && (isPremiumNow || isRegNow)) pendingBonus = null;
     if (isPremiumNow || isRegNow) {
       heldBonusYaku = null;
-    } else if (!pendingBonus && !bonusActive && yaku &&
+    } else if (!pendingBonus && !bonusActive && yaku && effect === 'none' &&
                (yaku.category === 'premium' || yaku.category === 'bonus')) {
+      // 持ち越すのは**無演出のゲームで引いたボーナスだけ**。演出が出ていたゲームは
+      // 何を狙えばいいか教えてあるので、揃えられなければ権利ごと消える。
       heldBonusYaku = yaku;
     }
     // チェリー重複：チェリーが実際に揃った時だけ抽選し、次ゲーム以降ボーナス確定。

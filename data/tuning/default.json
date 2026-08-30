@@ -1,10 +1,10 @@
 {
   "effectRates": {
     "default": {
-      "none": 0.5,
-      "shisa": 0.15,
-      "quiz": 0.25,
-      "aim": 0.1
+      "none": 0.35,
+      "shisa": 0.195,
+      "quiz": 0.325,
+      "aim": 0.13
     },
     "rescue": {
       "none": 0.3,
@@ -21,8 +21,8 @@
   },
   "rescueMissThreshold": 30,
   "bonus": {
-    "spinsPerBig": 17,
-    "spinsPerReg": 7
+    "spinsPerBig": 11,
+    "spinsPerReg": 5
   },
   "assist": {
     "pullInCells": 4,
@@ -73,7 +73,15 @@
   },
   "announceLamp": {
     "rate": 0.0033,
-    "bigRatio": 0.3
+    "bigRatio": 0.3,
+    "missDelayMs": 120,
+    "lateDelayMs": 380,
+    "premium": {
+      "instant": 0.06,
+      "late": 0.06,
+      "nextLever": 0.04
+    },
+    "revealAfterMisses": 7
   },
   "cherryBonus": {
     "rate": 0.05,

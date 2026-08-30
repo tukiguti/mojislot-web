@@ -523,8 +523,40 @@ export const TuningSchema = z.object({
       rate: z.number().min(0).max(1).default(0.0033),
       /** 確定種別がBIGになる割合（残りはREG）。 */
       bigRatio: z.number().min(0).max(1).default(0.3),
+      /**
+       * 取りこぼしで点ける時の**通常の間**（ms）。第3停止からこれだけ置いて点く。
+       * 420ms（何も起きないゲームの間合い）を超えると次ゲームの回転中に点くので、
+       * 通常はそれより短く取る。
+       */
+      missDelayMs: z.number().min(0).default(120),
+      /** 「遅れ」の間（ms）。BIG確定のプレミア。 */
+      lateDelayMs: z.number().min(0).default(380),
+      /**
+       * 点き方のプレミア。**BIGを持っている時だけ**抽選し、出れば種別がBIGだと分かる。
+       * ジャグラーのランプと同じで、点く速さそのものが情報になる。
+       * REGの時は必ず通常の間で点くので、通常＝どちらもあり得る。
+       */
+      premium: z
+        .object({
+          /** 即点灯（第3停止と同時） */
+          instant: z.number().min(0).max(1).default(0.06),
+          /** 遅れ点灯 */
+          late: z.number().min(0).max(1).default(0.06),
+          /** 次ゲームのレバーで点く */
+          nextLever: z.number().min(0).max(1).default(0.04),
+        })
+        .default({ instant: 0.06, late: 0.06, nextLever: 0.04 }),
+      /** 確定ランプ点灯中にこの回数こぼしたら、当選役を明かす。 */
+      revealAfterMisses: z.number().int().min(1).default(7),
     })
-    .default({ rate: 0.0033, bigRatio: 0.3 }),
+    .default({
+      rate: 0.0033,
+      bigRatio: 0.3,
+      missDelayMs: 120,
+      lateDelayMs: 380,
+      premium: { instant: 0.06, late: 0.06, nextLever: 0.04 },
+      revealAfterMisses: 7,
+    }),
   /**
    * チェリー昇格。チェリーが**実際に揃った**時だけ抽選し、当たれば確定告知ランプを
    * 点灯させて次ゲーム以降をボーナス確定にする。チェリーは2文字役で他の小役と質が
