@@ -80,6 +80,16 @@ const a11yRow = (r: (typeof A11Y_ROWS)[number]): string => {
 export const REEL_SPEED_KEY = 'mojislot.reelSpeed.v1';
 /** モーションブラー強さの保存キー。 */
 export const MOTION_BLUR_KEY = 'mojislot.motionBlur.v1';
+/**
+ * 取りこぼしの確定ランプを、第3停止から何ms置いて点けるかの保存キー。
+ *
+ * 0＝即点灯。長くすると出目を見てから点くが、**次ゲームの回転中に点くと
+ * 「点いたのに揃わない」と読めてしまう**（そのゲームの内部役は関係ないため）。
+ * 何も起きないゲームの間合いが420msなので、そこが実質の上限。
+ */
+export const MISS_LAMP_DELAY_KEY = 'mojislot.missLampDelay.v1';
+/** 確定ランプの間の候補（ms）。0＝即点灯。 */
+export const MISS_LAMP_DELAYS = [0, 100, 120, 200, 280, 380, 500] as const;
 
 /**
  * リール速度スライダーの範囲（コマ/秒）。
@@ -102,6 +112,13 @@ export class SettingsOverlay {
   private get reelSpeed(): number {
     const saved = Number(localStorage.getItem(REEL_SPEED_KEY));
     return Number.isFinite(saved) && saved > 0 ? saved : this.defaultReelSpeed;
+  }
+
+  /** 確定ランプの間（ms）。未設定なら380。 */
+  private get missLampDelay(): number {
+    const raw = localStorage.getItem(MISS_LAMP_DELAY_KEY);
+    const v = Number(raw);
+    return raw !== null && Number.isFinite(v) && v >= 0 ? v : 380;
   }
 
   /** 現在のブラー強さ（localStorage 優先・未設定なら data/tuning の既定）。 */
@@ -161,6 +178,17 @@ export class SettingsOverlay {
           </div>
           <div class="slider-value"><b class="blur-value"></b></div>
           <div class="settings-note">実機の残像を再現します。強いほど滑らかに見えますが、図柄は読みにくくなります。</div>
+        </div>
+        <div class="settings-section">
+          <div class="settings-section-label">確定ランプの間</div>
+          <div class="slider-row">
+            <span class="slider-end">即</span>
+            <input class="slider lamp-slider" type="range"
+              min="0" max="${MISS_LAMP_DELAYS.length - 1}" step="1" />
+            <span class="slider-end">遅い</span>
+          </div>
+          <div class="slider-value"><b class="lamp-value"></b></div>
+          <div class="settings-note">ボーナスをこぼした時、第3リールが止まってからランプが点くまでの間。長いほど出目を見てから点きますが、<b>420msを超えると次ゲームの回転中に点くこと</b>があります。</div>
         </div>
         <div class="settings-section">
           <div class="settings-section-label">見やすさ</div>
@@ -230,6 +258,21 @@ export class SettingsOverlay {
       localStorage.setItem(REEL_SPEED_KEY, String(v));
       renderSpeed(v);
       this.onReelSpeedChange?.(v);
+    });
+
+    // 確定ランプの間：候補の配列を段で選ばせる（連続値にすると刻みが細かすぎて比べられない）。
+    const lampSlider = this.root.querySelector<HTMLInputElement>('.lamp-slider')!;
+    const lampValue = this.root.querySelector<HTMLElement>('.lamp-value')!;
+    const renderLamp = (ms: number) => {
+      lampValue.textContent = ms === 0 ? '即点灯' : `${ms}ms`;
+    };
+    const lampIdx = Math.max(0, MISS_LAMP_DELAYS.indexOf(this.missLampDelay as never));
+    lampSlider.value = String(lampIdx);
+    renderLamp(MISS_LAMP_DELAYS[lampIdx]);
+    lampSlider.addEventListener('input', () => {
+      const ms = MISS_LAMP_DELAYS[Number(lampSlider.value)];
+      localStorage.setItem(MISS_LAMP_DELAY_KEY, String(ms));
+      renderLamp(ms);
     });
 
     // ブラースライダー：ReelView が毎フレーム参照するモジュール変数を差し替えるだけ（即時反映）。

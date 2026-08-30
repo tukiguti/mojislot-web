@@ -76,7 +76,7 @@ import {
 import { SpeechBubble } from './ui/SpeechBubble';
 import { ChallengeTracker } from './productions/Challenges';
 import { showMissionToast } from './ui/MissionToast';
-import { SettingsOverlay } from './ui/SettingsOverlay';
+import { SettingsOverlay, MISS_LAMP_DELAY_KEY } from './ui/SettingsOverlay';
 import { QUIZMASTER_SCALE, QuizmasterView } from './render/QuizmasterView';
 import { LcdBackground } from './render/LcdBackground';
 import { pickLine, quizmasterFor, type Quizmaster } from './data/quizmasters';
@@ -2380,17 +2380,24 @@ export async function bootstrap() {
    * 判定した瞬間に点けると、第3リールの停止バウンドと払い出しの表示に重なって
    * 「何で点いたのか」が読み取れない。少し置いて、出目を見てから点く順にする。
    *
-   * 待つのは380msで、何も起きないゲームの間合い（420ms）より短くしてある。
+   * 既定は380msで、何も起きないゲームの間合い（420ms）より短くしてある。
    * これより長くすると次ゲームの回転中に点くことがあり、そのゲームの内部役は
    * 関係ないので「点いたのに揃わない」と読めてしまう。
+   * 値は設定のスライダーで 即点灯〜500ms から選べる。
    */
   let missLampTimer: number | null = null;
   const fireMissLamp = () => {
     if (missLampTimer !== null) window.clearTimeout(missLampTimer);
+    const raw = localStorage.getItem(MISS_LAMP_DELAY_KEY);
+    const ms = raw !== null && Number.isFinite(Number(raw)) ? Number(raw) : 380;
+    if (ms <= 0) {
+      announceReachEye();
+      return;
+    }
     missLampTimer = window.setTimeout(() => {
       missLampTimer = null;
       announceReachEye();
-    }, 380);
+    }, ms);
   };
 
   /** ランプ消灯（ボーナス回収後）。 */
