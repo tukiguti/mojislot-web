@@ -21,8 +21,8 @@
   },
   "rescueMissThreshold": 30,
   "bonus": {
-    "spinsPerBig": 11,
-    "spinsPerReg": 5
+    "spinsPerBig": 9,
+    "spinsPerReg": 4
   },
   "assist": {
     "pullInCells": 4,

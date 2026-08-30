@@ -117,15 +117,30 @@ const posForMiddle = (reel: number, sym: string): number[] => {
  * 「主ラインに来る位置なら必ず揃う」を前提にするとテストが配列依存で落ちる。
  * ここでは候補を総当たりして、成立する組み合わせを1つ選ぶ。
  */
-function pressThatHits(g: Game, yakuId: string, flagKey: string): number[] {
-  const y = findYaku(yakuId);
-  const cands = y.symbols.map((s, i) => posForMiddle(i, s));
-  for (const p0 of cands[0]) {
-    for (const p1 of cands[1] ?? [0]) {
-      for (const p2 of cands[2] ?? [0]) {
+/**
+ * その役が揃う押下位置を探す。
+ *
+ * 〔2026-08-31〕**中段に来る位置だけを見るのをやめた。** 制御は狙う行を持たず、
+ * 5ラインのどれかで成立すればよいので、「中段に狙う」は当たる押下位置の一部でしか
+ * ない。配列を焼き直すたびにここが外れて落ちていた。
+ *
+ * `zeroSlipOnly` を立てると、**引き込み無しで揃う**（全リールの滑りが0）押下位置
+ * だけを探す＝ビタ押しの検証用。
+ */
+function pressThatHits(
+  g: Game,
+  yakuId: string,
+  flagKey: string,
+  zeroSlipOnly = false,
+): number[] {
+  const all = Array.from({ length: CELLS }, (_, i) => i);
+  for (const p0 of all) {
+    for (const p1 of all) {
+      for (const p2 of all) {
         const press = [p0, p1, p2];
         // 状態を汚さずに出目だけ作る（BET も払い出しもしない）
         const stopped: (VisibleColumn | null)[] = [null, null, null];
+        let slipped = false;
         for (let reel = 0; reel < 3; reel++) {
           const slip = g.stopController.resolveSlip({
             reelIndex: reel,
@@ -135,6 +150,7 @@ function pressThatHits(g: Game, yakuId: string, flagKey: string): number[] {
             flagYakuIds: [yakuId],
             flagKey,
           });
+          if (slip !== 0) slipped = true;
           const pos = (press[reel] + slip) % CELLS;
           stopped[reel] = {
             top: visibleAt(strips[reel].cells, pos, 'top'),
@@ -148,11 +164,15 @@ function pressThatHits(g: Game, yakuId: string, flagKey: string): number[] {
           [s[0].middle, s[1].middle, s[2].middle],
           [s[0].bottom, s[1].bottom, s[2].bottom],
         ];
+        if (zeroSlipOnly && slipped) continue;
         if (judge.judgeAll(grid).hits.some((h) => h.yaku.id === yakuId)) return press;
       }
     }
   }
-  throw new Error(`${yakuId} が揃う押下位置が見つからない（配列の到達性を疑うこと）`);
+  throw new Error(
+    `${yakuId} が揃う押下位置が見つからない` +
+      (zeroSlipOnly ? '（引き込み無しで揃う位置が無い＝ビタ押しの機会が無い）' : '（配列の到達性を疑うこと）'),
+  );
 }
 
 interface SpinOptions {
@@ -341,8 +361,13 @@ describe('1ゲームの通し（BET→停止→配当→ボーナス）', () => 
 
   it('ビタ押し（引き込みなし）で狙うと上乗せが付く', () => {
     const g = newGame();
-    const r = spinAiming(g, CORE, CORE);
-    // 中段をピタリと狙っているので引き込みは不要
+    // **引き込み無しで揃う押下位置**を探して押す。制御は狙う行を持たないので
+    // 「中段に狙えば滑らない」は成り立たない（[32] 有効ラインと制御）。
+    const r = playSpin(g, {
+      flagYakuIds: [CORE],
+      flagKey: CORE,
+      press: pressThatHits(g, CORE, CORE, true),
+    });
     expect(r.slipCells).toEqual([0, 0, 0]);
     expect(r.outcome.bitaPerfect).toBe(true);
     expect(r.outcome.bitaBonus).toBeGreaterThan(0);
@@ -351,10 +376,19 @@ describe('1ゲームの通し（BET→停止→配当→ボーナス）', () => 
 
   it('狙いを外すと引き込みで揃うが、ビタ押しは付かない', () => {
     const g = newGame();
-    // 各リールを「揃う押下位置」の2コマ手前で押す＝引き込みに助けてもらう
-    const press = pressThatHits(g, CORE, CORE).map(
-      (p) => (p - 2 + CELLS) % CELLS,
-    );
+    // **引き込みが要る押下位置**を探す。滑り0で揃う位置から少しずらして、
+    // それでも揃う（＝制御が寄せてくれる）ものを使う。
+    const zero = pressThatHits(g, CORE, CORE, true);
+    let press: number[] | null = null;
+    for (const d of [1, 2, 3, 4]) {
+      const cand = zero.map((p) => (p - d + CELLS) % CELLS);
+      const probe = playSpin(newGame(), { flagYakuIds: [CORE], flagKey: CORE, press: cand });
+      if (probe.outcome.willHit && probe.slipCells.some((s) => s !== 0)) {
+        press = cand;
+        break;
+      }
+    }
+    if (!press) throw new Error('引き込みで揃う押下位置が見つからない');
     const r = playSpin(g, { flagYakuIds: [CORE], flagKey: CORE, press });
     expect(r.outcome.willHit, '引き込みで揃う').toBe(true);
     expect(r.slipCells.some((n) => n > 0), '引き込みが働いた').toBe(true);

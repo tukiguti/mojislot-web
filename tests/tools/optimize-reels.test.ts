@@ -400,10 +400,111 @@ function countTripleTenpai(yakuList: YakuList, reels: string[][]): number {
   return triples;
 }
 
-function valid(reel: string[], pool: string[]): boolean {
+/**
+ * 各文字が最低2枚あるか。**ボーナス専用図柄だけは1枚でよい。**
+ *
+ * 実機のジャグラーも7は1リールに1枚しかない。稀にしか使わない図柄を2枚置くと
+ * 配列を圧迫するし、1枚だから狙う価値が出る。小役は毎ゲーム引くので2枚要る。
+ */
+function valid(reel: string[], pool: string[], bonusOnly: ReadonlySet<string>): boolean {
   const counts = new Map<string, number>();
   for (const c of reel) counts.set(c, (counts.get(c) ?? 0) + 1);
-  return pool.every((c) => (counts.get(c) ?? 0) >= 2);
+  return pool.every((c) => (counts.get(c) ?? 0) >= (bonusOnly.has(c) ? 1 : 2));
+}
+
+/** その文字がボーナス（BIG/REG）にしか使われないか。 */
+function bonusOnlySymbols(yakuList: YakuList, reel: number): Set<string> {
+  const s = new Set<string>();
+  for (const y of [...yakuList.premiumYaku, ...yakuList.bonusYaku]) {
+    const c = y.symbols[reel];
+    if (c !== undefined) s.add(c);
+  }
+  for (const y of [...yakuList.coreYaku, ...yakuList.cherryYaku, ...yakuList.singleYaku]) {
+    const c = y.symbols[reel];
+    if (c !== undefined) s.delete(c);
+  }
+  return s;
+}
+
+/**
+ * **基準となる押下位置**があるか（第1・第2リール）。
+ *
+ * 実機の「左枠上に赤7を狙え」と同じで、そこを押せばボーナスもチェリーも
+ * 取りこぼさない位置を作る。遅れが出ても「ボーナスかチェリーか分からないから
+ * どちらを狙えばいいか決まらない」という状態を無くすため。
+ *
+ * BIG1用とBIG2用の**2箇所**を要求する（どちらを狙ってもよい）。REGはBIG1と
+ * 頭2文字を共有するので、BIG1の基準位置でREGも拾える。
+ *
+ * 返すのは違反数（0が合格）。全部が届く位置が多すぎる場合も罰する——どこを
+ * 押しても拾えるなら、打ち方を覚える価値が無くなる。
+ */
+function basePositionPenalty(yakuList: YakuList, reels: string[][]): number {
+  const cherry = yakuList.cherryYaku[0];
+  const bigs = yakuList.premiumYaku;
+  if (!cherry || bigs.length < 2) return 0;
+  let bad = 0;
+  for (const r of [0, 1]) {
+    const cs = cherry.symbols[r];
+    const reachAt = (press: number): Set<string> =>
+      new Set(Array.from({ length: PULL_IN + 1 }, (_, s) => reels[r][(press + s) % N]));
+    const covers = (sym: string | undefined): number[] =>
+      sym === undefined
+        ? []
+        : Array.from({ length: N }, (_, p) => p).filter((p) => {
+            const w = reachAt(p);
+            return w.has(sym) && (cs === undefined || w.has(cs));
+          });
+    for (const b of bigs.slice(0, 2)) {
+      if (covers(b.symbols[r]).length === 0) bad += 1; // 基準位置が無い
+    }
+    // 3つとも届く位置＝BIG1でもBIG2でも同じ場所、が多いと打ち方が1点に潰れる。
+    // 少しはあってよいが、多いと「どこでも拾える」になるので上限を置く。
+    const all = Array.from({ length: N }, (_, p) => p).filter((p) => {
+      const w = reachAt(p);
+      return bigs.slice(0, 2).every((b) => {
+        const s = b.symbols[r];
+        return s !== undefined && w.has(s);
+      }) && (cs === undefined || w.has(cs));
+    });
+    if (all.length > 3) bad += all.length - 3;
+  }
+  return bad;
+}
+
+/**
+ * 到達率が種類ごとの帯に収まっているか。返すのは帯からの逸脱の合計（0が合格）。
+ *
+ * 上限が要るのは、**適当に押しても揃うなら目押しの意味が消える**ため。
+ * 下限が要るのは、当たったのに揃わない体験を残さないため。
+ * 順序（ボーナス < チェリー < 小役）も見る。絶対値より順序のほうが安定する。
+ */
+const REACH_BAND: Record<string, [number, number]> = {
+  premium: [0.20, 0.35],
+  bonus: [0.20, 0.35],
+  cherry: [0.30, 0.45],
+  core: [0.30, 0.55],
+};
+
+function bandPenalty(yakus: readonly Yaku[], rates: readonly number[]): number {
+  let pen = 0;
+  const byCat: Record<string, number[]> = { premium: [], bonus: [], cherry: [], core: [] };
+  yakus.forEach((y, i) => {
+    const band = REACH_BAND[y.category];
+    const r = rates[i];
+    if (!band || r === undefined) return;
+    byCat[y.category]?.push(r);
+    if (r < band[0]) pen += band[0] - r;
+    if (r > band[1]) pen += r - band[1];
+  });
+  // 順序：ボーナスの最大 < チェリーの最小、チェリーの最大 < 小役の最小
+  const bonusMax = Math.max(0, ...byCat.premium, ...byCat.bonus);
+  const cherryMin = byCat.cherry.length ? Math.min(...byCat.cherry) : Infinity;
+  const cherryMax = byCat.cherry.length ? Math.max(...byCat.cherry) : 0;
+  const coreMin = byCat.core.length ? Math.min(...byCat.core) : Infinity;
+  if (bonusMax > cherryMin) pen += bonusMax - cherryMin;
+  if (cherryMax > coreMin) pen += cherryMax - coreMin;
+  return pen;
 }
 
 function makeRng(seed: number): () => number {
@@ -443,18 +544,24 @@ describe.skipIf(!RUN)('リール配列の再最適化', () => {
           ...yakuList.premiumYaku,
         ];
         const weights = yakuWeights(yakuList, scoreYakus);
-        let curReach = reachScore(
-          reachableRates(yakuList, cur, curCtrl, judge, REACH_STEP),
-          weights,
-        );
+        /** 到達率の帯を見る対象（1枚役グループは帯の外なので除く）。 */
+        const scoredYakus = scoreYakus;
+        /** ボーナス専用図柄はリールに1枚でよい（実機の7と同じ）。 */
+        const bonusOnly = [0, 1, 2].map((r) => bonusOnlySymbols(yakuList, r));
+        let curRates = reachableRates(yakuList, cur, curCtrl, judge, REACH_STEP);
+        let curReach = reachScore(curRates, weights);
+        let curBases = basePositionPenalty(yakuList, cur);
+        let curBand = bandPenalty(scoredYakus, curRates);
         let best = cur.map((r) => [...r]);
         let bestLeaks = curLeaks;
         let bestGap = curGap;
         let bestReach = curReach;
         let bestTriples = curTriples;
+        let bestBases = curBases;
+        let bestBand = curBand;
         const t0 = Date.now();
         console.log(
-          `\n[${chapter}] 初期 ②=${curLeaks} 3本同時=${curTriples} 間隔=${curGap} 到達=${curReach.toFixed(4)}` +
+          `\n[${chapter}] 初期 ②=${curLeaks} 3本同時=${curTriples} 基準=${curBases} 帯=${curBand.toFixed(3)} 到達=${curReach.toFixed(4)}` +
             (REACH_MODE ? ` (reachモード・主ライン ${PRIMARY_PAYLINE.id})` : ''),
         );
         if (process.env.OPT_DETAIL === '2') {
@@ -500,7 +607,7 @@ describe.skipIf(!RUN)('リール配列の再最適化', () => {
             const p = Math.floor(rng() * N);
             next[i][p] = pools[i][Math.floor(rng() * pools[i].length)];
           }
-          if (!valid(next[i], pools[i])) continue;
+          if (!valid(next[i], pools[i], bonusOnly[i])) continue;
 
           const T = 6 * Math.pow(0.02 / 6, iter / MAX_ITER);
           const nextCtrl = makeController(yakuList, next, resolver);
@@ -508,20 +615,26 @@ describe.skipIf(!RUN)('リール配列の再最適化', () => {
             yakuList, next, resolver, judge, curLeaks + 40, nextCtrl, SCAN_ORDERS, SCAN_STEP,
           );
           const gap = gapPenalty(next, pools);
-          const reach = reachScore(
-            reachableRates(yakuList, next, nextCtrl, judge, REACH_STEP),
-            weights,
-          );
+          const rates = reachableRates(yakuList, next, nextCtrl, judge, REACH_STEP);
+          const reach = reachScore(rates, weights);
           const triples = countTripleTenpai(yakuList, next);
+          const bases = basePositionPenalty(yakuList, next);
+          const band = bandPenalty(scoredYakus, rates);
           // reach モードでは②を**ハード制約**にし（1件でも大ペナルティ）、
           // その上で到達率を上げる。既定モードは従来どおり②＋間隔。
           // 横3ライン同時テンパイ（triples）は②と同じ重みのハード制約。
+          // ハード制約（②・3本同時・基準位置）は同じ重み。到達率の帯はその次に重い
+          // ——上限が無いと「適当に押しても揃う」方向へ最適化が走るため。
           const d = REACH_MODE
             ? (leaks - curLeaks) * 100000 +
-              (triples - curTriples) * 100000 -
+              (triples - curTriples) * 100000 +
+              (bases - curBases) * 100000 +
+              (band - curBand) * 30000 -
               (reach - curReach) * 10000
             : (leaks - curLeaks) * 100 +
               (triples - curTriples) * 100 +
+              (bases - curBases) * 100 +
+              (band - curBand) * 30 +
               (gap - curGap);
           if (d < 0 || rng() < Math.exp(-d / (T * 100))) {
             cur = next;
@@ -529,18 +642,28 @@ describe.skipIf(!RUN)('リール配列の再最適化', () => {
             curGap = gap;
             curReach = reach;
             curTriples = triples;
+            curBases = bases;
+            curBand = band;
+            const hardOk = leaks === 0 && triples === 0 && bases === 0;
             const improved = REACH_MODE
-              ? leaks === 0 && triples === 0 && (bestLeaks > 0 || bestTriples > 0 || reach > bestReach)
-              : leaks + triples < bestLeaks + bestTriples ||
-                (leaks === bestLeaks && triples === bestTriples && gap < bestGap);
+              ? hardOk &&
+                (bestLeaks > 0 || bestTriples > 0 || bestBases > 0 ||
+                 band < bestBand - 1e-9 ||
+                 (Math.abs(band - bestBand) < 1e-9 && reach > bestReach))
+              : leaks + triples + bases < bestLeaks + bestTriples + bestBases ||
+                (leaks === bestLeaks && triples === bestTriples && bases === bestBases &&
+                 (band < bestBand - 1e-9 ||
+                  (Math.abs(band - bestBand) < 1e-9 && gap < bestGap)));
             if (improved) {
               best = next.map((r) => [...r]);
               bestLeaks = leaks;
               bestGap = gap;
               bestReach = reach;
               bestTriples = triples;
+              bestBases = bases;
+              bestBand = band;
               console.log(
-                `  iter=${iter} ②=${leaks} 3本同時=${triples} 間隔=${gap} 到達=${reach.toFixed(4)} (${((Date.now() - t0) / 1000).toFixed(0)}s)`,
+                `  iter=${iter} ②=${leaks} 3本同時=${triples} 基準=${bases} 帯=${band.toFixed(3)} 到達=${reach.toFixed(4)} (${((Date.now() - t0) / 1000).toFixed(0)}s)`,
               );
             }
           }
