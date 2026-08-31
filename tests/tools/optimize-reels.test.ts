@@ -498,6 +498,31 @@ function basePositionPenalty(yakuList: YakuList, reels: string[][]): number {
 }
 
 /**
+ * **金示唆が成立する配置か**（第3リール）。返すのは違反数（0が合格）。
+ *
+ * 金示唆は「BIG1かREGか」の2択を伝える。役の構造上、頭2文字はBIG1とREGで共通
+ * （しゃけ／しゃこ）なので、**第3リールだけがどちらかを決める**。ここで2つの図柄が
+ * 離れていると、押した位置で片方しか狙えず「2択を待つ」体験が消える。
+ *
+ * 実機のジャグラーで7とBARが隣接していて、滑りがフラグ側へ振り分けるのと同じ。
+ * **1箇所押せば制御が決めてくれる**位置を2箇所以上残す。
+ */
+function goldTellPenalty(yakuList: YakuList, reels: string[][]): number {
+  const big1 = yakuList.premiumYaku[0]?.symbols[2];
+  const reg = yakuList.bonusYaku[0]?.symbols[2];
+  if (big1 === undefined || reg === undefined || big1 === reg) return 0;
+  const r = reels[2];
+  const both = Array.from({ length: N }, (_, p) => p).filter((p) => {
+    const w = new Set(Array.from({ length: PULL_IN + 1 }, (_, s) => r[(p + s) % N]));
+    return w.has(big1) && w.has(reg);
+  }).length;
+  return Math.max(0, GOLD_TELL_MIN - both);
+}
+
+/** 金示唆で「どちらも狙える」押下位置の下限。 */
+const GOLD_TELL_MIN = 2;
+
+/**
  * 到達率が種類ごとの帯に収まっているか。返すのは帯からの逸脱の合計（0が合格）。
  *
  * 上限が要るのは、**適当に押しても揃うなら目押しの意味が消える**ため。
@@ -576,6 +601,7 @@ describe.skipIf(!RUN)('リール配列の再最適化', () => {
         let curRates = reachableRates(yakuList, cur, curCtrl, judge, REACH_STEP);
         let curReach = reachScore(curRates, weights);
         let curBases = basePositionPenalty(yakuList, cur);
+        let curGolds = goldTellPenalty(yakuList, cur);
         let curBand = bandPenalty(scoredYakus, curRates);
         let curSpread = spreadPenalty(cur, pools);
         let best = cur.map((r) => [...r]);
@@ -584,11 +610,12 @@ describe.skipIf(!RUN)('リール配列の再最適化', () => {
         let bestReach = curReach;
         let bestTriples = curTriples;
         let bestBases = curBases;
+        let bestGolds = curGolds;
         let bestBand = curBand;
         let bestSpread = curSpread;
         const t0 = Date.now();
         console.log(
-          `\n[${chapter}] 初期 ②=${curLeaks} 3本同時=${curTriples} 基準=${curBases} 帯=${curBand.toFixed(3)} 偏り=${curSpread} 到達=${curReach.toFixed(4)}` +
+          `\n[${chapter}] 初期 ②=${curLeaks} 3本同時=${curTriples} 基準=${curBases} 金示唆=${curGolds} 帯=${curBand.toFixed(3)} 偏り=${curSpread} 到達=${curReach.toFixed(4)}` +
             (REACH_MODE ? ` (reachモード・主ライン ${PRIMARY_PAYLINE.id})` : ''),
         );
         if (process.env.OPT_DETAIL === '2') {
@@ -646,6 +673,7 @@ describe.skipIf(!RUN)('リール配列の再最適化', () => {
           const reach = reachScore(rates, weights);
           const triples = countTripleTenpai(yakuList, next);
           const bases = basePositionPenalty(yakuList, next);
+          const golds = goldTellPenalty(yakuList, next);
           const band = bandPenalty(scoredYakus, rates);
           const spread = spreadPenalty(next, pools);
           // reach モードでは②を**ハード制約**にし（1件でも大ペナルティ）、
@@ -657,12 +685,14 @@ describe.skipIf(!RUN)('リール配列の再最適化', () => {
             ? (leaks - curLeaks) * 100000 +
               (triples - curTriples) * 100000 +
               (bases - curBases) * 100000 +
+              (golds - curGolds) * 100000 +
               (band - curBand) * 30000 +
               (spread - curSpread) * 400 -
               (reach - curReach) * 10000
             : (leaks - curLeaks) * 100 +
               (triples - curTriples) * 100 +
               (bases - curBases) * 100 +
+              (golds - curGolds) * 100 +
               (band - curBand) * 30 +
               (spread - curSpread) * 2 +
               (gap - curGap);
@@ -673,17 +703,20 @@ describe.skipIf(!RUN)('リール配列の再最適化', () => {
             curReach = reach;
             curTriples = triples;
             curBases = bases;
+            curGolds = golds;
             curBand = band;
             curSpread = spread;
-            const hardOk = leaks === 0 && triples === 0 && bases === 0;
+            const hardOk = leaks === 0 && triples === 0 && bases === 0 && golds === 0;
             const improved = REACH_MODE
               ? hardOk &&
-                (bestLeaks > 0 || bestTriples > 0 || bestBases > 0 ||
+                (bestLeaks > 0 || bestTriples > 0 || bestBases > 0 || bestGolds > 0 ||
                  band < bestBand - 1e-9 ||
                  (Math.abs(band - bestBand) < 1e-9 &&
                   (spread < bestSpread || (spread === bestSpread && reach > bestReach))))
-              : leaks + triples + bases < bestLeaks + bestTriples + bestBases ||
+              : leaks + triples + bases + golds <
+                  bestLeaks + bestTriples + bestBases + bestGolds ||
                 (leaks === bestLeaks && triples === bestTriples && bases === bestBases &&
+                 golds === bestGolds &&
                  (band < bestBand - 1e-9 ||
                   (Math.abs(band - bestBand) < 1e-9 && gap < bestGap)));
             if (improved) {
@@ -693,17 +726,18 @@ describe.skipIf(!RUN)('リール配列の再最適化', () => {
               bestReach = reach;
               bestTriples = triples;
               bestBases = bases;
+              bestGolds = golds;
               bestBand = band;
               bestSpread = spread;
               console.log(
-                `  iter=${iter} ②=${leaks} 3本同時=${triples} 基準=${bases} 帯=${band.toFixed(3)} 偏り=${spread} 到達=${reach.toFixed(4)} (${((Date.now() - t0) / 1000).toFixed(0)}s)`,
+                `  iter=${iter} ②=${leaks} 3本同時=${triples} 基準=${bases} 金示唆=${golds} 帯=${band.toFixed(3)} 偏り=${spread} 到達=${reach.toFixed(4)} (${((Date.now() - t0) / 1000).toFixed(0)}s)`,
               );
             }
           }
         }
 
         console.log(
-          `[${chapter}] 結果 ②=${bestLeaks} 3本同時=${bestTriples} 間隔=${bestGap} 到達=${bestReach.toFixed(4)} ${((Date.now() - t0) / 1000).toFixed(0)}s`,
+          `[${chapter}] 結果 ②=${bestLeaks} 3本同時=${bestTriples} 金示唆=${bestGolds} 間隔=${bestGap} 到達=${bestReach.toFixed(4)} ${((Date.now() - t0) / 1000).toFixed(0)}s`,
         );
         // 焼きなまし中は間引いて評価しているので、**採用する配列は全数・全押し順で
         // 検証し直す**。間引きで見逃した②がここで出たら書き出さない。
@@ -720,7 +754,10 @@ describe.skipIf(!RUN)('リール配列の再最適化', () => {
         if (verified === 0 && bestTriples > 0) {
           console.log(`[${chapter}] 横3ライン同時テンパイが${bestTriples}件残っている`);
         }
-        if (verified === 0 && bestTriples === 0) {
+        if (verified === 0 && bestGolds > 0) {
+          console.log(`[${chapter}] 金示唆の両取り位置が足りない（不足${bestGolds}箇所）`);
+        }
+        if (verified === 0 && bestTriples === 0 && bestGolds === 0) {
           const out = {
             mode: chapter,
             reels: best.map((cells, i) => ({ id: reelCfg.reels[i].id, cells })),
@@ -735,7 +772,7 @@ describe.skipIf(!RUN)('リール配列の再最適化', () => {
           writeFileSync(`${DATA}/reels/${chapter}.json`, `${lines.join('\n')}\n`, 'utf-8');
           console.log(`[${chapter}] 書き出した`);
         } else {
-          console.log(`[${chapter}] ②か横3ライン同時テンパイが残ったので書き出さない`);
+          console.log(`[${chapter}] ②・横3ライン同時テンパイ・金示唆のどれかが残ったので書き出さない`);
         }
       }
     },
