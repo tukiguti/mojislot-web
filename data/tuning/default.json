@@ -21,8 +21,8 @@
   },
   "rescueMissThreshold": 30,
   "bonus": {
-    "spinsPerBig": 8,
-    "spinsPerReg": 4
+    "spinsPerBig": 10,
+    "spinsPerReg": 5
   },
   "assist": {
     "pullInCells": 4,
@@ -72,7 +72,7 @@
     "spinSpeed": 60
   },
   "announceLamp": {
-    "rate": 0.0033,
+    "rate": 0.0011,
     "bigRatio": 0.3,
     "missDelayMs": 120,
     "lateDelayMs": 380,
@@ -84,7 +84,7 @@
     "revealAfterMisses": 7
   },
   "cherryBonus": {
-    "rate": 0.05,
+    "rate": 0.02,
     "bigRatio": 0.3,
     "delayMs": 900
   },
