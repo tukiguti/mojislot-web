@@ -76,6 +76,10 @@ export const FRAME_PAD = 6;
  */
 const PRE_BUFFER = CELL_HEIGHT;
 
+/** 滑りコマ数バッジの大きさ。図柄を隠さないよう、枠下の黒余白に収まる高さにする。 */
+const SLIP_BADGE_W = 72;
+const SLIP_BADGE_H = 20;
+
 /**
  * モーションブラー（回転中の縦方向の残像）。
  *
@@ -140,6 +144,9 @@ export class ReelView {
   private centerGlowDuration = 0;
   private tenpaiAnimMs = 0;
   private tenpaiPremium = false;
+  /** 滑りコマ数の表示（停止済みリールのSTOPをもう一度押した時だけ出す） */
+  private readonly slipBadge: Container;
+  private readonly slipBadgeText: Text;
   /** 停止バウンス用：振動オフセット（px） */
   private bounceOffsetY = 0;
   private bounceStart = 0;
@@ -281,6 +288,32 @@ export class ReelView {
     }
     this.container.addChild(maskWrapper);
 
+    // 滑りコマ数のバッジ。**枠の下端に跨がせる**。枠の外はチラ見せと枠余白で16pxしか
+    // 無いので、そこへ収まる高さにして4pxだけ窓へ食い込ませる。窓の中央へ置くと
+    // 下段の図柄が読めなくなる——下段は3本のラインが通るので、出目の確認と競合する。
+    this.slipBadge = new Container();
+    const badgeBg = new Graphics();
+    badgeBg
+      .roundRect(-SLIP_BADGE_W / 2, -SLIP_BADGE_H / 2, SLIP_BADGE_W, SLIP_BADGE_H, 6)
+      .fill({ color: 0x0a0810, alpha: 0.88 })
+      .stroke({ color: 0xffd700, width: 1.5, alpha: 0.7 });
+    this.slipBadge.addChild(badgeBg);
+    this.slipBadgeText = new Text({
+      text: '',
+      style: {
+        fill: 0xffe08a,
+        fontSize: 15,
+        fontFamily: 'ui-monospace, SFMono-Regular, Menlo, monospace',
+        fontWeight: '700',
+      },
+    });
+    this.slipBadgeText.anchor.set(0.5);
+    this.slipBadge.addChild(this.slipBadgeText);
+    this.slipBadge.x = CELL_WIDTH / 2;
+    this.slipBadge.y = VIEW_HEIGHT + 6;
+    this.slipBadge.visible = false;
+    this.container.addChild(this.slipBadge);
+
     // ペイラインやセル区切り線はリール上に描画しない（外側インジケーターで示す）
 
     this.update();
@@ -384,6 +417,32 @@ export class ReelView {
   setShowCellIndices(show: boolean): void {
     this.showCellIndices = show;
     for (const label of this.cellIndexLabels) label.visible = show;
+  }
+
+  /**
+   * 滑りコマ数を出す／消す（null で消す）。
+   *
+   * ニアミス（1コマずれ）の検出器はあるのに、出口がクイズの不正解台詞だけだった。
+   * クイズが出るのは3ゲームに1度なので、残りでは「惜しかった」が伝わらない。
+   * 目押しのゲームで惜しさが伝わらないのは損が大きいので、**押した本人が
+   * 確かめられる**手段として置く（実機によくある確認手段と同じ）。
+   *
+   * 0コマは金色。**ビタ押しとは別物**（ビタは押下タイミングの精度、ここは
+   * 引き込みの量）なので「ビタ」とは書かない。
+   */
+  setSlipBadge(cells: number | null): void {
+    if (cells === null) {
+      this.slipBadge.visible = false;
+      return;
+    }
+    this.slipBadgeText.text = `滑り ${cells}`;
+    this.slipBadgeText.style.fill = cells === 0 ? 0xffd700 : 0xffe08a;
+    this.slipBadge.visible = true;
+  }
+
+  /** 滑りコマ数が出ているか（トグルの判定用） */
+  isSlipBadgeVisible(): boolean {
+    return this.slipBadge.visible;
   }
 
   /** STOP 押下後の停止バウンス（軽い縦振動） */

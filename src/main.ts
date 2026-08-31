@@ -1316,7 +1316,12 @@ export async function bootstrap() {
     // 止められない」に相当）。ここが「リールウェイト」として体感される部分。
     const locked = performance.now() < stopLockUntil;
     stopBtns.forEach((btn, i) => {
-      btn.disabled = engines[i].state.get() !== 'spinning' || locked;
+      // 停止後も押せるままにする——**もう一度押すと滑りコマ数が出る**ため。
+      // 押せる意味が違うので、見た目は checkable クラスで分ける（CSS）。
+      const st = engines[i].state.get();
+      const check = slipCheckable(i);
+      btn.disabled = locked || (st !== 'spinning' && !check);
+      btn.classList.toggle('checkable', st !== 'spinning' && check);
     });
 
     if (allIdle && !betPlaced) {
@@ -1430,6 +1435,36 @@ export async function bootstrap() {
   // 各リールの直近押下の精度＆滑り量（役成立時にビタ集計するため）
   const lastPressErrorMs: number[] = Array(REEL_COUNT).fill(Infinity);
   const lastSlipCells: number[] = Array(REEL_COUNT).fill(0);
+  /**
+   * 確認表示に出す滑り量。`lastSlipCells` とは**寿命が違う**ので別に持つ。
+   *
+   * 全停止のあと数百msで `resetForNextSpin` が走り、リールは idle へ戻る。
+   * だが停止位置はそのまま残るので、出目はまだ画面に出ている——「惜しかった」に
+   * 気づくのはむしろこの後なので、**次のレバーまで**確認できるようにする。
+   */
+  const checkSlipCells: (number | null)[] = Array(REEL_COUNT).fill(null);
+
+  /**
+   * 停止済みリールのSTOPをもう一度押した時に、滑りコマ数を出す／消す。
+   *
+   * ニアミス（1コマずれ）を検出してはいるが、出口がクイズの不正解台詞しか無かった。
+   * クイズが出るのは3ゲームに1度なので、残りのゲームでは「惜しかった」が伝わらない。
+   * 目押しのゲームで惜しさが伝わらないのは損が大きい。
+   *
+   * **押した本人が確かめに行く**形にしてある。常時出すと、押した位置を覚えなくても
+   * 数字を見れば済むようになり、目押しを覚える動機が消えるため。
+   */
+  const toggleSlipBadge = (idx: number) => {
+    if (idx < 0 || idx >= REEL_COUNT) return;
+    const cells = checkSlipCells[idx];
+    if (cells === null) return;
+    const view = views[idx];
+    view.setSlipBadge(view.isSlipBadgeVisible() ? null : cells);
+  };
+
+  /** そのリールを確認できるか。回転中は当然できない。 */
+  const slipCheckable = (idx: number): boolean =>
+    checkSlipCells[idx] !== null && engines[idx]?.state.get() !== 'spinning';
 
   const placeBet = () => {
     if (freezeActive) return;
@@ -1580,6 +1615,9 @@ export async function bootstrap() {
       !doFreeze && (forcedDelay || rollDelay(currentRound)) ? tuning.delay.ms : 0;
     const startSpin = () => {
       spinPending = false;
+      // 滑りの確認は前ゲームの出目とセット。回り出したら消す
+      checkSlipCells.fill(null);
+      for (const v of views) v.setSlipBadge(null);
       const spunAt = performance.now();
       // 加速はリールごとに少しずつ変える。揃って回り出すと機械に見えない。
       engines.forEach((engine, i) =>
@@ -1881,6 +1919,7 @@ export async function bootstrap() {
     // 押下の精度情報を保存（役成立時の bita 集計で参照）
     lastPressErrorMs[idx] = result.errorMs;
     lastSlipCells[idx] = slipCells;
+    checkSlipCells[idx] = slipCells;
     const bita = result.errorMs <= BITA_MS;
     if (bita) {
       sfx.bita();
@@ -2465,6 +2504,10 @@ export async function bootstrap() {
     const idx = Number(btn.dataset.reel ?? -1);
     btn.addEventListener('pointerdown', (ev) => {
       if (freezeActive) return;
+      if (engines[idx]?.state.get() !== 'spinning') {
+        toggleSlipBadge(idx);
+        return;
+      }
       stopReel(idx, ev.timeStamp);
     });
   });
@@ -2807,7 +2850,9 @@ export async function bootstrap() {
     }
     if (key in KEY_TO_REEL) {
       ev.preventDefault();
-      stopReel(KEY_TO_REEL[key], ev.timeStamp);
+      const idx = KEY_TO_REEL[key];
+      if (engines[idx]?.state.get() !== 'spinning') toggleSlipBadge(idx);
+      else stopReel(idx, ev.timeStamp);
       return;
     }
     if (key === 'z') {

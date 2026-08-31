@@ -1864,6 +1864,18 @@ body.shake {
   cursor: not-allowed;
   filter: grayscale(0.5);
 }
+/* 停止済みのリール：もう一度押すと滑りコマ数が出る。
+   「まだ止められる」と誤読させないよう、赤の押し味を落として細い金縁にする。 */
+.stop-btn.checkable {
+  opacity: 0.5;
+  filter: grayscale(0.55);
+  box-shadow: none;
+  border-color: rgba(255, 215, 0, 0.45);
+}
+.stop-btn.checkable:hover {
+  opacity: 0.75;
+  filter: grayscale(0.2);
+}
 .flash {
   animation: flash-anim 100ms ease-out;
 }
