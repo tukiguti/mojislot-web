@@ -351,6 +351,31 @@ function reachScore(
   return weighted + 0.5 * Math.min(...rates);
 }
 
+/**
+ * **図柄の偏り**（間隔の最大−最小の合計）。0 なら等間隔。
+ *
+ * 枚数が少ないこと自体は構わない——目押しのゲームなので、届かない押下位置が
+ * あるのは仕様。**まずいのは位置が近いこと**で、同じ枚数でも固まっていると
+ * 狙える範囲が広がらず、押下位置によっては1つの段にしか置けなくなる。
+ * そうなると5ラインのどれも埋まらず「正しく狙ったのに揃わない」が生まれる。
+ * 実測で「お」が21コマ中2枚（位置10と15）に固まっていて、これが起きていた。
+ */
+function spreadPenalty(reels: string[][], pools: string[][]): number {
+  let total = 0;
+  for (let i = 0; i < 3; i++) {
+    for (const c of pools[i]) {
+      const pos: number[] = [];
+      reels[i].forEach((v, k) => {
+        if (v === c) pos.push(k);
+      });
+      if (pos.length < 2) continue;
+      const gaps = pos.map((p, k) => (pos[(k + 1) % pos.length] - p + N) % N);
+      total += Math.max(...gaps) - Math.min(...gaps);
+    }
+  }
+  return total;
+}
+
 /** 図柄の最大間隔の合計（小さいほど引き込みが届きやすい）。 */
 function gapPenalty(reels: string[][], pools: string[][]): number {
   let total = 0;
@@ -552,6 +577,7 @@ describe.skipIf(!RUN)('リール配列の再最適化', () => {
         let curReach = reachScore(curRates, weights);
         let curBases = basePositionPenalty(yakuList, cur);
         let curBand = bandPenalty(scoredYakus, curRates);
+        let curSpread = spreadPenalty(cur, pools);
         let best = cur.map((r) => [...r]);
         let bestLeaks = curLeaks;
         let bestGap = curGap;
@@ -559,9 +585,10 @@ describe.skipIf(!RUN)('リール配列の再最適化', () => {
         let bestTriples = curTriples;
         let bestBases = curBases;
         let bestBand = curBand;
+        let bestSpread = curSpread;
         const t0 = Date.now();
         console.log(
-          `\n[${chapter}] 初期 ②=${curLeaks} 3本同時=${curTriples} 基準=${curBases} 帯=${curBand.toFixed(3)} 到達=${curReach.toFixed(4)}` +
+          `\n[${chapter}] 初期 ②=${curLeaks} 3本同時=${curTriples} 基準=${curBases} 帯=${curBand.toFixed(3)} 偏り=${curSpread} 到達=${curReach.toFixed(4)}` +
             (REACH_MODE ? ` (reachモード・主ライン ${PRIMARY_PAYLINE.id})` : ''),
         );
         if (process.env.OPT_DETAIL === '2') {
@@ -620,6 +647,7 @@ describe.skipIf(!RUN)('リール配列の再最適化', () => {
           const triples = countTripleTenpai(yakuList, next);
           const bases = basePositionPenalty(yakuList, next);
           const band = bandPenalty(scoredYakus, rates);
+          const spread = spreadPenalty(next, pools);
           // reach モードでは②を**ハード制約**にし（1件でも大ペナルティ）、
           // その上で到達率を上げる。既定モードは従来どおり②＋間隔。
           // 横3ライン同時テンパイ（triples）は②と同じ重みのハード制約。
@@ -629,12 +657,14 @@ describe.skipIf(!RUN)('リール配列の再最適化', () => {
             ? (leaks - curLeaks) * 100000 +
               (triples - curTriples) * 100000 +
               (bases - curBases) * 100000 +
-              (band - curBand) * 30000 -
+              (band - curBand) * 30000 +
+              (spread - curSpread) * 400 -
               (reach - curReach) * 10000
             : (leaks - curLeaks) * 100 +
               (triples - curTriples) * 100 +
               (bases - curBases) * 100 +
               (band - curBand) * 30 +
+              (spread - curSpread) * 2 +
               (gap - curGap);
           if (d < 0 || rng() < Math.exp(-d / (T * 100))) {
             cur = next;
@@ -644,12 +674,14 @@ describe.skipIf(!RUN)('リール配列の再最適化', () => {
             curTriples = triples;
             curBases = bases;
             curBand = band;
+            curSpread = spread;
             const hardOk = leaks === 0 && triples === 0 && bases === 0;
             const improved = REACH_MODE
               ? hardOk &&
                 (bestLeaks > 0 || bestTriples > 0 || bestBases > 0 ||
                  band < bestBand - 1e-9 ||
-                 (Math.abs(band - bestBand) < 1e-9 && reach > bestReach))
+                 (Math.abs(band - bestBand) < 1e-9 &&
+                  (spread < bestSpread || (spread === bestSpread && reach > bestReach))))
               : leaks + triples + bases < bestLeaks + bestTriples + bestBases ||
                 (leaks === bestLeaks && triples === bestTriples && bases === bestBases &&
                  (band < bestBand - 1e-9 ||
@@ -662,8 +694,9 @@ describe.skipIf(!RUN)('リール配列の再最適化', () => {
               bestTriples = triples;
               bestBases = bases;
               bestBand = band;
+              bestSpread = spread;
               console.log(
-                `  iter=${iter} ②=${leaks} 3本同時=${triples} 基準=${bases} 帯=${band.toFixed(3)} 到達=${reach.toFixed(4)} (${((Date.now() - t0) / 1000).toFixed(0)}s)`,
+                `  iter=${iter} ②=${leaks} 3本同時=${triples} 基準=${bases} 帯=${band.toFixed(3)} 偏り=${spread} 到達=${reach.toFixed(4)} (${((Date.now() - t0) / 1000).toFixed(0)}s)`,
               );
             }
           }
