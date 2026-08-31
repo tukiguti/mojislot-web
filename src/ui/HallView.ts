@@ -31,6 +31,7 @@ import {
 import payoutDataRaw from '../../data/payouts/default.json';
 import tuningDataRaw from '../../data/tuning/default.json';
 import './hall.css';
+import { creditHtml } from '../data/credits';
 
 /**
  * ホール（台を選ぶ）。入口 → 島 → 寄り の3段階で打つ台を決める。
@@ -57,7 +58,6 @@ export interface HallViewCallbacks {
 
 /** プレイ設定の保存先。既存コードが読む正本に合わせる（PlaySetup から引き継ぎ）。 */
 const MISSIONS_KEY = 'mojislot.challengesEnabled.v1';
-const REEL_ART_KEY = 'mojislot.reelArt.v1';
 const DEBUG_KEY = 'mojislot.debugVisible.v1';
 const PLAY_SETUP_KEY = 'mojislot.playSetup.v1';
 
@@ -665,6 +665,7 @@ export function mountHallView(cb: HallViewCallbacks): HallViewHandle {
         <div class="hall-enter">
           <div class="hall-enter-btn" data-act="enter" role="button" tabindex="0">入 場 す る</div>
           <span class="hall-enter-hint">Enter / クリックで入場　—　場内は ← → で島、1–4 で台、Enter で決定</span>
+          ${creditHtml()}
         </div>
       </div>`;
   };
@@ -718,6 +719,7 @@ export function mountHallView(cb: HallViewCallbacks): HallViewHandle {
             <div class="hall-counterlink" data-act="ranking" role="button" tabindex="0">ランキング</div>
           </div>
           <span class="hall-enter-hint">島は左右スワイプ／台をタップで詳細</span>
+          ${creditHtml('hall-credit sm')}
         </div>
       </div>`;
   };
@@ -1126,7 +1128,6 @@ export function mountHallView(cb: HallViewCallbacks): HallViewHandle {
 
   const playSettings = (): string => {
     const missionsOn = localStorage.getItem(MISSIONS_KEY) !== '0';
-    const artOn = localStorage.getItem(REEL_ART_KEY) === 'image';
     const debugOn = localStorage.getItem(DEBUG_KEY) === '1';
     let autoOn = true;
     try {
@@ -1140,7 +1141,6 @@ export function mountHallView(cb: HallViewCallbacks): HallViewHandle {
         <summary class="hall-settings-head">プレイ設定</summary>
         <div class="hall-settings-body">
           ${toggleRow('missions', 'ミッション', '達成状況を記録してトーストで通知', missionsOn)}
-          ${toggleRow('reelart', 'リール絵柄に画像を使う', '既定OFF＝色タイル＋文字。ONで図柄画像（作り直し中）', artOn)}
           ${toggleRow('auto', 'AUTOモード', 'ONでAUTOボタンを表示（自動消化）', autoOn)}
           ${toggleRow('debug', 'デバッグボタン', '設定内に演出の強制発動ボタンを表示', debugOn)}
         </div>
@@ -1250,6 +1250,7 @@ export function mountHallView(cb: HallViewCallbacks): HallViewHandle {
                 : `<div class="hall-sit" data-act="sit" role="button" tabindex="0">この台に座る　Enter</div>`
             }
             <div class="hall-seat-another" data-act="back" role="button" tabindex="0">別の台を見る</div>
+            ${creditHtml('hall-credit seat')}
           </div>
         </div>
       </div>`;
@@ -1289,7 +1290,6 @@ export function mountHallView(cb: HallViewCallbacks): HallViewHandle {
       false;
     try {
       localStorage.setItem(MISSIONS_KEY, checked('missions') ? '1' : '0');
-      localStorage.setItem(REEL_ART_KEY, checked('reelart') ? 'image' : 'plain');
       localStorage.setItem(DEBUG_KEY, checked('debug') ? '1' : '0');
       sessionStorage.setItem(
         PLAY_SETUP_KEY,

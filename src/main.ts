@@ -1,7 +1,7 @@
 import { Application, FillGradient, Graphics } from 'pixi.js';
 import { ReelEngine } from './core/ReelEngine';
 import { ReelView, CELL_WIDTH, CELL_HEIGHT, VISIBLE_CELLS, REEL_PEEK, FRAME_PAD } from './render/ReelView';
-import { loadSymbolArt } from './render/ReelArt';
+import { loadGlyphArt } from './render/ReelArt';
 import { RunTimer } from './ui/RunTimer';
 import { SymbolColorResolver } from './render/SymbolStyle';
 import { YakuJudge } from './core/YakuJudge';
@@ -27,7 +27,6 @@ import { TIER_COLOR_NAME, a11y } from './productions/Accessibility';
 import {
   EFFECT_STATUS,
   EFFECT_STATUS_CLASSES,
-  SHISA_SPEECH,
   SHISA_TINT,
   STREAK_TIERS,
   STREAK_TIER_CLASSES,
@@ -37,6 +36,7 @@ import {
 import { settingForMachine } from './productions/HallPolicy';
 import { recordSpin as recordMachineSpin } from './productions/MachineData';
 import { drawEndScreen } from './productions/SettingHint';
+import { drawCabinetLamp } from './productions/CabinetLamp';
 import { EffectEligibility } from './productions/EffectEligibility';
 import { SfxEngine } from './audio/SfxEngine';
 import { BgmEngine } from './audio/BgmEngine';
@@ -74,12 +74,14 @@ import {
   clearFreezeBanner,
   showRankUpBadge,
 } from './ui/Effects';
-import { JinSpeech } from './ui/JinSpeech';
+import { SpeechBubble } from './ui/SpeechBubble';
 import { ChallengeTracker } from './productions/Challenges';
 import { showMissionToast } from './ui/MissionToast';
 import { SettingsOverlay } from './ui/SettingsOverlay';
-import { JinState } from './productions/JinState';
-import { JinView } from './render/JinView';
+import { QUIZMASTER_SCALE, QuizmasterView } from './render/QuizmasterView';
+import { LcdBackground } from './render/LcdBackground';
+import { pickLine, quizmasterFor, type Quizmaster } from './data/quizmasters';
+import { VoiceEngine } from './audio/VoiceEngine';
 import { EffectVisual } from './render/EffectVisual';
 import { QuizState } from './productions/QuizState';
 import { QuizQuestionView } from './render/QuizQuestionView';
@@ -94,7 +96,6 @@ import {
   getVisibleCell,
   getVisibleCellIndex,
   PAYLINES,
-  primaryRowOf,
   type Vertical,
 } from './core/Paylines';
 import { PaylineIndicators } from './render/PaylineIndicators';
@@ -133,6 +134,8 @@ const REEL_GAP = 16;
 const REEL_COUNT = 3;
 // デバッグ等で明示指定できる演出。
 type ForcedEffect = Exclude<EffectType, 'none'>;
+/** ステージチェンジの確率（1ゲームあたり）。情景3種を10ゲームに1度ほど入れ替える。 */
+const STAGE_CHANGE_RATE = 1 / 10;
 const CANVAS_W = 600;
 const CANVAS_H = 732;
 // 液晶エリア（演出液晶＋マスコット領域）の高さ。
@@ -141,6 +144,19 @@ const CANVAS_H = 732;
 // 上部の空間にカットイン・演出を表示し、ジンはリール際（下部）に立たせる。
 const LIQUID_AREA_H =
   CANVAS_H - (CELL_HEIGHT * VISIBLE_CELLS + REEL_PEEK * 2 + FRAME_PAD * 2);
+
+/**
+ * 液晶の高さの比を CSS へ渡す。DOM演出（カットイン・フラッシュ・BONUSバナー）は
+ * この比で液晶に重なる。
+ *
+ * CSS 側にも同じ値を書いていたが、**リールのチラ見せと枠余白が入って液晶が縮んだ時に
+ * CSS だけ取り残され**、DOM演出が液晶の下端を32pxはみ出してリールに被っていた。
+ * ここから流し込めば、`LIQUID_AREA_H` を動かすだけで両方が揃う。
+ */
+document.documentElement.style.setProperty(
+  '--lcd-ratio',
+  String(LIQUID_AREA_H / CANVAS_H),
+);
 
 /**
  * 複数ペイラインで揃った役の一覧を文字列要約。
@@ -223,6 +239,8 @@ export async function bootstrap() {
   );
   // 演出レート・補助・フリーズ等の調整値（散在していた定数を集約）。data/tuning/default.json。
   const tuning = TuningSchema.parse(tuningDataRaw);
+  /** 1ゲームの間合い（結果を読ませる間・レバーのウェイト）。 */
+  const pace = tuning.pace;
   /** ボーナスのゲーム数。リミックス島だけ長い（覚え直しの見返り）。 */
   const bonusSpins = remix
     ? { big: REMIX.spinsPerBig, reg: REMIX.spinsPerReg }
@@ -259,8 +277,9 @@ export async function bootstrap() {
   });
   const wallet = new CoinWallet(payout.initialCoins);
   const scheduler = new EffectScheduler(effectRates.default);
-  const jinState = new JinState();
   const quizState = new QuizState();
+  /** 直前のクイズがニアミス（1コマずれ）だったか。出題者の不正解台詞を差し替えるのに使う。 */
+  let quizNearMiss = false;
   let slipResolver = new SlipResolver(yakuList, {
     assistMaxCells: tuning.assist.pullInCells,
   });
@@ -333,14 +352,17 @@ export async function bootstrap() {
   let currentShisaTier: ShisaTier | null = null;
   /** 示唆が「狙え！」へ発展済みか（1ゲーム1回だけ発展させる）。 */
   let shisaEscalated = false;
-  /** このゲームで既にリーチ目告知を出したか（1ゲーム1回）。 */
-  let reachEyeShown = false;
 
   // === フリーズ演出の状態 ===
   // freezeActive: シーケンス中は全ユーザー入力をブロックし、stopReel の引き込み/蹴りも無効化する。
   // pendingFreeze: デバッグボタンで「次のレバーでフリーズ」を予約するフラグ。
   let freezeActive = false;
   let pendingFreeze = false;
+  /**
+   * 停止ボタンを受け付けるようになる時刻。レバーONからの待ちで、
+   * 実機の「定速になるまで止められない」に相当する（[31] §11）。
+   */
+  let stopLockUntil = 0;
   /** 遅れの「間」の最中。まだどのリールも回っていないのでレバーとBETを塞ぐ。 */
   let spinPending = false;
   /**
@@ -404,6 +426,25 @@ export async function bootstrap() {
   liquidBg.fill(liquidGrad);
   app.stage.addChild(liquidBg);
 
+  /**
+   * 液晶の背景（島の情景・ドット絵）。グラデーションの上へ重ねる。
+   * 情景を描いた島だけ出る（未着手の島は従来どおりグラデーションのまま）。
+   */
+  const lcdBg = new LcdBackground({
+    artBase: ART_BASE,
+    // 島ID → [情景の数, 1情景あたりのコマ数]（`tools/gen_lcd_bg.py` の SCENES と揃える）。
+    // ここに無い島は背景なしで動く（従来どおりグラデーションのまま）。
+    scenes: {
+      hiragana_food: [8, 12],
+      katakana_animal: [8, 12],
+      hiragana_verb: [8, 12],
+      yasai: [8, 12],
+      security: [8, 12],
+    },
+  });
+  app.stage.addChild(lcdBg.container);
+  void lcdBg.setChapter(chapterId);
+
   // 演出ビジュアル（液晶＋リール背景の色味、フラッシュ）
   const effectVisual = new EffectVisual({
     width: CANVAS_W,
@@ -412,25 +453,34 @@ export async function bootstrap() {
   });
   app.stage.addChild(effectVisual.bgLayer);
 
-  // ジンはスマスロ風に「演出液晶の左下」に小さく配置する。
-  // 中央〜上部の広い空間はカットイン・演出のために空けておく。
-  const JIN_SCALE = 0.62;
-  const JIN_X = 118; // 左寄せ（縮小後の半幅ぶん内側に置く）
-  const JIN_FOOT_Y = LIQUID_AREA_H - 12; // 足元＝液晶下端付近（リール直上）
+  // クイズの出題者は実機のサブ液晶の作法に倣い「液晶の左下」に置く。
+  // 中央〜上部はカットイン・演出のために空けておく。
+  // 絵は 48×56 のドット絵を3倍した 144×168（QUIZMASTER_SCALE）。
+  const MASTER_W = 48 * QUIZMASTER_SCALE;
+  const MASTER_H = 56 * QUIZMASTER_SCALE;
+  const MASTER_X = 16 + MASTER_W / 2;
+  const MASTER_Y = LIQUID_AREA_H - 10 - MASTER_H / 2;
 
-  // 液晶下端をうっすら明るく（ジンの足元に光を当てたような感じ）。左下のジンに合わせる。
-  const liquidFloor = new Graphics();
-  liquidFloor.ellipse(JIN_X, JIN_FOOT_Y, 96, 16);
-  liquidFloor.fill({ color: 0xffd700, alpha: 0.09 });
-  app.stage.addChild(liquidFloor);
+  const quizmasterView = new QuizmasterView({
+    artBase: ART_BASE,
+    x: MASTER_X,
+    y: MASTER_Y,
+  });
+  app.stage.addChild(quizmasterView.container);
+  void quizmasterView.setChapter(chapterId);
 
-  // ジン（マスコット）配置。container は原点中心描画なので、足元が JIN_FOOT_Y に来るよう
-  // 中心を半身ぶん上げる（従来の中心-床=102px を scale 倍して算出）。
-  const jinView = new JinView(jinState);
-  jinView.container.scale.set(JIN_SCALE);
-  jinView.container.x = JIN_X;
-  jinView.container.y = JIN_FOOT_Y - 102 * JIN_SCALE;
-  app.stage.addChild(jinView.container);
+  // 出題者のボイス。島ごとに別人なので、現在の島のぶんだけ先読みする。
+  const voice = new VoiceEngine(`${import.meta.env.BASE_URL}audio/`);
+  /** その出題者が持つ全台詞のファイル名（`ask_0` 等）。先読みに渡す。 */
+  const voiceClipsOf = (master: Quizmaster): string[] =>
+    Object.entries(master.lines).flatMap(([scene, lines]) =>
+      lines.map((_, i) => `${scene}_${i}`),
+    );
+  const loadVoices = () => {
+    const master = quizmasterFor(chapterId);
+    if (master) voice.preload(chapterId, voiceClipsOf(master));
+  };
+  loadVoices();
 
   // 液晶内の演出ホスト。全画面 DOM 演出（フラッシュ/紙吹雪/カットイン/キラキラ/HIT）を
   // ここに出して液晶外へはみ出させない（overflow:hidden）。
@@ -444,6 +494,8 @@ export async function bootstrap() {
   const pushEffectA11y = () => {
     const s = a11y.get();
     setEffectA11y({ reduceMotion: s.reduceMotion, dim: s.dim });
+    // 背景は**消さずに止める**。消すと空白を埋めるという目的そのものが失われる
+    lcdBg.setPaused(s.reduceMotion);
   };
   pushEffectA11y();
   a11y.settings.subscribe(pushEffectA11y);
@@ -475,23 +527,45 @@ export async function bootstrap() {
   announceLampEl.innerHTML = `<div class="lamp-dome"></div><div class="lamp-text">確定</div><div class="lamp-kind">?</div>`;
   requireEl('game-area').appendChild(announceLampEl);
 
-  // ジンのセリフ吹き出し（DOM, 演出エリア内）。ジン本体の可視制御と同じ信号で抑制する。
-  const jinSpeech = new JinSpeech(requireEl('game-area'));
+  // 出題者の吹き出し（DOM, 演出エリア内）。出題者が出ている間しか使わない。
+  const speech = new SpeechBubble(requireEl('game-area'));
 
-  // クイズ中はジンを隠して、ここにクイズ文章を大きく出す
+  // クイズ文章。出題者を左下に置くので、問題文は右へ寄せて被りを避ける。
   const quizQuestionView = new QuizQuestionView(quizState, {
     width: CANVAS_W,
     height: LIQUID_AREA_H,
+    insetLeft: MASTER_W + 16,
   });
   quizQuestionView.container.x = CANVAS_W / 2;
   quizQuestionView.container.y = LIQUID_AREA_H / 2;
   app.stage.addChild(quizQuestionView.container);
 
-  // クイズ表示中はマスコットを隠す。同時にセリフ吹き出しも抑制し、問題文への被りを防ぐ。
+  /**
+   * 出題者の出入りはクイズの局面ひとつで決まる。
+   *  - shown（出題〜停止中）: 出題の顔＋出題の台詞
+   *  - resolved（全停止後）: 的中なら正解の顔、外れなら不正解の顔
+   *  - inactive: 引っ込む
+   *
+   * 呼び出し側に散らさず1箇所に寄せてある。ジンの頃は台詞を各分岐から呼んでいて、
+   * 示唆の色を作り直した時に**呼び忘れた台詞が5つ残った**（[33] §5）。
+   */
   quizState.phase.subscribe((phase) => {
-    const idle = phase === 'inactive';
-    jinView.container.visible = idle;
-    jinSpeech.setSuppressed(!idle);
+    const master = quizmasterFor(chapterId);
+    if (phase === 'inactive' || !master) {
+      quizmasterView.hide();
+      speech.hide();
+      return;
+    }
+    const face =
+      phase === 'shown' ? 'ask' : quizState.matched.get() ? 'correct' : 'wrong';
+    quizmasterView.show(face);
+    // 絵は3表情のまま、ニアミスは台詞だけで差をつける。
+    const line = face === 'wrong' && quizNearMiss ? 'near' : face;
+    if (!quizmasterView.isVisible()) return;
+    // 字幕とボイスは**同じ添字**で引く（別々に選ぶと違う台詞が鳴る）。
+    const { text, index } = pickLine(master, line);
+    speech.show(text);
+    voice.play(line, index);
   });
 
   // リールエリアの背景帯
@@ -519,28 +593,33 @@ export async function bootstrap() {
    * これだと役を差し替えた時に絵だけ前の役のまま残る（いなり成立で握り寿司が出る）。
    * 役が自分の絵を名指しする形にすると、書かなかった役は自動で生成側へ落ちる。
    */
-  const cutinBackdropFor = (yaku: Yaku): CutinBackdrop => ({
+  const cutinBackdropFor = (
+    yaku: Yaku,
+    variant: 'big' | 'reg' = 'big',
+  ): CutinBackdrop => ({
     accent: colorResolver.cssForYakuId(yaku.id),
     imageUrl: yaku.cutinArt ? `${ART_BASE}${yaku.cutinArt}` : undefined,
+    // 3文字は**リールのドット文字をそのまま借りる**。役ごとの一枚絵を持たせると
+    // 役を差し替えた時に絵だけ前の役のまま残るが、リールの文字なら配列に追随する。
+    // 色もリールのまま出るので、REGは赤・赤・青（BAR対応が青）になる。
+    symbolArt: yaku.symbols.map((sym, reel) => glyphUrlFor(reel, sym)),
+    symbolColors: yaku.symbols.map((sym, reel) => colorResolver.cssFor(reel, sym)),
+    labelArt: `${ART_BASE}ui/${variant === 'reg' ? 'cutin_regular' : 'cutin_premium'}.png`,
   });
 
-  // 章ごとの図柄画像（あれば）を読み込む。画像が無い章・plain設定・読込失敗時は空マップが返り、
-  // ReelView も右の配列表も従来の色タイル＋文字にフォールバックする（詳細は render/ReelArt.ts）。
-  // ステージ切替（リミックス島）で作り直すので let。
-  let {
-    textures: symbolTextures,
-    texturesPlain: symbolTexturesPlain,
-    tileUrlWithVer,
-    tilePlainUrlWithVer,
-  } = await loadSymbolArt(chapterId, yakuList, ART_BASE);
-  // 右パネルの図柄セル（文字ON/OFFで背景画像を差し替えるため保持）
-  let stripGlyphCells: { el: HTMLElement; glyph: string; plain: string }[] = [];
+  // 章ごとのドット文字を読み込む。読めなかった文字だけフォント描画へ落ちる
+  // （詳細は render/ReelArt.ts）。ステージ切替（リミックス島）で作り直すので let。
+  const reelSymbols = () => reelConfig.reels.map((r) => r.cells);
+  let { textures: glyphTextures, urlFor: glyphUrlFor } = await loadGlyphArt(
+    chapterId,
+    reelSymbols(),
+    ART_BASE,
+  );
   /**
    * 右パネル「リール配列」の中身を作る。実体は下（パネルのDOMが揃ってから）で代入する。
    * ステージ切替でリールが入れ替わったら呼び直す。
    */
   let renderReelStrips: () => void = () => {};
-  let reelGlyphsOn = localStorage.getItem('reelShowGlyphs') === '1';
 
   for (let i = 0; i < REEL_COUNT; i++) {
     const engine = new ReelEngine(reelConfig.reels[i]);
@@ -549,9 +628,7 @@ export async function bootstrap() {
       engine,
       (symbol) => colorResolver.colorFor(reelIdx, symbol),
       (symbol) => colorResolver.tierFor(reelIdx, symbol),
-      // 既定は文字なし版（図柄のみ）。設定ONで文字あり版に差し替え
-      (symbol) => symbolTexturesPlain.get(`${reelIdx}:${symbol}`) ?? null,
-      (symbol) => symbolTextures.get(`${reelIdx}:${symbol}`) ?? null,
+      (symbol) => glyphTextures.get(`${reelIdx}:${symbol}`) ?? null,
     );
     view.container.x = startX + i * (CELL_WIDTH + REEL_GAP);
     view.container.y = reelY;
@@ -559,20 +636,6 @@ export async function bootstrap() {
     engines.push(engine);
     views.push(view);
   }
-
-  // リール文字表示トグル（既定OFF＝図柄のみ／設定でON）。localStorage に永続化。
-  // リール本体・右の「リール配列」パネルの両方を連動させる。
-  const REEL_GLYPHS_KEY = 'reelShowGlyphs';
-  const applyReelGlyphs = (show: boolean) => {
-    reelGlyphsOn = show;
-    localStorage.setItem(REEL_GLYPHS_KEY, show ? '1' : '0');
-    for (const v of views) v.setShowGlyphs(show);
-    for (const c of stripGlyphCells) {
-      c.el.style.backgroundImage = `url("${show ? c.glyph : c.plain}")`;
-    }
-  };
-  const initialReelGlyphs = reelGlyphsOn;
-  applyReelGlyphs(initialReelGlyphs);
 
   // コマ番号（0..20）の表示。デバッグ表示ONの時だけ出す。
   // 押した位置と停止位置の差＝引き込みコマ数を、画面上で数えられるようにする。
@@ -596,7 +659,7 @@ export async function bootstrap() {
     for (const engine of engines) engine.tick(now);
     for (const view of views) view.update(now);
     leftIndicators.update(now);
-    jinView.update(now);
+    lcdBg.update(now);
     effectVisual.update();
   });
 
@@ -608,6 +671,10 @@ export async function bootstrap() {
   const betBtn = requireEl<HTMLButtonElement>('bet-btn');
   const stopBtns = Array.from(
     document.querySelectorAll<HTMLButtonElement>('.stop-btn'),
+  );
+  /** 筐体ランプ（操作部左右のスピーカーグリル）。狭画面ではCSSで隠れる。 */
+  const cabinetLampEls = Array.from(
+    document.querySelectorAll<HTMLElement>('.cabinet-lamp'),
   );
   const resultEl = requireEl('result-display');
   const zukanBtn = requireEl<HTMLButtonElement>('zukan-btn');
@@ -690,13 +757,12 @@ export async function bootstrap() {
       currentShisaTier ? SHISA_TINT[currentShisaTier.color] : undefined,
     );
 
-    // ラベル・クラス・ジンの表情は対応表から引く（EffectPresentation）。
+    // ラベルとクラスは対応表から引く（EffectPresentation）。
     // 分岐ごとに書いていた頃は、色や演出を足すたびに揃えて直す必要があった。
     const view = EFFECT_STATUS[effect];
     effectStatusEl.classList.remove(...EFFECT_STATUS_CLASSES);
     effectStatusEl.textContent = view.label;
     if (view.statusClass) effectStatusEl.classList.add(view.statusClass);
-    jinState.set(view.jin);
 
     if (effect === 'shisa' && currentShisaTier) {
       effectStatusEl.classList.add(`tier-${currentShisaTier.color}`);
@@ -707,7 +773,6 @@ export async function bootstrap() {
         if (name) effectStatusEl.textContent = `${view.label}・${name}`;
       }
       sfx.shisa();
-      jinSpeech.say(SHISA_SPEECH[currentShisaTier.color]);
       // 示唆はカテゴリしか示さない＝候補を全部並べて「どれかな…？」と迷わせる。
       // 第1・第2停止で内部役の図柄が中段に来たら escalateShisa() が「狙え！」へ発展させる。
       const cands = options.shisaCandidates ?? [];
@@ -738,7 +803,7 @@ export async function bootstrap() {
         // 各文字を実リールのセル色に合わせる（左/中/右）
         colors: targetYaku.symbols.map((s, i) => colorResolver.cssFor(i, s)),
         yakuName: targetYaku.name,
-        imageUrl: `${ART_BASE}aim_text.webp`,
+        imageUrl: `${ART_BASE}ui/aim.png`,
         hasPremium: targetYaku.category === 'premium',
         // 現行 canvas 寸法に基づくリール座標比（旧ハードコードのズレを解消）
         reelCentersXFrac: [0, 1, 2].map(
@@ -747,7 +812,6 @@ export async function bootstrap() {
         reelTopYFrac: reelY / CANVAS_H,
       });
       sfx.shisa(); // 既存の示唆 SE を流用
-      jinSpeech.say('shisa');
     }
   };
   applyEffect('none');
@@ -824,7 +888,6 @@ export async function bootstrap() {
       cabinetEl.dataset.internalRole = `${role.kind}:${role.yakuId ?? '-'}`;
     }
     shisaEscalated = false;
-    reachEyeShown = false;
     applyEffect(effect, {
       targetYaku: yaku,
       shisaTier,
@@ -1105,8 +1168,11 @@ export async function bootstrap() {
 
   // BONUS! バナー
   const showBonusBanner = (kind: 'big' | 'reg' = 'big') => {
-    const text = kind === 'reg' ? 'REGULAR!' : 'BIG BONUS!';
-    bonusBannerEl.innerHTML = `<div class="bonus-banner-text${kind === 'reg' ? ' reg' : ''}">${text}</div>`;
+    // 文字はドット絵の一枚絵。液晶の中（背景・出題者）と同じ粒度に揃えるため、
+    // Webフォント＋グラデーションのCSS描画から差し替えた（生成: tools/gen_banner.py）
+    const src = kind === 'reg' ? 'ui/regular.png' : 'ui/big_bonus.png';
+    bonusBannerEl.innerHTML =
+      `<img class="bonus-banner-img${kind === 'reg' ? ' reg' : ''}" alt="" src="${ART_BASE}${src}">`;
     bonusBannerEl.hidden = false;
     window.setTimeout(() => {
       bonusBannerEl.hidden = true;
@@ -1119,8 +1185,10 @@ export async function bootstrap() {
    * 実突入（溜め経由）とデバッグ突入の両方から共通で呼ぶ（重複排除）。
    */
   const showBonusEntryFx = (yaku: Yaku, kind: 'big' | 'reg') => {
+    // 前回の設定示唆はここで役目を終える。この区間の答えは終了時に出し直す
+    setCabinetLamp(null);
     sfx.bonusEnter();
-    showPremiumCutin(yaku.name, yaku.symbols, cutinBackdropFor(yaku), kind);
+    showPremiumCutin(yaku.name, yaku.symbols, cutinBackdropFor(yaku, kind), kind);
     flashScreen({
       color: kind === 'reg' ? '#cdd6e0' : '#ffd700',
       alpha: kind === 'reg' ? 0.75 : 0.85,
@@ -1130,7 +1198,6 @@ export async function bootstrap() {
     shakeBody(kind === 'reg' ? 400 : 600);
     window.setTimeout(() => {
       showBonusBanner(kind);
-      jinSpeech.say('premium');
     }, 1300);
   };
 
@@ -1208,11 +1275,9 @@ export async function bootstrap() {
       for (const v of views) v.highlightCenter(1400);
       showCoinFloatAt(24, false);
       showCoinBurstAt(5);
-      jinSpeech.say('win');
     },
     triggerTenpaiSe: () => {
       sfx.tenpai();
-      jinSpeech.say('tenpai');
       // どれか1リールに枠フラッシュ
       views[2].startTenpaiFlash(false);
       window.setTimeout(() => views[2].stopTenpaiFlash(), 2500);
@@ -1263,8 +1328,16 @@ export async function bootstrap() {
       betPlaced;
     leverBtn.disabled =
       !betPlaced || anySpinning || allStopped || spinPending || stageSwapping;
+    // 停止ボタンは**待ちが明けるまで受け付けない**（実機の「定速になるまで
+    // 止められない」に相当）。ここが「リールウェイト」として体感される部分。
+    const locked = performance.now() < stopLockUntil;
     stopBtns.forEach((btn, i) => {
-      btn.disabled = engines[i].state.get() !== 'spinning';
+      // 停止後も押せるままにする——**もう一度押すと滑りコマ数が出る**ため。
+      // 押せる意味が違うので、見た目は checkable クラスで分ける（CSS）。
+      const st = engines[i].state.get();
+      const check = slipCheckable(i);
+      btn.disabled = locked || (st !== 'spinning' && !check);
+      btn.classList.toggle('checkable', st !== 'spinning' && check);
     });
 
     if (allIdle && !betPlaced) {
@@ -1286,6 +1359,24 @@ export async function bootstrap() {
     }, 2500);
   };
 
+  /**
+   * 筐体ランプの点灯／消灯。
+   *
+   * 終了画面の一言とは**軸が違う**示唆で、色の強さ＝高設定期待度だけを返す
+   * （productions/CabinetLamp.ts）。
+   *
+   * **次のボーナスに入るまで点けたままにする。** 終了画面の文字は数秒で消えるが、
+   * 示唆が効くのは「粘るか降りるか」を決める通常時のあいだ——そこで消えていては
+   * 経路を増やした意味がない。台を見れば分かる状態で残す。
+   * 次の終了時に引き直すので、点いている色は常に**直近のボーナスのもの**。
+   */
+  const setCabinetLamp = (color: string | null) => {
+    for (const el of cabinetLampEls) {
+      if (color === null || color === 'off') delete el.dataset.lamp;
+      else el.dataset.lamp = color;
+    }
+  };
+
   // === ボーナス終了リザルト（獲得枚数＋ファンファーレ）===
   // 区間の集計そのものは BonusSession が持つ。ここは締めの演出だけ。
   const showBonusResult = (payout: number, kind: 'big' | 'reg') => {
@@ -1295,6 +1386,9 @@ export async function bootstrap() {
     // ここは別経路の情報で、1回のボーナスで一気に確度が上がることがある。
     const endScreen = drawEndScreen(machineSetting, Math.random);
     const hint = endScreen.label ? `　${endScreen.label}` : '';
+    // 筐体ランプは**終了画面と同時**。ただし別抽選・別の軸（期待度のみ）なので、
+    // 終了画面が通常でもランプだけ点くことがある。
+    setCabinetLamp(drawCabinetLamp(machineSetting, Math.random).color);
     // リミックス島はここでステージが入れ替わる。**次の島を先に知らせる**——
     // 黙って変えると「配列を覚え直す準備」ができず、ただ理不尽になる。
     const nextStage = isRemixMachine(machine)
@@ -1318,7 +1412,6 @@ export async function bootstrap() {
       window.setTimeout(() => spawnConfetti(extra), 260);
       shakeBody(endScreen.kind === 'max' ? 520 : 260);
     }
-    jinSpeech.say('premium');
 
     // 告知を読ませてから入れ替える。リールは全停止しているので差し替えて安全。
     // **告知を出す時点で入力を止める**——1.5秒の間に次のゲームが始まると、
@@ -1346,7 +1439,6 @@ export async function bootstrap() {
     sfx.winMulti(3); // 既存ファンファーレを上乗せ用に流用
     flashScreen({ color: kind === 'reg' ? '#cdd6e0' : '#ffe680', alpha: 0.7, durMs: 320 });
     spawnConfetti(50);
-    jinSpeech.say('premium');
   };
 
   const resetForNextSpin = () => {
@@ -1380,6 +1472,36 @@ export async function bootstrap() {
   // 各リールの直近押下の精度＆滑り量（役成立時にビタ集計するため）
   const lastPressErrorMs: number[] = Array(REEL_COUNT).fill(Infinity);
   const lastSlipCells: number[] = Array(REEL_COUNT).fill(0);
+  /**
+   * 確認表示に出す滑り量。`lastSlipCells` とは**寿命が違う**ので別に持つ。
+   *
+   * 全停止のあと数百msで `resetForNextSpin` が走り、リールは idle へ戻る。
+   * だが停止位置はそのまま残るので、出目はまだ画面に出ている——「惜しかった」に
+   * 気づくのはむしろこの後なので、**次のレバーまで**確認できるようにする。
+   */
+  const checkSlipCells: (number | null)[] = Array(REEL_COUNT).fill(null);
+
+  /**
+   * 停止済みリールのSTOPをもう一度押した時に、滑りコマ数を出す／消す。
+   *
+   * ニアミス（1コマずれ）を検出してはいるが、出口がクイズの不正解台詞しか無かった。
+   * クイズが出るのは3ゲームに1度なので、残りのゲームでは「惜しかった」が伝わらない。
+   * 目押しのゲームで惜しさが伝わらないのは損が大きい。
+   *
+   * **押した本人が確かめに行く**形にしてある。常時出すと、押した位置を覚えなくても
+   * 数字を見れば済むようになり、目押しを覚える動機が消えるため。
+   */
+  const toggleSlipBadge = (idx: number) => {
+    if (idx < 0 || idx >= REEL_COUNT) return;
+    const cells = checkSlipCells[idx];
+    if (cells === null) return;
+    const view = views[idx];
+    view.setSlipBadge(view.isSlipBadgeVisible() ? null : cells);
+  };
+
+  /** そのリールを確認できるか。回転中は当然できない。 */
+  const slipCheckable = (idx: number): boolean =>
+    checkSlipCells[idx] !== null && engines[idx]?.state.get() !== 'spinning';
 
   const placeBet = () => {
     if (freezeActive) return;
@@ -1400,8 +1522,6 @@ export async function bootstrap() {
     resultEl.classList.remove('visible');
     flashButton(betBtn);
     sfx.bet();
-    // BET 時のセリフは時々（25%）
-    if (Math.random() < 0.25) jinSpeech.say('bet');
     // レバーON後の演出抽選に使うレートを、ボーナス > 救済 > 通常で準備する。
     if (announcedBonus) {
       scheduler.setRates({ none: 1, shisa: 0, quiz: 0, aim: 0 });
@@ -1420,6 +1540,21 @@ export async function bootstrap() {
     if (stageSwapping) return;
     if (leverBtn.disabled) return;
     if (!betPlaced) return;
+
+    // 「次ゲームのレバーで点く」プレミア。前ゲームでこぼした時に予約されている。
+    // レバーの瞬間に合わせて点けるので、点いた時点でBIG確定と分かる。
+    if (lampOnNextLever) {
+      lampOnNextLever = false;
+      announceReachEye();
+    }
+
+    /**
+     * ステージチェンジ。**内部役とも結果とも無関係に**抽選するので、
+     * 変わったことから当たりは読めない。リールが回り出す瞬間に切り替えると、
+     * 目がリールへ移っている間に済むので唐突に見えない。
+     */
+    if (Math.random() < STAGE_CHANGE_RATE) lcdBg.changeScene();
+
     // レバーONを1ゲームの確定点とし、内部役→対応できる演出の順に決める。
     // フリーズ／確定ランプは通常抽選より優先し、強制役もRoundContextへ保存する。
     stopOrder = [];
@@ -1517,7 +1652,19 @@ export async function bootstrap() {
       !doFreeze && (forcedDelay || rollDelay(currentRound)) ? tuning.delay.ms : 0;
     const startSpin = () => {
       spinPending = false;
-      for (const engine of engines) engine.spin();
+      // 滑りの確認は前ゲームの出目とセット。回り出したら消す
+      checkSlipCells.fill(null);
+      for (const v of views) v.setSlipBadge(null);
+      const spunAt = performance.now();
+      // 加速はリールごとに少しずつ変える。揃って回り出すと機械に見えない。
+      engines.forEach((engine, i) =>
+        engine.spin(pace.spinUpMs[i % pace.spinUpMs.length], spunAt),
+      );
+      // 停止を受け付けるまでの待ち。**加速し切っていないリールは物理的に
+      // 止められない**ので、待ちは加速時間より短くできない（大きい方を採る）。
+      const lockMs = Math.max(...pace.spinUpMs, pace.stopLockMs);
+      stopLockUntil = spunAt + lockMs;
+      window.setTimeout(updateButtons, lockMs + 32);
       if (autoMode) setupAutoTarget();
       updateButtons();
       if (doFreeze) runFreeze();
@@ -1708,12 +1855,14 @@ export async function bootstrap() {
       },
     );
 
-    // --- 描画層（図柄は非同期ロード）---
-    const art = await loadSymbolArt(chapterId, yakuList, ART_BASE);
-    symbolTextures = art.textures;
-    symbolTexturesPlain = art.texturesPlain;
-    tileUrlWithVer = art.tileUrlWithVer;
-    tilePlainUrlWithVer = art.tilePlainUrlWithVer;
+    // --- 描画層（図柄と出題者は非同期ロード）---
+    // 出題者は島ごとに別人なので、台が替われば絵も替わる（[14] §2）。
+    await quizmasterView.setChapter(chapterId);
+    await lcdBg.setChapter(chapterId);
+    loadVoices();
+    const art = await loadGlyphArt(chapterId, reelSymbols(), ART_BASE);
+    glyphTextures = art.textures;
+    glyphUrlFor = art.urlFor;
     for (const v of views) {
       app.stage.removeChild(v.container);
       v.container.destroy({ children: true });
@@ -1727,13 +1876,11 @@ export async function bootstrap() {
         engine,
         (symbol) => colorResolver.colorFor(reelIdx, symbol),
         (symbol) => colorResolver.tierFor(reelIdx, symbol),
-        (symbol) => art.texturesPlain.get(`${reelIdx}:${symbol}`) ?? null,
         (symbol) => art.textures.get(`${reelIdx}:${symbol}`) ?? null,
       );
       view.container.x = startX + i * (CELL_WIDTH + REEL_GAP);
       view.container.y = reelY;
       app.stage.addChild(view.container);
-      view.setShowGlyphs(reelGlyphsOn);
       view.setShowCellIndices(debugVisible);
       engines.push(engine);
       views.push(view);
@@ -1774,6 +1921,8 @@ export async function bootstrap() {
     if (idx < 0 || idx >= REEL_COUNT) return;
     const engine = engines[idx];
     if (engine.state.get() !== 'spinning') return;
+    // 待ちが明ける前は受け付けない。AUTO はボタンを介さずここへ来るので、ここでも塞ぐ。
+    if (performance.now() < stopLockUntil) return;
     // フリーズ演出の一時的な60コマ/秒ではなく、プレイヤーが選んだ通常速度を記録する。
     recordRunSpeed(reelSpeed());
     // 押し順役の判定はこの停止を含めて確定させるため、引き込み解決の前に順を記録する。
@@ -1807,6 +1956,7 @@ export async function bootstrap() {
     // 押下の精度情報を保存（役成立時の bita 集計で参照）
     lastPressErrorMs[idx] = result.errorMs;
     lastSlipCells[idx] = slipCells;
+    checkSlipCells[idx] = slipCells;
     const bita = result.errorMs <= BITA_MS;
     if (bita) {
       sfx.bita();
@@ -1837,21 +1987,10 @@ export async function bootstrap() {
     // 情報が増えず邪魔になるだけ。ボーナス中は none=0 で必ず演出が出るため、ここは通らない。
     //
     // 文字は出さない。実機でも出ないし、そもそも出目を読む遊びを文字で潰すことになる。
-    const isFirstStop = stopOrder.length === 1;
-    if (
-      isFirstStop &&
-      !reachEyeShown &&
-      currentEffect === 'none' &&
-      reachEyes.isBonusOnlyOnPrimary(
-        idx,
-        getVisibleCell(engine, primaryRowOf(idx)),
-      )
-    ) {
-      reachEyeShown = true;
-      views[idx].startTenpaiFlash(true);
-      sfx.tenpaiPremium();
-      jinSpeech.say('premium');
-    }
+    // 〔2026-08-30〕**1確は演出として出さない。** 停止形そのものは停止テーブルに
+    // 残っていて、「妙な位置にボーナス図柄が止まった」と気づいた人が狙える。
+    // ただしフラッシュもSEもランプも出さない——何度も打った人が自分で気づくものに留める。
+    // 取りこぼした事実は下の持ち越しで確定ランプが伝えるので、二重に知らせる必要も無い。
 
     // 示唆 →「狙え！」への発展。
     // 内部役の図柄がこの停止で**窓のどこかに**来た＝候補が1役に絞れたので、吹き出しを差し替える。
@@ -1879,7 +2018,7 @@ export async function bootstrap() {
           symbols: target.symbols,
           colors: target.symbols.map((s, i) => colorResolver.cssFor(i, s)),
           yakuName: target.name,
-          imageUrl: `${ART_BASE}aim_text.webp`,
+          imageUrl: `${ART_BASE}ui/aim.png`,
           hasPremium: target.category === 'premium',
           reelCentersXFrac: [0, 1, 2].map(
             (i) => (startX + i * (CELL_WIDTH + REEL_GAP) + CELL_WIDTH / 2) / CANVAS_W,
@@ -1889,7 +2028,6 @@ export async function bootstrap() {
           arrowReels: engines.map((e) => e.state.get() === 'spinning'),
         });
         sfx.shisa();
-        jinSpeech.say('shisa');
       }
     }
 
@@ -1910,7 +2048,6 @@ export async function bootstrap() {
         if (tenpai.hasPremium) sfx.tenpaiPremium();
         else sfx.tenpai();
         showSoundCue('テンパイ');
-        jinSpeech.say('tenpai');
       }
     }
 
@@ -1938,6 +2075,18 @@ export async function bootstrap() {
       const quizId = currentEffect === 'quiz' ? (quizState.current.get()?.id ?? null) : null;
       // 確定告知ランプ点灯中にボーナス（BIG/REG）が揃ったら回収完了＝消灯。
       if (announcedBonus && (isPremium || isRegular)) clearAnnounceLamp();
+      else if (announcedBonus && !bonusZone.isActive()) {
+        // **点いているのに揃わなかった。** 規定回数こぼしたら当選役を明かす。
+        //
+        // 目押しができる人は2回も見れば「引き込めているのに揃わない＝別の役だ」と
+        // 判別できる。できない人は「自分が外したのか、内部が別のBIGなのか」が
+        // 切り分けられず、延々と外し続ける。そこだけを救う。
+        announcedMisses += 1;
+        if (announcedMisses >= tuning.announceLamp.revealAfterMisses && announcedRole) {
+          const kindEl = announceLampEl.querySelector<HTMLElement>('.lamp-kind');
+          if (kindEl) kindEl.textContent = announcedRole.name;
+        }
+      }
       // ボーナスフラグの持ち越し（実機Aタイプ）。
       // 揃えば解除、こぼせば次ゲーム以降も保持し続ける（無告知＝リーチ目で察知する）。
       // 確定告知ランプは告知ありの別経路なので、そちらが点灯中は二重に持たない。
@@ -1948,19 +2097,31 @@ export async function bootstrap() {
         const flagged = currentInternalYaku();
         if (
           flagged &&
-          (flagged.category === 'premium' || flagged.category === 'bonus')
+          (flagged.category === 'premium' || flagged.category === 'bonus') &&
+          currentEffect === 'none'
         ) {
+          // 〔2026-08-31〕**持ち越すのは無演出のゲームで引いたボーナスだけ。**
+          // クイズ・狙え・示唆が出ていたゲームは「何を狙えばいいか」を教えてあるので、
+          // 揃えられなければそこで終わり——権利ごと消える。教わったうえで外したなら
+          // それは腕の問題で、技術介入がそのまま出玉に出る。そのぶん演出の出る確率を
+          // 上げてある（無演出 0.50→0.35）。
           heldBonusYaku = flagged;
+          // 〔2026-08-30〕**こぼした時点で確定ランプを点ける**（第3停止の少し後）。
+          // ボーナスフラグがあったのに揃わなかった＝取りこぼしたという事実は、
+          // その場で分かってよい。以前は無告知のまま持ち越し、リーチ目を読める人だけが
+          // 察知する形だったが、読めない人はフラグを抱えたまま延々と気づかなかった
+          // （初心者の持ち越しが1900ゲーム続いていた）。
+          fireMissLamp(flagged.category === 'premium');
         }
       }
       if (reachKind && heldBonusYaku) {
         // 全リール停止後の出目が**リーチ目**（ボーナス成立時にしか出ない並び）だった。
-        // 枠を光らせて「今の出目はただのハズレじゃない」とだけ伝える。種別（REG/BIG）は
-        // 伏せたまま＝出目を読める人だけが分かる。**文字は出さない**。
-        // 読ませる遊びなので、答えを書いてしまうと成立しない。
+        // 枠を光らせて「今の出目はただのハズレじゃない」と伝える。**文字は出さない**。
+        // 種別（REG/BIG）はランプ側でも伏せたままなので、読める人が先に分かる。
         for (const v of views) v.startTenpaiFlash(reachKind !== 'reg');
         sfx.tenpaiPremium();
-        jinSpeech.say('tenpai');
+        // ランプは上の持ち越しで既に点いている。ここは「今の出目はただのハズレでは
+        // ない」という手触りだけを返す。
       }
       // チェリー昇格。チェリーが**実際に揃った**時だけ抽選し、当たれば確定告知ランプを
       // 点灯＝次ゲーム以降ボーナス確定。成立表示の余韻を残してから点灯させ、
@@ -1982,6 +2143,18 @@ export async function bootstrap() {
       }
       if (quizTargetYakuId) {
         const quizMatched = hits.some((h) => h.yaku.id === quizTargetYakuId);
+        // 「1コマずれていれば揃っていた」を出題者の台詞に載せる。**resolve より先に**
+        // 出しておく（resolve が吹き出しを出すので、後から立てても間に合わない）。
+        quizNearMiss =
+          !quizMatched &&
+          nearMissDetector.detect(
+            middleSymbols,
+            engines.map((e) => e.strip),
+            engines.map((e) => {
+              const total = e.strip.cells.length;
+              return ((Math.round(e.position) % total) + total) % total;
+            }),
+          ).length > 0;
         quizState.resolve(quizMatched);
         playStats.recordQuiz(quizMatched);
         if (quizId) quizStats.record(quizId, quizMatched);
@@ -2062,7 +2235,6 @@ export async function bootstrap() {
           `${yakuLabel}！ +${win}${bonusTag}${streakTag}${lineTag}${noticeTag}${bitaTag}`,
           cls,
         );
-        jinState.set('cheer');
         // 図鑑には揃ったユニーク役を全部記録
         const recorded = new Set<string>();
         for (const h of hits) {
@@ -2149,26 +2321,12 @@ export async function bootstrap() {
             spawnConfetti(40);
             shakeBody(280);
           }
-          jinSpeech.say('win');
         } else {
           sfx.winCore();
-          jinSpeech.say('win');
         }
       } else {
-        // ハズレ・ニアミス時は結果テキストを出さない（演出のみ）
-        // ニアミスはマスコットのセリフだけで示唆
-        const positions = engines.map((e) => {
-          const t = e.strip.cells.length;
-          return ((Math.round(e.position) % t) + t) % t;
-        });
-        const nearMisses = nearMissDetector.detect(
-          middleSymbols,
-          engines.map((e) => e.strip),
-          positions,
-        );
-        if (nearMisses.length > 0) jinSpeech.say('near');
-        else jinSpeech.say('miss');
-        jinState.set('miss');
+        // ハズレ・ニアミス時は結果テキストを出さない（演出のみ）。
+        // ニアミスの通知はクイズの不正解台詞へ移した（上の quizState.resolve のところ）。
         if (!quizTargetYakuId) sfx.miss();
       }
 
@@ -2179,7 +2337,19 @@ export async function bootstrap() {
         window.setTimeout(() => showBonusResult(runEnd.payout, runEnd.kind), 900);
       }
 
-      window.setTimeout(resetForNextSpin, 1200);
+      /**
+       * 全停止から次のBETを受け付けるまでの間。**読むものの量で決める**。
+       * 以前は一律1200msで、何も起きていないゲームでも必ず1.2秒待たされていた。
+       * クイズは答えと的中を読む必要があるので長く、ハズレは読むものが無いので短い。
+       */
+      const resultMs = runEnd
+        ? pace.resultMs.bonusEnd
+        : quizTargetYakuId
+          ? pace.resultMs.quiz
+          : win > 0
+            ? pace.resultMs.win
+            : pace.resultMs.none;
+      window.setTimeout(resetForNextSpin, resultMs);
     }
   };
 
@@ -2263,8 +2433,27 @@ export async function bootstrap() {
     requestAnimationFrame(() => announceLampEl.classList.add('lit'));
     sfx.lamp();
     flashScreen({ color: '#fff3a0', alpha: 0.8, durMs: 280 });
-    jinSpeech.say('premium');
   };
+  /**
+   * **リーチ目が出た → 確定告知ランプを点ける。**
+   *
+   * リーチ目は「そのフラグの時にしか制御上あり得ない出目」なので、出た時点で
+   * ボーナスは確定している。読める人だけが分かる、では取りこぼす人が出るので、
+   * ランプで必ず伝える。**種別は抽選し直さない**——すでに立っているフラグを
+   * そのまま確定させる（抽選し直すと、点いた種別と持ち越し中の役が食い違う）。
+   */
+  const announceReachEye = () => {
+    if (announcedBonus || bonusZone.isActive()) return;
+    const held = heldBonusYaku ?? currentInternalYaku();
+    if (!held || (held.category !== 'premium' && held.category !== 'bonus')) return;
+    announcedBonus = held.category === 'premium' ? 'big' : 'reg';
+    announcedRole = held;
+    announceLampEl.hidden = false;
+    requestAnimationFrame(() => announceLampEl.classList.add('lit'));
+    sfx.lamp();
+    flashScreen({ color: '#fff3a0', alpha: 0.8, durMs: 280 });
+  };
+
   /**
    * チェリー昇格の点灯待ち。全停止直後ではなく少し置いてから点けることで、
    * チェリー成立の表示を見せてから「チェリーが呼んだ」と読める間を作る。
@@ -2286,8 +2475,60 @@ export async function bootstrap() {
     announceBonus(tuning.cherryBonus.bigRatio);
   };
 
+  /**
+   * 取りこぼしの確定ランプ。**第3リールが止まりきってから**点ける。
+   *
+   * 判定した瞬間に点けると、第3リールの停止バウンドと払い出しの表示に重なって
+   * 「何で点いたのか」が読み取れない。少し置いて、出目を見てから点く順にする。
+   *
+   * **点き方そのものが情報になる。** BIGを持っている時だけプレミアの点き方を抽選し、
+   * 即点灯・遅れ・次ゲームのレバーのどれかが出ればBIG確定になる（ジャグラーのランプと
+   * 同じ考え方）。REGは必ず通常の間で点くので、通常＝どちらもあり得る。
+   *
+   * 通常の間が420ms（何も起きないゲームの間合い）より短いのは、これより長いと
+   * 次ゲームの回転中に点くことがあり、そのゲームの内部役は関係ないので
+   * 「点いたのに揃わない」と読めてしまうため。**次レバーのプレミアだけは例外**で、
+   * わざとレバーの瞬間に合わせて点ける。
+   */
+  let missLampTimer: number | null = null;
+  /** 次ゲームのレバーで点ける予約（プレミアの点き方）。 */
+  let lampOnNextLever = false;
+  /** 確定ランプ点灯中に取りこぼした回数（規定回数で当選役を明かす）。 */
+  let announcedMisses = 0;
+  const fireMissLamp = (isBig: boolean) => {
+    if (missLampTimer !== null) window.clearTimeout(missLampTimer);
+    const cfg = tuning.announceLamp;
+    let delay = cfg.missDelayMs;
+    if (isBig) {
+      const r = Math.random();
+      const p = cfg.premium;
+      if (r < p.instant) delay = 0;
+      else if (r < p.instant + p.late) delay = cfg.lateDelayMs;
+      else if (r < p.instant + p.late + p.nextLever) {
+        lampOnNextLever = true;
+        return;
+      }
+    }
+    if (delay <= 0) {
+      announceReachEye();
+      return;
+    }
+    missLampTimer = window.setTimeout(() => {
+      missLampTimer = null;
+      announceReachEye();
+    }, delay);
+  };
+
   /** ランプ消灯（ボーナス回収後）。 */
   const clearAnnounceLamp = () => {
+    if (missLampTimer !== null) {
+      window.clearTimeout(missLampTimer);
+      missLampTimer = null;
+    }
+    lampOnNextLever = false;
+    announcedMisses = 0;
+    const kindEl = announceLampEl.querySelector<HTMLElement>('.lamp-kind');
+    if (kindEl) kindEl.textContent = '?';
     announcedBonus = null;
     announcedRole = null;
     announceLampEl.classList.remove('lit');
@@ -2300,6 +2541,10 @@ export async function bootstrap() {
     const idx = Number(btn.dataset.reel ?? -1);
     btn.addEventListener('pointerdown', (ev) => {
       if (freezeActive) return;
+      if (engines[idx]?.state.get() !== 'spinning') {
+        toggleSlipBadge(idx);
+        return;
+      }
       stopReel(idx, ev.timeStamp);
     });
   });
@@ -2520,6 +2765,7 @@ export async function bootstrap() {
     bgm.init(); // mute トグルを user gesture として BGM も起動
     sfx.toggleMute();
     bgm.setMuted(sfx.isMuted());
+    voice.setMuted(sfx.isMuted());
     updateMuteUI();
   });
   updateMuteUI();
@@ -2530,8 +2776,6 @@ export async function bootstrap() {
   );
   // 実体を上で宣言した変数へ入れる。ステージ切替（リミックス島）で呼び直すため。
   renderReelStrips = () => {
-    // 図柄セルの参照は作り直す（古いDOMは innerHTML で捨てられる）。
-    stripGlyphCells = [];
     stripColumns.forEach((col, idx) => {
       const cellsEl = col.querySelector<HTMLElement>('.cells');
       if (!cellsEl) return;
@@ -2544,17 +2788,17 @@ export async function bootstrap() {
         const symbol = cells[i];
         const cell = document.createElement('div');
         cell.className = 'strip-cell';
-        const tileUrl = tileUrlWithVer(idx, symbol);
-        const plainUrl = tilePlainUrlWithVer(idx, symbol);
-        if (tileUrl && plainUrl) {
-          // 図柄画像をそのまま縮小表示。文字ON/OFF で文字あり/なし版を差し替え。
+        // 役単位の色の上にドット文字を重ねる。リール本体と同じ見た目にする。
+        // **background の一括指定は使わない**——インラインで一括指定すると
+        // スタイルシート側の background-repeat / size / position まで初期値へ戻り、
+        // ドット文字が敷き詰められる（実際に踏んだ）
+        cell.style.backgroundColor = colorResolver.cssFor(idx, symbol);
+        const glyphUrl = glyphUrlFor(idx, symbol);
+        if (glyphUrl) {
           cell.classList.add('has-art');
-          cell.style.backgroundImage = `url("${reelGlyphsOn ? tileUrl : plainUrl}")`;
-          stripGlyphCells.push({ el: cell, glyph: tileUrl, plain: plainUrl });
+          cell.style.backgroundImage = `url("${glyphUrl}")`;
         } else {
-          // 画像が無い章：従来の役単位カラー＋白文字
           cell.textContent = symbol;
-          cell.style.background = colorResolver.cssFor(idx, symbol);
           cell.style.color = '#fff';
         }
         cell.dataset.index = String(i);
@@ -2643,7 +2887,9 @@ export async function bootstrap() {
     }
     if (key in KEY_TO_REEL) {
       ev.preventDefault();
-      stopReel(KEY_TO_REEL[key], ev.timeStamp);
+      const idx = KEY_TO_REEL[key];
+      if (engines[idx]?.state.get() !== 'spinning') toggleSlipBadge(idx);
+      else stopReel(idx, ev.timeStamp);
       return;
     }
     if (key === 'z') {
@@ -2657,6 +2903,7 @@ export async function bootstrap() {
       bgm.init();
       sfx.toggleMute();
       bgm.setMuted(sfx.isMuted());
+      voice.setMuted(sfx.isMuted());
       updateMuteUI();
       return;
     }

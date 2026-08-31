@@ -85,6 +85,22 @@ export const YakuSchema = z.object({
   // 図柄画像(webp)を持たない役。true なら画像読込をスキップし色タイル＋文字で描く
   noArt: z.boolean().optional(),
   /**
+   * この役の色（`#rrggbb`）。構成文字はドット文字のスプライトを tint するので、
+   * ここで指定した色がそのままリール上の文字色になる。
+   *
+   * **書かなければカテゴリごとのパレットから登場順に配る**（`render/SymbolStyle.ts`）。
+   * 色を役データ側に置いたのは、小役の色が「同じリールに載る文字どうしで字形が近い
+   * ほど色を遠ざける」という**役の顔ぶれに依存した設計**だからで、役を差し替えたときに
+   * 色の見直しが同じファイルの同じ行で目に入る。パレットを順番に配る実装だと、役を
+   * 1つ入れ替えただけで無関係な役の色まで玉突きでずれる。
+   *
+   * 赤と青はボーナス（BIG1・BIG2）に予約してあるので小役には指定しない。
+   */
+  color: z
+    .string()
+    .regex(/^#[0-9a-fA-F]{6}$/, '色は #rrggbb 形式で書いてください')
+    .optional(),
+  /**
    * カットインの一枚絵（`public/art/` 配下のファイル名）。
    *
    * **書かなければ役色から手続き生成する。** 絵を用意した役だけここに1行足せばよく、
@@ -340,7 +356,20 @@ export type StopTable = z.infer<typeof StopTableSchema>;
  */
 export const ReachEyeTableSchema = z.object({
   mode: z.string(),
+  /** 3リール停止後の出目（3×3グリッド）→ 確定するボーナス種別。 */
   eyes: z.record(z.string(), z.enum(['reg', 'big', 'both'])),
+  /**
+   * **第1停止1リールぶんの出目**（窓の3文字）→ 確定するボーナス種別。
+   *
+   * 「ボーナス専用図柄が特定の行に来たか」ではなく、`eyes` と同じく
+   * **到達可能性**で定義する。非ボーナスフラグでは制御上あり得ない停止形だけが
+   * ここに入るので、出れば確定＝嘘をつかない。
+   *
+   * 添字はリール番号（0=左）。省略時は第1停止の告知を出さない。
+   */
+  firstEyes: z
+    .array(z.record(z.string(), z.enum(['reg', 'big', 'both'])))
+    .optional(),
 });
 export type ReachEyeTable = z.infer<typeof ReachEyeTableSchema>;
 
@@ -494,8 +523,40 @@ export const TuningSchema = z.object({
       rate: z.number().min(0).max(1).default(0.0033),
       /** 確定種別がBIGになる割合（残りはREG）。 */
       bigRatio: z.number().min(0).max(1).default(0.3),
+      /**
+       * 取りこぼしで点ける時の**通常の間**（ms）。第3停止からこれだけ置いて点く。
+       * 420ms（何も起きないゲームの間合い）を超えると次ゲームの回転中に点くので、
+       * 通常はそれより短く取る。
+       */
+      missDelayMs: z.number().min(0).default(120),
+      /** 「遅れ」の間（ms）。BIG確定のプレミア。 */
+      lateDelayMs: z.number().min(0).default(380),
+      /**
+       * 点き方のプレミア。**BIGを持っている時だけ**抽選し、出れば種別がBIGだと分かる。
+       * ジャグラーのランプと同じで、点く速さそのものが情報になる。
+       * REGの時は必ず通常の間で点くので、通常＝どちらもあり得る。
+       */
+      premium: z
+        .object({
+          /** 即点灯（第3停止と同時） */
+          instant: z.number().min(0).max(1).default(0.06),
+          /** 遅れ点灯 */
+          late: z.number().min(0).max(1).default(0.06),
+          /** 次ゲームのレバーで点く */
+          nextLever: z.number().min(0).max(1).default(0.04),
+        })
+        .default({ instant: 0.06, late: 0.06, nextLever: 0.04 }),
+      /** 確定ランプ点灯中にこの回数こぼしたら、当選役を明かす。 */
+      revealAfterMisses: z.number().int().min(1).default(7),
     })
-    .default({ rate: 0.0033, bigRatio: 0.3 }),
+    .default({
+      rate: 0.0033,
+      bigRatio: 0.3,
+      missDelayMs: 120,
+      lateDelayMs: 380,
+      premium: { instant: 0.06, late: 0.06, nextLever: 0.04 },
+      revealAfterMisses: 7,
+    }),
   /**
    * チェリー昇格。チェリーが**実際に揃った**時だけ抽選し、当たれば確定告知ランプを
    * 点灯させて次ゲーム以降をボーナス確定にする。チェリーは2文字役で他の小役と質が
@@ -530,6 +591,47 @@ export const TuningSchema = z.object({
   bitaWindowMs: z.number().positive().default(12),
   /** 突入直前の「溜め」演出の長さ（ms）。 */
   entryChargeMs: z.number().nonnegative().default(650),
+  /**
+   * 1ゲームの間合い。
+   *
+   * `resultMs` は**全停止から次のBETを受け付けるまで**の間で、結果を読ませるための時間。
+   * 以前は一律1200msで、何も起きていないゲームでも必ず1.2秒待たされていた。
+   * 読むものの量で分ける——クイズは答えと的中を読む必要があり、ハズレは何もない。
+   *
+   * `spinUpMs` は**リールごとの加速時間**（見た目）。3本を少しずつ変えてあり、
+   * 揃って回り出さないので機械らしさが出る。短くしてある——ゆっくり見せると
+   * レバーを叩いてから打てるまでがもたつく。
+   *
+   * `stopLockMs` は**レバーONから停止ボタンを受け付けるまで**の時間（待ち）。
+   * 見た目と待ちは別物なので分けてある。実機でも「もう回っているのに押せない」
+   * 状態はあり、加速し切ったあとも少し待たされる。
+   *
+   * **実際のロックは加速の最大値と `stopLockMs` の大きい方。** 加速し切って
+   * いないリールは物理的に止められないので、待ちをそれより短くしても効かない。
+   *
+   * 加速中も待ちの間も目押しはできないので、ここが出目に効くことはない。
+   */
+  pace: z
+    .object({
+      /** リールごとの加速時間（ms）。リール数ぶん並べる。 */
+      spinUpMs: z.array(z.number().nonnegative()).min(1),
+      stopLockMs: z.number().nonnegative(),
+      resultMs: z.object({
+        /** 何も起きなかったゲーム。 */
+        none: z.number().nonnegative(),
+        /** 役が成立したゲーム（ハイライトとコインを見せる）。 */
+        win: z.number().nonnegative(),
+        /** クイズが出たゲーム（答えと的中を読む）。 */
+        quiz: z.number().nonnegative(),
+        /** ボーナスの区間が終わったゲーム（リザルトへ繋ぐ）。 */
+        bonusEnd: z.number().nonnegative(),
+      }),
+    })
+    .default({
+      spinUpMs: [110, 150, 125],
+      stopLockMs: 450,
+      resultMs: { none: 420, win: 820, quiz: 1400, bonusEnd: 1200 },
+    }),
   /**
    * 遅れ演出。レバーONからリールが回り出すまで一瞬の間を置く。
    *

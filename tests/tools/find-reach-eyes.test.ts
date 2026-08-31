@@ -91,6 +91,8 @@ describe.skipIf(!RUN)('リーチ目の抽出', () => {
 
       /** 出目 → それが出せるフラグの集合 */
       const grids = new Map<string, Set<string>>();
+      /** リールごとの「第1停止で出た窓の3文字」→ それを出せたフラグ集合。 */
+      const firstCols: Map<string, Set<string>>[] = [new Map(), new Map(), new Map()];
       const bonusFlags = new Set(
         yakuList.internalRoles
           .filter((r) => r.kind === 'reg' || r.kind === 'big')
@@ -152,8 +154,18 @@ describe.skipIf(!RUN)('リーチ目の抽出', () => {
                     }
                     if (slip === 0) slip = resolver.resolveKick(ctx);
                   }
+                  const col = visCol(reels[idx], (base + slip) % N);
+                  if (step === 0) {
+                    // 第1停止1リールぶんの出目も、同じ到達可能性で仕分ける。
+                    // 「専用図柄が特定の行に来たか」ではなく「そのフラグでしか
+                    // 出せない停止形か」で定義するので、出れば確定になる。
+                    const fk = `${col.top}${col.middle}${col.bottom}`;
+                    let fs = firstCols[idx].get(fk);
+                    if (!fs) firstCols[idx].set(fk, (fs = new Set()));
+                    fs.add(role.id);
+                  }
                   step++;
-                  stopped[idx] = visCol(reels[idx], (base + slip) % N);
+                  stopped[idx] = col;
                 }
                 const key = gridKey(stopped as VisibleColumn[]);
                 let set = grids.get(key);
@@ -196,10 +208,31 @@ describe.skipIf(!RUN)('リーチ目の抽出', () => {
               ? 'big'
               : 'both';
       }
+      // 第1停止の表。ボーナスフラグでしか出せない停止形だけを残す。
+      const firstEyes = firstCols.map((m) => {
+        const out: Record<string, 'reg' | 'big' | 'both'> = {};
+        for (const [key, flags] of m) {
+          const all = [...flags];
+          if (all.length === 0 || !all.every((f) => bonusFlags.has(f))) continue;
+          const kinds = new Set(
+            all.map((f) => yakuList.internalRoles.find((r) => r.id === f)?.kind),
+          );
+          out[key] =
+            kinds.size === 1 && kinds.has('reg')
+              ? 'reg'
+              : kinds.size === 1 && kinds.has('big')
+                ? 'big'
+                : 'both';
+        }
+        return out;
+      });
+      console.log(
+        `   第1停止の確定目: ${firstEyes.map((e) => Object.keys(e).length).join(' / ')} 通り（左/中/右）`,
+      );
       mkdirSync(`${DATA}/reach`, { recursive: true });
       writeFileSync(
         `${DATA}/reach/${chapter}.json`,
-        `${JSON.stringify({ mode: chapter, eyes: table }, null, 2)}\n`,
+        `${JSON.stringify({ mode: chapter, eyes: table, firstEyes }, null, 2)}\n`,
         'utf-8',
       );
 

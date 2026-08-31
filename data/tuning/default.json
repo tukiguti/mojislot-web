@@ -1,10 +1,10 @@
 {
   "effectRates": {
     "default": {
-      "none": 0.5,
-      "shisa": 0.15,
-      "quiz": 0.25,
-      "aim": 0.1
+      "none": 0.35,
+      "shisa": 0.195,
+      "quiz": 0.325,
+      "aim": 0.13
     },
     "rescue": {
       "none": 0.3,
@@ -21,8 +21,8 @@
   },
   "rescueMissThreshold": 30,
   "bonus": {
-    "spinsPerBig": 18,
-    "spinsPerReg": 8
+    "spinsPerBig": 10,
+    "spinsPerReg": 5
   },
   "assist": {
     "pullInCells": 4,
@@ -72,11 +72,19 @@
     "spinSpeed": 60
   },
   "announceLamp": {
-    "rate": 0.0033,
-    "bigRatio": 0.3
+    "rate": 0.0011,
+    "bigRatio": 0.3,
+    "missDelayMs": 120,
+    "lateDelayMs": 380,
+    "premium": {
+      "instant": 0.06,
+      "late": 0.06,
+      "nextLever": 0.04
+    },
+    "revealAfterMisses": 7
   },
   "cherryBonus": {
-    "rate": 0.05,
+    "rate": 0.02,
     "bigRatio": 0.3,
     "delayMs": 900
   },
@@ -85,12 +93,26 @@
   "bitaWindowMs": 12,
   "entryChargeMs": 650,
   "delay": {
-    "ms": 320,
+    "ms": 400,
     "rate": {
       "core": 0.0,
-      "cherry": 0.02,
-      "reg": 0.45,
-      "big": 0.6
+      "cherry": 0.005,
+      "reg": 0.1,
+      "big": 0.15
+    }
+  },
+  "pace": {
+    "spinUpMs": [
+      110,
+      150,
+      125
+    ],
+    "stopLockMs": 450,
+    "resultMs": {
+      "none": 420,
+      "win": 820,
+      "quiz": 1400,
+      "bonusEnd": 1200
     }
   }
 }

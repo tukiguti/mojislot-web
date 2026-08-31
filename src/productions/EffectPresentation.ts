@@ -1,7 +1,5 @@
 import type { EffectType } from './EffectScheduler';
 import type { ShisaTierColor } from '../data/schemas';
-import type { JinSpeechEvent } from '../ui/JinSpeech';
-import type { JinExpression } from './JinState';
 import type { EndScreenKind } from './SettingHint';
 
 /**
@@ -20,16 +18,13 @@ export interface EffectStatusView {
   label: string;
   /** ステータス要素に付けるクラス（`none` は素のまま）。 */
   statusClass: string | null;
-  /** ジン（キャラクター）の表情。 */
-  jin: JinExpression;
 }
 
 export const EFFECT_STATUS: Record<EffectType, EffectStatusView> = {
-  none: { label: '通常', statusClass: null, jin: 'idle' },
-  shisa: { label: '示唆', statusClass: 'shisa', jin: 'shisa' },
-  quiz: { label: 'クイズ', statusClass: 'quiz', jin: 'quiz' },
-  // 狙えは示唆から発展する演出なので、ジンの表情は示唆と同じものを使う。
-  aim: { label: '狙え！', statusClass: 'aim', jin: 'shisa' },
+  none: { label: '通常', statusClass: null },
+  shisa: { label: '示唆', statusClass: 'shisa' },
+  quiz: { label: 'クイズ', statusClass: 'quiz' },
+  aim: { label: '狙え！', statusClass: 'aim' },
 };
 
 /** ステータス要素から毎回外すクラス（演出クラス＋tier色）。付け忘れると前の色が残る。 */
@@ -51,15 +46,6 @@ export const SHISA_TINT: Record<ShisaTierColor, number> = {
   red: 0xff3b30,
   gold: 0xffcc33,
   rainbow: 0xff66cc,
-};
-
-/** 示唆のtier色 → ジンの煽り台詞。強い色ほど煽りも強い。 */
-export const SHISA_SPEECH: Record<ShisaTierColor, JinSpeechEvent> = {
-  blue: 'shisaWeak',
-  green: 'shisaWeak',
-  red: 'shisaBonus',
-  gold: 'shisaPremium',
-  rainbow: 'shisaPremium',
 };
 
 /**

@@ -18,13 +18,27 @@ export class ReelEngine {
   position = 0;
   private speed = DEFAULT_SPEED;
   private lastTickMs: number | null = null;
+  /** 加速にかける時間（ms）。0 なら加速なし。 */
+  private rampMs = 0;
+  /** 定速に達する時刻。最初の tick で決まる（spin の時点では now を知らない）。 */
+  private spunUpAt: number | null = null;
 
   constructor(public readonly strip: ReelStrip) {}
 
-  spin(): void {
+  /**
+   * 回し始める。
+   *
+   * @param rampMs 定速までの加速にかける時間（ms）。実機はレバーONから
+   *   リールが定速になるまで停止操作を受け付けない。0 なら即定速（シミュレータ用）。
+   * @param nowMs レバーONの時刻。加速の終わりをここで確定させる。最初の tick で
+   *   決めると、タブが背景に回って ticker が止まっている間は加速が終わらない。
+   */
+  spin(rampMs = 0, nowMs = 0): void {
     if (this.state.get() === 'spinning') return;
     this.state.set('spinning');
     this.lastTickMs = null;
+    this.rampMs = rampMs;
+    this.spunUpAt = rampMs > 0 ? nowMs + rampMs : null;
   }
 
   setSpeed(speed: number): void {
@@ -75,7 +89,13 @@ export class ReelEngine {
     }
     const deltaSec = (nowMs - this.lastTickMs) / 1000;
     const total = this.strip.cells.length;
-    this.position = (this.position + this.speed * deltaSec) % total;
+    // 加速中は速度を線形に上げる。**目押しはできない状態**なので、
+    // 加速の形が出目に効くことはない（停止操作は定速まで受け付けない）。
+    const ratio =
+      this.rampMs > 0 && this.spunUpAt !== null && nowMs < this.spunUpAt
+        ? 1 - (this.spunUpAt - nowMs) / this.rampMs
+        : 1;
+    this.position = (this.position + this.speed * ratio * deltaSec) % total;
     this.lastTickMs = nowMs;
   }
 

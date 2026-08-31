@@ -10,38 +10,64 @@ export type SymbolTier = 'premium' | 'bonus' | 'core' | 'filler';
 /**
  * 役（やく）単位で色を割り当て、その役の構成文字（各リール 1 文字ずつ）に色を伝播させる。
  *
- *  - プレミアム役 → ゴールド固定
- *  - コア役 → 8色パレットを順番に割当（多すぎる場合は再循環）
+ *  - 色は **役データの `color`（`data/yaku/<章>.json`）が第一**。書いてあればそれを使う
+ *  - 書いていない役はカテゴリごとのパレットから登場順に配る（フォールバック）
  *  - 同じ文字が複数役で共有される場合は、最初に登場した役の色を優先
  *  - どの役にも属さないフィラー文字 → ニュートラルグレー
  *
  *  狙い: みかん成立時、左「み」/ 中「か」/ 右「ん」がすべて同じ色になり、
  *  3リールにまたがる「色の縦並び」で何の役が揃っているかが視覚的にわかる。
+ *
+ *  図柄は生成画像を廃してドット文字だけになったので、色はタイルの地ではなく
+ *  **文字そのもの**に乗る（白い字面を tint する）。黒地に色文字なので、暗い色は
+ *  そのまま読みにくさになる。以下の色はどれも L*≧57 に揃えてある。
  */
 
-// コア役は7役（[12b]）。役被り文字を解消したので 1 リール内で色が 1:1 に対応する。
-// 各リールで隣り合っても識別しやすいよう、色相を大きく離した高コントラスト7色。
-// 黄〜金はプレミアム(ゴールド)専用なので避ける。
-const CORE_PALETTE: number[] = [
-  0xff3b30, // red
-  0xff9500, // orange
-  0x34c759, // green
-  0x00c7be, // teal/cyan
-  0x0a84ff, // blue
-  0xbf5af2, // purple
-  0xff2d92, // magenta
+/**
+ * ボーナス（premium）の色。実機の「7・7・BAR」に相当する赤／青の2色。
+ *
+ * 全5島で役の構造が同じ——BIG1 = A・B・C / BIG2 = D・E・F / **REG = A・B・F**——
+ * なので、BIG1を赤・BIG2を青にすると REG は自動的に **赤・赤・青** になる。
+ * REG に専用色を持たせないのはそのため（下のコンストラクタの先勝ち参照）。
+ * 3つ目以降は予備で、いまはどの島も BIG は2つ。
+ */
+const PREMIUM_PALETTE: number[] = [
+  0xff3b30, // red   … BIG1（＝実機の7）
+  0x3da5ff, // blue  … BIG2（＝実機のBAR）
+  0xff6ad5, // pink  … 3つ目以降の予備
 ];
 
-// プレミアム(BIG)役は章に複数ある（例：寿司屋=7揃い / ナマズ=バー揃い）。
-// 単一色だと役同士が区別できないので、登場順にパレットを循環させる（1つ目=金）。
-const PREMIUM_PALETTE: number[] = [
-  0xffd700, // gold（7揃い・1つ目）
-  0x3da5ff, // electric blue（バー揃い等・2つ目）
-  0xff6ad5, // pink（3つ目以降の予備）
+/**
+ * 小役（core）のフォールバックパレット。**赤と青はボーナス予約なので入れない。**
+ *
+ * 現行5島の小役は全て `data/yaku` 側で色を指定してあるので、ここが使われるのは
+ * 色を書かずに役を足した時だけ。順番はパレット内で色相が最も散る並びにしてある。
+ */
+const CORE_PALETTE: number[] = [
+  0xff9500, // orange
+  0x34c759, // green
+  0x00c7be, // teal
+  0xbf5af2, // purple
 ];
-const BONUS_COLOR = 0xc0c0c0; // silver（レギュラーボーナス役 = すし＋別字）
-const CHERRY_COLOR = 0xff4d6d; // cherry red（2文字役チェリー）
+
+/**
+ * チェリー（2文字役）の色。
+ *
+ * 旧値 0xff4d6d は BIG1 の赤（0xff3b30）から CIELAB で ΔE≈31 しか離れておらず、
+ * 「赤い文字が2つ止まった」がボーナスと紛らわしかった。マゼンタ寄りに振って
+ * ΔE≈56（赤）／95（青）まで離してある。小役どうし（orange 等）との最短距離より
+ * ボーナスとの距離を優先する——チェリーを小役と見間違えても損はないが、
+ * ボーナスと見間違えるとガセ告知になるため。
+ */
+const CHERRY_COLOR = 0xff2d92; // magenta
 const FILLER_COLOR = 0x4a4a4a; // dark gray（地味な脇役感）
+
+/** `#rrggbb` → 0xRRGGBB。未指定・不正なら null（schema が形式を保証している）。 */
+function parseHexColor(css: string | undefined): number | null {
+  if (!css) return null;
+  const n = Number.parseInt(css.slice(1), 16);
+  return Number.isNaN(n) ? null : n;
+}
 
 export class SymbolColorResolver {
   /** key = `${reelIdx}:${symbol}` → 役色 */
@@ -52,7 +78,15 @@ export class SymbolColorResolver {
   private yakuColor = new Map<string, number>();
 
   constructor(yakuList: YakuList) {
-    // premium → core → cherry → bonus の順で割り当て（先勝ち）
+    /** BIG の色。データ指定があればそれ、無ければ赤→青の順。 */
+    const bigColor = (i: number): number =>
+      parseHexColor(yakuList.premiumYaku[i]?.color) ??
+      PREMIUM_PALETTE[i % PREMIUM_PALETTE.length];
+
+    // premium → core → cherry → bonus の順で割り当て（先勝ち）。
+    // **REG(bonus) を最後に置いているのが赤赤青の仕掛け**：REG の3文字は
+    // A・B が BIG1、F が BIG2 と同じ（リール位置ごと）なので、先に BIG が
+    // 塗った色がそのまま残り、REG 用の色は1文字も塗られない。
     const ordered = [
       ...yakuList.premiumYaku,
       ...yakuList.coreYaku,
@@ -63,14 +97,19 @@ export class SymbolColorResolver {
     let coreIdx = 0;
     let premiumIdx = 0;
     for (const yaku of ordered) {
-      const color =
+      // 役データの color が最優先。無ければカテゴリごとのフォールバック。
+      const fallback: number =
         yaku.category === 'premium'
-          ? PREMIUM_PALETTE[premiumIdx++ % PREMIUM_PALETTE.length]
+          ? bigColor(premiumIdx++)
           : yaku.category === 'bonus'
-            ? BONUS_COLOR
+            ? // REG は専用色を持たない。カットインと成立ハイライトは
+              // 役 id 経由で1色しか受け取れないので、3文字のうち2文字を
+              // 占める BIG1 の赤を代表色にする。
+              bigColor(0)
             : yaku.category === 'cherry'
               ? CHERRY_COLOR
               : CORE_PALETTE[coreIdx++ % CORE_PALETTE.length];
+      const color = parseHexColor(yaku.color) ?? fallback;
       // cherry は小役なので size は core 扱い（小さく枠なし）
       const tier: SymbolTier =
         yaku.category === 'premium'

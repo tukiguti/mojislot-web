@@ -1248,3 +1248,21 @@
 .hall-trialnote b { color: #e8dcff }
 /* サンプルが足りない演出率は薄く出す（読める数字と同じ見た目にしない） */
 .hall-effmeter.thin { opacity: .45 }
+
+/* === 素材のクレジット（入口・台の詳細） ===
+   VOICEVOX はキャラクター名まで出すのが規約の求める形（src/data/credits.ts）。
+   遊びの邪魔をしないよう、案内文と同じ小ささ・同じ灰で置く。 */
+.hall-credit {
+  display: flex; align-items: baseline; justify-content: center; gap: 8px;
+  font-size: 10px; color: #6f6578; letter-spacing: .06em;
+  text-align: center; text-wrap: pretty;
+}
+.hall-credit-label {
+  flex: none; padding: 1px 5px; border: 1px solid #443c50; border-radius: 3px;
+  font-size: 9px; letter-spacing: .12em; color: #837892;
+}
+.hall-credit.seat { margin-top: 10px }
+.hall-credit.sm { font-size: 9px }
+@media (max-width: 380px) {
+  .hall-credit { flex-direction: column; gap: 3px }
+}

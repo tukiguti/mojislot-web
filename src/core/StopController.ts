@@ -5,7 +5,7 @@ import {
   type VisibleColumn,
 } from '../productions/SlipResolver';
 import { TenpaiDetector, type TenpaiLine } from '../productions/TenpaiDetector';
-import { PAYLINES, PRIMARY_PAYLINE, ROW_VERTICAL, primaryRowOf } from './Paylines';
+import { PAYLINES, ROW_VERTICAL } from './Paylines';
 import type { StopTableLookup } from './StopTable';
 
 /**
@@ -209,18 +209,20 @@ export class StopController {
       if (tabled !== null) return tabled;
     }
 
-    // 第1・第2停止（および最終でテンパイが無い時）：当選役を**主ラインへ**寄せる。
+    // 第1・第2停止（および最終でテンパイが無い時）：当選役が**5ラインのどれかで
+    // 成立する**最小のスベリを選ぶ。狙う「行」は持たない。
     //
-    // 狙い先を1本に固定するのがこの設計の要。制御が「主ラインへ届くか」の
-    // 一問一答になり、停止テーブルも役×押下位置の一次元で書ける。
-    // 他のラインへ逃がす分岐を持つと、テーブルの中身が「どのラインを選んだか」に
-    // 依存して読めなくなる。
+    // 実機の制御は「押し位置＋0〜4のどれで止めるか」を選ぶだけで、どのラインに
+    // 揃うかは関心事ではない（成立役は最大限引き込む義務があるだけ）。行を指定して
+    // 引き込むと、**滑りが前方向にしか効かないため主ラインの行によって取りこぼしが
+    // 変わる**という、実機に存在しない非対称が生まれる。
     //
-    // 引き込みの対象範囲は7コマ→5コマに縮むが、その分は**リール配列側で取り返す**
-    // （主ラインへの到達率を目的関数にして焼き直す。実測で0.5→0.95）。
+    // 実際、主ラインを 上段/右上がり から 下段/中段 へ移すだけで機械割が28pt動いた。
+    // 下段は「その先の行」が無く押し遅れを一切救済できないためで、配列を焼き直しても
+    // 直らなかった（主ライン上の到達性を同一にしても戻らない）。
     //
-    // 判定は5ラインのままなので、狙わなかったラインで偶然揃った分は払い出される。
-    return this.pickLine(targets, req, ctx, (l) => l.id === PRIMARY_PAYLINE.id);
+    // 主ラインは**告知の基準**としては残る（リーチ目・誤告知の判定）。制御は使わない。
+    return this.pickLine(targets, req, ctx, () => true);
   }
 
   /** 条件に合うペイラインだけを対象に引き込む。カテゴリ優先→近い順。 */
@@ -287,10 +289,9 @@ export class StopController {
         this.pullInCells,
       );
       if (slip === null) continue;
-      const score =
-        CAT_RANK[l.yaku.category] * 100 +
-        (this.pullInCells - slip) * 4 +
-        (l.vertical === primaryRowOf(finalIdx) ? 1 : 0);
+      // カテゴリ → スベリが近い順。**主ラインの優先は持たない**（行で優劣を付けると
+      // 実機に無い非対称が戻る）。
+      const score = CAT_RANK[l.yaku.category] * 100 + (this.pullInCells - slip) * 4;
       if (score > bestScore) {
         bestScore = score;
         bestSlip = slip;

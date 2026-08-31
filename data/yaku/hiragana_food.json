@@ -10,7 +10,8 @@
         "し"
       ],
       "category": "core",
-      "payout": 3
+      "payout": 3,
+      "color": "#34c759"
     },
     {
       "id": "sanma",
@@ -21,7 +22,8 @@
         "ま"
       ],
       "category": "core",
-      "payout": 5
+      "payout": 4,
+      "color": "#ff9500"
     },
     {
       "id": "katsuo",
@@ -32,7 +34,8 @@
         "お"
       ],
       "category": "core",
-      "payout": 7
+      "payout": 5,
+      "color": "#00c7be"
     },
     {
       "id": "maguro",
@@ -43,7 +46,8 @@
         "ろ"
       ],
       "category": "core",
-      "payout": 9
+      "payout": 7,
+      "color": "#bf5af2"
     }
   ],
   "premiumYaku": [
@@ -100,8 +104,8 @@
       "kind": "miss",
       "displayYakuId": null,
       "rate": {
-        "default": 0.0,
-        "rescue": 0.0,
+        "default": 0.4314154681,
+        "rescue": 0.3317921271,
         "bonus": 0.0
       }
     },
@@ -110,8 +114,8 @@
       "kind": "single",
       "displayYakuId": null,
       "rate": {
-        "default": 0.4307392586,
-        "rescue": 0.3305132958,
+        "default": 0.0,
+        "rescue": 0.0,
         "bonus": 0.0
       }
     },
@@ -122,7 +126,7 @@
       "rate": {
         "default": 0.1681517634,
         "rescue": 0.1951203983,
-        "bonus": 0.3107486915
+        "bonus": 0.292363
       }
     },
     {
@@ -132,7 +136,7 @@
       "rate": {
         "default": 0.1076171285,
         "rescue": 0.1248770549,
-        "bonus": 0.1988791625
+        "bonus": 0.187111
       }
     },
     {
@@ -142,7 +146,7 @@
       "rate": {
         "default": 0.0860937028,
         "rescue": 0.099901644,
-        "bonus": 0.1591033299
+        "bonus": 0.149689
       }
     },
     {
@@ -152,7 +156,7 @@
       "rate": {
         "default": 0.1345214107,
         "rescue": 0.1560963187,
-        "bonus": 0.2485989531
+        "bonus": 0.233889
       }
     },
     {
@@ -162,7 +166,7 @@
       "rate": {
         "default": 0.0661845265,
         "rescue": 0.080841457,
-        "bonus": 0.0746664015
+        "bonus": 0.070248
       }
     },
     {
@@ -170,9 +174,9 @@
       "kind": "reg",
       "displayYakuId": "reg",
       "rate": {
-        "default": 0.0043709717,
-        "rescue": 0.0086784531,
-        "bonus": 0.0064893003
+        "default": 0.003929,
+        "rescue": 0.007802,
+        "bonus": 0.05
       }
     },
     {
@@ -180,9 +184,9 @@
       "kind": "big",
       "displayYakuId": "shake",
       "rate": {
-        "default": 0.0009106189,
-        "rescue": 0.0017356891,
-        "bonus": 0.0007570806
+        "default": 0.000819,
+        "rescue": 0.00156,
+        "bonus": 0.00835
       }
     },
     {
@@ -190,8 +194,8 @@
       "kind": "big",
       "displayYakuId": "shake",
       "rate": {
-        "default": 0.0005,
-        "rescue": 0.0005,
+        "default": 0.000449,
+        "rescue": 0.000449,
         "bonus": 0.0
       },
       "freeze": true
@@ -201,9 +205,9 @@
       "kind": "big",
       "displayYakuId": "tarako",
       "rate": {
-        "default": 0.0009106189,
-        "rescue": 0.0017356891,
-        "bonus": 0.0007570806
+        "default": 0.000819,
+        "rescue": 0.00156,
+        "bonus": 0.00835
       }
     }
   ],

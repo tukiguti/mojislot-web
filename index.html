@@ -76,6 +76,10 @@
       </div>
 
       <footer id="control-panel">
+        <!-- スピーカーグリル＝筐体ランプ。ボーナス終了時に設定示唆で光る。
+             疑似要素で描いていたが、JSから状態を持たせられないので実要素にした。 -->
+        <div class="cabinet-lamp" data-side="left" aria-hidden="true"></div>
+        <div class="cabinet-lamp" data-side="right" aria-hidden="true"></div>
         <div class="ctrl-row">
           <button id="bet-btn" data-key="[B]">MAXBET</button>
           <button id="lever-btn" data-key="[Space]">LEVER</button>

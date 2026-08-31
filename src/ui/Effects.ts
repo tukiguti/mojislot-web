@@ -106,6 +106,25 @@ export interface CutinBackdrop {
   accent: string;
   /** 一枚絵の URL。無ければ accent から背景を生成する。 */
   imageUrl?: string;
+  /**
+   * 3文字それぞれの**ドット文字**の URL（リールで使っているものと同じファイル）。
+   *
+   * 役ごとに一枚絵を用意する方式は採らない。それをやると役を差し替えた時に絵だけ
+   * 前の役のまま残る——実際にそれで5島中4島が不一致になり、生成画像を全廃した。
+   * リールの文字をそのまま借りれば、**配列を変えれば絵も追随する**ので腐らない。
+   *
+   * 色も借りる。リールの文字はリールごとに役色で塗ってあるので、REGなら
+   * 赤・赤・青（BAR対応が青）がそのまま出る。
+   */
+  symbolArt?: (string | null)[];
+  /**
+   * 3文字それぞれの色（CSS）。ドット文字のPNGは**灰色の素**で、色はリール側で
+   * 掛け算合成して出している（Pixiのtint）。DOMでも同じ掛け算で出さないと、
+   * カットインだけ白い文字になる。
+   */
+  symbolColors?: string[];
+  /** 見出し（PREMIUM! / REGULAR!）のドット絵 URL。 */
+  labelArt?: string;
 }
 
 export function showPremiumCutin(
@@ -130,29 +149,53 @@ export function showPremiumCutin(
     )
     .join('');
 
+  // ドット文字があればそれを出す。無い文字だけフォント描画へ落ちる
+  // （リールと同じ落とし方。1文字欠けてもカットイン全体は壊れない）。
   const symbolsHtml = symbols
-    .map(
-      (s, i) =>
-        `<span class="premium-cutin-symbol" style="animation-delay:${i * 90}ms">${escape(s)}</span>`,
-    )
+    .map((s, i) => {
+      const art = backdrop.symbolArt?.[i];
+      const delay = `animation-delay:${i * 90}ms`;
+      if (!art) return `<span class="premium-cutin-symbol" style="${delay}">${escape(s)}</span>`;
+      // 素の灰色PNGに役色を掛ける（CSS側で multiply ＋ マスク）。img ではなく
+      // div なのはそのため——img には掛け算合成を当てられない。
+      const color = backdrop.symbolColors?.[i] ?? '#ffffff';
+      const url = `url('${encodeURI(art)}')`;
+      return (
+        `<div class="premium-cutin-symbol art" role="img" aria-label="${escape(s)}" ` +
+        `style="${delay};--glyph:${url};--glyph-color:${color}"></div>`
+      );
+    })
     .join('');
 
   // 一枚絵がある役はそれを敷き、無い役は役色のグロー＋奥に沈んだ巨大な役名で組む。
   // 文字を揃えるゲームなので、絵が無い側も「文字が主役」の見た目になるようにしている。
+  // 奥に沈める役名は、ドット文字が出せる時は**出さない**。前面に同じ文字が
+  // ドットで立つので、後ろでフォントの輪郭が透けると2種類の字が重なって見える。
+  const ghostHtml = backdrop.symbolArt?.some(Boolean)
+    ? ''
+    : `<div class="premium-cutin-ghost" aria-hidden="true">${escape(yakuName)}</div>`;
   const artHtml = backdrop.imageUrl
     ? `<div class="premium-cutin-art" style="background-image:url('${encodeURI(backdrop.imageUrl)}')"></div>`
-    : `<div class="premium-cutin-backdrop">
-         <div class="premium-cutin-ghost" aria-hidden="true">${escape(yakuName)}</div>
-       </div>`;
+    : `<div class="premium-cutin-backdrop">${ghostHtml}</div>`;
 
   root.innerHTML = `
     <div class="premium-cutin-veil"></div>
     ${artHtml}
     <div class="premium-cutin-rays">${raysHtml}</div>
     <div class="premium-cutin-content">
-      <div class="premium-cutin-label">${variant === 'reg' ? 'REGULAR!' : 'PREMIUM!'}</div>
+      ${
+        backdrop.labelArt
+          ? `<img class="premium-cutin-label art" src="${encodeURI(backdrop.labelArt)}" alt="${variant === 'reg' ? 'REGULAR!' : 'PREMIUM!'}">`
+          : `<div class="premium-cutin-label">${variant === 'reg' ? 'REGULAR!' : 'PREMIUM!'}</div>`
+      }
       <div class="premium-cutin-symbols">${symbolsHtml}</div>
-      <div class="premium-cutin-yaku">${escape(yakuName)}</div>
+      ${
+        // 3文字がドットで立っている時は役名の帯を出さない。文字がそのまま役名なので
+        // 同じ言葉が2回並ぶだけになる。
+        backdrop.symbolArt?.some(Boolean)
+          ? ''
+          : `<div class="premium-cutin-yaku">${escape(yakuName)}</div>`
+      }
     </div>
   `;
   effectHost.appendChild(root);
