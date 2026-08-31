@@ -2751,8 +2751,24 @@ to {
   }
 }
 .premium-cutin-symbols {
+  position: relative;
   display: flex;
   gap: clamp(8px, 4cqw, 24px);
+}
+/* 3文字の後ろだけ地を沈める。放射がそのまま抜けていると、字と同じ色の帯が
+   字の上を横切って読めなくなる。全体を暗くすると放射の勢いが死ぬので、
+   字のあるところだけ落とす。 */
+.premium-cutin-symbols::before {
+  content: '';
+  position: absolute;
+  inset: -14% -10%;
+  z-index: -1;
+  background: radial-gradient(
+    ellipse 58% 62% at 50% 50%,
+    rgba(0, 0, 0, 0.88) 0%,
+    rgba(0, 0, 0, 0.6) 52%,
+    transparent 78%
+  );
 }
 .premium-cutin-symbol {
   display: inline-block;
@@ -2781,6 +2797,46 @@ to {
     transform: translateY(0) scale(1);
     opacity: 1;
   }
+}
+/* ドット絵版。液晶の背景・出題者・リールの文字と同じ**3〜4倍のドット**で出す。
+   ここだけフォント描画のままだと、同じ画面の中で別の素材に見える。
+   `pixelated` は必須——補間するとドットが溶けて、わざわざドットにした意味が消える。 */
+.premium-cutin-symbol.art {
+  width: clamp(64px, 27cqw, 168px);
+  /* ドット文字の縦横比（44x34）を保つ */
+  aspect-ratio: 44 / 34;
+  /* **色は掛け算で乗せる。** PNGは灰色の素で、リールでも同じ掛け算（Pixiのtint）で
+     色を出している。ここだけ塗り潰すと、字の中の濃淡が飛んで別物になる。
+     掛け算だと背景色が字の外まで出るので、同じ絵でマスクして形に切り抜く。 */
+  background-color: var(--glyph-color);
+  background-image: var(--glyph);
+  background-blend-mode: multiply;
+  background-size: 100% 100%;
+  background-repeat: no-repeat;
+  mask-image: var(--glyph);
+  mask-size: 100% 100%;
+  mask-repeat: no-repeat;
+  -webkit-mask-image: var(--glyph);
+  -webkit-mask-size: 100% 100%;
+  -webkit-mask-repeat: no-repeat;
+  image-rendering: pixelated;
+  /* **暗い縁を4方向に置く。** 役色の文字が同じ役色の光線に重なると沈む
+     （赤い「しゃけ」が赤い放射の上に乗る）。ぼかさず0距離で4回落として
+     ドットの角を残したまま縁にする。 */
+  filter:
+    drop-shadow(2px 0 0 #14111c) drop-shadow(-2px 0 0 #14111c)
+    drop-shadow(0 2px 0 #14111c) drop-shadow(0 -2px 0 #14111c)
+    drop-shadow(0 0 12px var(--cutin-accent))
+    drop-shadow(0 5px 10px rgba(0, 0, 0, 0.65));
+  text-shadow: none;
+}
+.premium-cutin-label.art {
+  width: clamp(120px, 52cqw, 300px);
+  height: auto;
+  image-rendering: pixelated;
+  background: none;
+  filter: drop-shadow(0 3px 6px rgba(0, 0, 0, 0.55));
+  animation: premium-label-shake 280ms ease-in-out 3;
 }
 .premium-cutin-yaku {
   font-size: clamp(14px, 6.5cqw, 36px);

@@ -163,6 +163,10 @@ SPECS = [
     ("aim", "狙え！", FONT_JP, 49, "gold", 0, 3),
     ("big_bonus", "BIG BONUS", FONT_EN, 22, "gold", 0, 0),
     ("regular", "REGULAR", FONT_EN, 22, "silver", 0, 0),
+    # カットインの見出し。役の3文字はリールのドット文字を流用するので、ここだけ
+    # フォント描画のまま残すとカットインの中でトーンが割れる。
+    ("cutin_premium", "PREMIUM!", FONT_EN, 20, "gold", 0, 0),
+    ("cutin_regular", "REGULAR!", FONT_EN, 20, "silver", 0, 0),
 ]
 
 

@@ -593,9 +593,18 @@ export async function bootstrap() {
    * これだと役を差し替えた時に絵だけ前の役のまま残る（いなり成立で握り寿司が出る）。
    * 役が自分の絵を名指しする形にすると、書かなかった役は自動で生成側へ落ちる。
    */
-  const cutinBackdropFor = (yaku: Yaku): CutinBackdrop => ({
+  const cutinBackdropFor = (
+    yaku: Yaku,
+    variant: 'big' | 'reg' = 'big',
+  ): CutinBackdrop => ({
     accent: colorResolver.cssForYakuId(yaku.id),
     imageUrl: yaku.cutinArt ? `${ART_BASE}${yaku.cutinArt}` : undefined,
+    // 3文字は**リールのドット文字をそのまま借りる**。役ごとの一枚絵を持たせると
+    // 役を差し替えた時に絵だけ前の役のまま残るが、リールの文字なら配列に追随する。
+    // 色もリールのまま出るので、REGは赤・赤・青（BAR対応が青）になる。
+    symbolArt: yaku.symbols.map((sym, reel) => glyphUrlFor(reel, sym)),
+    symbolColors: yaku.symbols.map((sym, reel) => colorResolver.cssFor(reel, sym)),
+    labelArt: `${ART_BASE}ui/${variant === 'reg' ? 'cutin_regular' : 'cutin_premium'}.png`,
   });
 
   // 章ごとのドット文字を読み込む。読めなかった文字だけフォント描画へ落ちる
@@ -1179,7 +1188,7 @@ export async function bootstrap() {
     // 前回の設定示唆はここで役目を終える。この区間の答えは終了時に出し直す
     setCabinetLamp(null);
     sfx.bonusEnter();
-    showPremiumCutin(yaku.name, yaku.symbols, cutinBackdropFor(yaku), kind);
+    showPremiumCutin(yaku.name, yaku.symbols, cutinBackdropFor(yaku, kind), kind);
     flashScreen({
       color: kind === 'reg' ? '#cdd6e0' : '#ffd700',
       alpha: kind === 'reg' ? 0.75 : 0.85,
