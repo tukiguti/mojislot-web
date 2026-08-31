@@ -1718,14 +1718,15 @@ body.shake {
   padding: 7px 12px 5px;
   background: linear-gradient(180deg, var(--bg-panel-hi) 0%, var(--bg-void) 100%);
   border-top: none;
-  position: relative; /* 左右のスピーカーグリル(疑似要素)の基準 */
+  position: relative; /* 左右のスピーカーグリル(.cabinet-lamp)の基準 */
 }
 
 /* ⑤ スピーカーグリル＝「音の台(ビタ押し＝リズム)」を明示。
-   ロゴはマストヘッド既出なので下段に第二ロゴは置かず、操作部の左右にグリルのみ。 */
-#control-panel::before,
-#control-panel::after {
-  content: '';
+   ロゴはマストヘッド既出なので下段に第二ロゴは置かず、操作部の左右にグリルのみ。
+
+   ここは**筐体ランプ**でもある。ボーナス終了時に設定示唆で光る（productions/CabinetLamp.ts）。
+   疑似要素で描いていたがJSから状態を持たせられないので実要素にした。 */
+.cabinet-lamp {
   position: absolute;
   top: 18px;
   bottom: 18px;
@@ -1740,12 +1741,55 @@ body.shake {
     inset 0 1px 0 rgba(255, 255, 255, 0.05);
   pointer-events: none;
   opacity: 0.6;
+  transition:
+    opacity 220ms ease-out,
+    box-shadow 220ms ease-out,
+    border-color 220ms ease-out;
 }
-#control-panel::before {
+.cabinet-lamp[data-side='left'] {
   left: 12px;
 }
-#control-panel::after {
+.cabinet-lamp[data-side='right'] {
   right: 12px;
+}
+/* 点灯。グリルの穴（radial-gradient のドット）自体を光らせて、外へ滲ませる。
+   --lamp は点灯色、--lamp-dim はドットの地色。 */
+.cabinet-lamp[data-lamp] {
+  opacity: 1;
+  border-color: var(--lamp);
+  background-image: radial-gradient(circle, var(--lamp) 0 1.5px, transparent 1.9px);
+  box-shadow:
+    inset 0 0 12px var(--lamp-dim),
+    0 0 14px var(--lamp-dim),
+    0 0 3px var(--lamp);
+  animation: cabinet-lamp-pulse 1.6s ease-in-out infinite;
+}
+.cabinet-lamp[data-lamp='blue'] {
+  --lamp: #4da3ff;
+  --lamp-dim: rgba(77, 163, 255, 0.45);
+}
+.cabinet-lamp[data-lamp='yellow'] {
+  --lamp: #ffd24d;
+  --lamp-dim: rgba(255, 210, 77, 0.45);
+}
+.cabinet-lamp[data-lamp='red'] {
+  --lamp: #ff4d5e;
+  --lamp-dim: rgba(255, 77, 94, 0.5);
+}
+@keyframes cabinet-lamp-pulse {
+  0%,
+  100% {
+    filter: brightness(1);
+  }
+  50% {
+    filter: brightness(1.35);
+  }
+}
+/* 明滅を止める設定では光量だけで示す（示唆そのものは色で読める） */
+@media (prefers-reduced-motion: reduce) {
+  .cabinet-lamp[data-lamp] {
+    animation: none;
+  }
 }
 .ctrl-row {
   display: flex;
@@ -1902,7 +1946,7 @@ body.shake {
 }
 #key-hint {
   width: 100%;
-  /* 左右のスピーカーグリル(疑似要素 width42+inset12)を避けつつ、1行で収める */
+  /* 左右のスピーカーグリル(.cabinet-lamp width42+inset12)を避けつつ、1行で収める */
   padding: 0 48px;
   text-align: center;
   font-size: 9px;
@@ -3495,9 +3539,9 @@ to {
     gap: 5px;
     padding: 6px 10px 5px;
   }
-  /* 狭画面はボタンと重なるのでスピーカーグリルを隠す */
-  #control-panel::before,
-  #control-panel::after {
+  /* 狭画面はボタンと重なるのでスピーカーグリル（＝筐体ランプ）を隠す。
+     示唆は終了画面の一言でも読めるので、ここが消えても情報は落ちない。 */
+  .cabinet-lamp {
     display: none;
   }
   #bet-btn,

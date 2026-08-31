@@ -36,6 +36,7 @@ import {
 import { settingForMachine } from './productions/HallPolicy';
 import { recordSpin as recordMachineSpin } from './productions/MachineData';
 import { drawEndScreen } from './productions/SettingHint';
+import { drawCabinetLamp } from './productions/CabinetLamp';
 import { EffectEligibility } from './productions/EffectEligibility';
 import { SfxEngine } from './audio/SfxEngine';
 import { BgmEngine } from './audio/BgmEngine';
@@ -662,6 +663,10 @@ export async function bootstrap() {
   const stopBtns = Array.from(
     document.querySelectorAll<HTMLButtonElement>('.stop-btn'),
   );
+  /** 筐体ランプ（操作部左右のスピーカーグリル）。狭画面ではCSSで隠れる。 */
+  const cabinetLampEls = Array.from(
+    document.querySelectorAll<HTMLElement>('.cabinet-lamp'),
+  );
   const resultEl = requireEl('result-display');
   const zukanBtn = requireEl<HTMLButtonElement>('zukan-btn');
   const bonusStatusEl = requireEl('bonus-status');
@@ -1171,6 +1176,8 @@ export async function bootstrap() {
    * 実突入（溜め経由）とデバッグ突入の両方から共通で呼ぶ（重複排除）。
    */
   const showBonusEntryFx = (yaku: Yaku, kind: 'big' | 'reg') => {
+    // 前回の設定示唆はここで役目を終える。この区間の答えは終了時に出し直す
+    setCabinetLamp(null);
     sfx.bonusEnter();
     showPremiumCutin(yaku.name, yaku.symbols, cutinBackdropFor(yaku), kind);
     flashScreen({
@@ -1343,6 +1350,24 @@ export async function bootstrap() {
     }, 2500);
   };
 
+  /**
+   * 筐体ランプの点灯／消灯。
+   *
+   * 終了画面の一言とは**軸が違う**示唆で、色の強さ＝高設定期待度だけを返す
+   * （productions/CabinetLamp.ts）。
+   *
+   * **次のボーナスに入るまで点けたままにする。** 終了画面の文字は数秒で消えるが、
+   * 示唆が効くのは「粘るか降りるか」を決める通常時のあいだ——そこで消えていては
+   * 経路を増やした意味がない。台を見れば分かる状態で残す。
+   * 次の終了時に引き直すので、点いている色は常に**直近のボーナスのもの**。
+   */
+  const setCabinetLamp = (color: string | null) => {
+    for (const el of cabinetLampEls) {
+      if (color === null || color === 'off') delete el.dataset.lamp;
+      else el.dataset.lamp = color;
+    }
+  };
+
   // === ボーナス終了リザルト（獲得枚数＋ファンファーレ）===
   // 区間の集計そのものは BonusSession が持つ。ここは締めの演出だけ。
   const showBonusResult = (payout: number, kind: 'big' | 'reg') => {
@@ -1352,6 +1377,9 @@ export async function bootstrap() {
     // ここは別経路の情報で、1回のボーナスで一気に確度が上がることがある。
     const endScreen = drawEndScreen(machineSetting, Math.random);
     const hint = endScreen.label ? `　${endScreen.label}` : '';
+    // 筐体ランプは**終了画面と同時**。ただし別抽選・別の軸（期待度のみ）なので、
+    // 終了画面が通常でもランプだけ点くことがある。
+    setCabinetLamp(drawCabinetLamp(machineSetting, Math.random).color);
     // リミックス島はここでステージが入れ替わる。**次の島を先に知らせる**——
     // 黙って変えると「配列を覚え直す準備」ができず、ただ理不尽になる。
     const nextStage = isRemixMachine(machine)
