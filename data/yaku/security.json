@@ -10,7 +10,7 @@
         "ク"
       ],
       "category": "core",
-      "payout": 2,
+      "payout": 3,
       "color": "#34c759"
     },
     {
@@ -35,7 +35,7 @@
         "プ"
       ],
       "category": "core",
-      "payout": 6,
+      "payout": 5,
       "color": "#ff9500",
       "noArt": true
     },
@@ -48,7 +48,7 @@
         "ル"
       ],
       "category": "core",
-      "payout": 8,
+      "payout": 7,
       "color": "#bf5af2"
     }
   ],
@@ -106,8 +106,8 @@
       "kind": "miss",
       "displayYakuId": null,
       "rate": {
-        "default": 0.0,
-        "rescue": 0.0,
+        "default": 0.4307392586,
+        "rescue": 0.3305132958,
         "bonus": 0.0
       }
     },
@@ -116,8 +116,8 @@
       "kind": "single",
       "displayYakuId": null,
       "rate": {
-        "default": 0.4307392586,
-        "rescue": 0.3305132958,
+        "default": 0.0,
+        "rescue": 0.0,
         "bonus": 0.0
       }
     },

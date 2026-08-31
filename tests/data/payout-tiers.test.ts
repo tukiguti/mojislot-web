@@ -36,7 +36,7 @@ const CHAPTERS = [
  * さらに減り、中級126.8%まで上がったので **3/5/7/9 → 2/4/6/8**（実測 −17.3pt）。
  * 残りはボーナス倍率 1.25→1.10 で詰めた。2枚ずつの階段と「出やすい役ほど安い」は据え置き。
  */
-const CORE_TIERS = [2, 4, 6, 8];
+const CORE_TIERS = [3, 4, 5, 7];
 
 describe('小役の枚数配分', () => {
   for (const chapter of CHAPTERS) {
