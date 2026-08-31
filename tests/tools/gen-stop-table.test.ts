@@ -257,7 +257,10 @@ function makeGuard(
         const next = [...stops];
         next[reel] = (press + s) % n;
         if (!feasible(targets, next)) continue;
-        if (pass === 0 && !robust(targets, next)) continue;
+        // **狙った押下位置での保証を最優先**にする。robust（どこで押されても
+        // 揃いうる）は5ラインあるぶん通りやすく、選択の縛りとして弱い。先に
+        // 通してしまうと「正しく狙ったのに揃わない」が残る（実測で4役）。
+        if (pass === 0 && !(robustAimed(targets, next) && robust(targets, next))) continue;
         if (pass === 1 && !robustAimed(targets, next)) continue;
         return s;
       }
@@ -265,7 +268,7 @@ function makeGuard(
     return null;
   };
 
-  return { chooseSlip, feasible, robust };
+  return { chooseSlip, feasible, robust, robustAimed };
 }
 
 export function computeFirstStopSlip(
@@ -424,11 +427,39 @@ describe.skipIf(!RUN)('停止テーブル生成', () => {
             if (!isBonusFlag) {
               // 非ボーナス：リーチ目の形を**避ける**（蹴り）。これが無いと
               // 「ボーナスの時にしか出ない」が成立せず、告知が嘘になる。
-              for (let d = 0; d <= tuning.assist.pullInCells; d++) {
-                const cand = (slip + d) % (tuning.assist.pullInCells + 1);
-                if (!isReachCol(reel, (press + cand) % n)) return cand;
+              //
+              // ただし**引き込み保証を壊さないこと**。蹴り先を無条件に選ぶと、
+              // 保証で決めた滑りが上書きされて「正しく狙ったのに揃わない」が出る
+              // （実測でウサギの滑り2が4へずれ、図柄が窓から消えていた）。
+              // 保証を満たす候補の中から蹴り先を探し、無ければ保証を優先する。
+              // 蹴り先が**保証で選んだ滑りを壊さない**か。robustAimed まで求めると
+              // 候補が全滅して素の蹴りに落ちるので（実測でそうなった）、ここは
+              // 「その役が成立しうる」＝feasible を守れば十分とする。
+              const guardOk = (cand: number): boolean => {
+                if (guarded === null) return true;
+                if (cand === guarded) return true;
+                const next = [...stops0];
+                next[reel] = (press + cand) % n;
+                return guard.feasible(targets, next);
+              };
+              // **保証を蹴りより優先する。** 両立しない押下位置では蹴りを諦める。
+              // 1確の告知はやめた（停止形は残すが演出として出さない）ので、蹴りの
+              // 役目は「リーチ目の集合を作る」ことだけになった。蹴れなかった形は
+              // 抽出時に非ボーナスでも出る形として除かれるだけで、**嘘の告知には
+              // ならない**（リーチ目の集合が少し減る）。逆に保証を諦めると
+              // 「正しく狙ったのに揃わない」が残る。
+              const order2: ((c: number) => boolean)[] = [
+                (c) => guardOk(c) && !isReachCol(reel, (press + c) % n),
+                (c) => guardOk(c),
+                (c) => !isReachCol(reel, (press + c) % n),
+              ];
+              for (const ok of order2) {
+                for (let d = 0; d <= tuning.assist.pullInCells; d++) {
+                  const cand = (slip + d) % (tuning.assist.pullInCells + 1);
+                  if (ok(cand)) return cand;
+                }
               }
-              return slip; // 窓内すべて該当（配列的にあり得ないが保険）
+              return slip;
             }
             // ボーナス側の優先順位:
             //   ① 図柄を**中段**へ引き込む → 揃えに行きつつ、それ自体が確定目になる
