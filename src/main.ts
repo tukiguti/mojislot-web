@@ -76,9 +76,9 @@ import {
   clearBlackout,
   setStepFx,
   STEP_LEVER,
-  STEP_STOP_MAX,
-  STEP_TENPAI,
-  STEP_TENPAI_PREMIUM,
+  STEP_GREEN,
+  STEP_RED,
+  STEP_GOLD,
   clearFreezeBanner,
   showRankUpBadge,
 } from './ui/Effects';
@@ -762,21 +762,20 @@ export async function bootstrap() {
   }
 
   /**
-   * 段階演出のいまの段（0＝出ていない）。**演出が出ているゲームでだけ動く。**
-   * どのゲームでも出すと「無演出のゲームには何も起きない」が壊れる。
+   * ステップアップ演出のいまの段（0＝出ていない）。チェリー成立ゲームでだけ動く。
+   * このゲームのことは何も言わず、**終了色（第3停止）が次ゲームの予告**になる。
    */
   let stepFx = 0;
+  /** そのステップアップの終了色。レバーONの時点で決まっている（先読み）。 */
+  let stepFinalColor = STEP_GREEN;
   const setStep = (step: number) => {
     stepFx = step;
     setStepFx(step);
   };
-  /**
-   * 段を進める。停止では緑（3段目）までしか上がらず、**赤と金はテンパイ専用**。
-   * `to` を渡すとそこへ飛ぶ。
-   */
+  /** 段を1つ進める。第3停止では終了色へ飛ぶ。 */
   const bumpStep = (to?: number) => {
-    if (stepFx <= 0) return; // 無演出のゲームでは何も起きない
-    const next = to ?? Math.min(stepFx + 1, STEP_STOP_MAX);
+    if (stepFx <= 0) return;
+    const next = to ?? stepFx + 1;
     if (next <= stepFx) return;
     setStep(next);
     sfx.stepUp(next);
@@ -784,8 +783,6 @@ export async function bootstrap() {
 
   const applyEffect = (effect: EffectType, options: EffectOptions = {}) => {
     currentEffect = effect;
-    // レバーONで演出が付いた＝1段目。none なら段階演出そのものを出さない
-    setStep(effect === 'none' ? 0 : STEP_LEVER);
     for (const engine of engines) engine.setSpeed(reelSpeed());
 
     // 示唆tierも内部役に対応する候補からactivateRoundで確定済み。
@@ -933,6 +930,65 @@ export async function bootstrap() {
         ? eligibility.candidatesFor(shisaTier, activeInternalRoleState())
         : undefined,
     });
+  };
+
+  /**
+   * 次ゲームの先読み。**ステップアップの終了色を決めるためだけ**に、
+   * 通常抽選と同じ手順で1ゲーム先の役と演出を引いておく。
+   *
+   * 抽選の順序が1ゲーム早まるだけなので**出玉は変わらない**。使われずに
+   * 捨てられることもあるが（ボーナス突入・デバッグ予約・持ち越しが挟まった時）、
+   * 独立抽選なので捨てても分布は動かない。捨てられた分は予告が外れる側に回る。
+   */
+  interface PreRoll {
+    role: InternalRoleResult;
+    effect: EffectType;
+  }
+  let preRoll: PreRoll | null = null;
+  const rollNextGame = (): PreRoll => {
+    const role = internalRoleLottery.draw(activeInternalRoleState());
+    const yaku = internalRoleLottery.yakuFor(role);
+    const effect: EffectType = role.freeze
+      ? 'none'
+      : yaku
+        ? scheduler.rollAvailable(eligibility.eligibleEffects(yaku))
+        : 'none';
+    return { role, effect };
+  };
+
+  /**
+   * ステップアップの終了色を決める。**次ゲームで狙える形になるか**で見る。
+   *
+   * 「狙え」と「クイズ」は図柄を名指しする演出で、出れば取りこぼしがほぼ無い。
+   * 示唆は色しか出ないので候補が絞れず、ここでは予告の対象に含めない——
+   * 「金が出たのにBIGを落とした」が普通に起きると予告が信用されなくなる。
+   *
+   * どの色にもガセを混ぜる。確定にすると、赤や金が出た瞬間にそのゲームを打つ
+   * 意味が「消化」に変わる（[spec] 出たら意味があるが出なくても否定にならない）。
+   */
+  const STEP_COLOR_WEIGHTS: Record<'big' | 'reg' | 'other', [number, number, number]> = {
+    // [緑, 赤, 金]
+    big: [40, 200, 760],
+    reg: [180, 790, 30],
+    other: [9975, 21, 4],
+  };
+  const pickStepColor = (pre: PreRoll): number => {
+    const yaku = internalRoleLottery.yakuFor(pre.role);
+    const aimed = pre.effect === 'aim' || pre.effect === 'quiz';
+    const kind: 'big' | 'reg' | 'other' =
+      !aimed || !yaku
+        ? 'other'
+        : yaku.category === 'premium'
+          ? 'big'
+          : yaku.category === 'bonus'
+            ? 'reg'
+            : 'other';
+    const w = STEP_COLOR_WEIGHTS[kind];
+    const total = w[0] + w[1] + w[2];
+    let r = Math.random() * total;
+    if ((r -= w[0]) < 0) return STEP_GREEN;
+    if ((r -= w[1]) < 0) return STEP_RED;
+    return STEP_GOLD;
   };
 
   const drawDebugRole = (effect: ForcedEffect): InternalRoleResult =>
@@ -1610,6 +1666,19 @@ export async function bootstrap() {
       !announcedBonus &&
       Math.random() < tuning.announceLamp.rate;
 
+    // 前ゲームのステップアップをここで畳む。**この位置でないといけない**——
+    // startSpin の中で消していた時は、レバーONで点けた段をそのまま自分で
+    // 消していた（startSpin は下で呼ばれるので、点灯より後になる）。
+    // 終了色は次のレバーまで残す。予告している当のゲームが始まるまで見えて
+    // いないと、何を待っているのか分からなくなる。
+    if (stepFx > 0) setStep(0);
+
+    // 先読みはここで取り出す。**通常抽選のブランチ以外に入れば捨てられる**——
+    // ボーナス突入やデバッグ予約が挟まった時に古い先読みを使うと、
+    // 予告した内容と実際の内部役が食い違う。
+    const pre = preRoll;
+    preRoll = null;
+
     if (forcedFreezeRole) {
       activateRound(forcedFreezeRole, 'none', 'freeze');
     } else if (pendingDebugEffect) {
@@ -1668,18 +1737,28 @@ export async function bootstrap() {
       doFreeze = role.freeze;
       activateRound(role, 'none', doFreeze ? 'freeze' : 'lottery');
     } else {
-      const role = internalRoleLottery.draw(activeInternalRoleState());
-      const yaku = internalRoleLottery.yakuFor(role);
+      // 前ゲームでステップアップが出ていれば、その時に引いた役をここで使う。
+      // 無ければ普段どおり引く。
+      const rolled = pre ?? rollNextGame();
+      const role = rolled.role;
       // フリーズ役を引いた＝その場でBIG確定。演出は出さずフリーズシーケンスへ渡す。
       doFreeze = role.freeze;
       // miss / 1枚役（表示役なし）は none。それ以外は「表現できる演出＋無演出」から
       // レート抽選する。当たっているのに演出が出ない（＝狙えない）ゲームがここで生まれる。
-      const effect: EffectType = doFreeze
-        ? 'none'
-        : yaku
-          ? scheduler.rollAvailable(eligibility.eligibleEffects(yaku))
-          : 'none';
+      const effect: EffectType = doFreeze ? 'none' : rolled.effect;
       activateRound(role, effect, doFreeze ? 'freeze' : 'lottery');
+
+      // **チェリーならステップアップ。** 実機の「チャンス役から前兆」と同じ形。
+      // このゲームのことは何も言わない（チェリーは狙えば揃うし、揃わなくても
+      // 予告は生きる）ので、演出の有無とは無関係に出す。
+      //
+      // ボーナス中は出さない。次ゲームもボーナス中で、そこでは毎ゲーム演出が
+      // 出る（none=0）ので予告するものが無い。
+      if (!doFreeze && role.kind === 'cherry' && !bonusSession.spinActive) {
+        preRoll = rollNextGame();
+        stepFinalColor = pickStepColor(preRoll);
+        setStep(STEP_LEVER);
+      }
     }
 
     // 遅れ：レバーを叩いてもリールが回り出さない「間」。ハズレでは出さないので
@@ -2003,8 +2082,9 @@ export async function bootstrap() {
       sfx.stop();
     }
     views[idx].triggerStopBounce();
-    // 段階演出を1段。**段は停止した本数だけで決まる**ので情報は増えない
-    bumpStep();
+    // ステップアップを1段。第3停止で終了色（＝次ゲームの予告）まで開く。
+    // 押した位置や出目では変わらない——チェリーを落としても予告は生きる。
+    bumpStep(stopOrder.length >= REEL_COUNT ? stepFinalColor : undefined);
     flashButton(stopBtns[idx]);
     // ビタ押し成功時のみ、強めの金色リップル。それ以外は控えめな赤。
     // 色だけの差だったので、色に頼らない設定では bita 側を二重の輪にする（CSS）。
@@ -2088,10 +2168,6 @@ export async function bootstrap() {
         if (tenpai.hasPremium) sfx.tenpaiPremium();
         else sfx.tenpai();
         showSoundCue('テンパイ');
-        // テンパイだけは段を飛ばす。**画面を見れば分かる**ことなので情報は増えない。
-        // ボーナス図柄のテンパイは枠フラッシュとSEでも区別が付いているので、
-        // 金まで上げても新しいことは言っていない
-        bumpStep(tenpai.hasPremium ? STEP_TENPAI_PREMIUM : STEP_TENPAI);
       }
     }
 
@@ -2099,9 +2175,7 @@ export async function bootstrap() {
       // 全停止したので「狙え！」演出は閉じる（レバーオン示唆として出た場合）
       hideAimNotice();
       hideShisaNotice();
-      // 段階演出も畳む。結果の表示と重ねると、縁が光っているのが
-      // 「まだ何かある」ように見える
-      setStep(0);
+
       // 出目から成立ラインと払い出しを確定させる（表示はしない純粋な計算）。
       const grid = extractGrid(engines);
       const middleSymbols = grid[1] as [string, string, string]; // 既存UI互換用
