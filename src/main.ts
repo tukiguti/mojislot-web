@@ -967,10 +967,30 @@ export async function bootstrap() {
    * 意味が「消化」に変わる（[spec] 出たら意味があるが出なくても否定にならない）。
    */
   const STEP_COLOR_WEIGHTS: Record<'big' | 'reg' | 'other', [number, number, number]> = {
-    // [緑, 赤, 金]
-    big: [40, 200, 760],
-    reg: [180, 790, 30],
-    other: [9975, 21, 4],
+    // [緑, 赤, 金]（合計は揃っていなくてよい。内部で正規化する）
+    big: [200, 1800, 8000],
+    reg: [900, 8800, 300],
+    // ガセ。**ここが効く**——「それ以外」が99.7%を占めるので、わずかな重みでも
+    // 赤と金の大半を占めてしまう。的中8割を保つにはこの桁まで絞る必要がある。
+    other: [99945, 45, 10],
+  };
+
+  /**
+   * ステップアップの契機になる内部役か。
+   *
+   * **チェリーと、払い出しの大きい小役**（7枚）。実機の「チャンス役から前兆」で、
+   * 契機をすでにある役に乗せるのは**出玉を1枚も動かさないため**——専用の抽選を
+   * 足すと、その分だけ他の役が減る。
+   *
+   * 契機を増やすと予告の機会は増えるが、**赤と金の頻度に天井がある**ことは
+   * 変わらない。予告できるのは「次ゲームがボーナスの狙え」が起きた時だけで、
+   * それ自体が BIG 1/1343・REG 1/561（狙え/クイズが出る確率込み）しかない。
+   */
+  const STEP_TRIGGER_MIN_PAYOUT = 7;
+  const isStepTrigger = (role: InternalRoleResult): boolean => {
+    if (role.kind === 'cherry') return true;
+    if (role.kind !== 'core') return false;
+    return (internalRoleLottery.yakuFor(role)?.payout ?? 0) >= STEP_TRIGGER_MIN_PAYOUT;
   };
   const pickStepColor = (pre: PreRoll): number => {
     const yaku = internalRoleLottery.yakuFor(pre.role);
@@ -1748,13 +1768,14 @@ export async function bootstrap() {
       const effect: EffectType = doFreeze ? 'none' : rolled.effect;
       activateRound(role, effect, doFreeze ? 'freeze' : 'lottery');
 
-      // **チェリーならステップアップ。** 実機の「チャンス役から前兆」と同じ形。
-      // このゲームのことは何も言わない（チェリーは狙えば揃うし、揃わなくても
-      // 予告は生きる）ので、演出の有無とは無関係に出す。
+      // **チェリーと払い出しの大きい小役ならステップアップ。** 実機の
+      // 「チャンス役から前兆」と同じ形。このゲームのことは何も言わない
+      // （契機の役は狙えば揃うし、揃わなくても予告は生きる）ので、
+      // 演出の有無とは無関係に出す。
       //
       // ボーナス中は出さない。次ゲームもボーナス中で、そこでは毎ゲーム演出が
       // 出る（none=0）ので予告するものが無い。
-      if (!doFreeze && role.kind === 'cherry' && !bonusSession.spinActive) {
+      if (!doFreeze && isStepTrigger(role) && !bonusSession.spinActive) {
         preRoll = rollNextGame();
         stepFinalColor = pickStepColor(preRoll);
         setStep(STEP_LEVER);
