@@ -2534,25 +2534,31 @@ body.shake {
     box-shadow 260ms ease-out,
     opacity 260ms ease-out;
 }
+/* 実機のランプの序列（白 < 青 < 緑 < 赤 < 金）。赤と金はテンパイしてからしか出ない */
 .step-fx[data-step='1'] {
-  --step-c: #d8e4f2;
+  --step-c: #dde6f2;
   --step-w: 3px;
-  --step-a: 0.42;
+  --step-a: 0.40;
 }
 .step-fx[data-step='2'] {
-  --step-c: #ffe27a;
+  --step-c: #4da3ff;
   --step-w: 5px;
-  --step-a: 0.58;
+  --step-a: 0.55;
 }
 .step-fx[data-step='3'] {
-  --step-c: #ffa53d;
-  --step-w: 8px;
-  --step-a: 0.74;
+  --step-c: #3ddc84;
+  --step-w: 7px;
+  --step-a: 0.70;
 }
 .step-fx[data-step='4'] {
+  --step-c: #ff4d5e;
+  --step-w: 10px;
+  --step-a: 0.86;
+}
+.step-fx[data-step='5'] {
   --step-c: #ffd700;
-  --step-w: 12px;
-  --step-a: 0.92;
+  --step-w: 14px;
+  --step-a: 1;
 }
 .step-fx {
   box-shadow:

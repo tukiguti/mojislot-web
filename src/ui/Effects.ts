@@ -272,10 +272,20 @@ export function showRankUpBadge(streak: number, color: string): void {
  * 例外はテンパイで、その時だけ最上段へ飛ぶ。テンパイは画面を見れば分かるので
  * 情報は増えない。
  *
- * 色は段そのものを表す固定のランプ（白→黄→橙→金）にしてある。演出の色を
- * 借りると「色＝候補の範囲」という既存の意味と混ざる。
+ * 色は実機のランプの序列に合わせる（白 → 青 → 緑 → 赤 → 金）。**演出の色は
+ * 借りない**——このゲームでは色がそのまま候補の範囲を指すので、借りると2つの
+ * 意味が混ざる。赤と金は示唆でも強い色だが、この2段はテンパイしてからしか
+ * 出ないので、出た時点で盤面を見れば何が起きているかは分かる。
  */
-export const STEP_FX_MAX = 4;
+/** 段の割り当て。1〜3は停止で進み、4・5はテンパイでしか出ない。 */
+export const STEP_LEVER = 1;
+/** 停止で進める上限（緑）。ここから先はテンパイ専用。 */
+export const STEP_STOP_MAX = 3;
+/** テンパイ（赤）。 */
+export const STEP_TENPAI = 4;
+/** ボーナス図柄のテンパイ（金）。枠フラッシュとSEでも分かるので情報は増えない。 */
+export const STEP_TENPAI_PREMIUM = 5;
+export const STEP_FX_MAX = STEP_TENPAI_PREMIUM;
 let stepFxEl: HTMLElement | null = null;
 export function setStepFx(step: number): void {
   if (step <= 0) {

@@ -75,7 +75,10 @@ import {
   showBlackout,
   clearBlackout,
   setStepFx,
-  STEP_FX_MAX,
+  STEP_LEVER,
+  STEP_STOP_MAX,
+  STEP_TENPAI,
+  STEP_TENPAI_PREMIUM,
   clearFreezeBanner,
   showRankUpBadge,
 } from './ui/Effects';
@@ -767,11 +770,14 @@ export async function bootstrap() {
     stepFx = step;
     setStepFx(step);
   };
-  /** 停止のたびに1段上げる。テンパイした時だけ最上段へ飛ばす。 */
-  const bumpStep = (toMax = false) => {
+  /**
+   * 段を進める。停止では緑（3段目）までしか上がらず、**赤と金はテンパイ専用**。
+   * `to` を渡すとそこへ飛ぶ。
+   */
+  const bumpStep = (to?: number) => {
     if (stepFx <= 0) return; // 無演出のゲームでは何も起きない
-    const next = toMax ? STEP_FX_MAX : Math.min(stepFx + 1, STEP_FX_MAX);
-    if (next === stepFx) return;
+    const next = to ?? Math.min(stepFx + 1, STEP_STOP_MAX);
+    if (next <= stepFx) return;
     setStep(next);
     sfx.stepUp(next);
   };
@@ -779,7 +785,7 @@ export async function bootstrap() {
   const applyEffect = (effect: EffectType, options: EffectOptions = {}) => {
     currentEffect = effect;
     // レバーONで演出が付いた＝1段目。none なら段階演出そのものを出さない
-    setStep(effect === 'none' ? 0 : 1);
+    setStep(effect === 'none' ? 0 : STEP_LEVER);
     for (const engine of engines) engine.setSpeed(reelSpeed());
 
     // 示唆tierも内部役に対応する候補からactivateRoundで確定済み。
@@ -2082,8 +2088,10 @@ export async function bootstrap() {
         if (tenpai.hasPremium) sfx.tenpaiPremium();
         else sfx.tenpai();
         showSoundCue('テンパイ');
-        // テンパイだけは段を飛ばす。**画面を見れば分かる**ことなので情報は増えない
-        bumpStep(true);
+        // テンパイだけは段を飛ばす。**画面を見れば分かる**ことなので情報は増えない。
+        // ボーナス図柄のテンパイは枠フラッシュとSEでも区別が付いているので、
+        // 金まで上げても新しいことは言っていない
+        bumpStep(tenpai.hasPremium ? STEP_TENPAI_PREMIUM : STEP_TENPAI);
       }
     }
 
