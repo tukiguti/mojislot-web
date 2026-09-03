@@ -116,6 +116,16 @@ export class SfxEngine {
   bita(): void {
     this.beep({ freq: 1400, durMs: 110, type: 'sine', vol: 0.45 });
   }
+  /**
+   * 段階演出が1段上がる音。段が進むほど高くする。
+   *
+   * **停止音（stop）に重ねる**ので、単体で目立たせない——押した手応えの主役は
+   * 停止音のほうで、こちらはその上に薄く乗る成分。音量を上げると押し心地が濁る。
+   */
+  stepUp(step: number): void {
+    const freq = 520 + Math.max(0, step - 1) * 180;
+    this.beep({ freq, durMs: 80, type: 'triangle', vol: 0.22 });
+  }
 
   winCore(): void {
     this.sequence(

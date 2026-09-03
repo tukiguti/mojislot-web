@@ -257,6 +257,70 @@ export function showRankUpBadge(streak: number, color: string): void {
   window.setTimeout(() => el.remove(), 1300);
 }
 
+/**
+ * 段階演出（レバー → 第1停止 → 第2停止 → テンパイ）。
+ *
+ * 液晶の縁が、押すたびに1段ずつ熱くなる。**演出が出ているゲームでだけ動かす**——
+ * どのゲームでも出すと「無演出のゲームには何も起きない」が壊れ、無演出であること
+ * 自体が持っていた意味（[spec] 演出は情報だけを持つ）が読めなくなる。
+ *
+ * **段は情報を持たない。** 上がる条件は停止した本数だけで、毎回同じように進む。
+ * 実機のステップアップ予告は「最後まで行けば期待度が高い」＝情報だが、それを
+ * やるとレバーONで内部役が決まっているこのゲームでは二重の告知になる。ここは
+ * **押した手応えを返すためだけ**のもの。
+ *
+ * 例外はテンパイで、その時だけ最上段へ飛ぶ。テンパイは画面を見れば分かるので
+ * 情報は増えない。
+ *
+ * 色は段そのものを表す固定のランプ（白→黄→橙→金）にしてある。演出の色を
+ * 借りると「色＝候補の範囲」という既存の意味と混ざる。
+ */
+export const STEP_FX_MAX = 4;
+let stepFxEl: HTMLElement | null = null;
+export function setStepFx(step: number): void {
+  if (step <= 0) {
+    stepFxEl?.remove();
+    stepFxEl = null;
+    return;
+  }
+  if (!stepFxEl) {
+    stepFxEl = document.createElement('div');
+    stepFxEl.className = 'step-fx';
+    stepFxEl.setAttribute('aria-hidden', 'true');
+    effectHost.appendChild(stepFxEl);
+  }
+  const el = stepFxEl;
+  el.dataset.step = String(Math.min(step, STEP_FX_MAX));
+  // 段が変わったことを一瞬の脈で示す。クラスを付け直さないと再生されない
+  el.classList.remove('bump');
+  void el.offsetWidth;
+  el.classList.add('bump');
+}
+
+/**
+ * ブラックアウト（筐体まるごとの暗転）。
+ *
+ * **フリーズ専用。** 実機のフリーズは、派手に始まるのではなく**いったん全部落ちる**。
+ * ランプが消えてリールが止まり、無音になって、数秒おいてから復帰する。この
+ * 「何も起きない間」があるから復帰が効く。
+ *
+ * 液晶の中だけでは足りないので、対象は `#cabinet`——リールも操作部も一緒に沈める。
+ * 演出ホスト（液晶内）とは別に持つのはそのため。
+ *
+ * 無演出の穴埋めには使わない（[spec] 強レア役とボーナス専用）。ここで安売りすると
+ * 「全部落ちた」が驚きでなくなる。
+ */
+let blackoutHost: HTMLElement | null = null;
+export function setBlackoutHost(el: HTMLElement): void {
+  blackoutHost = el;
+}
+export function showBlackout(): void {
+  blackoutHost?.classList.add('blackout');
+}
+export function clearBlackout(): void {
+  blackoutHost?.classList.remove('blackout');
+}
+
 /** フリーズ演出中の「FREEZE!?」バナー。clearFreezeBanner() まで残る。 */
 let freezeBannerEl: HTMLElement | null = null;
 export function showFreezeBanner(): void {

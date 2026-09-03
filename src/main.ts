@@ -71,6 +71,11 @@ import {
   showDelay,
   showEntryCharge,
   showFreezeBanner,
+  setBlackoutHost,
+  showBlackout,
+  clearBlackout,
+  setStepFx,
+  STEP_FX_MAX,
   clearFreezeBanner,
   showRankUpBadge,
 } from './ui/Effects';
@@ -376,6 +381,11 @@ export async function bootstrap() {
   let stageSwapping = false;
   // レバーオン時のフリーズ抽選確率（通常時のみ）／倍速回転スピード。data/tuning で調整。
   const FREEZE_SPIN_SPEED = tuning.freeze.spinSpeed;
+  /**
+   * ブラックアウトの長さ。**ここが「フリーズ」そのもの**なので短すぎると
+   * ただの暗転になる。長すぎると故障を疑われるので1秒前後で取る。
+   */
+  const FREEZE_BLACKOUT_MS = 1000;
 
   /**
    * リール速度（コマ/秒）。data/tuning が既定で、設定モーダルから上書きできる（体感比較用）。
@@ -488,6 +498,8 @@ export async function bootstrap() {
   lcdFx.id = 'lcd-fx';
   requireEl('game-area').appendChild(lcdFx);
   setEffectHost(lcdFx);
+  // ブラックアウトだけは液晶の外まで落とす（リールも操作部も一緒に沈める）。
+  setBlackoutHost(requireEl('cabinet'));
 
   // 見やすさの設定のうち、CSSでは止めきれないもの（紙吹雪やコインの生成）を
   // 演出側へ流し込む。設定は開いたまま切り替えられるので購読しておく。
@@ -746,8 +758,28 @@ export async function bootstrap() {
     shisaCandidates?: readonly Yaku[];
   }
 
+  /**
+   * 段階演出のいまの段（0＝出ていない）。**演出が出ているゲームでだけ動く。**
+   * どのゲームでも出すと「無演出のゲームには何も起きない」が壊れる。
+   */
+  let stepFx = 0;
+  const setStep = (step: number) => {
+    stepFx = step;
+    setStepFx(step);
+  };
+  /** 停止のたびに1段上げる。テンパイした時だけ最上段へ飛ばす。 */
+  const bumpStep = (toMax = false) => {
+    if (stepFx <= 0) return; // 無演出のゲームでは何も起きない
+    const next = toMax ? STEP_FX_MAX : Math.min(stepFx + 1, STEP_FX_MAX);
+    if (next === stepFx) return;
+    setStep(next);
+    sfx.stepUp(next);
+  };
+
   const applyEffect = (effect: EffectType, options: EffectOptions = {}) => {
     currentEffect = effect;
+    // レバーONで演出が付いた＝1段目。none なら段階演出そのものを出さない
+    setStep(effect === 'none' ? 0 : 1);
     for (const engine of engines) engine.setSpeed(reelSpeed());
 
     // 示唆tierも内部役に対応する候補からactivateRoundで確定済み。
@@ -1965,6 +1997,8 @@ export async function bootstrap() {
       sfx.stop();
     }
     views[idx].triggerStopBounce();
+    // 段階演出を1段。**段は停止した本数だけで決まる**ので情報は増えない
+    bumpStep();
     flashButton(stopBtns[idx]);
     // ビタ押し成功時のみ、強めの金色リップル。それ以外は控えめな赤。
     // 色だけの差だったので、色に頼らない設定では bita 側を二重の輪にする（CSS）。
@@ -2048,6 +2082,8 @@ export async function bootstrap() {
         if (tenpai.hasPremium) sfx.tenpaiPremium();
         else sfx.tenpai();
         showSoundCue('テンパイ');
+        // テンパイだけは段を飛ばす。**画面を見れば分かる**ことなので情報は増えない
+        bumpStep(true);
       }
     }
 
@@ -2055,6 +2091,9 @@ export async function bootstrap() {
       // 全停止したので「狙え！」演出は閉じる（レバーオン示唆として出た場合）
       hideAimNotice();
       hideShisaNotice();
+      // 段階演出も畳む。結果の表示と重ねると、縁が光っているのが
+      // 「まだ何かある」ように見える
+      setStep(0);
       // 出目から成立ラインと払い出しを確定させる（表示はしない純粋な計算）。
       const grid = extractGrid(engines);
       const middleSymbols = grid[1] as [string, string, string]; // 既存UI互換用
@@ -2400,13 +2439,21 @@ export async function bootstrap() {
     hideAimNotice();
     hideShisaNotice();
     updateButtons();
-    sfx.freeze();
-    showFreezeBanner();
-    flashScreen({ color: '#cfe4ff', alpha: 0.9, durMs: 220 });
-    // 1) フリーズ発生: 一瞬リールを停止（速度0）
+    // 1) 全部落とす。**ここでは何も鳴らさないし出さない。**
+    //    実機のフリーズは派手に始まるのではなく、ランプが消えてリールが止まり
+    //    無音になる。この「何も起きない間」があるから復帰が効く。
+    //    以前はここでいきなりSE＋バナー＋青フラッシュを出していて、
+    //    フリーズ（＝進行が止まること）が演出として伝わっていなかった。
     for (const e of engines) e.setSpeed(0);
+    bgm.stop();
+    showBlackout();
     window.setTimeout(() => {
-      // 2) 倍速回転
+      // 2) 明けた瞬間に爆発させる。暗転の解除・バナー・SE・フラッシュ・倍速回転を
+      //    同じフレームに揃える（ずらすと「明るくなってから何か始まる」になる）。
+      clearBlackout();
+      sfx.freeze();
+      showFreezeBanner();
+      flashScreen({ color: '#cfe4ff', alpha: 0.9, durMs: 220 });
       for (const e of engines) e.setSpeed(FREEZE_SPIN_SPEED);
       sfx.lever();
       // 3) 1リール目から順に7を強制停止
@@ -2418,7 +2465,7 @@ export async function bootstrap() {
         clearFreezeBanner();
         updateButtons();
       }, 1900);
-    }, 650);
+    }, FREEZE_BLACKOUT_MS);
   };
 
   // === 確定告知ランプ ===

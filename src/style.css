@@ -2521,6 +2521,82 @@ body.shake {
 }
 
 /* === フリーズ演出バナー === */
+/* 段階演出。液晶の縁が押すたびに1段ずつ熱くなる。
+   段の色は固定のランプ（白→黄→橙→金）——演出の色を借りると
+   「色＝候補の範囲」という既存の意味と混ざる。 */
+.step-fx {
+  position: absolute;
+  inset: 0;
+  z-index: 9990;
+  pointer-events: none;
+  border-radius: 4px;
+  transition:
+    box-shadow 260ms ease-out,
+    opacity 260ms ease-out;
+}
+.step-fx[data-step='1'] {
+  --step-c: #d8e4f2;
+  --step-w: 3px;
+  --step-a: 0.42;
+}
+.step-fx[data-step='2'] {
+  --step-c: #ffe27a;
+  --step-w: 5px;
+  --step-a: 0.58;
+}
+.step-fx[data-step='3'] {
+  --step-c: #ffa53d;
+  --step-w: 8px;
+  --step-a: 0.74;
+}
+.step-fx[data-step='4'] {
+  --step-c: #ffd700;
+  --step-w: 12px;
+  --step-a: 0.92;
+}
+.step-fx {
+  box-shadow:
+    inset 0 0 var(--step-w, 3px) color-mix(in srgb, var(--step-c, #fff) 90%, transparent),
+    inset 0 0 calc(var(--step-w, 3px) * 3.2)
+      color-mix(in srgb, var(--step-c, #fff) 55%, transparent);
+  opacity: var(--step-a, 0.4);
+}
+/* 段が変わった瞬間の脈。1回だけ膨らんで戻る */
+.step-fx.bump {
+  animation: step-fx-bump 320ms ease-out;
+}
+@keyframes step-fx-bump {
+  0% {
+    filter: brightness(2.2);
+  }
+  100% {
+    filter: brightness(1);
+  }
+}
+.a11y-reduce-motion .step-fx.bump {
+  animation: none;
+}
+/* 「光を弱める」設定では薄くする。段そのものは残す——太さでも段は読める */
+.a11y-dim .step-fx {
+  opacity: calc(var(--step-a, 0.4) * 0.45);
+}
+
+/* ブラックアウト（フリーズ専用）。筐体まるごと落とす——液晶だけ暗くしても
+   リールと操作部が光ったままで「電源が落ちた」に見えない。
+   落ちるのはゆっくり、明けるのは一瞬。明けた瞬間に爆発させたいので。 */
+#cabinet.blackout {
+  filter: brightness(0.05) saturate(0.15);
+  transition: filter 260ms ease-out;
+}
+#cabinet {
+  transition: filter 90ms ease-in;
+}
+/* 急な明暗差が苦手な人向けに浅くする。**暗転そのものは消さない**——
+   間が空くこと自体がフリーズの合図で、消すと何が起きたか分からなくなる。 */
+.a11y-reduce-motion #cabinet.blackout {
+  filter: brightness(0.4) saturate(0.5);
+  transition: filter 400ms ease-out;
+}
 .freeze-overlay {
   position: absolute;
   inset: 0;
