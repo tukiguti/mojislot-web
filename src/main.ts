@@ -945,9 +945,15 @@ export async function bootstrap() {
     effect: EffectType;
   }
   let preRoll: PreRoll | null = null;
-  const rollNextGame = (): PreRoll => {
-    const role = internalRoleLottery.draw(activeInternalRoleState());
+  /**
+   * ステップアップを経由しない普通のゲーム。**BIG と REG は落とす**——
+   * ボーナスはステップアップ経由でしか出さないので、ここで引くと二重になる。
+   */
+  const rollNormalGame = (): PreRoll => {
+    const role = withoutBonus(internalRoleLottery.draw(activeInternalRoleState()));
     const yaku = internalRoleLottery.yakuFor(role);
+    // miss / 1枚役（表示役なし）は none。それ以外は「表現できる演出＋無演出」から
+    // レート抽選する。当たっているのに演出が出ない（＝狙えない）ゲームがここで生まれる。
     const effect: EffectType = role.freeze
       ? 'none'
       : yaku
@@ -966,49 +972,111 @@ export async function bootstrap() {
    * どの色にもガセを混ぜる。確定にすると、赤や金が出た瞬間にそのゲームを打つ
    * 意味が「消化」に変わる（[spec] 出たら意味があるが出なくても否定にならない）。
    */
-  const STEP_COLOR_WEIGHTS: Record<'big' | 'reg' | 'other', [number, number, number]> = {
-    // [緑, 赤, 金]（合計は揃っていなくてよい。内部で正規化する）
-    big: [200, 1800, 8000],
-    reg: [900, 8800, 300],
-    // ガセ。**ここが効く**——「それ以外」が99.7%を占めるので、わずかな重みでも
-    // 赤と金の大半を占めてしまう。的中8割を保つにはこの桁まで絞る必要がある。
-    other: [99945, 45, 10],
+  /**
+   * ステップアップの色と、次ゲームの中身。
+   *
+   * **色が期待度そのもの。** 先読みして色を決めるのではなく、**色を先に決めて
+   * そこから次ゲームを作る**。前者だと「次がボーナスの狙えになる」確率
+   * （BIG 1/1343・REG 1/561）が天井になり、赤が3000ゲームに1回しか出ない。
+   * 色から作れば、色の振り分けで頻度を決められる。
+   *
+   * **ボーナスの総確率は動かさない。** ステップアップ経由で出すぶん、通常抽選の
+   * 側からは BIG と REG を外してある（`withoutBonus`）。外した分は miss へ回すので
+   * 小役の量も変わらない。フリーズ役だけは通常抽選に残す（別枠の強レア役）。
+   */
+  type StepColor = 'green' | 'red' | 'gold';
+  /** 契機役のうち、実際にステップアップへ入る割合。ここでボーナスの総量が決まる。 */
+  const STEP_ENTRY_RATE = 0.055;
+  /** 色の振り分け。 */
+  const STEP_COLOR_RATE: readonly (readonly [StepColor, number])[] = [
+    ['green', 0.80],
+    ['red', 0.18],
+    ['gold', 0.02],
+  ];
+  /** 色ごとの「次ゲームがボーナス」の確率。 */
+  const STEP_BONUS_RATE: Record<StepColor, number> = {
+    green: 0.30,
+    red: 0.70,
+    gold: 1.0,
+  };
+  /** 色ごとのBIG比率（残りがREG）。全体で現状の BIG:REG ≒ 29.5:70.5 に合わせてある。 */
+  const STEP_BIG_RATE: Record<StepColor, number> = {
+    green: 0.22,
+    red: 0.35,
+    gold: 0.92,
+  };
+  const STEP_COLOR_TO_LEVEL: Record<StepColor, number> = {
+    green: STEP_GREEN,
+    red: STEP_RED,
+    gold: STEP_GOLD,
+  };
+
+  const pickStepColor = (): StepColor => {
+    let r = Math.random();
+    for (const [color, rate] of STEP_COLOR_RATE) {
+      if ((r -= rate) < 0) return color;
+    }
+    return 'green';
+  };
+
+  /**
+   * 通常抽選から BIG と REG を落とす（フリーズ役は残す）。
+   * 落とした分は miss へ回す——`roleFilter` で除くと確率が全役へ再配分されて
+   * 小役が増え、出玉が動く。
+   */
+  const missRole = internalRoleLottery.forRoleId('miss');
+  const withoutBonus = (role: InternalRoleResult): InternalRoleResult => {
+    // **ボーナス中は落とさない。** ここで落とすとおかわり（ボーナス中の再当選）が
+    // 消える。上乗せが出玉の主役なので、消すとBIG平均が半分以下になる。
+    if (bonusSession.spinActive) return role;
+    if (role.freeze) return role;
+    if (role.kind !== 'big' && role.kind !== 'reg') return role;
+    return missRole ?? role;
+  };
+
+  /** 色から次ゲームを作る。 */
+  const buildPreRoll = (color: StepColor): PreRoll => {
+    if (Math.random() < STEP_BONUS_RATE[color]) {
+      const bigs = yakuList.premiumYaku;
+      const yaku =
+        Math.random() < STEP_BIG_RATE[color]
+          ? (bigs[Math.random() < 0.5 ? 0 : 1] ?? bigs[0])
+          : yakuList.bonusYaku[0];
+      if (yaku) {
+        // **ボーナスの告知は従来どおり。** ここで演出を必ず出すと、無演出で引く
+        // ボーナスが無くなって持ち越しが起きず、リーチ目と確定ランプが死ぬ。
+        return {
+          role: internalRoleLottery.forYaku(yaku),
+          effect: scheduler.rollAvailable(eligibility.eligibleEffects(yaku)),
+        };
+      }
+    }
+    // ボーナスでない場合は**必ず演出を出す**。緑や赤が出たのに何も起きずに
+    // 終わると、色を見た意味がなくなる（先告知）。
+    const role = internalRoleLottery.draw(activeInternalRoleState(), {
+      allowMiss: false,
+      roleFilter: (r, y) =>
+        r.kind !== 'big' && r.kind !== 'reg' && !r.freeze && y !== null,
+    });
+    const yaku = internalRoleLottery.yakuFor(role);
+    return {
+      role,
+      effect: yaku ? scheduler.rollForced(eligibility.eligibleEffects(yaku)) : 'none',
+    };
   };
 
   /**
    * ステップアップの契機になる内部役か。
    *
-   * **チェリーと、払い出しの大きい小役**（7枚）。実機の「チャンス役から前兆」で、
-   * 契機をすでにある役に乗せるのは**出玉を1枚も動かさないため**——専用の抽選を
-   * 足すと、その分だけ他の役が減る。
-   *
-   * 契機を増やすと予告の機会は増えるが、**赤と金の頻度に天井がある**ことは
-   * 変わらない。予告できるのは「次ゲームがボーナスの狙え」が起きた時だけで、
-   * それ自体が BIG 1/1343・REG 1/561（狙え/クイズが出る確率込み）しかない。
+   * **チェリーと、払い出しの大きい小役**（5枚以上）。実機の「チャンス役から前兆」で、
+   * 契機をすでにある役に乗せるのは出玉を動かさないため。ここに入るのは
+   * `STEP_ENTRY_RATE` の割合だけ——全部で入れるとボーナスが14倍になる。
    */
-  const STEP_TRIGGER_MIN_PAYOUT = 7;
+  const STEP_TRIGGER_MIN_PAYOUT = 5;
   const isStepTrigger = (role: InternalRoleResult): boolean => {
     if (role.kind === 'cherry') return true;
     if (role.kind !== 'core') return false;
     return (internalRoleLottery.yakuFor(role)?.payout ?? 0) >= STEP_TRIGGER_MIN_PAYOUT;
-  };
-  const pickStepColor = (pre: PreRoll): number => {
-    const yaku = internalRoleLottery.yakuFor(pre.role);
-    const aimed = pre.effect === 'aim' || pre.effect === 'quiz';
-    const kind: 'big' | 'reg' | 'other' =
-      !aimed || !yaku
-        ? 'other'
-        : yaku.category === 'premium'
-          ? 'big'
-          : yaku.category === 'bonus'
-            ? 'reg'
-            : 'other';
-    const w = STEP_COLOR_WEIGHTS[kind];
-    const total = w[0] + w[1] + w[2];
-    let r = Math.random() * total;
-    if ((r -= w[0]) < 0) return STEP_GREEN;
-    if ((r -= w[1]) < 0) return STEP_RED;
-    return STEP_GOLD;
   };
 
   const drawDebugRole = (effect: ForcedEffect): InternalRoleResult =>
@@ -1757,27 +1825,32 @@ export async function bootstrap() {
       doFreeze = role.freeze;
       activateRound(role, 'none', doFreeze ? 'freeze' : 'lottery');
     } else {
-      // 前ゲームでステップアップが出ていれば、その時に引いた役をここで使う。
-      // 無ければ普段どおり引く。
-      const rolled = pre ?? rollNextGame();
+      // 前ゲームでステップアップが出ていれば、その時に決めた役と演出をここで使う。
+      // 無ければ普段どおり引く（ただし BIG と REG は落とす——それはステップアップ
+      // 経由でしか出さない）。
+      const rolled = pre ?? rollNormalGame();
       const role = rolled.role;
       // フリーズ役を引いた＝その場でBIG確定。演出は出さずフリーズシーケンスへ渡す。
       doFreeze = role.freeze;
-      // miss / 1枚役（表示役なし）は none。それ以外は「表現できる演出＋無演出」から
-      // レート抽選する。当たっているのに演出が出ない（＝狙えない）ゲームがここで生まれる。
       const effect: EffectType = doFreeze ? 'none' : rolled.effect;
       activateRound(role, effect, doFreeze ? 'freeze' : 'lottery');
 
-      // **チェリーと払い出しの大きい小役ならステップアップ。** 実機の
-      // 「チャンス役から前兆」と同じ形。このゲームのことは何も言わない
+      // **チェリーと払い出しの大きい小役から、一部がステップアップへ入る。**
+      // 実機の「チャンス役から前兆」と同じ形。このゲームのことは何も言わない
       // （契機の役は狙えば揃うし、揃わなくても予告は生きる）ので、
       // 演出の有無とは無関係に出す。
       //
       // ボーナス中は出さない。次ゲームもボーナス中で、そこでは毎ゲーム演出が
       // 出る（none=0）ので予告するものが無い。
-      if (!doFreeze && isStepTrigger(role) && !bonusSession.spinActive) {
-        preRoll = rollNextGame();
-        stepFinalColor = pickStepColor(preRoll);
+      if (
+        !doFreeze &&
+        isStepTrigger(role) &&
+        !bonusSession.spinActive &&
+        Math.random() < STEP_ENTRY_RATE
+      ) {
+        const color = pickStepColor();
+        stepFinalColor = STEP_COLOR_TO_LEVEL[color];
+        preRoll = buildPreRoll(color);
         setStep(STEP_LEVER);
       }
     }

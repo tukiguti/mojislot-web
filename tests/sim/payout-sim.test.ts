@@ -311,6 +311,22 @@ function runChapter(
   let pendingBonus: 'big' | 'reg' | null = null;
   /** こぼしたボーナスフラグの持ち越し（無告知・実機Aタイプ）。 */
   let heldBonusYaku: Yaku | null = null;
+  /**
+   * ステップアップ（前兆）が次ゲームへ渡すもの。main.ts と同じ設計。
+   * ボーナスはステップアップ経由でしか出さないので、通常抽選からは落とす。
+   */
+  const STEP_ENTRY_RATE = 0.055;
+  const STEP_COLOR_RATE: readonly (readonly ['green' | 'red' | 'gold', number])[] = [
+    ['green', 0.8], ['red', 0.18], ['gold', 0.02],
+  ];
+  const STEP_BONUS_RATE = { green: 0.3, red: 0.7, gold: 1.0 } as const;
+  const STEP_BIG_RATE = { green: 0.22, red: 0.35, gold: 0.92 } as const;
+  const STEP_TRIGGER_MIN_PAYOUT = 5;
+  /** 次ゲームの予約。`bonus` があればそれ、無ければ「必ず演出」の小役ゲーム。 */
+  let stepNext: { bonus: 'big' | 'reg' | null } | null = null;
+  let stepCount = 0;
+  let stepRed = 0;
+  let stepGold = 0;
 
   for (let g = 0; g < spins; g++) {
     const bonusActive = bonusRemaining > 0;
@@ -344,11 +360,38 @@ function runChapter(
         ? (pendingBonus === 'big' ? yakuList.premiumYaku[0] : yakuList.bonusYaku[0]) ?? null
         : null;
     const carried = !heldYaku && !bonusActive ? heldBonusYaku : null;
+    // ステップアップの予約を消費する（通常抽選のブランチに来た時だけ）。
+    const step = !heldYaku && !carried && !bonusActive ? stepNext : null;
+    if (!bonusActive) stepNext = null;
+    /**
+     * ボーナスはステップアップ経由でしか出さないので通常抽選からは落とす（miss へ）。
+     * **ボーナス中は落とさない**——おかわり（ボーナス中の再当選）が消えると
+     * 上乗せが働かず、BIG平均が半分以下になる。
+     */
+    const dropBonus = (r: ReturnType<typeof lottery.draw>) =>
+      !bonusActive && !r.freeze && (r.kind === 'big' || r.kind === 'reg')
+        ? { ...r, roleId: 'miss', kind: 'miss' as const, yakuId: null, yakuName: null }
+        : r;
+    const stepBonusYaku =
+      step?.bonus === 'big'
+        ? (yakuList.premiumYaku[rng() < 0.5 ? 0 : 1] ?? yakuList.premiumYaku[0] ?? null)
+        : step?.bonus === 'reg'
+          ? (yakuList.bonusYaku[0] ?? null)
+          : null;
     const role = heldYaku
       ? lottery.forYaku(heldYaku)
       : carried
         ? lottery.forYaku(carried)
-        : lottery.draw(state);
+        : stepBonusYaku
+          ? lottery.forYaku(stepBonusYaku)
+          : step
+            ? // ステップアップの次でボーナスでない＝**必ず演出**が出る小役
+              lottery.draw(state, {
+                allowMiss: false,
+                roleFilter: (r, y) =>
+                  r.kind !== 'big' && r.kind !== 'reg' && !r.freeze && y !== null,
+              })
+            : dropBonus(lottery.draw(state));
     const yaku = role.yakuId ? (yakuById.get(role.yakuId) ?? null) : null;
     const rates =
       state === 'bonus'
@@ -360,6 +403,10 @@ function runChapter(
     let effect: 'none' | 'shisa' | 'quiz' | 'aim';
     if (heldYaku || carried) {
       effect = 'none'; // 持ち越し中は無告知（出目＝リーチ目で察知する）
+    } else if (step && !stepBonusYaku && yaku) {
+      // 先告知：緑や赤が出たのに何も起きずに終わる拍子抜けを防ぐ（none を外す）
+      const cands = eligibility.eligibleEffects(yaku).filter((e) => e !== 'none');
+      effect = cands.length ? pickWeighted(cands, (e) => rates[e]) : 'none';
     } else if (yaku) {
       // EffectScheduler.rollAvailable と同じ抽選（候補に none を足して重み付き）。
       // 乱数だけ再現性のある rng に差し替えている。
@@ -631,6 +678,28 @@ function runChapter(
     ) {
       pendingBonus = rng() < tuning.cherryBonus.bigRatio ? 'big' : 'reg';
       res.cherryBonus++;
+    }
+
+    // ステップアップ（前兆）へ入るか。契機役の一部だけが入り、色で次ゲームが決まる。
+    // ボーナス中と、すでに予約がある時は出さない。
+    if (!bonusActive && !stepNext && !heldYaku && !carried && !role.freeze) {
+      const trig =
+        role.kind === 'cherry' ||
+        (role.kind === 'core' && (yaku?.payout ?? 0) >= STEP_TRIGGER_MIN_PAYOUT);
+      if (trig && rng() < STEP_ENTRY_RATE) {
+        let r = rng();
+        let color: 'green' | 'red' | 'gold' = 'green';
+        for (const [c, rate] of STEP_COLOR_RATE) {
+          if ((r -= rate) < 0) { color = c; break; }
+        }
+        stepCount++;
+        if (color === 'red') stepRed++;
+        if (color === 'gold') stepGold++;
+        const isBonus = rng() < STEP_BONUS_RATE[color];
+        stepNext = {
+          bonus: isBonus ? (rng() < STEP_BIG_RATE[color] ? 'big' : 'reg') : null,
+        };
+      }
     }
 
     streak = streakAfter;

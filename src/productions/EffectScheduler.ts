@@ -42,6 +42,28 @@ export class EffectScheduler {
    * 正規化は渡された候補の中だけで行う。3文字役は shisa/quiz/aim が揃うので none は
    * レートどおりだが、aim を使えないチェリー（2文字役）だけ none がわずかに厚くなる。
    */
+  /**
+   * **none を除いて**選ぶ。「必ず演出が出る」場面用（ステップアップの先告知）。
+   *
+   * `rollAvailable` は候補に none を必ず足すので、そのままでは無演出になりうる。
+   * 先告知は「緑や赤が出たのに何も起きずに終わる」拍子抜けを防ぐためのものなので、
+   * ここで無演出を引いては役に立たない。
+   */
+  rollForced(available: readonly (keyof EffectRates)[]): EffectType {
+    const weighted = [...new Set<keyof EffectRates>(available)]
+      .filter((effect) => effect !== 'none')
+      .map((effect) => ({ effect, weight: this.rates[effect] }))
+      .filter((entry) => entry.weight > 0);
+    const total = weighted.reduce((sum, entry) => sum + entry.weight, 0);
+    if (total <= 0) return 'none';
+    let cursor = Math.random() * total;
+    for (const entry of weighted) {
+      cursor -= entry.weight;
+      if (cursor < 0) return entry.effect;
+    }
+    return weighted[weighted.length - 1].effect;
+  }
+
   rollAvailable(available: readonly (keyof EffectRates)[]): EffectType {
     const unique = [...new Set<keyof EffectRates>(['none', ...available])];
     const weighted = unique
