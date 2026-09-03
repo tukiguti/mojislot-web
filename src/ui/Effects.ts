@@ -257,6 +257,91 @@ export function showRankUpBadge(streak: number, color: string): void {
   window.setTimeout(() => el.remove(), 1300);
 }
 
+/**
+ * ステップアップ演出。**このゲームのことは何も言わない。終了色が次ゲームの予告。**
+ *
+ * 契機は**チェリー成立**（1/15.1）。実機の「チャンス役から前兆」と同じ形で、
+ * そのゲームはチェリーが当たっているだけ——狙えば揃うし、揃わなくても
+ * **予告は生きる**（終了色は次ゲームの中身だけで決まる）。
+ *
+ * チェリーに乗せたのは**出玉を1枚も動かさないため**。専用の抽選を足すと
+ * その分だけ他の役が減る。すでにあるチャンス役に乗れば、増えるのは演出だけ。
+ *
+ * 段は停止ごとに進み、第3停止で終了色が出る。
+ *
+ * | 段 | 色 | 意味 |
+ * |---|---|---|
+ * | 1 | 白 | レバーON |
+ * | 2 | 青 | 第1停止 |
+ * | 3 | 緑 | 第2停止／**緑どまり＝何も予告しない** |
+ * | 4 | 赤 | 次ゲームは**REGの狙え以上が濃厚** |
+ * | 5 | 金 | 次ゲームは**BIGの狙え以上が濃厚** |
+ *
+ * **濃厚であって確定ではない。** 次ゲームの役と演出を先読みして色を決めるが、
+ * 間にボーナス突入やデバッグ予約が挟まると先読みは捨てられる。加えて低確率の
+ * ガセを混ぜてある——確定にすると、赤や金が出た瞬間にそのゲームを打つ意味が
+ * 「消化」に変わる。
+ *
+ * 色は実機のランプの序列（白 < 青 < 緑 < 赤 < 金）。**演出の色は借りない**——
+ * このゲームでは色がそのまま候補の範囲を指すので、借りると2つの意味が混ざる。
+ * ここが指すのは**次ゲーム**なので、そもそも軸が違う。
+ */
+/** レバーON（白）。 */
+export const STEP_LEVER = 1;
+/** 第1停止（青）。 */
+export const STEP_STOP1 = 2;
+/** 第2停止（緑）。終了色としては「何も予告しない」。 */
+export const STEP_GREEN = 3;
+/** 終了色・赤。次ゲームはREGの狙え以上が濃厚。 */
+export const STEP_RED = 4;
+/** 終了色・金。次ゲームはBIGの狙え以上が濃厚。 */
+export const STEP_GOLD = 5;
+export const STEP_FX_MAX = STEP_GOLD;
+let stepFxEl: HTMLElement | null = null;
+export function setStepFx(step: number): void {
+  if (step <= 0) {
+    stepFxEl?.remove();
+    stepFxEl = null;
+    return;
+  }
+  if (!stepFxEl) {
+    stepFxEl = document.createElement('div');
+    stepFxEl.className = 'step-fx';
+    stepFxEl.setAttribute('aria-hidden', 'true');
+    effectHost.appendChild(stepFxEl);
+  }
+  const el = stepFxEl;
+  el.dataset.step = String(Math.min(step, STEP_FX_MAX));
+  // 段が変わったことを一瞬の脈で示す。クラスを付け直さないと再生されない
+  el.classList.remove('bump');
+  void el.offsetWidth;
+  el.classList.add('bump');
+}
+
+/**
+ * ブラックアウト（筐体まるごとの暗転）。
+ *
+ * **フリーズ専用。** 実機のフリーズは、派手に始まるのではなく**いったん全部落ちる**。
+ * ランプが消えてリールが止まり、無音になって、数秒おいてから復帰する。この
+ * 「何も起きない間」があるから復帰が効く。
+ *
+ * 液晶の中だけでは足りないので、対象は `#cabinet`——リールも操作部も一緒に沈める。
+ * 演出ホスト（液晶内）とは別に持つのはそのため。
+ *
+ * 無演出の穴埋めには使わない（[spec] 強レア役とボーナス専用）。ここで安売りすると
+ * 「全部落ちた」が驚きでなくなる。
+ */
+let blackoutHost: HTMLElement | null = null;
+export function setBlackoutHost(el: HTMLElement): void {
+  blackoutHost = el;
+}
+export function showBlackout(): void {
+  blackoutHost?.classList.add('blackout');
+}
+export function clearBlackout(): void {
+  blackoutHost?.classList.remove('blackout');
+}
+
 /** フリーズ演出中の「FREEZE!?」バナー。clearFreezeBanner() まで残る。 */
 let freezeBannerEl: HTMLElement | null = null;
 export function showFreezeBanner(): void {
