@@ -72,7 +72,10 @@ export class SfxEngine {
 
   /**
    * 実音源を1発。**読めていなければ false**——呼び側はそのまま合成音へ落とす。
+   *
    * @param gain 素材はどれもピーク -1dB で揃っているので、場面ごとの重みはここで付ける。
+   *   **演出の発生音は控えめ**（0.45〜0.6）。発生は「これから何かが起きる」の予告で、
+   *   主役はその後のクリア音と払い出し。ここを大きくすると予告のほうが目立ってしまう。
    */
   private sample(name: string, gain: number, delayMs = 0): boolean {
     if (this.muted || !this.ctx || !this.masterGain) return false;
@@ -241,7 +244,7 @@ export class SfxEngine {
   }
 
   shisa(): void {
-    if (this.sample('start_weak', 0.7)) return;
+    if (this.sample('start_weak', 0.45)) return;
     this.sequence(
       [
         { freq: 784, durMs: 100, type: 'sine', vol: 0.35 },
@@ -251,7 +254,7 @@ export class SfxEngine {
     );
   }
   quiz(): void {
-    if (this.sample('start_weak2', 0.7)) return;
+    if (this.sample('start_weak2', 0.45)) return;
     this.sequence(
       [
         { freq: 587, durMs: 80, type: 'square', vol: 0.35 },
@@ -277,7 +280,7 @@ export class SfxEngine {
     this.beep({ freq: 220, durMs: 280, type: 'sawtooth', vol: 0.28 });
   }
   tenpai(): void {
-    if (this.sample('start_weak', 0.7)) return;
+    if (this.sample('start_weak', 0.45)) return;
     this.sequence(
       [
         { freq: 698, durMs: 80, type: 'sine', vol: 0.35 },
@@ -288,7 +291,7 @@ export class SfxEngine {
     );
   }
   tenpaiPremium(): void {
-    if (this.sample('start_strong', 0.85)) return;
+    if (this.sample('start_strong', 0.6)) return;
     this.sequence(
       [
         { freq: 523, durMs: 80, type: 'sawtooth', vol: 0.4 },
