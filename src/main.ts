@@ -1481,7 +1481,7 @@ export async function bootstrap() {
       showCoinBurstAt(5);
     },
     triggerTenpaiSe: () => {
-      sfx.tenpai();
+      sfx.tenpaiPremium();
       // どれか1リールに枠フラッシュ
       views[2].startTenpaiFlash(false);
       window.setTimeout(() => views[2].stopTenpaiFlash(), 2500);
@@ -2285,9 +2285,11 @@ export async function bootstrap() {
       const tenpai = tenpaiDetector.detect(visAfter);
       if (tenpai) {
         // 実機準拠：テンパイ時もリール速度は変えない。枠フラッシュ＆SEのみ。
+        // **通常のテンパイは無音**。第2停止で偶然揃うだけのことが多く、演出が
+        // 何も出ていないゲームでも鳴ってしまう。枠フラッシュだけで足りる。
+        // ボーナス役のテンパイは別で、鳴らす価値のある情報がある。
         views[tenpai.missingReelIndex].startTenpaiFlash(tenpai.hasPremium);
         if (tenpai.hasPremium) sfx.tenpaiPremium();
-        else sfx.tenpai();
         showSoundCue('テンパイ');
       }
     }

@@ -279,19 +279,14 @@ export class SfxEngine {
     if (this.sample('fail', 0.55)) return;
     this.beep({ freq: 220, durMs: 280, type: 'sawtooth', vol: 0.28 });
   }
-  tenpai(): void {
-    if (this.sample('start_weak', 0.45)) return;
-    this.sequence(
-      [
-        { freq: 698, durMs: 80, type: 'sine', vol: 0.35 },
-        { freq: 880, durMs: 80, type: 'sine', vol: 0.35 },
-        { freq: 1175, durMs: 280, type: 'sine', vol: 0.42 },
-      ],
-      20,
-    );
-  }
+  /**
+   * ボーナス役のテンパイ。**通常のテンパイには音を付けない**——第2停止で偶然
+   * 揃うだけのことが多く、演出が何も出ていないゲームでも鳴ってしまう。
+   *
+   * ここも合成のまま。「演出発生強」を当てると、演出の発生とリーチという
+   * 別の軸に同じ音が乗る。
+   */
   tenpaiPremium(): void {
-    if (this.sample('start_strong', 0.6)) return;
     this.sequence(
       [
         { freq: 523, durMs: 80, type: 'sawtooth', vol: 0.4 },
