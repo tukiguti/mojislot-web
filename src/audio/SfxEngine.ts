@@ -1,11 +1,47 @@
 /**
- * 効果音エンジン（Web Audio API ベースの簡易シンセ）。
+ * 効果音エンジン。
  *
- * - 外部音源ファイル不要：オシレータと ADSR でその場で合成
- * - AudioContext は user gesture（最初のクリック等）で init() する必要あり
- *   ブラウザの自動再生制限を回避するため、毎呼び出しは無視できる
- * - muted ならノイズを出さない（フラグは外から制御）
+ * **実音源があればそれを鳴らし、無ければオシレータで合成する**の二段構え。
+ * 実音源は `public/audio/sfx/` に置いた m4a（`tools/convert_sounds.py` が変換）で、
+ * 読めなかった時は合成音へ落ちる——音源を消しても遊べる状態を保つため。
+ * 合成のほうは音源が揃う前の暫定ではなく、ベット音やリール停止音のように
+ * **実音源を用意していない場面の本番**でもある。
+ *
+ * AudioContext は user gesture（最初のクリック等）で init() する必要があり、
+ * BGM とは AudioBus 経由で同じものを共有する（AudioBuffer は ctx に紐づくため）。
+ * muted ならノイズを出さない（フラグは外から制御）。
  */
+import { audioContext, resumeAudio } from './AudioBus';
+import { sampleBank } from './SampleBank';
+
+/** 先読みする SE。合計 0.7MB ほどなので init 時に全部取りに行く。 */
+const SFX_KEYS = [
+  'sfx/lever',
+  'sfx/wait',
+  'sfx/coin',
+  'sfx/count',
+  'sfx/start_weak',
+  'sfx/start_weak2',
+  'sfx/start_strong',
+  'sfx/clear_weak',
+  'sfx/clear_strong',
+  'sfx/clear_strong2',
+  'sfx/fail',
+  'sfx/big',
+  'sfx/big2',
+  'sfx/reg',
+  'sfx/freeze',
+] as const;
+
+/**
+ * 払い出し音の粒の間隔。素材そのものが 120ms 間隔の8連なので、それより長く取って
+ * 粒が団子にならないようにしている。
+ */
+const PAYOUT_STEP_MS = 150;
+/** 払い出し音の上限。ボーナス中の大量払い出しで延々鳴り続けないように。 */
+const PAYOUT_MAX_SHOTS = 12;
+/** 何枚ごとに1発鳴らすか。3枚＝1ゲームのベット枚数。 */
+const PAYOUT_COINS_PER_SHOT = 3;
 
 export class SfxEngine {
   private ctx: AudioContext | null = null;
@@ -14,16 +50,33 @@ export class SfxEngine {
 
   /** user gesture から呼ぶこと。複数回呼んでも安全 */
   init(): void {
-    if (this.ctx) return;
-    const Ctx =
-      window.AudioContext ||
-      (window as unknown as { webkitAudioContext: typeof AudioContext })
-        .webkitAudioContext;
-    if (!Ctx) return;
-    this.ctx = new Ctx();
-    this.masterGain = this.ctx.createGain();
-    this.masterGain.gain.value = 0.25;
-    this.masterGain.connect(this.ctx.destination);
+    if (this.ctx) {
+      resumeAudio();
+      return;
+    }
+    const ctx = audioContext();
+    if (!ctx) return;
+    this.ctx = ctx;
+    this.masterGain = ctx.createGain();
+    this.masterGain.gain.value = 0.3;
+    this.masterGain.connect(ctx.destination);
+    // 音源の読み込みは待たない。届く前に鳴らした音は合成へ落ちるだけ。
+    sampleBank.attach(ctx);
+    void sampleBank.loadAll(SFX_KEYS);
+  }
+
+  /** BGM が同じ ctx を使うために公開する。init 前は null。 */
+  context(): AudioContext | null {
+    return this.ctx;
+  }
+
+  /**
+   * 実音源を1発。**読めていなければ false**——呼び側はそのまま合成音へ落とす。
+   * @param gain 素材はどれもピーク -1dB で揃っているので、場面ごとの重みはここで付ける。
+   */
+  private sample(name: string, gain: number, delayMs = 0): boolean {
+    if (this.muted || !this.ctx || !this.masterGain) return false;
+    return sampleBank.play(`sfx/${name}`, this.masterGain, { gain, delayMs });
   }
 
   setMuted(muted: boolean): void {
@@ -108,6 +161,7 @@ export class SfxEngine {
     this.beep({ freq: 660, durMs: 70, type: 'square', vol: 0.3 });
   }
   lever(): void {
+    if (this.sample('lever', 0.8)) return;
     this.sweep({ startFreq: 180, endFreq: 600, durMs: 180, type: 'sawtooth', vol: 0.3 });
   }
   stop(): void {
@@ -127,6 +181,11 @@ export class SfxEngine {
     this.beep({ freq, durMs: 80, type: 'triangle', vol: 0.22 });
   }
 
+  /**
+   * 小役が揃った音。**ここは合成のまま**——「演出クリア弱」を当てると、
+   * 演出が何もない普通の小役でもクリア音が鳴り、演出が成功した時との差が消える。
+   * 揃った枚数は payout() の粒の数が伝える。
+   */
   winCore(): void {
     this.sequence(
       [
@@ -142,6 +201,7 @@ export class SfxEngine {
    * 2本: アルペジオ + 上昇 / 3本以上: 和音を二回叩いて高音まで駆け上がる。
    */
   winMulti(lineCount: number): void {
+    if (this.sample('clear_strong', 0.8)) return;
     const tail = Math.min(lineCount, 5);
     const baseSeq = [
       { freq: 784, durMs: 70, type: 'square' as OscillatorType, vol: 0.4 },
@@ -163,6 +223,7 @@ export class SfxEngine {
     this.sequence([...baseSeq, ...climb], 18);
   }
   winPremium(): void {
+    if (this.sample('clear_strong2', 0.85)) return;
     this.sequence(
       [
         { freq: 660, durMs: 100, type: 'sawtooth' },
@@ -175,10 +236,12 @@ export class SfxEngine {
     );
   }
   miss(): void {
+    if (this.sample('fail', 0.55)) return;
     this.beep({ freq: 180, durMs: 220, type: 'triangle', vol: 0.18 });
   }
 
   shisa(): void {
+    if (this.sample('start_weak', 0.7)) return;
     this.sequence(
       [
         { freq: 784, durMs: 100, type: 'sine', vol: 0.35 },
@@ -188,6 +251,7 @@ export class SfxEngine {
     );
   }
   quiz(): void {
+    if (this.sample('start_weak2', 0.7)) return;
     this.sequence(
       [
         { freq: 587, durMs: 80, type: 'square', vol: 0.35 },
@@ -199,6 +263,7 @@ export class SfxEngine {
     );
   }
   quizCorrect(): void {
+    if (this.sample('clear_weak', 0.7)) return;
     this.sequence(
       [
         { freq: 1175, durMs: 90, type: 'sine', vol: 0.4 },
@@ -208,9 +273,11 @@ export class SfxEngine {
     );
   }
   quizWrong(): void {
+    if (this.sample('fail', 0.55)) return;
     this.beep({ freq: 220, durMs: 280, type: 'sawtooth', vol: 0.28 });
   }
   tenpai(): void {
+    if (this.sample('start_weak', 0.7)) return;
     this.sequence(
       [
         { freq: 698, durMs: 80, type: 'sine', vol: 0.35 },
@@ -221,6 +288,7 @@ export class SfxEngine {
     );
   }
   tenpaiPremium(): void {
+    if (this.sample('start_strong', 0.85)) return;
     this.sequence(
       [
         { freq: 523, durMs: 80, type: 'sawtooth', vol: 0.4 },
@@ -249,6 +317,7 @@ export class SfxEngine {
   }
   /** フリーズ発生音: 重い停止音 → きらめく上昇 */
   freeze(): void {
+    if (this.sample('freeze', 0.9)) return;
     this.beep({ freq: 70, durMs: 280, type: 'square', vol: 0.5 });
     this.sequence(
       [
@@ -259,7 +328,16 @@ export class SfxEngine {
       45,
     );
   }
-  bonusEnter(): void {
+  /**
+   * ボーナス突入ファンファーレ。
+   *
+   * **格の違いを音で出す**——通常のBIGは 5.3 秒の `big`、フリーズを経由した
+   * 7揃いだけが 8.7 秒の `big2` を鳴らす。REG は別素材。
+   * 引数なしで呼ぶと REG 相当（隠し章の解除音などに流用している）。
+   */
+  bonusEnter(kind: 'big' | 'reg' = 'reg', grand = false): void {
+    const key = kind === 'big' ? (grand ? 'big2' : 'big') : 'reg';
+    if (this.sample(key, 0.85)) return;
     this.sequence(
       [
         { freq: 523, durMs: 90, type: 'square', vol: 0.4 },
@@ -272,5 +350,33 @@ export class SfxEngine {
       ],
       25,
     );
+  }
+
+  /**
+   * 払い出し音。**枚数ぶん粒を並べる**——3枚で1発、15枚なら5発。
+   * 得た枚数が音の長さとして体に入るので、数字を読まなくても大きさが分かる。
+   *
+   * 素材（`coin`）自体が 120ms 間隔の8連で、それを 150ms ずらして重ねる。
+   * 実音源が無い時は何もしない——役の成立音は winCore 側が別に鳴らしている。
+   */
+  payout(coins: number): void {
+    if (coins <= 0) return;
+    const shots = Math.min(
+      PAYOUT_MAX_SHOTS,
+      Math.ceil(coins / PAYOUT_COINS_PER_SHOT),
+    );
+    for (let i = 0; i < shots; i++) {
+      if (!this.sample('coin', 0.5, i * PAYOUT_STEP_MS)) return;
+    }
+  }
+
+  /** ウェイト音。前ゲームから間が空いていない時のレバーONに重ねる。 */
+  wait(): void {
+    this.sample('wait', 0.5);
+  }
+
+  /** 計数音。持メダルを流して1戦を締める時。 */
+  count(): void {
+    this.sample('count', 0.7);
   }
 }

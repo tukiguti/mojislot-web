@@ -2591,8 +2591,8 @@ body.shake {
    リールと操作部が光ったままで「電源が落ちた」に見えない。
    落ちるのはゆっくり、明けるのは一瞬。明けた瞬間に爆発させたいので。 */
 #cabinet.blackout {
-  filter: brightness(0.05) saturate(0.15);
-  transition: filter 260ms ease-out;
+  filter: brightness(var(--blackout-b, 0.05)) saturate(0.15);
+  transition: filter var(--blackout-ms, 260ms) ease-out;
 }
 #cabinet {
   transition: filter 90ms ease-in;
@@ -2600,8 +2600,8 @@ body.shake {
 /* 急な明暗差が苦手な人向けに浅くする。**暗転そのものは消さない**——
    間が空くこと自体がフリーズの合図で、消すと何が起きたか分からなくなる。 */
 .a11y-reduce-motion #cabinet.blackout {
-  filter: brightness(0.4) saturate(0.5);
-  transition: filter 400ms ease-out;
+  filter: brightness(max(var(--blackout-b, 0.05), 0.4)) saturate(0.5);
+  transition: filter var(--blackout-ms, 400ms) ease-out;
 }
 .freeze-overlay {
   position: absolute;
