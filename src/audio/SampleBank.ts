@@ -14,8 +14,21 @@ export class SampleBank {
   /** 二重ロード防止。失敗も含めて1キー1回だけ取りに行く。 */
   private readonly inflight = new Map<string, Promise<AudioBuffer | null>>();
 
-  /** @param base 音源URLの根（`audio/`）。 */
-  constructor(private readonly base: string) {}
+  /**
+   * 音源URLの根。**ホスティング先で base が変わる**ので（GitHub Pages は
+   * `/mojislot-web/`、Cloudflare Pages は `/`）、起動時に `setBase` で入れ直す。
+   */
+  private base: string;
+
+  /** @param base 既定の根。実際の値は main.ts が `setBase` で上書きする。 */
+  constructor(base: string) {
+    this.base = base;
+  }
+
+  /** 音源URLの根を差し替える。読み込み前に呼ぶこと。 */
+  setBase(base: string): void {
+    this.base = base;
+  }
 
   /** 共有 ctx を渡す。これより前の load は ctx 待ちで止まる。 */
   attach(ctx: AudioContext): void {

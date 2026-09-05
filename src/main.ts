@@ -91,6 +91,7 @@ import { QUIZMASTER_SCALE, QuizmasterView } from './render/QuizmasterView';
 import { LcdBackground } from './render/LcdBackground';
 import { pickLine, quizmasterFor, type Quizmaster } from './data/quizmasters';
 import { VoiceEngine } from './audio/VoiceEngine';
+import { sampleBank } from './audio/SampleBank';
 import { EffectVisual } from './render/EffectVisual';
 import { QuizState } from './productions/QuizState';
 import { QuizQuestionView } from './render/QuizQuestionView';
@@ -501,6 +502,9 @@ export async function bootstrap() {
 
   // 出題者のボイス。島ごとに別人なので、現在の島のぶんだけ先読みする。
   const voice = new VoiceEngine(`${import.meta.env.BASE_URL}audio/`);
+  // SE と BGM も同じ根を使う。base はホスティング先で変わる
+  // （GitHub Pages は /mojislot-web/、Cloudflare Pages は /）。
+  sampleBank.setBase(`${import.meta.env.BASE_URL}audio/`);
   /** その出題者が持つ全台詞のファイル名（`ask_0` 等）。先読みに渡す。 */
   const voiceClipsOf = (master: Quizmaster): string[] =>
     Object.entries(master.lines).flatMap(([scene, lines]) =>
