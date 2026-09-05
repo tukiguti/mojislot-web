@@ -40,7 +40,9 @@ function resolveBuildId(): string {
  * test: 会員カードのコーデック/マージ等の単体テスト（node 環境・Web Crypto はグローバル）。
  */
 export default defineConfig({
-  base: process.env.CF_PAGES ? '/' : '/mojislot-web/',
+  // 配信は mojislot.tukiguti.com（Cloudflare Pages）のルート。
+  // GitHub Pages 時代はサブパス `/mojislot-web/` だったため CF_PAGES で分岐していた。
+  base: '/',
   define: {
     __BUILD_ID__: JSON.stringify(resolveBuildId()),
   },

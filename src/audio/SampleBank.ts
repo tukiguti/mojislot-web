@@ -15,8 +15,8 @@ export class SampleBank {
   private readonly inflight = new Map<string, Promise<AudioBuffer | null>>();
 
   /**
-   * 音源URLの根。**ホスティング先で base が変わる**ので（GitHub Pages は
-   * `/mojislot-web/`、Cloudflare Pages は `/`）、起動時に `setBase` で入れ直す。
+   * 音源URLの根。`import.meta.env.BASE_URL` を前置した値を起動時に `setBase` で
+   * 入れ直す（配信先を変えてもここを直さずに済むように）。
    */
   private base: string;
 

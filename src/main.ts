@@ -502,8 +502,7 @@ export async function bootstrap() {
 
   // 出題者のボイス。島ごとに別人なので、現在の島のぶんだけ先読みする。
   const voice = new VoiceEngine(`${import.meta.env.BASE_URL}audio/`);
-  // SE と BGM も同じ根を使う。base はホスティング先で変わる
-  // （GitHub Pages は /mojislot-web/、Cloudflare Pages は /）。
+  // SE と BGM もボイスと同じ根を使う。
   sampleBank.setBase(`${import.meta.env.BASE_URL}audio/`);
   /** その出題者が持つ全台詞のファイル名（`ask_0` 等）。先読みに渡す。 */
   const voiceClipsOf = (master: Quizmaster): string[] =>
