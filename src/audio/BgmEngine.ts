@@ -1,15 +1,30 @@
 /**
- * BGM エンジン（Web Audio API ベースの簡易ループ）。
+ * BGM エンジン。
  *
- * - 外部音源ファイル不要：オシレータでメロディを構築し、AudioBufferSourceNode で
- *   loop:true 再生する
- * - 通常 BGM（軽快なポップ）/ ボーナス BGM（高揚感のあるアップテンポ）の 2 系統
- * - SfxEngine と同じ AudioContext を共有することも可能だが、独立 ctx の方が
- *   gain 制御がシンプル
- * - mute は SfxEngine と共通 UI で扱う（外から setMuted で同期）
+ * **実音源があればそれをループし、無ければオシレータ合成へ落ちる**（SfxEngine と同じ二段構え）。
+ * 実音源は `public/audio/bgm/` の m4a で、通常は3曲から1曲を戦ごとに選び、
+ * ボーナス中は BIG / REG で別の曲になる。
+ *
+ * ループは AudioBufferSourceNode の loop:true。**つなぎ目に空白を作らないため、
+ * loopStart / loopEnd はバッファの実データ範囲から取る**——素材は頭も尻も無音ゼロで
+ * 作られているが、AAC はエンコーダ遅延で先頭に無音が入るので、そのまま繋ぐと
+ * 一周ごとに数十msの間が空く。
+ *
+ * AudioContext は SfxEngine と共有する（AudioBuffer は作った ctx にしか挿せない）。
+ * mute は SfxEngine と共通 UI で扱う（外から setMuted で同期）。
  */
+import { audioContext } from './AudioBus';
+import { SampleBank, sampleBank } from './SampleBank';
 
-export type BgmTrack = 'normal' | 'bonus';
+export type BgmTrack = 'normal' | 'big' | 'reg';
+
+/** 通常時の候補。戦が変わるたびに引き直す（同じ台で延々同じ曲だと飽きる）。 */
+const NORMAL_KEYS = ['bgm/chill', 'bgm/norichill', 'bgm/fresh'] as const;
+/** ボーナス中。BIG と REG で分ける＝**鳴った瞬間に種別が分かる**。 */
+const BONUS_KEYS: Record<'big' | 'reg', string> = {
+  big: 'bgm/bright',
+  reg: 'bgm/cyber',
+};
 
 interface NoteSpec {
   /** 周波数 (Hz)。0 は休符 */
@@ -65,6 +80,8 @@ const BEAT_SEC_BONUS = 0.18;
 
 export class BgmEngine {
   private ctx: AudioContext | null = null;
+  /** 今の戦で使う通常BGM。reshuffle() で引き直す。 */
+  private normalKey: string = NORMAL_KEYS[0];
   private masterGain: GainNode | null = null;
   private currentSource: AudioBufferSourceNode | null = null;
   private currentTrack: BgmTrack | null = null;
@@ -72,18 +89,19 @@ export class BgmEngine {
   private pendingTrack: BgmTrack | null = null;
   private muted = false;
   private targetVolume = 0.12;
+  /** ボーナスBGMを取りに行ったか。1回で足りる。 */
+  private prefetched = false;
 
   init(): void {
     if (!this.ctx) {
-      const Ctx =
-        window.AudioContext ||
-        (window as unknown as { webkitAudioContext: typeof AudioContext })
-          .webkitAudioContext;
-      if (!Ctx) return;
-      this.ctx = new Ctx();
-      this.masterGain = this.ctx.createGain();
+      const ctx = audioContext();
+      if (!ctx) return;
+      this.ctx = ctx;
+      this.masterGain = ctx.createGain();
       this.masterGain.gain.value = this.muted ? 0 : this.targetVolume;
-      this.masterGain.connect(this.ctx.destination);
+      this.masterGain.connect(ctx.destination);
+      sampleBank.attach(ctx);
+      this.reshuffle();
     }
     // 自動再生制限で suspended のままなら、user gesture 内で resume
     if (this.ctx.state === 'suspended') void this.ctx.resume();
@@ -119,20 +137,71 @@ export class BgmEngine {
       this.pendingTrack = track;
       return;
     }
-    this.stop();
-    const buffer = this.renderTrackToBuffer(track);
-    if (!buffer) return;
+    this.currentTrack = track;
+    const key = this.keyFor(track);
+    const ready = sampleBank.get(key);
+    if (ready) {
+      this.startBuffer(ready);
+      this.prefetchBonus();
+      return;
+    }
+    // まだ読めていない：**合成音で先に鳴らしておき**、届いたら差し替える。
+    // 無音で待つと、ボーナス突入の一番盛り上がる数秒が抜け落ちる。
+    const fallback = this.renderTrackToBuffer(track);
+    if (fallback) this.startBuffer(fallback);
+    void sampleBank.load(key).then((buf) => {
+      // 待っている間に別のトラックへ移っていたら捨てる。
+      if (buf && this.currentTrack === track) this.startBuffer(buf);
+      this.prefetchBonus();
+    });
+  }
+
+  /**
+   * 戦が変わったので通常BGMを引き直す。**今かかっている曲は変えない**——
+   * 計数した直後に音楽が切り替わると、締めの余韻が途切れる。次に通常へ戻る時から効く。
+   */
+  reshuffle(): void {
+    const others = NORMAL_KEYS.filter((k) => k !== this.normalKey);
+    this.normalKey = others[Math.floor(Math.random() * others.length)] ?? NORMAL_KEYS[0];
+  }
+
+  private keyFor(track: BgmTrack): string {
+    return track === 'normal' ? this.normalKey : BONUS_KEYS[track];
+  }
+
+  /**
+   * ボーナスBGMを先に取っておく。突入は前触れなく来るので、その場から読み始めると
+   * ファンファーレの裏で無音になる。通常BGMが鳴り出してからで間に合う。
+   */
+  private prefetchBonus(): void {
+    if (this.prefetched) return;
+    this.prefetched = true;
+    void sampleBank.loadAll(Object.values(BONUS_KEYS));
+  }
+
+  /** バッファを差し替えてループ再生。前の音は止める。 */
+  private startBuffer(buffer: AudioBuffer): void {
+    if (!this.ctx || !this.masterGain) return;
+    this.stopSource();
     const src = this.ctx.createBufferSource();
     src.buffer = buffer;
     src.loop = true;
+    // 実データの端でループさせる（AAC の先頭無音・末尾パディングを跨がせない）。
+    const [start, end] = SampleBank.dataRange(buffer);
+    src.loopStart = start;
+    src.loopEnd = end;
     src.connect(this.masterGain);
-    src.start();
+    src.start(0, start);
     this.currentSource = src;
-    this.currentTrack = track;
   }
 
   /** 再生停止（ctx は残す） */
   stop(): void {
+    this.stopSource();
+    this.currentTrack = null;
+  }
+
+  private stopSource(): void {
     if (this.currentSource) {
       try {
         this.currentSource.stop();
@@ -142,7 +211,6 @@ export class BgmEngine {
       this.currentSource.disconnect();
       this.currentSource = null;
     }
-    this.currentTrack = null;
   }
 
   /**
@@ -152,8 +220,8 @@ export class BgmEngine {
    */
   private renderTrackToBuffer(track: BgmTrack): AudioBuffer | null {
     if (!this.ctx) return null;
-    const melody = track === 'bonus' ? BONUS_MELODY : NORMAL_MELODY;
-    const beatSec = track === 'bonus' ? BEAT_SEC_BONUS : BEAT_SEC_NORMAL;
+    const melody = track === 'normal' ? NORMAL_MELODY : BONUS_MELODY;
+    const beatSec = track === 'normal' ? BEAT_SEC_NORMAL : BEAT_SEC_BONUS;
     const totalSec = melody.reduce((s, n) => s + n.beats * beatSec, 0);
     const sampleRate = this.ctx.sampleRate;
     const buffer = this.ctx.createBuffer(

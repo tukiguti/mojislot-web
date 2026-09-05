@@ -190,7 +190,7 @@ export class SettingsOverlay {
             <button data-debug="aim" type="button">狙え！予告</button>
             <button data-debug="shisa" type="button">示唆発動</button>
             <button data-debug="quiz" type="button">クイズ発動</button>
-            <button data-debug="tenpai" type="button">テンパイSE</button>
+            <button data-debug="tenpai" type="button">プレミアムテンパイ</button>
             <button data-debug="win" type="button">役成立演出</button>
             <button data-debug="effects" type="button">全画面FX</button>
           </div>

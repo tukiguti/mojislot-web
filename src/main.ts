@@ -73,6 +73,7 @@ import {
   showFreezeBanner,
   setBlackoutHost,
   showBlackout,
+  setBlackoutLevel,
   clearBlackout,
   setStepFx,
   STEP_LEVER,
@@ -367,6 +368,13 @@ export async function bootstrap() {
   let freezeActive = false;
   let pendingFreeze = false;
   /**
+   * このボーナスがフリーズを抜けて来たか。**突入ファンファーレを長いほうへ差し替える**
+   * ためだけに持つ（showBonusEntryFx で消費する）。
+   */
+  let freezeGrand = false;
+  /** 前回レバーONの時刻。ウェイト音を鳴らすかの判定に使う。 */
+  let lastLeverAt = 0;
+  /**
    * 停止ボタンを受け付けるようになる時刻。レバーONからの待ちで、
    * 実機の「定速になるまで止められない」に相当する（[31] §11）。
    */
@@ -385,10 +393,17 @@ export async function bootstrap() {
   // レバーオン時のフリーズ抽選確率（通常時のみ）／倍速回転スピード。data/tuning で調整。
   const FREEZE_SPIN_SPEED = tuning.freeze.spinSpeed;
   /**
-   * ブラックアウトの長さ。**ここが「フリーズ」そのもの**なので短すぎると
-   * ただの暗転になる。長すぎると故障を疑われるので1秒前後で取る。
+   * フリーズ演出の進行。**音（audio/sfx/freeze.m4a・9.44秒）の構造に合わせてある**——
+   * 素材は消灯・溜め・着弾が一本に繋がっていて、途中で切ると上昇が宙に浮く。
+   * 数値は波形の解析値そのもの：0.0秒で高域が急降下（消灯）、4.6秒からスペクトルが
+   * 3.1kHz→8.2kHz へ単調上昇（溜め）、9.1秒で急落＋音量ピーク（着弾）。
    */
-  const FREEZE_BLACKOUT_MS = 1000;
+  const FREEZE_SWELL_AT_MS = 4600;
+  const FREEZE_RELEASE_AT_MS = 9100;
+  /** 溜めの間に暗転をここまで緩める。明けきらない程度に留めて、着弾の落差を残す。 */
+  const FREEZE_SWELL_BRIGHTNESS = 0.42;
+  /** 実機のウェイト（前ゲームから4.1秒）。速く回している時だけ鳴る。 */
+  const LEVER_WAIT_MS = 4100;
 
   /**
    * リール速度（コマ/秒）。data/tuning が既定で、設定モーダルから上書きできる（体感比較用）。
@@ -1217,6 +1232,10 @@ export async function bootstrap() {
     // 計数=この戦の区切り。計測中なら自動停止（sahmai が0に戻り時速が誤って跳ねるのを防ぐ）。
     // ※ runTimer は下方で生成（このハンドラはクリック時=bootstrap完了後に走るので参照は安全）
     runTimer.stop();
+    sfx.count();
+    // 次に通常へ戻る時から別の曲になる。今かかっている音は変えない——
+    // 締めた直後に切り替わると、計数の余韻が途切れる。
+    bgm.reshuffle();
     const investment = wallet.investmentTotal.get();
     const payback = wallet.coins.get();
     // 空打ち（1回も回さず計数）は機械割が算出不能なので記録しない＝離脱は破棄に準ずる
@@ -1369,7 +1388,10 @@ export async function bootstrap() {
   const showBonusEntryFx = (yaku: Yaku, kind: 'big' | 'reg') => {
     // 前回の設定示唆はここで役目を終える。この区間の答えは終了時に出し直す
     setCabinetLamp(null);
-    sfx.bonusEnter();
+    // フリーズを抜けた7揃いだけ長いほうのファンファーレになる＝格の違いが音で出る。
+    const grand = freezeGrand;
+    freezeGrand = false;
+    sfx.bonusEnter(kind, grand);
     showPremiumCutin(yaku.name, yaku.symbols, cutinBackdropFor(yaku, kind), kind);
     flashScreen({
       color: kind === 'reg' ? '#cdd6e0' : '#ffd700',
@@ -1459,7 +1481,7 @@ export async function bootstrap() {
       showCoinBurstAt(5);
     },
     triggerTenpaiSe: () => {
-      sfx.tenpai();
+      sfx.tenpaiPremium();
       // どれか1リールに枠フラッシュ
       views[2].startTenpaiFlash(false);
       window.setTimeout(() => views[2].stopTenpaiFlash(), 2500);
@@ -1483,7 +1505,8 @@ export async function bootstrap() {
       cabinetEl.classList.add('bonus');
       startBonusSparkle();
       // BGM 起動済みならボーナス曲へ。未起動なら placeBet 時に再生される。
-      bgm.play('bonus');
+      // **BIG と REG で別の曲**＝鳴った瞬間にどちらを引いたか分かる。
+      bgm.play(bonusZone.kind.get() ?? 'big');
     } else {
       bonusStatusEl.hidden = true;
       bonusStatusEl.textContent = '';
@@ -1584,7 +1607,7 @@ export async function bootstrap() {
         (nextName ? `　▶ 次は「${nextName}」` : ''),
       'premium',
     );
-    sfx.winMulti(kind === 'reg' ? 2 : 4); // 既存ファンファーレを締めに流用
+    sfx.winPremium(); // 区間の締め＝いちばん長いクリア音
     // 示唆が出た時だけ画面の色を変える＝「何か出た」と気づける（色は EffectPresentation）。
     flashScreen({ color: endScreenFlashColor(endScreen.kind, kind), alpha: 0.6, durMs: 380 });
     spawnConfetti(kind === 'reg' ? 40 : 80);
@@ -1695,7 +1718,7 @@ export async function bootstrap() {
     sfx.init(); // user gesture でオーディオ起動
     // BGM も最初の BET で起動（自動再生制限の回避）。再生中ならスキップ。
     bgm.init();
-    bgm.play(bonusZone.isActive() ? 'bonus' : 'normal');
+    bgm.play(bonusZone.isActive() ? (bonusZone.kind.get() ?? 'big') : 'normal');
     if (!wallet.bet(calc.bet)) return;
     bonusSession.beginSpin();
     recordRunSpeed(reelSpeed());
@@ -1883,6 +1906,10 @@ export async function bootstrap() {
     flashButton(leverBtn);
     spawnButtonRipple(leverBtn, '#ffd700');
     sfx.lever();
+    // 実機のウェイト。**前ゲームから間が空いていない時だけ**鳴る＝急いでいる合図。
+    const leverAt = performance.now();
+    if (lastLeverAt > 0 && leverAt - lastLeverAt < LEVER_WAIT_MS) sfx.wait();
+    lastLeverAt = leverAt;
     if (delayMs > 0) {
       // 間の最中はまだどのリールも回っていない＝レバーが有効なままなので、
       // 二度押しで内部役を引き直せてしまう。フラグで塞ぐ。
@@ -2258,9 +2285,11 @@ export async function bootstrap() {
       const tenpai = tenpaiDetector.detect(visAfter);
       if (tenpai) {
         // 実機準拠：テンパイ時もリール速度は変えない。枠フラッシュ＆SEのみ。
+        // **通常のテンパイは無音**。第2停止で偶然揃うだけのことが多く、演出が
+        // 何も出ていないゲームでも鳴ってしまう。枠フラッシュだけで足りる。
+        // ボーナス役のテンパイは別で、鳴らす価値のある情報がある。
         views[tenpai.missingReelIndex].startTenpaiFlash(tenpai.hasPremium);
         if (tenpai.hasPremium) sfx.tenpaiPremium();
-        else sfx.tenpai();
         showSoundCue('テンパイ');
       }
     }
@@ -2376,7 +2405,11 @@ export async function bootstrap() {
         if (quizMatched) sfx.quizCorrect();
         else sfx.quizWrong();
       }
-      if (win > 0) wallet.win(win);
+      if (win > 0) {
+        wallet.win(win);
+        // 3枚で1発。枚数が音の長さになるので、数字を読まなくても大きさが分かる。
+        sfx.payout(win);
+      }
 
       playStats.recordSpin({
         bet: calc.bet,
@@ -2623,15 +2656,22 @@ export async function bootstrap() {
     for (const e of engines) e.setSpeed(0);
     bgm.stop();
     showBlackout();
+    freezeGrand = true;
+    // **音が演出の親**。消灯と同時に鳴らし始め、以降のタイミングは全部この音に合わせる。
+    sfx.freeze();
+    // 溜めに入ったら暗転を少しずつ緩める。真っ暗のまま9秒待たせると、
+    // 何が起きているか分からないただの停止画面になる。
+    window.setTimeout(
+      () => setBlackoutLevel(FREEZE_SWELL_BRIGHTNESS, FREEZE_RELEASE_AT_MS - FREEZE_SWELL_AT_MS),
+      FREEZE_SWELL_AT_MS,
+    );
     window.setTimeout(() => {
       // 2) 明けた瞬間に爆発させる。暗転の解除・バナー・SE・フラッシュ・倍速回転を
       //    同じフレームに揃える（ずらすと「明るくなってから何か始まる」になる）。
       clearBlackout();
-      sfx.freeze();
       showFreezeBanner();
       flashScreen({ color: '#cfe4ff', alpha: 0.9, durMs: 220 });
       for (const e of engines) e.setSpeed(FREEZE_SPIN_SPEED);
-      sfx.lever();
       // 3) 1リール目から順に7を強制停止
       window.setTimeout(() => forceStopOn7(0), 700);
       window.setTimeout(() => forceStopOn7(1), 1300);
@@ -2641,7 +2681,7 @@ export async function bootstrap() {
         clearFreezeBanner();
         updateButtons();
       }, 1900);
-    }, FREEZE_BLACKOUT_MS);
+    }, FREEZE_RELEASE_AT_MS);
   };
 
   // === 確定告知ランプ ===

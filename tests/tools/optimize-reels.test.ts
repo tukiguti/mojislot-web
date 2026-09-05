@@ -33,9 +33,10 @@ import { flagYakusFor, bonusOnlySymbols, computeFirstStopSlip } from './gen-stop
  * その時の役セットに対する解でしかない）。ここはその再探索を**リポジトリに残す**ためのもの。
  * 前回はスクリプトが残っておらず、役を変えるたびに手法から書き直す羽目になった。
  *
- * 目的関数 = ②の件数（主）＋ 横3ライン同時テンパイの件数（ハード制約・②と同じ重み）
- * ＋ 図柄の最大間隔（副・引き込み到達性）。
- * 近傍 = 同一リール内のスワップ／文字の置換（枚数が動く）。制約 = 各文字が最低2枚。
+ * 目的関数 = ②の件数（主）＋ 横3ライン同時テンパイの件数＋同じ図柄の3連続
+ * （どちらもハード制約・②と同じ重み）＋ 図柄の最大間隔（副・引き込み到達性）。
+ * 近傍 = 同一リール内のスワップのみ（枚数は PLAN_BY_PAYOUT で固定）。
+ * 制約 = 引き込みで届かない押下位置の上限（役の格で決まる。MAX_UNREACHABLE）。
  */
 
 const RUN = process.env.OPT === '1';
@@ -396,6 +397,29 @@ function gapPenalty(reels: string[][], pools: string[][]): number {
 }
 
 /**
+ * 同一図柄が3コマ以上続く箇所の数。**0 がハード制約**。
+ *
+ * 3コマ窓が丸ごと同じ文字になると、そこだけ固まって見えるだけでなく、その図柄の
+ * 引き込みが1箇所に集中して**他の押下位置から届かなくなる**。spreadPenalty は
+ * 間隔の最大−最小しか見ないので、`[5,5,1,1,4,1,4]` のように3連続を含む並びでも
+ * ペナルティが 4 にしかならず素通りしていた。寿司島の左「か」が21コマ中7枚・
+ * 位置11-13で3連続になっていて、3コマ窓が全部「か」になる位置が実際にあった
+ * （全5島15リールでここだけ）。
+ *
+ * 2連続までは許す。21コマに6〜8枚入る図柄があるので、完全に散らすと他の制約と
+ * competing して解が見つからない。見た目に出るのは3連続から。
+ */
+function runPenalty(reels: string[][]): number {
+  let total = 0;
+  for (const r of reels) {
+    for (let p = 0; p < N; p++) {
+      if (r[p] === r[(p + 1) % N] && r[p] === r[(p + 2) % N]) total++;
+    }
+  }
+  return total;
+}
+
+/**
  * 横3ライン同時テンパイの件数（第1×第2リールの全停止位置 21×21 のうち、
  * 上段・中段・下段が**同時に**テンパイする位置の数）。**0 がハード制約**。
  *
@@ -426,15 +450,234 @@ function countTripleTenpai(yakuList: YakuList, reels: string[][]): number {
 }
 
 /**
- * 各文字が最低2枚あるか。**ボーナス専用図柄だけは1枚でよい。**
+ * 図柄の枚数を配当の格で決め打ちする。**枚数が固定なら焼きなましは並び順だけを探せばよく、
+ * 狙った形へ寄せやすい。**近傍もスワップだけになる（置換をやめる）。
  *
- * 実機のジャグラーも7は1リールに1枚しかない。稀にしか使わない図柄を2枚置くと
- * 配列を圧迫するし、1枚だから狙う価値が出る。小役は毎ゲーム引くので2枚要る。
+ * 実機（ジャグラー）の配分に倣う——ぶどう(8枚役)は左8枚でどこで押しても揃い、
+ * ベル(14枚)とピエロ(10枚)は左1枚で事実上取れない。**枠は21コマしかないので、
+ * どこかを確実にすればどこかがこぼれる。** 低配当ほど毎ゲーム引くので厚く、高配当ほど薄い。
+ *
+ * ボーナスは実機の7（左2・中1・右1枚）と同じく薄くてよい。目押しで狙う役なので
+ * 引き込みを当てにしていない。チェリーも実機どおりこぼす側。
  */
-function valid(reel: string[], pool: string[], bonusOnly: ReadonlySet<string>): boolean {
+const PLAN_BY_PAYOUT: Record<number, number> = { 3: 5, 4: 4, 5: 3, 7: 3 };
+const PLAN_CHERRY = 2;
+const PLAN_BONUS = 2;
+
+/**
+ * そのリールの枚数計画。左と中はちょうど21枚で埋まり、**第3リールだけ2枚余る**
+ * （小役以外の図柄が1種少ないため）。余りはボーナス図柄へ回す——第3リールは
+ * BIG と REG の取り違えが起きる場所で、厚いほど「滑ってREG」が成立しやすい。
+ */
+function planCounts(yakuList: YakuList, reel: number): Map<string, number> {
+  const plan = new Map<string, number>();
+  const bump = (sym: string | undefined, n: number) => {
+    if (sym === undefined) return;
+    plan.set(sym, Math.max(plan.get(sym) ?? 0, n));
+  };
+  for (const y of yakuList.coreYaku) bump(y.symbols[reel], PLAN_BY_PAYOUT[y.payout ?? 7] ?? 3);
+  for (const y of yakuList.cherryYaku) bump(y.symbols[reel], PLAN_CHERRY);
+  const bonusSyms: string[] = [];
+  for (const y of [...yakuList.premiumYaku, ...yakuList.bonusYaku]) {
+    const c = y.symbols[reel];
+    if (c === undefined) continue;
+    bump(c, PLAN_BONUS);
+    if (!bonusSyms.includes(c)) bonusSyms.push(c);
+  }
+  for (const y of yakuList.singleYaku) bump(y.symbols[reel], 1);
+  // 余った枠をボーナス図柄へ均等に配る。1周しても余るなら小役の主力（最厚）へ。
+  let rest = N - [...plan.values()].reduce((a, b) => a + b, 0);
+  for (let i = 0; rest > 0 && bonusSyms.length > 0 && i < rest + bonusSyms.length; i++) {
+    const sym = bonusSyms[i % bonusSyms.length];
+    if (sym === undefined) break;
+    plan.set(sym, (plan.get(sym) ?? 0) + 1);
+    rest--;
+  }
+  if (rest > 0) {
+    const top = [...plan.entries()].sort((a, b) => b[1] - a[1])[0];
+    if (top) plan.set(top[0], top[1] + rest);
+  }
+  return plan;
+}
+
+/** 枚数が計画どおりか。 */
+function matchesPlan(reel: string[], plan: ReadonlyMap<string, number>): boolean {
   const counts = new Map<string, number>();
   for (const c of reel) counts.set(c, (counts.get(c) ?? 0) + 1);
-  return pool.every((c) => (counts.get(c) ?? 0) >= (bonusOnly.has(c) ? 1 : 2));
+  if (counts.size !== plan.size) return false;
+  for (const [sym, n] of plan) if (counts.get(sym) !== n) return false;
+  return true;
+}
+
+/** 現行配列を枚数計画へ寄せる。多い文字を減らし、足りない文字へ振り替える。 */
+function toPlan(reel: string[], plan: ReadonlyMap<string, number>, rng: () => number): string[] {
+  const out = [...reel];
+  const tally = () => {
+    const m = new Map<string, number>();
+    for (const c of out) m.set(c, (m.get(c) ?? 0) + 1);
+    return m;
+  };
+  for (let guard = 0; guard < 500; guard++) {
+    const c = tally();
+    const short = [...plan].find(([sym, n]) => (c.get(sym) ?? 0) < n);
+    if (!short) break;
+    const over: number[] = [];
+    out.forEach((sym, i) => {
+      if ((c.get(sym) ?? 0) > (plan.get(sym) ?? 0)) over.push(i);
+    });
+    if (over.length === 0) break;
+    out[over[Math.floor(rng() * over.length)] ?? 0] = short[0];
+  }
+  return out;
+}
+
+/**
+ * REG と**頭2文字を共有する BIG**。第1・第2リールが止まった時点ではどちらか
+ * 分からず、第3リールで初めて決まる——祈りの瞬間そのもの。
+ */
+function pairedBig(yakuList: YakuList): Yaku | null {
+  const reg = yakuList.bonusYaku[0];
+  if (!reg) return null;
+  return (
+    yakuList.premiumYaku.find(
+      (b) => b.symbols[0] === reg.symbols[0] && b.symbols[1] === reg.symbols[1],
+    ) ?? null
+  );
+}
+
+/**
+ * 第3リールで **BIG と REG のどちらも引き込めない押下位置**の数。**0 がハード制約**。
+ *
+ * 実機の右リールは7とBARが隣り合っている（ジャグラーなら20番と19番）。同じ位置を
+ * 押せば両方引き込めるので、「7を狙ったらBARが止まってREG」が起きる。
+ *
+ * これが無いと、**赤示唆でボーナスが濃厚なのに、押した位置によっては絶対に揃わない**。
+ * 狙う場所が分からないまま外し続けることになり、示唆が情報として機能しない。
+ * 実測で動物島は21位置中5箇所がこの穴だった。
+ */
+function thirdReelBlindSpots(yakuList: YakuList, reels: string[][]): number {
+  const reg = yakuList.bonusYaku[0];
+  const big = pairedBig(yakuList);
+  const a = big?.symbols[2];
+  const b = reg?.symbols[2];
+  if (a === undefined || b === undefined) return 0;
+  let blind = 0;
+  for (let p = 0; p < N; p++) {
+    if (!reachableFrom(reels[2], a, p) && !reachableFrom(reels[2], b, p)) blind++;
+  }
+  return blind;
+}
+
+/**
+ * 第3リールで BIG図柄と REG図柄が**隣り合っている組の数**。**最低1組がハード制約**。
+ *
+ * 実機の右リールは7の隣がBAR（ジャグラーなら20番と19番）。狙った位置から1コマ
+ * 滑るだけで BIG が REG に変わるので、「7を狙ったらBARが止まった」が起きる。
+ * 4コマ以内にありさえすれば両方引けるが、間に別の図柄が挟まると滑りが大きくなり、
+ * 取り違えの手応えが薄れる。
+ *
+ * **全部を隣接させることはできない。** け3枚・こ3枚を3組とも隣接させるとペアが
+ * 固まり、ペア間に間隔7の穴が空いて「どちらも引けない位置」が3箇所出る。逆に
+ * 6枚を散らして穴を消すと隣接がゼロになる。だから最低1組だけ要求して、
+ * それ以上は副目的で増やす。
+ */
+function thirdReelAdjacentPairs(yakuList: YakuList, reels: string[][]): number {
+  const reg = yakuList.bonusYaku[0];
+  const big = pairedBig(yakuList);
+  const a = big?.symbols[2];
+  const b = reg?.symbols[2];
+  if (a === undefined || b === undefined) return 0;
+  const r = reels[2];
+  let pairs = 0;
+  for (let p = 0; p < N; p++) {
+    const cur = r[p];
+    const next = r[(p + 1) % N];
+    if ((cur === a && next === b) || (cur === b && next === a)) pairs++;
+  }
+  return pairs;
+}
+
+/** 第3リールで BIG と REG の**両方**を引き込める押下位置の数（多いほどよい）。 */
+function thirdReelBothCount(yakuList: YakuList, reels: string[][]): number {
+  const reg = yakuList.bonusYaku[0];
+  const big = pairedBig(yakuList);
+  const a = big?.symbols[2];
+  const b = reg?.symbols[2];
+  if (a === undefined || b === undefined) return 0;
+  let both = 0;
+  for (let p = 0; p < N; p++) {
+    if (reachableFrom(reels[2], a, p) && reachableFrom(reels[2], b, p)) both++;
+  }
+  return both;
+}
+
+/**
+ * 役ごとに許す「引き込みで届かない押下位置」の数。**引き込み可能性の配分そのもの。**
+ *
+ * 実機は全部の役が引き込めるようにはなっていない。ジャグラーならぶどうとリプレイは
+ * どこで押しても揃うが、ピエロとチェリーはこぼす。**枠は21コマしかないので、
+ * どこかを確実にすればどこかがこぼれる**——その配分を決めるのがこの表。
+ *
+ * 枚数ではなく届かない位置で縛るのは、**枚数を揃えても配置が偏れば意味がない**ため。
+ * 実測で4枚の「か」が位置6,7,12,13に固まり、間隔14の大穴が空いて届かない位置が
+ * 9つ残った。同じ4枚でも等間隔なら1つで済む。
+ *
+ * 数字は配当の格に沿う。低配当の小役ほど毎ゲーム引くので確実に取れるべきで、
+ * 高配当ほどこぼしてよい。ボーナスは**目押し前提**なので制約しない（実機の7も
+ * 左2・中1・右1枚しかなく、引き込みでは届かない位置のほうが多い）。
+ */
+const MAX_UNREACHABLE: Record<number, number> = { 3: 3, 4: 5, 5: 8, 7: 8 };
+
+/** その文字を、押下位置 press から引き込みで拾えるか。 */
+function reachableFrom(cells: readonly string[], sym: string, press: number): boolean {
+  for (let s = 0; s <= PULL_IN; s++) if (cells[(press + s) % N] === sym) return true;
+  return false;
+}
+
+/** その文字が「届かない押下位置」の数（0〜N）。 */
+function unreachableCount(cells: readonly string[], sym: string): number {
+  let n = 0;
+  for (let p = 0; p < N; p++) if (!reachableFrom(cells, sym, p)) n++;
+  return n;
+}
+
+/**
+ * 引き込み可能性の配分に対する違反量。**0 がハード制約**。
+ *
+ * 役の到達率は3文字の最小で決まるので、1文字でも痩せると役ごと死ぬ。だから
+ * 役単位ではなく**文字単位**で上限を課す。
+ */
+function reachBudgetPenalty(yakuList: YakuList, reels: string[][]): number {
+  let over = 0;
+  const check = (sym: string | undefined, reel: number, limit: number) => {
+    if (sym === undefined) return;
+    over += Math.max(0, unreachableCount(reels[reel], sym) - limit);
+  };
+  for (const y of yakuList.coreYaku) {
+    const limit = MAX_UNREACHABLE[y.payout ?? 0] ?? 8;
+    for (let i = 0; i < 3; i++) check(y.symbols[i], i, limit);
+  }
+  // チェリーとボーナスは縛らない。**実機どおりこぼす側**——2枚しか置かないので
+  // 届かない位置は最低でも11あり、上限を課しても満たしようがない。狙って取る役。
+  return over;
+}
+
+/**
+ * 届かない位置の重み付き合計。**上限を守った上でさらに良くする副目的。**
+ * 低配当の役ほど頻繁に引くので重い。
+ */
+function unreachableTotal(yakuList: YakuList, reels: string[][]): number {
+  const weightOf = (payout: number): number =>
+    payout <= 3 ? 4 : payout <= 4 ? 3 : payout <= 5 ? 2 : 1;
+  let total = 0;
+  for (const y of yakuList.coreYaku) {
+    const w = weightOf(y.payout ?? 7);
+    for (let i = 0; i < 3; i++) {
+      const sym = y.symbols[i];
+      if (sym !== undefined) total += unreachableCount(reels[i], sym) * w;
+    }
+  }
+  return total;
 }
 
 /** その文字がボーナス（BIG/REG）にしか使われないか。 */
@@ -578,8 +821,11 @@ describe.skipIf(!RUN)('リール配列の再最適化', () => {
         });
         const judge = new YakuJudge(yakuList);
 
-        let cur = reelCfg.reels.map((r) => [...r.cells]);
-        const pools = cur.map((r) => [...new Set(r)]);
+        const plans = [0, 1, 2].map((r) => planCounts(yakuList, r));
+        // 枚数は計画で固定する。現行配列は計画とずれているので、まず寄せてから焼きなます。
+        const seedRng = makeRng(20260905);
+        let cur = reelCfg.reels.map((r, i) => toPlan([...r.cells], plans[i], seedRng));
+        const pools = plans.map((pl) => [...pl.keys()]);
         let curCtrl = makeController(yakuList, cur, resolver);
         let curLeaks = countLeaks(
           yakuList, cur, resolver, judge, Infinity, curCtrl, SCAN_ORDERS, SCAN_STEP,
@@ -596,14 +842,18 @@ describe.skipIf(!RUN)('リール配列の再最適化', () => {
         const weights = yakuWeights(yakuList, scoreYakus);
         /** 到達率の帯を見る対象（1枚役グループは帯の外なので除く）。 */
         const scoredYakus = scoreYakus;
-        /** ボーナス専用図柄はリールに1枚でよい（実機の7と同じ）。 */
-        const bonusOnly = [0, 1, 2].map((r) => bonusOnlySymbols(yakuList, r));
         let curRates = reachableRates(yakuList, cur, curCtrl, judge, REACH_STEP);
         let curReach = reachScore(curRates, weights);
         let curBases = basePositionPenalty(yakuList, cur);
         let curGolds = goldTellPenalty(yakuList, cur);
         let curBand = bandPenalty(scoredYakus, curRates);
         let curSpread = spreadPenalty(cur, pools);
+        let curRuns = runPenalty(cur);
+        let curBudget = reachBudgetPenalty(yakuList, cur);
+        let curBlind = thirdReelBlindSpots(yakuList, cur);
+        let curBoth = thirdReelBothCount(yakuList, cur);
+        let curPairs = thirdReelAdjacentPairs(yakuList, cur);
+        let curUnreach = unreachableTotal(yakuList, cur);
         let best = cur.map((r) => [...r]);
         let bestLeaks = curLeaks;
         let bestGap = curGap;
@@ -613,9 +863,15 @@ describe.skipIf(!RUN)('リール配列の再最適化', () => {
         let bestGolds = curGolds;
         let bestBand = curBand;
         let bestSpread = curSpread;
+        let bestRuns = curRuns;
+        let bestBudget = curBudget;
+        let bestBlind = curBlind;
+        let bestBoth = curBoth;
+        let bestPairs = curPairs;
+        let bestUnreach = curUnreach;
         const t0 = Date.now();
         console.log(
-          `\n[${chapter}] 初期 ②=${curLeaks} 3本同時=${curTriples} 基準=${curBases} 金示唆=${curGolds} 帯=${curBand.toFixed(3)} 偏り=${curSpread} 到達=${curReach.toFixed(4)}` +
+          `\n[${chapter}] 初期 ②=${curLeaks} 3本同時=${curTriples} 基準=${curBases} 金示唆=${curGolds} 3連続=${curRuns} 配分超過=${curBudget} 3リール盲点=${curBlind} 隣接=${curPairs} 両取り=${curBoth} 届かず=${curUnreach} 帯=${curBand.toFixed(3)} 偏り=${curSpread} 到達=${curReach.toFixed(4)}` +
             (REACH_MODE ? ` (reachモード・主ライン ${PRIMARY_PAYLINE.id})` : ''),
         );
         if (process.env.OPT_DETAIL === '2') {
@@ -653,15 +909,11 @@ describe.skipIf(!RUN)('リール配列の再最適化', () => {
         for (let iter = 0; iter < MAX_ITER && (REACH_MODE || bestLeaks > 0); iter++) {
           const next = cur.map((r) => [...r]);
           const i = Math.floor(rng() * 3);
-          if (rng() < 0.5) {
-            const a = Math.floor(rng() * N);
-            const b = Math.floor(rng() * N);
-            [next[i][a], next[i][b]] = [next[i][b], next[i][a]];
-          } else {
-            const p = Math.floor(rng() * N);
-            next[i][p] = pools[i][Math.floor(rng() * pools[i].length)];
-          }
-          if (!valid(next[i], pools[i], bonusOnly[i])) continue;
+          // **スワップだけ**。文字の置換を混ぜると枚数が動いてしまう。
+          const a = Math.floor(rng() * N);
+          const b = Math.floor(rng() * N);
+          [next[i][a], next[i][b]] = [next[i][b], next[i][a]];
+          if (!matchesPlan(next[i], plans[i])) continue;
 
           const T = 6 * Math.pow(0.02 / 6, iter / MAX_ITER);
           const nextCtrl = makeController(yakuList, next, resolver);
@@ -676,6 +928,12 @@ describe.skipIf(!RUN)('リール配列の再最適化', () => {
           const golds = goldTellPenalty(yakuList, next);
           const band = bandPenalty(scoredYakus, rates);
           const spread = spreadPenalty(next, pools);
+          const runs = runPenalty(next);
+          const budget = reachBudgetPenalty(yakuList, next);
+          const blind = thirdReelBlindSpots(yakuList, next);
+          const both = thirdReelBothCount(yakuList, next);
+          const pairs = thirdReelAdjacentPairs(yakuList, next);
+          const unreach = unreachableTotal(yakuList, next);
           // reach モードでは②を**ハード制約**にし（1件でも大ペナルティ）、
           // その上で到達率を上げる。既定モードは従来どおり②＋間隔。
           // 横3ライン同時テンパイ（triples）は②と同じ重みのハード制約。
@@ -686,6 +944,13 @@ describe.skipIf(!RUN)('リール配列の再最適化', () => {
               (triples - curTriples) * 100000 +
               (bases - curBases) * 100000 +
               (golds - curGolds) * 100000 +
+              (runs - curRuns) * 100000 +
+              (budget - curBudget) * 100000 +
+              (blind - curBlind) * 100000 +
+              (Math.max(0, 1 - pairs) - Math.max(0, 1 - curPairs)) * 100000 +
+              (curPairs - pairs) * 4000 +
+              (curBoth - both) * 1500 +
+              (unreach - curUnreach) * 800 +
               (band - curBand) * 30000 +
               (spread - curSpread) * 400 -
               (reach - curReach) * 10000
@@ -693,6 +958,13 @@ describe.skipIf(!RUN)('リール配列の再最適化', () => {
               (triples - curTriples) * 100 +
               (bases - curBases) * 100 +
               (golds - curGolds) * 100 +
+              (runs - curRuns) * 100 +
+              (budget - curBudget) * 100 +
+              (blind - curBlind) * 100 +
+              (Math.max(0, 1 - pairs) - Math.max(0, 1 - curPairs)) * 100 +
+              (curPairs - pairs) * 4 +
+              (curBoth - both) * 2 +
+              (unreach - curUnreach) * 1 +
               (band - curBand) * 30 +
               (spread - curSpread) * 2 +
               (gap - curGap);
@@ -706,17 +978,31 @@ describe.skipIf(!RUN)('リール配列の再最適化', () => {
             curGolds = golds;
             curBand = band;
             curSpread = spread;
-            const hardOk = leaks === 0 && triples === 0 && bases === 0 && golds === 0;
+            curRuns = runs;
+            curBudget = budget;
+            curBlind = blind;
+            curBoth = both;
+            curPairs = pairs;
+            curUnreach = unreach;
+            const hardOk =
+              leaks === 0 && triples === 0 && bases === 0 && golds === 0 && runs === 0 &&
+              budget === 0 && blind === 0 && pairs >= 1;
             const improved = REACH_MODE
               ? hardOk &&
                 (bestLeaks > 0 || bestTriples > 0 || bestBases > 0 || bestGolds > 0 ||
+                 bestRuns > 0 || bestBudget > 0 || bestBlind > 0 || bestPairs < 1 ||
+                 pairs > bestPairs ||
+                 (pairs === bestPairs && both > bestBoth) ||
+                 (pairs === bestPairs && both === bestBoth && unreach < bestUnreach) ||
                  band < bestBand - 1e-9 ||
                  (Math.abs(band - bestBand) < 1e-9 &&
                   (spread < bestSpread || (spread === bestSpread && reach > bestReach))))
-              : leaks + triples + bases + golds <
-                  bestLeaks + bestTriples + bestBases + bestGolds ||
+              : leaks + triples + bases + golds + runs + budget + blind <
+                  bestLeaks + bestTriples + bestBases + bestGolds + bestRuns + bestBudget +
+                    bestBlind ||
                 (leaks === bestLeaks && triples === bestTriples && bases === bestBases &&
-                 golds === bestGolds &&
+                 golds === bestGolds && runs === bestRuns && budget === bestBudget &&
+                 blind === bestBlind && pairs === bestPairs &&
                  (band < bestBand - 1e-9 ||
                   (Math.abs(band - bestBand) < 1e-9 && gap < bestGap)));
             if (improved) {
@@ -729,15 +1015,21 @@ describe.skipIf(!RUN)('リール配列の再最適化', () => {
               bestGolds = golds;
               bestBand = band;
               bestSpread = spread;
+              bestRuns = runs;
+              bestBudget = budget;
+              bestBlind = blind;
+              bestBoth = both;
+              bestPairs = pairs;
+              bestUnreach = unreach;
               console.log(
-                `  iter=${iter} ②=${leaks} 3本同時=${triples} 基準=${bases} 金示唆=${golds} 帯=${band.toFixed(3)} 偏り=${spread} 到達=${reach.toFixed(4)} (${((Date.now() - t0) / 1000).toFixed(0)}s)`,
+                `  iter=${iter} ②=${leaks} 3本同時=${triples} 基準=${bases} 金示唆=${golds} 3連続=${runs} 配分超過=${budget} 3リール盲点=${blind} 隣接=${pairs} 両取り=${both} 届かず=${unreach} 帯=${band.toFixed(3)} 偏り=${spread} 到達=${reach.toFixed(4)} (${((Date.now() - t0) / 1000).toFixed(0)}s)`,
               );
             }
           }
         }
 
         console.log(
-          `[${chapter}] 結果 ②=${bestLeaks} 3本同時=${bestTriples} 金示唆=${bestGolds} 間隔=${bestGap} 到達=${bestReach.toFixed(4)} ${((Date.now() - t0) / 1000).toFixed(0)}s`,
+          `[${chapter}] 結果 ②=${bestLeaks} 3本同時=${bestTriples} 金示唆=${bestGolds} 3連続=${bestRuns} 配分超過=${bestBudget} 3リール盲点=${bestBlind} 隣接=${bestPairs} 両取り=${bestBoth} 届かず=${bestUnreach} 間隔=${bestGap} 到達=${bestReach.toFixed(4)} ${((Date.now() - t0) / 1000).toFixed(0)}s`,
         );
         // 焼きなまし中は間引いて評価しているので、**採用する配列は全数・全押し順で
         // 検証し直す**。間引きで見逃した②がここで出たら書き出さない。
@@ -757,7 +1049,24 @@ describe.skipIf(!RUN)('リール配列の再最適化', () => {
         if (verified === 0 && bestGolds > 0) {
           console.log(`[${chapter}] 金示唆の両取り位置が足りない（不足${bestGolds}箇所）`);
         }
-        if (verified === 0 && bestTriples === 0 && bestGolds === 0) {
+        if (verified === 0 && bestBudget > 0) {
+          console.log(`[${chapter}] 引き込み可能性の配分に超過が${bestBudget}残っている`);
+        }
+        if (verified === 0 && bestBlind > 0) {
+          console.log(
+            `[${chapter}] 第3リールに BIG/REG どちらも引けない位置が${bestBlind}箇所残っている`,
+          );
+        }
+        if (verified === 0 && bestPairs < 1) {
+          console.log(`[${chapter}] 第3リールで BIG と REG が隣り合う組が1つもない`);
+        }
+        if (verified === 0 && bestRuns > 0) {
+          console.log(`[${chapter}] 同じ図柄の3連続が${bestRuns}箇所残っている`);
+        }
+        if (
+          verified === 0 && bestTriples === 0 && bestGolds === 0 && bestRuns === 0 &&
+          bestBudget === 0 && bestBlind === 0 && bestPairs >= 1
+        ) {
           const out = {
             mode: chapter,
             reels: best.map((cells, i) => ({ id: reelCfg.reels[i].id, cells })),
@@ -772,7 +1081,7 @@ describe.skipIf(!RUN)('リール配列の再最適化', () => {
           writeFileSync(`${DATA}/reels/${chapter}.json`, `${lines.join('\n')}\n`, 'utf-8');
           console.log(`[${chapter}] 書き出した`);
         } else {
-          console.log(`[${chapter}] ②・横3ライン同時テンパイ・金示唆のどれかが残ったので書き出さない`);
+          console.log(`[${chapter}] ハード制約（②・3本同時・金示唆・3連続・3リールの盲点と隣接）のどれかが残ったので書き出さない`);
         }
       }
     },

@@ -336,10 +336,27 @@ export function setBlackoutHost(el: HTMLElement): void {
   blackoutHost = el;
 }
 export function showBlackout(): void {
-  blackoutHost?.classList.add('blackout');
+  if (!blackoutHost) return;
+  blackoutHost.style.removeProperty('--blackout-b');
+  blackoutHost.style.removeProperty('--blackout-ms');
+  blackoutHost.classList.add('blackout');
+}
+/**
+ * 暗転の深さを `durMs` かけて動かす。フリーズの「溜め」で使う。
+ *
+ * 音が上昇を始める地点から少しずつ明るくすると、**何かが戻ってこようとしている
+ * 過程**が見える。真っ暗のまま9秒待たせると、ただ固まった画面になる。
+ */
+export function setBlackoutLevel(brightness: number, durMs: number): void {
+  if (!blackoutHost) return;
+  blackoutHost.style.setProperty('--blackout-ms', `${durMs}ms`);
+  blackoutHost.style.setProperty('--blackout-b', String(brightness));
 }
 export function clearBlackout(): void {
-  blackoutHost?.classList.remove('blackout');
+  if (!blackoutHost) return;
+  blackoutHost.classList.remove('blackout');
+  blackoutHost.style.removeProperty('--blackout-b');
+  blackoutHost.style.removeProperty('--blackout-ms');
 }
 
 /** フリーズ演出中の「FREEZE!?」バナー。clearFreezeBanner() まで残る。 */
