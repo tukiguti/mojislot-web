@@ -34,6 +34,18 @@ export interface DebugActions {
    * 見た目と長さの確認には引くのを待っていられない。
    */
   triggerNextDelay(): void;
+  /**
+   * 次のレバーでステップアップ演出を強制する（終了色を指定）。素の出現率は
+   * チャンス役の 5.5% しかなく、しかも色は 緑80% / 赤18% / 金2% なので、
+   * 金は待っていても出てこない。
+   */
+  triggerNextStepUp(color: 'green' | 'red' | 'gold'): void;
+  /** 筐体ランプを点ける（設定示唆）。素はボーナス終了時にしか出ない。 */
+  triggerCabinetLamp(): void;
+  /** ボーナス終了リザルトを出す（終了画面の示唆つき）。 */
+  triggerBonusResult(): void;
+  /** 払い出し音。枚数ぶんの粒が並ぶのを確かめる。 */
+  triggerPayoutSound(): void;
   fillEffects(): void;
 }
 
@@ -191,6 +203,12 @@ export class SettingsOverlay {
             <button data-debug="shisa" type="button">示唆発動</button>
             <button data-debug="quiz" type="button">クイズ発動</button>
             <button data-debug="tenpai" type="button">プレミアムテンパイ</button>
+            <button data-debug="step-green" type="button">次レバー段階・緑</button>
+            <button data-debug="step-red" type="button">次レバー段階・赤</button>
+            <button data-debug="step-gold" type="button">次レバー段階・金</button>
+            <button data-debug="cabinet-lamp" type="button">筐体ランプ</button>
+            <button data-debug="bonus-result" type="button">ボーナス終了画面</button>
+            <button data-debug="payout-sound" type="button">払い出し音</button>
             <button data-debug="win" type="button">役成立演出</button>
             <button data-debug="effects" type="button">全画面FX</button>
           </div>
@@ -309,6 +327,24 @@ export class SettingsOverlay {
             break;
           case 'win':
             this.debugActions.triggerWinTest();
+            break;
+          case 'step-green':
+            this.debugActions.triggerNextStepUp('green');
+            break;
+          case 'step-red':
+            this.debugActions.triggerNextStepUp('red');
+            break;
+          case 'step-gold':
+            this.debugActions.triggerNextStepUp('gold');
+            break;
+          case 'cabinet-lamp':
+            this.debugActions.triggerCabinetLamp();
+            break;
+          case 'bonus-result':
+            this.debugActions.triggerBonusResult();
+            break;
+          case 'payout-sound':
+            this.debugActions.triggerPayoutSound();
             break;
           case 'effects':
             this.debugActions.fillEffects();

@@ -374,6 +374,8 @@ export async function bootstrap() {
   let freezeGrand = false;
   /** 前回レバーONの時刻。ウェイト音を鳴らすかの判定に使う。 */
   let lastLeverAt = 0;
+  /** デバッグ：次のレバーで強制するステップアップの終了色。 */
+  let pendingStepColor: StepColor | null = null;
   /**
    * 停止ボタンを受け付けるようになる時刻。レバーONからの待ちで、
    * 実機の「定速になるまで止められない」に相当する（[31] §11）。
@@ -1486,6 +1488,25 @@ export async function bootstrap() {
       views[2].startTenpaiFlash(false);
       window.setTimeout(() => views[2].stopTenpaiFlash(), 2500);
     },
+    triggerNextStepUp: (color: StepColor) => {
+      // 素の出現率はチャンス役の 5.5%、しかも色は 緑80/赤18/金2 なので金は待てない。
+      pendingStepColor = color;
+      const name = color === 'gold' ? '金' : color === 'red' ? '赤' : '緑';
+      showResult(`段階演出（${name}）を次のレバーに予約`, 'win');
+    },
+    triggerCabinetLamp: () => {
+      // 設定示唆のランプ。素はボーナス終了時にしか点かないので単体で見られるようにする。
+      setCabinetLamp(drawCabinetLamp(machineSetting, Math.random).color);
+    },
+    triggerBonusResult: () => {
+      // 終了画面の示唆はボーナスを抜けないと見られない。中身は本番と同じ抽選を回す。
+      showBonusResult(200, 'big');
+    },
+    triggerPayoutSound: () => {
+      // 15枚＝5発。枚数が音の長さになっているかを聴く。
+      sfx.payout(15);
+      showCoinFloatAt(15, false);
+    },
     fillEffects: () => {
       flashScreen({ color: '#ffffff', alpha: 0.6, durMs: 280 });
       spawnConfetti(60);
@@ -1865,13 +1886,16 @@ export async function bootstrap() {
       //
       // ボーナス中は出さない。次ゲームもボーナス中で、そこでは毎ゲーム演出が
       // 出る（none=0）ので予告するものが無い。
+      // デバッグ予約は契機役かどうかを問わない（狙って出せないと確認にならない）。
+      const forcedStep = pendingStepColor;
+      pendingStepColor = null;
       if (
         !doFreeze &&
-        isStepTrigger(role) &&
         !bonusSession.spinActive &&
-        Math.random() < STEP_ENTRY_RATE
+        (forcedStep !== null ||
+          (isStepTrigger(role) && Math.random() < STEP_ENTRY_RATE))
       ) {
-        const color = pickStepColor();
+        const color = forcedStep ?? pickStepColor();
         stepFinalColor = STEP_COLOR_TO_LEVEL[color];
         preRoll = buildPreRoll(color);
         setStep(STEP_LEVER);
