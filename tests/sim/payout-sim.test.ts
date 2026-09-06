@@ -15,6 +15,9 @@ import { EffectEligibility } from '../../src/productions/EffectEligibility';
 import {
   applySetting,
   applySettingToEffects,
+  scaleNone,
+  scaleBonusRate,
+  stepBonusMultiplier,
   SETTINGS,
   type Setting,
 } from '../../src/productions/MachineSetting';
@@ -57,6 +60,35 @@ import {
 const RUN = process.env.SIM === '1';
 /** リミックス島の上乗せを乗せて測る（覚え直しの取りこぼしは再現できないので上限値）。 */
 const REMIX_MODE = process.env.REMIX === '1';
+/**
+ * `SETTING=1..6` で設定を指定して測る。未指定なら素の役テーブル。
+ * 設定差の表を作り直す時に使う——**配列を変えると設定別の水位も動く**ため。
+ */
+const SETTING: Setting | undefined = process.env.SETTING
+  ? (Number(process.env.SETTING) as Setting)
+  : undefined;
+/**
+ * `NONE_MULT` / `BONUS_MULT` で設定の2つの弁を**別々に**動かす。
+ * 設定差がどちらから来ているかを分離して測るためのもので、SETTING より優先する。
+ */
+const NONE_MULT = process.env.NONE_MULT ? Number(process.env.NONE_MULT) : undefined;
+const BONUS_MULT = process.env.BONUS_MULT ? Number(process.env.BONUS_MULT) : undefined;
+/**
+ * ボーナスは段階演出（ステップアップ）経由に一本化されているので、
+ * `BONUS_MULT`（通常抽選の倍率）はもう機械割に効かない。設定差を載せ直す先の
+ * 候補を測るための弁を2つ用意する。
+ *
+ * - `STEP_BONUS_MULT` … 色ごとのボーナス率（緑30/赤70/金100%）に掛ける。
+ *   演出の出方も色の比も変わらず、**結果だけが変わる**
+ * - `STEP_ENTRY_MULT` … 段階演出そのものの発生率（5.5%）に掛ける。
+ *   分かりやすいが「今日は段階が多い＝高設定」という読み筋が増える
+ */
+const STEP_BONUS_MULT = process.env.STEP_BONUS_MULT
+  ? Number(process.env.STEP_BONUS_MULT)
+  : 1;
+const STEP_ENTRY_MULT = process.env.STEP_ENTRY_MULT
+  ? Number(process.env.STEP_ENTRY_MULT)
+  : 1;
 /**
  * プレイヤーが狙い位置（図柄が窓の上端に来る位置）の手前何コマを狙うか。
  *
@@ -199,7 +231,12 @@ function runChapter(
   // REMIX=1 でリミックス島の上乗せ（ボーナス確率×1.15・区間が長い）を乗せて測る。
   // **覚え直しによる取りこぼしは再現できない**（このシミュレーターは配列を覚えている
   // 前提の目押しモデル）ので、出る数字はリミックス島の**上限**になる。
-  const withSetting = setting ? applySetting(baseYaku, setting) : baseYaku;
+  const withSetting =
+    BONUS_MULT !== undefined
+      ? scaleBonusRate(baseYaku, BONUS_MULT)
+      : setting
+        ? applySetting(baseYaku, setting)
+        : baseYaku;
   const yakuList: YakuList = REMIX_MODE ? applyRemixBoost(withSetting) : withSetting;
   const reelCfg = ReelConfigSchema.parse(readJson(`${DATA}/reels/${chapter}.json`));
   const payout: Payout = PayoutSchema.parse(readJson(`${DATA}/payouts/default.json`));
@@ -207,7 +244,13 @@ function runChapter(
   const spinsBig = REMIX_MODE ? REMIX.spinsPerBig : tuning.bonus.spinsPerBig;
   const spinsReg = REMIX_MODE ? REMIX.spinsPerReg : tuning.bonus.spinsPerReg;
   // 設定差の主役は演出レート（無演出の割合）。本番と同じ関数で適用する。
-  const effectRates = setting
+  const effectRates = NONE_MULT !== undefined
+    ? {
+        default: scaleNone(tuning.effectRates.default, NONE_MULT),
+        rescue: scaleNone(tuning.effectRates.rescue, NONE_MULT),
+        bonus: tuning.effectRates.bonus,
+      }
+    : setting
     ? {
         default: applySettingToEffects(tuning.effectRates.default, setting),
         rescue: applySettingToEffects(tuning.effectRates.rescue, setting),
@@ -315,7 +358,7 @@ function runChapter(
    * ステップアップ（前兆）が次ゲームへ渡すもの。main.ts と同じ設計。
    * ボーナスはステップアップ経由でしか出さないので、通常抽選からは落とす。
    */
-  const STEP_ENTRY_RATE = 0.055;
+  const STEP_ENTRY_RATE = 0.055 * STEP_ENTRY_MULT;
   const STEP_COLOR_RATE: readonly (readonly ['green' | 'red' | 'gold', number])[] = [
     ['green', 0.8], ['red', 0.18], ['gold', 0.02],
   ];
@@ -695,7 +738,12 @@ function runChapter(
         stepCount++;
         if (color === 'red') stepRed++;
         if (color === 'gold') stepGold++;
-        const isBonus = rng() < STEP_BONUS_RATE[color];
+        const isBonus =
+        rng() <
+        Math.min(
+          1,
+          STEP_BONUS_RATE[color] * stepBonusMultiplier(setting) * STEP_BONUS_MULT,
+        );
         stepNext = {
           bonus: isBonus ? (rng() < STEP_BIG_RATE[color] ? 'big' : 'reg') : null,
         };
@@ -743,7 +791,7 @@ describe.skipIf(!RUN)('出玉シミュレーション（新モデル）', () => 
       let shisaSpins = 0, shisaEsc = 0, lampB = 0, cherryB = 0, carS = 0, carR = 0, carM = 0, fT = 0, fT1 = 0, nb = 0, symF = 0, symFR = 0;
       let bMiss = 0, bSpill = 0;
       CHAPTERS.forEach((ch, i) => {
-        const r = runChapter(ch, skill, SPINS / CHAPTERS.length, 12345 + i * 977);
+        const r = runChapter(ch, skill, SPINS / CHAPTERS.length, 12345 + i * 977, SETTING);
         bMiss += r.bonusMissSpins; bSpill += r.bonusSpillWins;
         bet += r.totalBet; win += r.totalWin;
         nbet += r.normalBet; nwin += r.normalWin;
@@ -779,7 +827,7 @@ describe.skipIf(!RUN)('出玉シミュレーション（新モデル）', () => 
         `${((bSpill / Math.max(1, bMiss)) * 100).toFixed(1).padStart(5)}%`,
       );
     }
-    console.log('\n===== 出玉シミュレーション（' + SPINS + 'G/腕・全5章）=====\n' + lines.join('\n'));
+    console.log('\n===== 出玉シミュレーション（' + (NONE_MULT !== undefined ? 'none×' + NONE_MULT + '・' : '') + (STEP_BONUS_MULT !== 1 ? 'stepB×' + STEP_BONUS_MULT + '・' : '') + (STEP_ENTRY_MULT !== 1 ? 'stepE×' + STEP_ENTRY_MULT + '・' : '') + (BONUS_MULT !== undefined ? 'bonus×' + BONUS_MULT + '・' : '') + (SETTING ? '設定' + SETTING + '・' : '') + SPINS + 'G/腕・全5章）=====\n' + lines.join('\n'));
 
     // 「引き込みなし＝ビタ押し」の到達度。成立ゲームのうち貢献リールを何本自力で止めたか。
     const bita: string[] = [];
@@ -788,7 +836,7 @@ describe.skipIf(!RUN)('出玉シミュレーション（新モデル）', () => 
       const acc = [0, 0, 0, 0];
       let hit = 0, perfect = 0;
       CHAPTERS.forEach((ch, i) => {
-        const r = runChapter(ch, skill, SPINS / CHAPTERS.length, 12345 + i * 977);
+        const r = runChapter(ch, skill, SPINS / CHAPTERS.length, 12345 + i * 977, SETTING);
         hit += r.hitSpins; perfect += r.bitaPerfect;
         r.bitaReels.forEach((n, k) => { acc[k] += n; });
       });
@@ -807,7 +855,7 @@ describe.skipIf(!RUN)('出玉シミュレーション（新モデル）', () => 
     for (const skill of SKILLS) {
       const acc = new Map<string, [number, number]>();
       CHAPTERS.forEach((ch, i) => {
-        const r = runChapter(ch, skill, SPINS / CHAPTERS.length, 12345 + i * 977);
+        const r = runChapter(ch, skill, SPINS / CHAPTERS.length, 12345 + i * 977, SETTING);
         for (const [k, v] of r.bonusByEffect) {
           const cur = acc.get(k) ?? [0, 0];
           cur[0] += v[0];
@@ -830,7 +878,7 @@ describe.skipIf(!RUN)('出玉シミュレーション（新モデル）', () => 
     const per: string[] = [];
     per.push('章 / 役          狙えた   ビタ    到達率   ※狙えたゲームのみ（演出で役が分かった時）');
     for (const ch of CHAPTERS) {
-      const r = runChapter(ch, skill, SPINS / CHAPTERS.length, 12345);
+      const r = runChapter(ch, skill, SPINS / CHAPTERS.length, 12345, SETTING);
       const rows = [...r.perYaku.entries()].sort((a, b) => b[1][0] - a[1][0]);
       const rates = rows.map(([, v]) => (v[1] / Math.max(1, v[0])) * 100);
       const lo = Math.min(...rates);

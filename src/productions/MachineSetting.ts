@@ -28,7 +28,10 @@ export type Setting = (typeof SETTINGS)[number];
  *
  * 幅は意図的に狭くしてある（旧 0.82〜1.24 → 0.93〜1.09）。主役は演出率に移した
  * （`NONE_MULTIPLIER`）ので、ここは「長く見れば合成確率にも差が出る」程度に留める。
- * 完全に0にしないのは、データカウンターを設定推測の材料として残すため。
+ *
+ * 〔2026-09-07〕**現状これは機械割に効かない。** 段階演出を入れた時に通常抽選の
+ * ボーナスを miss へ落としたので、掛ける先が残っていない。ボーナス側の設定差は
+ * `STEP_BONUS_MULTIPLIER` が担う。通常抽選のボーナスを復活させたらここも生き返る。
  */
 const BONUS_RATE_MULTIPLIER: Record<Setting, number> = {
   1: 0.93,
@@ -38,6 +41,32 @@ const BONUS_RATE_MULTIPLIER: Record<Setting, number> = {
   5: 1.05,
   6: 1.09,
 };
+
+/**
+ * 設定ごとの「段階演出からボーナスへ繋がる率」の倍率。**設定差の従**。
+ *
+ * 〔2026-09-07〕`BONUS_RATE_MULTIPLIER` は**機械割に効かなくなっていた**。段階演出を
+ * 入れた時に通常抽選のボーナスを miss へ落としたので（ボーナスは段階経由でしか出ない）、
+ * 倍率を掛ける先が残っていなかった。実測でも 0.93→1.09 で突入率が 1/150→1/151 と
+ * 動かない。掛ける先をここへ移す。
+ *
+ * **演出の出方も色の比率も変えない**——変わるのは結果だけ。「今日は段階演出が多い＝
+ * 高設定」のような別の読み筋を作らずに確率だけを動かせる。金（100%）は据え置きで、
+ * 確定の意味を壊さない。
+ */
+const STEP_BONUS_MULTIPLIER: Record<Setting, number> = {
+  1: 0.78,
+  2: 0.86,
+  3: 0.94,
+  4: 1.04,
+  5: 1.12,
+  6: 1.2,
+};
+
+/** 段階演出の色ごとのボーナス率に掛ける倍率。設定なしなら1.0。 */
+export function stepBonusMultiplier(setting: Setting | null | undefined): number {
+  return setting ? STEP_BONUS_MULTIPLIER[setting] : 1;
+}
 
 /**
  * 設定ごとの「無演出」の倍率。**設定差の主役**。
@@ -82,7 +111,15 @@ export function applySettingToEffects(
   rates: EffectRates,
   setting: Setting,
 ): EffectRates {
-  const none = Math.min(0.95, rates.none * NONE_MULTIPLIER[setting]);
+  return scaleNone(rates, NONE_MULTIPLIER[setting]);
+}
+
+/**
+ * 無演出の割合に倍率を掛ける（設定の主役をそのまま取り出したもの）。
+ * **設定差の感度を測る時に、倍率だけを直接動かせるように分けてある。**
+ */
+export function scaleNone(rates: EffectRates, mult: number): EffectRates {
+  const none = Math.min(0.95, rates.none * mult);
   const kinds = ['shisa', 'quiz', 'aim'] as const;
   const baseSum = kinds.reduce((a, k) => a + rates[k], 0);
   if (baseSum <= 0) return { ...rates, none };
@@ -145,7 +182,14 @@ const isBonusRole = (role: InternalRole): boolean =>
  * 「引いた後」に差が出てしまい、推測ではなく結果論になるため。
  */
 export function applySetting(yakuList: YakuList, setting: Setting): YakuList {
-  const mult = BONUS_RATE_MULTIPLIER[setting];
+  return scaleBonusRate(yakuList, BONUS_RATE_MULTIPLIER[setting]);
+}
+
+/**
+ * ボーナス当選率に倍率を掛ける（設定の従をそのまま取り出したもの）。
+ * 増減は miss（＝1枚役）で吸収して合計1を保つ。
+ */
+export function scaleBonusRate(yakuList: YakuList, mult: number): YakuList {
   const states: InternalRoleState[] = ['default', 'rescue'];
   const roles: InternalRole[] = yakuList.internalRoles.map((r) => ({
     ...r,

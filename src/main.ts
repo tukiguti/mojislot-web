@@ -20,7 +20,11 @@ import {
 } from './productions/EffectScheduler';
 import { BonusZone } from './productions/BonusZone';
 import { BonusSession } from './productions/BonusSession';
-import { applySetting, applySettingToEffects } from './productions/MachineSetting';
+import {
+  applySetting,
+  applySettingToEffects,
+  stepBonusMultiplier,
+} from './productions/MachineSetting';
 import { REMIX, applyRemixBoost } from './productions/RemixBoost';
 import { QuizStats } from './productions/QuizStats';
 import { TIER_COLOR_NAME, a11y } from './productions/Accessibility';
@@ -1056,7 +1060,9 @@ export async function bootstrap() {
 
   /** 色から次ゲームを作る。 */
   const buildPreRoll = (color: StepColor): PreRoll => {
-    if (Math.random() < STEP_BONUS_RATE[color]) {
+    // 設定差はここに乗る（演出の出方は変えず、繋がる率だけを動かす）。
+    const bonusRate = Math.min(1, STEP_BONUS_RATE[color] * stepBonusMultiplier(machineSetting));
+    if (Math.random() < bonusRate) {
       const bigs = yakuList.premiumYaku;
       const yaku =
         Math.random() < STEP_BIG_RATE[color]
