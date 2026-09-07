@@ -14,6 +14,12 @@ import {
 import { PayoutCalc } from './core/PayoutCalc';
 import { CoinWallet } from './core/CoinWallet';
 import {
+  KeyBindings,
+  eventKey,
+  keyLabel,
+  type Action,
+} from './productions/KeyBindings';
+import {
   EffectScheduler,
   REEL_BASE_SPEED,
   type EffectType,
@@ -334,6 +340,7 @@ export async function bootstrap() {
   );
   // デバッグ section の表示可否（遊ぶ設定で確定・既定OFF）
   const debugVisible = localStorage.getItem('mojislot.debugVisible.v1') === '1';
+  const keyBindings = new KeyBindings();
   const settingsOverlay = new SettingsOverlay(
     wallet,
     payout.initialCoins,
@@ -343,6 +350,7 @@ export async function bootstrap() {
     () => quizStats,
     challengeTracker,
     debugVisible,
+    keyBindings,
     tuning.reelSpeed,
     tuning.motionBlurStrength,
   );
@@ -3185,10 +3193,47 @@ export async function bootstrap() {
 
   // === キーボードショートカット ===
   // B = BET, Space = LEVER, A/S/D = STOP 左/中/右
-  const KEY_TO_REEL: Record<string, number> = {
-    a: 0,
-    s: 1,
-    d: 2,
+  /** 操作の中身。キーからも画面のボタンからも同じものを呼ぶ。 */
+  const runAction = (action: Action, timeStamp: number): void => {
+    switch (action) {
+      case 'bet':
+        placeBet();
+        return;
+      case 'lever':
+        pullLever();
+        return;
+      case 'stop0':
+      case 'stop1':
+      case 'stop2': {
+        const idx = Number(action.slice(4));
+        // 停止済みのリールをもう一度押すと滑りコマ数が出る（押せる意味が違う）。
+        if (engines[idx]?.state.get() !== 'spinning') toggleSlipBadge(idx);
+        else stopReel(idx, timeStamp);
+        return;
+      }
+      case 'auto':
+        if (!autoAvailable) return;
+        if (autoMode) stopAuto();
+        else startAuto();
+        return;
+      case 'mute':
+        sfx.init();
+        bgm.init();
+        sfx.toggleMute();
+        bgm.setMuted(sfx.isMuted());
+        voice.setMuted(sfx.isMuted());
+        updateMuteUI();
+        return;
+      case 'zukan':
+        zukanOverlay.toggle();
+        return;
+      case 'settings':
+        settingsOverlay.toggle();
+        return;
+      case 'reelStrip':
+        toggleReelStrip();
+        return;
+    }
   };
 
   window.addEventListener('keydown', (ev) => {
@@ -3199,9 +3244,9 @@ export async function bootstrap() {
     ) {
       return;
     }
-    const key = ev.key.toLowerCase();
 
-    // クイズは回答操作なし方式のためキー回答は廃止（答えは全停止後に提示）。
+    // 割り当ての変更中はゲームを動かさない（押したキーを拾う側が受け取る）。
+    if (settingsOverlay.isCapturingKey()) return;
 
     // フリーズ演出中はゲーム操作キーを全てブロック
     if (freezeActive) {
@@ -3209,56 +3254,30 @@ export async function bootstrap() {
       return;
     }
 
-    if (key === 'b') {
-      ev.preventDefault();
-      placeBet();
-      return;
-    }
-    if (key === ' ' || ev.code === 'Space') {
-      ev.preventDefault();
-      pullLever();
-      return;
-    }
-    if (key in KEY_TO_REEL) {
-      ev.preventDefault();
-      const idx = KEY_TO_REEL[key];
-      if (engines[idx]?.state.get() !== 'spinning') toggleSlipBadge(idx);
-      else stopReel(idx, ev.timeStamp);
-      return;
-    }
-    if (key === 'z') {
-      ev.preventDefault();
-      zukanOverlay.toggle();
-      return;
-    }
-    if (key === 'm') {
-      ev.preventDefault();
-      sfx.init();
-      bgm.init();
-      sfx.toggleMute();
-      bgm.setMuted(sfx.isMuted());
-      voice.setMuted(sfx.isMuted());
-      updateMuteUI();
-      return;
-    }
-    if (key === 'o') {
-      ev.preventDefault();
-      if (!autoAvailable) return;
-      if (autoMode) stopAuto();
-      else startAuto();
-      return;
-    }
-    if (key === ',') {
-      ev.preventDefault();
-      settingsOverlay.toggle();
-      return;
-    }
-    if (key === 'r') {
-      ev.preventDefault();
-      toggleReelStrip();
-      return;
-    }
+    const action = keyBindings.actionFor(eventKey(ev));
+    if (!action) return;
+    ev.preventDefault();
+    runAction(action, ev.timeStamp);
   });
+
+  /**
+   * 画面下のキーヒントを今の割り当てで書き直す。**直書きの案内は嘘になる**——
+   * 割り当てを変えられるようにした以上、A・S・D と出したままにはできない。
+   */
+  const renderKeyHint = (): void => {
+    const el = document.getElementById('key-hint');
+    if (!el) return;
+    const k = (a: Action): string => {
+      const key = keyBindings.get(a);
+      return key ? keyLabel(key) : '—';
+    };
+    el.textContent =
+      `${k('lever')}:レバー / ${k('stop0')}・${k('stop1')}・${k('stop2')}:ストップ / ${k('bet')}:BET`;
+  };
+  renderKeyHint();
+  // 割り当てが変わったら呼び直す。**開閉のタイミングに賭けない**——設定を閉じた時に
+  // 更新する形にしていたが、閉じ方が複数あって取りこぼした（×ボタン・Esc・背景）。
+  settingsOverlay.setKeyBindingListener(renderKeyHint);
 
   updateButtons();
 }

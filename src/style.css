@@ -4245,3 +4245,58 @@ to {
     transition: none;
   }
 }
+
+/* === キー割り当て（2026-09-08） ===
+   押す位置は成績に直結する（ビタ押しの判定は±12ms）ので、見た目の好みではなく
+   遊びやすさの設定として扱う。行は「操作名 → 今のキー」の2列で、キーを押すと
+   その場で待ち受けに入る。 */
+
+.key-binding-list {
+  display: grid;
+  gap: 4px;
+  margin-bottom: 8px;
+}
+
+.key-binding-row {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  align-items: center;
+  gap: 10px;
+  padding: 4px 8px;
+  border-radius: 6px;
+  background: rgba(255, 255, 255, 0.03);
+}
+
+.key-binding-label {
+  font-size: 12px;
+  color: var(--text-dim, #9b8ab0);
+}
+
+.key-binding-key {
+  min-width: 92px;
+  padding: 4px 10px;
+  border: 1px solid var(--chrome-dk, #3a3050);
+  border-radius: 5px;
+  background: rgba(0, 0, 0, 0.35);
+  color: var(--text, #f2e9d8);
+  font: inherit;
+  font-size: 12px;
+  letter-spacing: 0.06em;
+  cursor: pointer;
+}
+
+.key-binding-key:hover {
+  border-color: var(--gold, #f2b33c);
+}
+
+/* 待ち受け中。押すまで戻らないので、他と見分けが付く強さにする。 */
+.key-binding-key.capturing {
+  border-color: var(--gold, #f2b33c);
+  background: rgba(242, 179, 60, 0.18);
+  color: var(--gold, #f2b33c);
+}
+
+.key-binding-key:focus-visible {
+  outline: 2px solid var(--gold, #f2b33c);
+  outline-offset: 2px;
+}

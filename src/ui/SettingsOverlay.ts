@@ -5,6 +5,14 @@ import type { ZukanState } from '../productions/ZukanState';
 import type { QuizStats } from '../productions/QuizStats';
 import type { ChallengeTracker } from '../productions/Challenges';
 import { a11y, type A11ySettings } from '../productions/Accessibility';
+import {
+  ACTION_LABELS,
+  eventKey,
+  isAssignable,
+  keyLabel,
+  type Action,
+  type KeyBindings,
+} from '../productions/KeyBindings';
 
 /**
  * 設定モーダル：ミッション/表示/リセット/（任意で）デバッグ操作を集約。
@@ -138,6 +146,8 @@ export class SettingsOverlay {
     private readonly getQuizStats: () => QuizStats,
     private readonly challengeTracker: ChallengeTracker,
     private readonly debugVisible: boolean,
+    /** キー割り当て。押す位置は成績に直結するので変えられるようにする。 */
+    private readonly keyBindings: KeyBindings,
     private readonly defaultReelSpeed: number = 24,
     private readonly defaultMotionBlur: number = 0.34,
   ) {
@@ -180,6 +190,14 @@ export class SettingsOverlay {
           <div class="settings-note">どれも<b>情報は減りません</b>。動き・光・色を弱めるかわりに、それらが伝えていたことは文字とバッジで残します。</div>
         </div>
         <div class="settings-section">
+          <div class="settings-section-label">キー割り当て</div>
+          <div class="key-binding-list"></div>
+          <div class="zukan-reset">
+            <button class="reset-keys" type="button">キーを既定に戻す</button>
+          </div>
+          <div class="settings-note">押す位置は<b>成績に直結します</b>。ビタ押しの判定は±12msしかないので、指が届く場所へ置いてください。押したいキーを選んでから、そのキーを押します。</div>
+        </div>
+        <div class="settings-section">
           <div class="settings-section-label">リセット</div>
           <div class="zukan-reset">
             <button class="reset-coin" type="button">コインを${this.initialCoins}に戻す</button>
@@ -220,6 +238,14 @@ export class SettingsOverlay {
     `;
 
     // コイン追加（メダル貸出）は右のサンド（#unit-panel）へ移設。main.ts で配線。
+
+    this.renderKeyRows();
+    this.root.querySelector<HTMLButtonElement>('.reset-keys')?.addEventListener('click', () => {
+      this.keyBindings.reset();
+      this.capturing = null;
+      this.renderKeyRows();
+      this.onKeyBindingChange?.();
+    });
 
     const closeBtn = this.root.querySelector<HTMLButtonElement>('.settings-close')!;
     closeBtn.addEventListener('click', () => this.close());
@@ -356,6 +382,66 @@ export class SettingsOverlay {
     this.close();
   }
 
+  /**
+   * いま押されたキーを待っている操作。**待っている間はゲームを動かさない**——
+   * 割り当てに `A` を選ぼうとして左リールが止まったら設定にならない。
+   */
+  private capturing: Action | null = null;
+  /** 割り当てが変わった時に呼ぶ（キーヒストの表示など）。 */
+  private onKeyBindingChange: (() => void) | null = null;
+
+  setKeyBindingListener(fn: () => void): void {
+    this.onKeyBindingChange = fn;
+  }
+
+  isCapturingKey(): boolean {
+    return this.capturing !== null;
+  }
+
+  /** キー割り当ての行を描き直す。 */
+  private renderKeyRows(): void {
+    const list = this.root?.querySelector('.key-binding-list');
+    if (!list) return;
+    list.innerHTML = '';
+    for (const { action, label } of ACTION_LABELS) {
+      const row = document.createElement('div');
+      row.className = 'key-binding-row';
+      const name = document.createElement('span');
+      name.className = 'key-binding-label';
+      name.textContent = label;
+      const btn = document.createElement('button');
+      btn.type = 'button';
+      btn.className = 'key-binding-key';
+      const key = this.keyBindings.get(action);
+      btn.textContent = this.capturing === action ? '押してください' : key ? keyLabel(key) : '未割当';
+      btn.classList.toggle('capturing', this.capturing === action);
+      btn.addEventListener('click', () => {
+        this.capturing = this.capturing === action ? null : action;
+        this.renderKeyRows();
+      });
+      row.append(name, btn);
+      list.appendChild(row);
+    }
+  }
+
+  /** 割り当て待ちのキー入力を受ける。設定を開いている間だけ効く。 */
+  private onCaptureKey = (ev: KeyboardEvent): void => {
+    if (!this.capturing) return;
+    ev.preventDefault();
+    ev.stopPropagation();
+    const key = eventKey(ev);
+    if (key === 'escape') {
+      this.capturing = null;
+      this.renderKeyRows();
+      return;
+    }
+    if (!isAssignable(key)) return;
+    this.keyBindings.set(this.capturing, key);
+    this.capturing = null;
+    this.renderKeyRows();
+    this.onKeyBindingChange?.();
+  };
+
   /** リール速度が変わった時に呼ばれるコールバックを登録（回転中のエンジンへ即時反映する）。 */
   setReelSpeedListener(fn: (speed: number) => void): void {
     this.onReelSpeedChange = fn;
@@ -368,11 +454,17 @@ export class SettingsOverlay {
   open(): void {
     this.visible = true;
     this.root.hidden = false;
+    // 割り当ての待ち受けは開いている間だけ。capture 段階で拾って、
+    // ゲーム側の keydown より先に止める。
+    window.addEventListener('keydown', this.onCaptureKey, true);
+    this.renderKeyRows();
   }
 
   close(): void {
     this.visible = false;
     this.root.hidden = true;
+    this.capturing = null;
+    window.removeEventListener('keydown', this.onCaptureKey, true);
   }
 
   toggle(): void {
