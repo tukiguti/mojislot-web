@@ -3035,8 +3035,27 @@ export async function bootstrap() {
   const reelStripPanel = document.getElementById('reel-strip-panel');
   const reelStripBtn = document.getElementById('dock-reels');
   const reelStripClose = reelStripPanel?.querySelector<HTMLButtonElement>('.strip-close');
+  const unitPanelEl = document.getElementById('unit-panel');
+  const dockUnitBtn = document.getElementById('dock-unit');
+
+  /**
+   * シートは1枚だけ開く。**縦長では両方とも画面下から出る**ので、重ねると
+   * 後ろの内容が読めなくなる。開く側が相手を閉じる。
+   */
+  const closeSheets = (except?: Element | null): void => {
+    if (reelStripPanel && reelStripPanel !== except) {
+      reelStripPanel.classList.remove('open');
+      reelStripBtn?.classList.remove('on');
+    }
+    if (unitPanelEl && unitPanelEl !== except) {
+      unitPanelEl.classList.remove('open');
+      dockUnitBtn?.classList.remove('on');
+    }
+  };
+
   const toggleReelStrip = () => {
     if (!reelStripPanel) return;
+    closeSheets(reelStripPanel);
     const isOpen = reelStripPanel.classList.toggle('open');
     if (reelStripBtn) reelStripBtn.classList.toggle('on', isOpen);
   };
@@ -3053,11 +3072,10 @@ export async function bootstrap() {
    *
    * 開閉の判定は既にある要素へ委譲する（ここで持つと2箇所に同じ状態ができる）。
    */
-  const unitPanel = document.getElementById('unit-panel');
-  const dockUnitBtn = document.getElementById('dock-unit');
   dockUnitBtn?.addEventListener('click', () => {
-    if (!unitPanel) return;
-    const isOpen = unitPanel.classList.toggle('open');
+    if (!unitPanelEl) return;
+    closeSheets(unitPanelEl);
+    const isOpen = unitPanelEl.classList.toggle('open');
     dockUnitBtn.classList.toggle('on', isOpen);
   });
   document
