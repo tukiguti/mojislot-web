@@ -48,9 +48,8 @@
             <span id="bet-text">Bet: 3</span>
             <button id="auto-btn" type="button" title="オート [O]">AUTO</button>
             <button id="mute-btn" type="button" title="音量 [M]">♪</button>
-            <button id="reel-strip-btn" type="button" title="リール配列 [R]">配列</button>
-            <button id="zukan-btn" type="button" title="図鑑 [Z]">図鑑</button>
-            <button id="settings-btn" type="button" title="設定 [,]">⚙</button>
+            <button id="zukan-btn" type="button" title="図鑑 [Z]" hidden>図鑑</button>
+            <button id="settings-btn" type="button" title="設定 [,]" hidden>⚙</button>
           </div>
         </header>
       </div>
@@ -162,11 +161,26 @@
           <button id="timer-reset" class="aux-btn" type="button" title="計測をリセット">リセット</button>
         </div>
       </div>
-      <div class="unit-flow">
-        <button id="count-btn" class="aux-btn" type="button" title="計数（この戦を締めて記録に残す）">計数</button>
-      </div>
-      <div class="unit-hint">計数＝この戦を締める</div>
+      <div class="unit-hint">計数は下のメニューから</div>
     </aside>
+
+      <nav id="dock" aria-label="メニュー">
+        <button class="dock-btn" id="dock-reels" type="button">
+          <span class="dock-icon" aria-hidden="true">▤</span><span class="dock-label">配列</span>
+        </button>
+        <button class="dock-btn" id="dock-unit" type="button">
+          <span class="dock-icon" aria-hidden="true">▦</span><span class="dock-label">データ</span>
+        </button>
+        <button class="dock-btn" id="dock-count" type="button">
+          <span class="dock-icon" aria-hidden="true">▼</span><span class="dock-label">計数</span>
+        </button>
+        <button class="dock-btn" id="dock-zukan" type="button">
+          <span class="dock-icon" aria-hidden="true">▣</span><span class="dock-label">図鑑</span>
+        </button>
+        <button class="dock-btn" id="dock-settings" type="button">
+          <span class="dock-icon" aria-hidden="true">⚙</span><span class="dock-label">設定</span>
+        </button>
+      </nav>
     </div>
 
     <div id="view-ranking" class="view" hidden></div>

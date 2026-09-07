@@ -1234,8 +1234,9 @@ export async function bootstrap() {
     runReelSpeedMax = Math.max(runReelSpeedMax, speed);
   };
 
-  // 計数＝この戦を締める：spinCount>0 なら1戦を RunHistory に確定記録し、持メダルを流す(0に)＋投資/戦カウンタをリセット。
-  document.getElementById('count-btn')?.addEventListener('click', () => {
+  // 計数＝この戦を締める：spinCount>0 なら1戦を RunHistory に確定記録し、差枚と戦カウンタをリセット。
+  // 呼び口は画面下のドック。**関数にしてあるのは呼び出し元が増えたため**（以前はボタン1つだった）。
+  const settleRun = (): void => {
     // 計数=この戦の区切り。計測中なら自動停止（sahmai が0に戻り時速が誤って跳ねるのを防ぐ）。
     // ※ runTimer は下方で生成（このハンドラはクリック時=bootstrap完了後に走るので参照は安全）
     runTimer.stop();
@@ -1289,7 +1290,8 @@ export async function bootstrap() {
     runAutoUsed = false;
     runReelSpeedMin = Infinity;
     runReelSpeedMax = -Infinity;
-  });
+  };
+  document.getElementById('dock-count')?.addEventListener('click', settleRun);
 
   // 戦の計測タイマー（サンド下部）。フリー=カウントアップ／プリセット分数=カウントダウン。
   // 詳細は ui/RunTimer.ts。計数(count-btn)で締める時に runTimer.stop() を呼ぶ。
@@ -3031,7 +3033,7 @@ export async function bootstrap() {
 
   // === リール配列パネルの開閉（≤ 900px ではオーバーレイで開く） ===
   const reelStripPanel = document.getElementById('reel-strip-panel');
-  const reelStripBtn = document.getElementById('reel-strip-btn');
+  const reelStripBtn = document.getElementById('dock-reels');
   const reelStripClose = reelStripPanel?.querySelector<HTMLButtonElement>('.strip-close');
   const toggleReelStrip = () => {
     if (!reelStripPanel) return;
@@ -3043,6 +3045,27 @@ export async function bootstrap() {
     reelStripPanel?.classList.remove('open');
     reelStripBtn?.classList.remove('on');
   });
+
+  /**
+   * 画面下のドック。**開いて読むものはここに集める**——遊技中に触るのは
+   * レバーと停止とベットだけで、配列やデータは手を止めて見るものだから、
+   * 筐体のヘッダーではなく画面の縁に置く。参考にしたスロットアプリと同じ位置。
+   *
+   * 開閉の判定は既にある要素へ委譲する（ここで持つと2箇所に同じ状態ができる）。
+   */
+  const unitPanel = document.getElementById('unit-panel');
+  const dockUnitBtn = document.getElementById('dock-unit');
+  dockUnitBtn?.addEventListener('click', () => {
+    if (!unitPanel) return;
+    const isOpen = unitPanel.classList.toggle('open');
+    dockUnitBtn.classList.toggle('on', isOpen);
+  });
+  document
+    .getElementById('dock-zukan')
+    ?.addEventListener('click', () => zukanBtn.click());
+  document
+    .getElementById('dock-settings')
+    ?.addEventListener('click', () => settingsBtn.click());
 
   const updateMuteUI = () => {
     if (sfx.isMuted()) {
