@@ -856,14 +856,15 @@ body.has-chapter-bg {
   display: none;
 }
 
-/* === コイン残量警告 === */
-#coin-display.warning {
-  color: #ff8866;
-  animation: coin-warn 1s ease-in-out infinite;
+/* === 差枚の符号 ===
+   借りない方式にしたので残量の警告は無い（残高で打てなくなることがない）。
+   マイナスは沈んだ赤、プラスは金。点滅はさせない——差枚は常に動くので、
+   点滅すると画面が落ち着かない。 */
+#coin-display.minus {
+  color: #ff6b78;
 }
-#coin-display.critical {
-  color: #ff4444;
-  animation: coin-warn 0.6s ease-in-out infinite;
+#coin-display.plus {
+  color: var(--gold, #f2b33c);
 }
 
 @keyframes coin-warn {0%,

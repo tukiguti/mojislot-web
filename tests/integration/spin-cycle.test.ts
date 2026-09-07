@@ -74,8 +74,8 @@ function newGame() {
     bonusEffectRates: tuning.effectRates.bonus,
   });
   const session = new BonusSession(zone);
+  // 借りない方式なので 0 から始めてよい。ベットで下へ進み、払い出しで戻る。
   const wallet = new CoinWallet(0);
-  wallet.lend(1000);
   return { calc, roundResolver, stopController, zone, session, wallet };
 }
 
@@ -396,9 +396,21 @@ describe('1ゲームの通し（BET→停止→配当→ボーナス）', () => 
     expect(r.outcome.bitaBonus).toBe(0);
   });
 
-  it('残高が尽きたらBETできない', () => {
+  it('残高が無くても打てる（借りないのでマイナスへ進む）', () => {
     const g = newGame();
-    g.wallet.reset(g.calc.bet - 1);
-    expect(g.wallet.bet(g.calc.bet)).toBe(false);
+    g.wallet.reset(0);
+    expect(g.wallet.bet(g.calc.bet)).toBe(true);
+    expect(g.wallet.coins.get()).toBe(-g.calc.bet);
+    // 投資はベット総額として積まれる（機械割の分母）。
+    expect(g.wallet.investmentTotal.get()).toBe(g.calc.bet);
+  });
+
+  it('払い出しは回収として積まれ、差枚に戻る', () => {
+    const g = newGame();
+    g.wallet.reset(0);
+    g.wallet.bet(g.calc.bet);
+    g.wallet.win(10);
+    expect(g.wallet.paybackTotal.get()).toBe(10);
+    expect(g.wallet.sahmai()).toBe(10 - g.calc.bet);
   });
 });

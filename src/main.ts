@@ -1143,12 +1143,19 @@ export async function bootstrap() {
     );
   };
 
-  // コイン残量に応じてヘッダー色を警告状態に
+  /**
+   * 差枚の符号を色で見せる。
+   *
+   * **残量の警告はもう無い**——借りない方式にしたので、残高で打てなくなることがない。
+   * 以前は15枚以下で赤、50枚以下で黄にして「そろそろ入れろ」を伝えていた。
+   */
   const updateCoinWarning = (n: number) => {
-    coinEl.classList.remove('warning', 'critical');
-    if (n <= 15) coinEl.classList.add('critical');
-    else if (n <= 50) coinEl.classList.add('warning');
+    coinEl.classList.toggle('minus', n < 0);
+    coinEl.classList.toggle('plus', n > 0);
   };
+
+  /** 差枚の表示。0 から下へ進むので符号を付けないと減っているのが読めない。 */
+  const coinLabel = (n: number): string => `差枚 ${n > 0 ? '+' : ''}${n}`;
 
   // コイン表示をなめらかにカウントアップ
   let displayedCoin = wallet.coins.get();
@@ -1159,7 +1166,7 @@ export async function bootstrap() {
     const start = displayedCoin;
     const diff = target - start;
     if (diff === 0) {
-      coinEl.textContent = `MEDAL ${target}`;
+      coinEl.textContent = coinLabel(target);
       return;
     }
     const durMs = Math.min(900, 200 + Math.abs(diff) * 8);
@@ -1168,7 +1175,7 @@ export async function bootstrap() {
       const t = Math.min(1, (now - startTime) / durMs);
       const eased = 1 - Math.pow(1 - t, 3);
       displayedCoin = Math.round(start + diff * eased);
-      coinEl.textContent = `MEDAL ${displayedCoin}`;
+      coinEl.textContent = coinLabel(displayedCoin);
       if (t < 1) {
         coinAnimRaf = requestAnimationFrame(step);
       } else {
@@ -1178,7 +1185,7 @@ export async function bootstrap() {
     };
     coinAnimRaf = requestAnimationFrame(step);
   };
-  coinEl.textContent = `MEDAL ${displayedCoin}`;
+  coinEl.textContent = coinLabel(displayedCoin);
   updateCoinWarning(displayedCoin);
   wallet.coins.subscribe(animateCoinTo);
 
@@ -1186,36 +1193,25 @@ export async function bootstrap() {
   const unitMedalEl = document.getElementById('unit-medal');
   if (unitMedalEl) {
     const setMedal = (n: number) => {
-      unitMedalEl.textContent = String(n);
+      // 借りないので 0 から下へ進む。符号を付けないと「減っている」が読めない。
+      unitMedalEl.textContent = `${n > 0 ? '+' : ''}${n}`;
+      unitMedalEl.classList.toggle('plus', n > 0);
+      unitMedalEl.classList.toggle('minus', n < 0);
     };
     setMedal(wallet.coins.get());
     wallet.coins.subscribe(setMedal);
   }
-  // メダル貸出＝投資（lend）。役の払い出し(win)とは別物＝差枚会計の「投資」側。
-  for (const btn of document.querySelectorAll<HTMLButtonElement>(
-    '#unit-panel .coin-add',
-  )) {
-    btn.addEventListener('click', () => {
-      const n = Number(btn.dataset.amount ?? '0');
-      if (n > 0) wallet.lend(n);
-    });
-  }
-
-  // サンドの差枚/投資ライブ表示：差枚 = 現在の持メダル − この戦の投資累計。
+  // 差枚は coins そのもの（借りないので持メダルと差枚が一致する）。投資はベット総額。
   const unitInvestEl = document.getElementById('unit-invest');
-  const unitSahmaiEl = document.getElementById('unit-sahmai');
+  const unitPaybackEl = document.getElementById('unit-payback');
   const renderSahmai = () => {
     if (unitInvestEl) unitInvestEl.textContent = String(wallet.investmentTotal.get());
-    if (unitSahmaiEl) {
-      const s = wallet.sahmai();
-      unitSahmaiEl.textContent = `${s > 0 ? '+' : ''}${s}`;
-      unitSahmaiEl.classList.toggle('plus', s > 0);
-      unitSahmaiEl.classList.toggle('minus', s < 0);
-    }
+    if (unitPaybackEl) unitPaybackEl.textContent = String(wallet.paybackTotal.get());
   };
   renderSahmai();
   wallet.coins.subscribe(renderSahmai);
   wallet.investmentTotal.subscribe(renderSahmai);
+  wallet.paybackTotal.subscribe(renderSahmai);
 
   // 戦専用カウンタ（RunRecord 用）。PlayStats は章混在の累計なので差分算出に使えず別持ちする。
   // recordSpin の確定フックで増分し、計数（count-btn）でスナップショット→0リセット。
@@ -1247,8 +1243,9 @@ export async function bootstrap() {
     // 次に通常へ戻る時から別の曲になる。今かかっている音は変えない——
     // 締めた直後に切り替わると、計数の余韻が途切れる。
     bgm.reshuffle();
+    // 借りないので、投資＝ベット総額・回収＝払い出し総額。機械割は payback / investment。
     const investment = wallet.investmentTotal.get();
-    const payback = wallet.coins.get();
+    const payback = wallet.paybackTotal.get();
     // 空打ち（1回も回さず計数）は機械割が算出不能なので記録しない＝離脱は破棄に準ずる
     if (runSpinCount > 0) {
       appendRunRecord({
