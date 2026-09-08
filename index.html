@@ -34,24 +34,19 @@
     <div id="view-play" class="view" hidden></div>
     <div id="view-game" class="view game-view" hidden>
     <div id="cabinet">
+      <!-- 筐体の並びは実機に合わせてある（仕様18 §実機の並びへ組み直す）。
+           上から トップランプ／タイトルパネル／液晶＋リール窓／情報パネル／
+           操作部／下パネル／下皿。ホールの台選びで見えている筐体と同じ構造。 -->
+      <div id="toplamp" aria-hidden="true"></div>
       <div id="masthead">
         <button id="home-btn" type="button" title="ホールへ戻る" aria-label="ホールへ戻る">≡</button>
-        <span class="mark">mojislot</span>
-      </div>
-      <div class="header-shell">
-        <header id="info-bar">
-          <div id="coin-display">差枚 0</div>
-          <div id="status-stack">
-            <div id="effect-status">通常</div>
-          </div>
-          <div id="bet-display">
-            <span id="bet-text">Bet: 3</span>
-            <button id="auto-btn" type="button" title="オート [O]">AUTO</button>
-            <button id="mute-btn" type="button" title="音量 [M]">♪</button>
-            <button id="zukan-btn" type="button" title="図鑑 [Z]" hidden>図鑑</button>
-            <button id="settings-btn" type="button" title="設定 [,]" hidden>⚙</button>
-          </div>
-        </header>
+        <span class="mark" id="machine-title">mojislot</span>
+        <div class="masthead-tools">
+          <button id="auto-btn" type="button" title="オート [O]">AUTO</button>
+          <button id="mute-btn" type="button" title="音量 [M]">♪</button>
+          <button id="zukan-btn" type="button" title="図鑑 [Z]" hidden>図鑑</button>
+          <button id="settings-btn" type="button" title="設定 [,]" hidden>⚙</button>
+        </div>
       </div>
 
       <div id="game-area">
@@ -74,28 +69,57 @@
         <div id="bonus-banner" hidden></div>
       </div>
 
+      <!-- 情報パネル＝リール直下の計器。実機はここに CREDIT と 払出 の7セグ、
+           間に REPLAY / START / BET のランプが並ぶ。以前は液晶の上にヘッダーとして
+           置いていたが、実機に上部の情報帯は無い。 -->
+      <div class="header-shell">
+        <header id="info-bar">
+          <div class="ip-meter">
+            <span class="ip-label">差枚</span>
+            <span class="ip-value" id="coin-display">0</span>
+          </div>
+          <div class="ip-lamps" id="status-stack">
+            <span class="ip-lamp" id="bet-text">BET 3</span>
+            <div id="effect-status">通常</div>
+          </div>
+          <div class="ip-meter ip-meter-right">
+            <span class="ip-label">払出</span>
+            <span class="ip-value" id="payout-display">0</span>
+          </div>
+        </header>
+      </div>
+
       <footer id="control-panel">
-        <!-- スピーカーグリル＝筐体ランプ。ボーナス終了時に設定示唆で光る。
-             疑似要素で描いていたが、JSから状態を持たせられないので実要素にした。 -->
-        <div class="cabinet-lamp" data-side="left" aria-hidden="true"></div>
-        <div class="cabinet-lamp" data-side="right" aria-hidden="true"></div>
-        <div class="ctrl-row">
-          <button id="bet-btn" data-key="[B]">MAXBET</button>
-          <button id="lever-btn" data-key="[Space]">LEVER</button>
+        <!-- 左のデッキ：MAXBET の上にレバー。実機はレバーが左端で、その内側に
+             BET が並ぶ。ストップは下の .stop-row がリールの真下へ絶対配置する。 -->
+        <div class="deck-well">
+          <button id="bet-btn" data-key="[B]">MAX<span>BET</span></button>
+          <button id="lever-btn" data-key="[Space]" aria-label="レバー">
+            <span class="lever-ball" aria-hidden="true"></span>
+            <span class="lever-rod" aria-hidden="true"></span>
+          </button>
         </div>
-        <div class="ctrl-row stop-row" id="reel-buttons">
-          <div class="stop-cell">
-            <button class="stop-btn" data-reel="0" data-key="[A]">STOP</button>
-          </div>
-          <div class="stop-cell">
-            <button class="stop-btn" data-reel="1" data-key="[S]">STOP</button>
-          </div>
-          <div class="stop-cell">
-            <button class="stop-btn" data-reel="2" data-key="[D]">STOP</button>
-          </div>
+        <div class="stop-row" id="reel-buttons">
+          <button class="stop-btn" data-reel="0" data-key="[A]">STOP</button>
+          <button class="stop-btn" data-reel="1" data-key="[S]">STOP</button>
+          <button class="stop-btn" data-reel="2" data-key="[D]">STOP</button>
+        </div>
+        <!-- 右端＝実機の精算ボタンの位置。ドックの「計数」と同じ操作を、
+             機械の側にも置く（実機はここにある）。 -->
+        <div class="settle-well">
+          <button id="settle-btn" type="button">精算</button>
         </div>
         <div id="key-hint">Space:レバー  /  A・S・D:ストップ  /  B:BET  /  1〜4:クイズ</div>
       </footer>
+
+      <!-- 下パネル＝ロゴ板。スピーカーグリル（筐体ランプ）はここで左右に付く。
+           実機の下部スピーカーの位置で、ロゴを挟む形になる。 -->
+      <div id="lowerpanel">
+        <div class="cabinet-lamp" data-side="left" aria-hidden="true"></div>
+        <span class="lower-mark">MOJISLOT</span>
+        <div class="cabinet-lamp" data-side="right" aria-hidden="true"></div>
+      </div>
+      <div id="tray" aria-hidden="true"></div>
     </div>
 
     <aside id="reel-strip-panel">

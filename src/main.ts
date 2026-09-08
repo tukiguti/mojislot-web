@@ -144,6 +144,7 @@ import {
 import {
   chapterIdOfMachine,
   getCurrentMachine,
+  islandOfMachine,
   isRemixMachine,
   isTrialMachine,
   nextRemixStage,
@@ -182,6 +183,26 @@ document.documentElement.style.setProperty(
   '--lcd-ratio',
   String(LIQUID_AREA_H / CANVAS_H),
 );
+
+/**
+ * リール3本の中心が筐体幅のどこに来るかを CSS へ渡す。
+ *
+ * ストップボタンを**リールの真下**へ置くのに使う。押す指とリールの位置が
+ * 対応していないとビタ押しは狙えないのに、以前は3つとも中央寄せだった。
+ * リールの寸法は Pixi 側の定数で決まるので、CSS に同じ数を書くと必ずずれる
+ * （`--lcd-ratio` で一度やった失敗）。ここから流し込む。
+ */
+{
+  const totalW = CELL_WIDTH * REEL_COUNT + REEL_GAP * (REEL_COUNT - 1);
+  const startX = (CANVAS_W - totalW) / 2;
+  for (let i = 0; i < REEL_COUNT; i++) {
+    const cx = startX + i * (CELL_WIDTH + REEL_GAP) + CELL_WIDTH / 2;
+    document.documentElement.style.setProperty(
+      `--reel-cx-${i}`,
+      String(cx / CANVAS_W),
+    );
+  }
+}
 
 /**
  * 複数ペイラインで揃った役の一覧を文字列要約。
@@ -241,6 +262,16 @@ export async function bootstrap() {
   // データと示唆演出から推測させる（設計: MachineSetting）。
   // **章ではなく台ごと**。同じ島の4台が同じ設定だと、台を選び分ける意味が消える。
   const machineSetting = settingForMachine(machine, new Date());
+  /**
+   * タイトルパネル（筐体最上部の板）に島名を出す。実機のここは機種名で、
+   * ホールの台選びで見えていた板と同じもの。試打台だけは島がまとめ役なので
+   * 章名（打っている配列）の方が手掛かりになる。
+   */
+  {
+    const island = islandOfMachine(machine);
+    const titleEl = document.getElementById('machine-title');
+    if (titleEl) titleEl.textContent = island.trial ? chapter.name : island.name;
+  }
   /**
    * リミックス島はボーナスごとに島が入れ替わる（＝配列を覚え直す）。その見返りに
    * ボーナスを強くする。**この島かどうかは打っている間ずっと変わらない**ので、
@@ -776,7 +807,22 @@ export async function bootstrap() {
   };
   updateStageStatus();
   const bonusBannerEl = requireEl('bonus-banner');
-  betTextEl.textContent = `Bet: ${calc.bet}`;
+  betTextEl.textContent = `BET ${calc.bet}`;
+  /**
+   * 払出＝このゲームで出た枚数。実機はリール直下の7セグに出る。
+   * ベットで 0 に戻し、揃った時にその枚数を出す。**前のゲームの数字が残ると
+   * 「今いくら出たか」が読めない**ので、次のベットで必ず消す。
+   */
+  const payoutEl = requireEl('payout-display');
+  const setPayout = (n: number): void => {
+    payoutEl.textContent = String(n);
+    payoutEl.classList.toggle('plus', n > 0);
+  };
+  setPayout(0);
+  /** BETランプ。メダルが入っているかを示す（実機の 3BET ランプ）。 */
+  const setBetLamp = (on: boolean): void => {
+    betTextEl.classList.toggle('on', on);
+  };
   const effectStatusEl = requireEl('effect-status');
   let betPlaced = false;
   let resultTimer: number | null = null;
@@ -1167,8 +1213,11 @@ export async function bootstrap() {
     coinEl.classList.toggle('plus', n > 0);
   };
 
-  /** 差枚の表示。0 から下へ進むので符号を付けないと減っているのが読めない。 */
-  const coinLabel = (n: number): string => `差枚 ${n > 0 ? '+' : ''}${n}`;
+  /**
+   * 差枚の表示。0 から下へ進むので符号を付けないと減っているのが読めない。
+   * ラベル（「差枚」）は情報パネルの `.ip-label` が持つので、ここは数字だけ。
+   */
+  const coinLabel = (n: number): string => `${n > 0 ? '+' : ''}${n}`;
 
   // コイン表示をなめらかにカウントアップ
   let displayedCoin = wallet.coins.get();
@@ -1305,6 +1354,8 @@ export async function bootstrap() {
     runReelSpeedMax = -Infinity;
   };
   document.getElementById('dock-count')?.addEventListener('click', settleRun);
+  // 操作部の精算＝ドックの計数と同じ。実機はこのボタンが機械の側にある。
+  document.getElementById('settle-btn')?.addEventListener('click', settleRun);
 
   // 戦の計測タイマー（サンド下部）。フリー=カウントアップ／プリセット分数=カウントダウン。
   // 詳細は ui/RunTimer.ts。計数(count-btn)で締める時に runTimer.stop() を呼ぶ。
@@ -1690,6 +1741,7 @@ export async function bootstrap() {
 
   const resetForNextSpin = () => {
     betPlaced = false;
+    setBetLamp(false);
     bonusSession.resetSpin();
     currentRound = null;
     if (debugVisible) delete cabinetEl.dataset.internalRole;
@@ -1766,6 +1818,8 @@ export async function bootstrap() {
     recordRunSpeed(reelSpeed());
     if (autoMode) runAutoUsed = true;
     betPlaced = true;
+    setBetLamp(true);
+    setPayout(0);
     resultEl.classList.remove('visible');
     flashButton(betBtn);
     sfx.bet();
@@ -2450,6 +2504,7 @@ export async function bootstrap() {
         if (quizMatched) sfx.quizCorrect();
         else sfx.quizWrong();
       }
+      setPayout(win);
       if (win > 0) {
         wallet.win(win);
         // 3枚で1発。枚数が音の長さになるので、数字を読まなくても大きさが分かる。
