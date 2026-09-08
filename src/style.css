@@ -31,7 +31,11 @@
   --cab-line-2: rgba(242, 179, 60, 0.35); /* 内側の線・2本目 */
   --cab-sheen: rgba(255, 255, 255, 0.08); /* 面の上端に乗る照り */
   --cab-glow: rgba(92, 46, 142, 0.4);     /* 筐体の外へ滲む光 */
-  --cab-radius: 16px;
+  /* **角は落とさない**（2026-09-08）。実機の筐体は成形板の角ばった箱で、
+     丸めるとアプリのカードに見える。皮ごとに変えられる形は残すが、既定は0。
+     丸いままにしてよいのは物理的に丸いもの——ストップボタン、レバーの玉、
+     ランプのドームだけ。 */
+  --cab-radius: 0px;
 
   /* マストヘッド（ロゴ＋豆電球） */
   --head-hi: #20122f;
@@ -329,7 +333,7 @@ textarea {
   color: var(--chrome);
   background: rgba(255, 255, 255, 0.06);
   border: 1px solid var(--chrome-dk);
-  border-radius: 5px;
+  border-radius: 0;
   z-index: 2;
 }
 #home-btn:hover {
@@ -356,7 +360,7 @@ body.has-chapter-bg {
   padding: 14px 14px 12px;
   background: linear-gradient(180deg, var(--side-hi) 0%, var(--side-lo) 100%);
   border: 2px solid var(--cab-edge);
-  border-radius: 10px;
+  border-radius: 0;
   box-shadow:
     inset 0 0 0 1px var(--side-line),
     0 0 16px var(--side-glow);
@@ -374,7 +378,7 @@ body.has-chapter-bg {
   padding: 12px 10px;
   background: linear-gradient(180deg, var(--unit-hi) 0%, var(--unit-lo) 100%);
   border: 2px solid var(--cab-edge);
-  border-radius: 10px;
+  border-radius: 0;
   box-shadow:
     inset 0 0 0 1px rgba(255, 255, 255, 0.05),
     0 0 16px var(--side-glow);
@@ -400,7 +404,7 @@ body.has-chapter-bg {
   padding: 6px 4px;
   background: var(--meter-bg);
   border: 1px solid var(--meter-edge);
-  border-radius: 6px;
+  border-radius: 0;
   box-shadow: inset 0 2px 5px rgba(0, 0, 0, 0.7);
 }
 .unit-readout-label {
@@ -424,7 +428,7 @@ body.has-chapter-bg {
   padding: 5px 8px;
   background: var(--meter-bg);
   border: 1px solid var(--meter-edge);
-  border-radius: 6px;
+  border-radius: 0;
   box-shadow: inset 0 2px 5px rgba(0, 0, 0, 0.7);
 }
 .unit-stat-row {
@@ -461,7 +465,7 @@ body.has-chapter-bg {
   padding: 6px 8px;
   background: #07040c;
   border: 1px solid #2a2336;
-  border-radius: 6px;
+  border-radius: 0;
 }
 .unit-timer-top {
   display: flex;
@@ -493,7 +497,7 @@ body.has-chapter-bg {
   color: var(--ivory);
   background: rgba(92, 46, 142, 0.2);
   border: 1px solid #2a2336;
-  border-radius: 999px;
+  border-radius: 0;
 }
 .timer-preset:hover {
   border-color: rgba(242, 179, 60, 0.5);
@@ -515,7 +519,7 @@ body.has-chapter-bg {
   justify-content: space-between;
   padding: 2px 4px;
   background: #110a1c;
-  border-radius: 4px;
+  border-radius: 0;
 }
 .unit-timer-rate-label {
   font-size: 9px;
@@ -598,7 +602,7 @@ body.has-chapter-bg {
     'Hiragino Mincho ProN', 'Yu Mincho', 'MS PMincho', serif;
   /* 背景色は JS から symbolColorCss() で動的設定（タイル方式） */
   border: 1px solid rgba(0, 0, 0, 0.6);
-  border-radius: 4px;
+  border-radius: 0;
   color: #fff;
   text-shadow:
     0 0 2px rgba(0, 0, 0, 1),
@@ -799,7 +803,7 @@ body.has-chapter-bg {
   font-weight: 700;
   letter-spacing: 1px;
   padding: 2px 5px;
-  border-radius: 2px;
+  border-radius: 0;
   border: 1px solid var(--meter-edge);
   color: var(--meter-label);
   background: var(--meter-bg);
@@ -833,7 +837,7 @@ body.has-chapter-bg {
   color: var(--gold);
   background: rgba(0, 0, 0, 0.4);
   border: 1px solid var(--cab-edge);
-  border-radius: 3px;
+  border-radius: 0;
   cursor: pointer;
 }
 .masthead-tools button:hover {
@@ -856,7 +860,7 @@ body.has-chapter-bg {
   color: var(--gold);
   background: rgba(0, 0, 0, 0.6);
   border: 1px solid var(--gold);
-  border-radius: 4px;
+  border-radius: 0;
   cursor: pointer;
   font-family: inherit;
   z-index: 2;
@@ -888,7 +892,7 @@ body.has-chapter-bg {
   padding: 2px 8px;
   background: rgba(20, 20, 20, 0.85);
   border: 1px solid #555;
-  border-radius: 3px;
+  border-radius: 0;
   font-size: 10px;
   color: #aaa;
   letter-spacing: 1px;
@@ -1972,7 +1976,7 @@ body.shake {
   flex: none;
   height: 100%;
   width: 64px;
-  border-radius: 4px;
+  border-radius: 0;
   background-color: var(--grille-bg);
   background-image: radial-gradient(circle, var(--grille-dot) 0 1.5px, transparent 1.9px);
   background-size: 9px 9px;
@@ -2046,7 +2050,7 @@ body.shake {
   color: var(--aux-text);
   background: linear-gradient(180deg, var(--aux-hi) 0%, var(--aux-lo) 100%);
   border: 1px solid var(--cab-edge);
-  border-radius: 5px;
+  border-radius: 0;
   cursor: pointer;
   box-shadow: inset 0 -2px 0 rgba(0, 0, 0, 0.4);
 }
@@ -2076,7 +2080,7 @@ body.shake {
   color: var(--deck-text);
   background: linear-gradient(180deg, var(--deck-hi) 0%, var(--deck-lo) 100%);
   border: 2px solid var(--cab-edge);
-  border-radius: 7px;
+  border-radius: 0;
   cursor: pointer;
   font-family: inherit;
   text-shadow: 0 1px 1px rgba(0, 0, 0, 0.5);
@@ -2197,7 +2201,7 @@ body.shake {
   color: var(--aux-text);
   background: linear-gradient(180deg, var(--aux-hi) 0%, var(--aux-lo) 100%);
   border: 1px solid var(--cab-edge);
-  border-radius: 4px;
+  border-radius: 0;
   cursor: pointer;
   box-shadow: inset 0 -2px 0 rgba(0, 0, 0, 0.4);
 }
@@ -4307,7 +4311,7 @@ to {
   display: flex;
   gap: 6px;
   padding: 6px;
-  border-radius: 14px;
+  border-radius: 0;
   background: linear-gradient(180deg, var(--bar-hi), var(--bar-lo));
   border: 1px solid var(--cab-edge);
   box-shadow:
@@ -4322,7 +4326,7 @@ to {
   justify-items: center;
   gap: 2px;
   border: 1px solid transparent;
-  border-radius: 10px;
+  border-radius: 0;
   background: transparent;
   color: var(--text-dim, #9b8ab0);
   font: inherit;
@@ -4487,7 +4491,7 @@ to {
     width: auto;
     max-height: 72vh;
     overflow-y: auto;
-    border-radius: 16px 16px 0 0;
+    border-radius: 0;
     transform: translateY(100%);
     transition: transform 220ms ease;
     padding-bottom: calc(var(--dock-h) + 8px);

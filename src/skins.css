@@ -6,8 +6,10 @@
  * しか見ていないので、ここを差し替えれば見た目が丸ごと変わる。
  *
  * **寸法は持たせない。** 皮が高さや幅を動かすと、向きで切り替わるレイアウト
- * （縦長／横長）の計算が崩れる。持つのは色・質感・書体だけ。角丸だけは例外で、
- * 外周の 1 プロパティなのでレイアウトに影響しない。
+ * （縦長／横長）の計算が崩れる。持つのは色・質感・書体だけ。
+ *
+ * 角丸（`--cab-radius`）は皮で変えられる作りにしてあるが、**どの皮も 0 のまま**に
+ * している。実機の筐体は成形板の角ばった箱で、丸めるとアプリのカードに見える。
  *
  * `royal` は `:root` の既定値そのものなので、ここに規則は要らない（データ属性が
  * 無い＝royal）。`src/productions/CabinetSkin.ts` が `body[data-skin]` を張る。
@@ -30,7 +32,6 @@ body[data-skin='midnight'],
   --cab-line-2: rgba(122, 226, 255, 0.3);
   --cab-sheen: rgba(255, 255, 255, 0.14);
   --cab-glow: rgba(56, 160, 255, 0.38);
-  --cab-radius: 20px;
 
   --head-hi: #10141c;
   --head-lo: #06080c;
@@ -105,7 +106,6 @@ body[data-skin='retro'],
   --cab-line-2: rgba(240, 220, 170, 0.45);
   --cab-sheen: rgba(255, 235, 190, 0.16);
   --cab-glow: rgba(214, 132, 48, 0.38);
-  --cab-radius: 8px;
 
   --head-hi: #6f4d30;
   --head-lo: #3d2817;
@@ -210,7 +210,6 @@ body[data-skin='retro'],
   position: relative;
   width: 46px;
   height: 32px;
-  border-radius: 5px;
   border: 1px solid var(--cab-edge);
   background-image:
     var(--cab-texture),
