@@ -40,7 +40,7 @@
       </div>
       <div class="header-shell">
         <header id="info-bar">
-          <div id="coin-display">MEDAL 0</div>
+          <div id="coin-display">差枚 0</div>
           <div id="status-stack">
             <div id="effect-status">通常</div>
           </div>
@@ -48,9 +48,8 @@
             <span id="bet-text">Bet: 3</span>
             <button id="auto-btn" type="button" title="オート [O]">AUTO</button>
             <button id="mute-btn" type="button" title="音量 [M]">♪</button>
-            <button id="reel-strip-btn" type="button" title="リール配列 [R]">配列</button>
-            <button id="zukan-btn" type="button" title="図鑑 [Z]">図鑑</button>
-            <button id="settings-btn" type="button" title="設定 [,]">⚙</button>
+            <button id="zukan-btn" type="button" title="図鑑 [Z]" hidden>図鑑</button>
+            <button id="settings-btn" type="button" title="設定 [,]" hidden>⚙</button>
           </div>
         </header>
       </div>
@@ -119,22 +118,25 @@
       <div class="strip-hint">停止時に中央セルをハイライトします</div>
     </aside>
 
-    <aside id="unit-panel">
-      <div class="unit-head">UNIT</div>
+    <div id="unit-column">
+    <div id="unit-live">
       <div class="unit-readout">
-        <span class="unit-readout-label">持メダル</span>
+        <span class="unit-readout-label">差枚</span>
         <span class="unit-readout-num" id="unit-medal">0</span>
       </div>
       <div class="unit-stat">
         <div class="unit-stat-row">
-          <span class="unit-stat-label">差枚</span>
-          <span class="unit-stat-num" id="unit-sahmai">0</span>
-        </div>
-        <div class="unit-stat-row">
           <span class="unit-stat-label">投資</span>
           <span class="unit-stat-num" id="unit-invest">0</span>
         </div>
+        <div class="unit-stat-row">
+          <span class="unit-stat-label">回収</span>
+          <span class="unit-stat-num" id="unit-payback">0</span>
+        </div>
       </div>
+    </div>
+    <aside id="unit-panel">
+      <div class="unit-head">UNIT</div>
       <div class="unit-timer">
         <div class="unit-timer-top">
           <span class="unit-stat-label">時間計測</span>
@@ -162,19 +164,27 @@
           <button id="timer-reset" class="aux-btn" type="button" title="計測をリセット">リセット</button>
         </div>
       </div>
-      <div class="unit-slot" aria-hidden="true"></div>
-      <div class="unit-lend-label">メダル貸出</div>
-      <div class="unit-lend-buttons">
-        <button class="coin-add" data-amount="100" type="button">＋100</button>
-        <button class="coin-add" data-amount="500" type="button">＋500</button>
-        <button class="coin-add" data-amount="1000" type="button">＋1000</button>
-        <button class="coin-add" data-amount="5000" type="button">＋5000</button>
-      </div>
-      <div class="unit-flow">
-        <button id="count-btn" class="aux-btn" type="button" title="計数（この戦を締めて持メダルを流す）">計数</button>
-      </div>
-      <div class="unit-hint">貸出＝投資／計数＝締める</div>
+      <div class="unit-hint">計数は下のメニューから</div>
     </aside>
+    </div>
+
+      <nav id="dock" aria-label="メニュー">
+        <button class="dock-btn" id="dock-reels" type="button">
+          <span class="dock-icon" aria-hidden="true">▤</span><span class="dock-label">配列</span>
+        </button>
+        <button class="dock-btn" id="dock-unit" type="button">
+          <span class="dock-icon" aria-hidden="true">▦</span><span class="dock-label">データ</span>
+        </button>
+        <button class="dock-btn" id="dock-count" type="button">
+          <span class="dock-icon" aria-hidden="true">▼</span><span class="dock-label">計数</span>
+        </button>
+        <button class="dock-btn" id="dock-zukan" type="button">
+          <span class="dock-icon" aria-hidden="true">▣</span><span class="dock-label">図鑑</span>
+        </button>
+        <button class="dock-btn" id="dock-settings" type="button">
+          <span class="dock-icon" aria-hidden="true">⚙</span><span class="dock-label">設定</span>
+        </button>
+      </nav>
     </div>
 
     <div id="view-ranking" class="view" hidden></div>

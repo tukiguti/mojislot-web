@@ -14,6 +14,12 @@ import {
 import { PayoutCalc } from './core/PayoutCalc';
 import { CoinWallet } from './core/CoinWallet';
 import {
+  KeyBindings,
+  eventKey,
+  keyLabel,
+  type Action,
+} from './productions/KeyBindings';
+import {
   EffectScheduler,
   REEL_BASE_SPEED,
   type EffectType,
@@ -334,6 +340,7 @@ export async function bootstrap() {
   );
   // デバッグ section の表示可否（遊ぶ設定で確定・既定OFF）
   const debugVisible = localStorage.getItem('mojislot.debugVisible.v1') === '1';
+  const keyBindings = new KeyBindings();
   const settingsOverlay = new SettingsOverlay(
     wallet,
     payout.initialCoins,
@@ -343,6 +350,7 @@ export async function bootstrap() {
     () => quizStats,
     challengeTracker,
     debugVisible,
+    keyBindings,
     tuning.reelSpeed,
     tuning.motionBlurStrength,
   );
@@ -1143,12 +1151,19 @@ export async function bootstrap() {
     );
   };
 
-  // コイン残量に応じてヘッダー色を警告状態に
+  /**
+   * 差枚の符号を色で見せる。
+   *
+   * **残量の警告はもう無い**——借りない方式にしたので、残高で打てなくなることがない。
+   * 以前は15枚以下で赤、50枚以下で黄にして「そろそろ入れろ」を伝えていた。
+   */
   const updateCoinWarning = (n: number) => {
-    coinEl.classList.remove('warning', 'critical');
-    if (n <= 15) coinEl.classList.add('critical');
-    else if (n <= 50) coinEl.classList.add('warning');
+    coinEl.classList.toggle('minus', n < 0);
+    coinEl.classList.toggle('plus', n > 0);
   };
+
+  /** 差枚の表示。0 から下へ進むので符号を付けないと減っているのが読めない。 */
+  const coinLabel = (n: number): string => `差枚 ${n > 0 ? '+' : ''}${n}`;
 
   // コイン表示をなめらかにカウントアップ
   let displayedCoin = wallet.coins.get();
@@ -1159,7 +1174,7 @@ export async function bootstrap() {
     const start = displayedCoin;
     const diff = target - start;
     if (diff === 0) {
-      coinEl.textContent = `MEDAL ${target}`;
+      coinEl.textContent = coinLabel(target);
       return;
     }
     const durMs = Math.min(900, 200 + Math.abs(diff) * 8);
@@ -1168,7 +1183,7 @@ export async function bootstrap() {
       const t = Math.min(1, (now - startTime) / durMs);
       const eased = 1 - Math.pow(1 - t, 3);
       displayedCoin = Math.round(start + diff * eased);
-      coinEl.textContent = `MEDAL ${displayedCoin}`;
+      coinEl.textContent = coinLabel(displayedCoin);
       if (t < 1) {
         coinAnimRaf = requestAnimationFrame(step);
       } else {
@@ -1178,7 +1193,7 @@ export async function bootstrap() {
     };
     coinAnimRaf = requestAnimationFrame(step);
   };
-  coinEl.textContent = `MEDAL ${displayedCoin}`;
+  coinEl.textContent = coinLabel(displayedCoin);
   updateCoinWarning(displayedCoin);
   wallet.coins.subscribe(animateCoinTo);
 
@@ -1186,36 +1201,25 @@ export async function bootstrap() {
   const unitMedalEl = document.getElementById('unit-medal');
   if (unitMedalEl) {
     const setMedal = (n: number) => {
-      unitMedalEl.textContent = String(n);
+      // 借りないので 0 から下へ進む。符号を付けないと「減っている」が読めない。
+      unitMedalEl.textContent = `${n > 0 ? '+' : ''}${n}`;
+      unitMedalEl.classList.toggle('plus', n > 0);
+      unitMedalEl.classList.toggle('minus', n < 0);
     };
     setMedal(wallet.coins.get());
     wallet.coins.subscribe(setMedal);
   }
-  // メダル貸出＝投資（lend）。役の払い出し(win)とは別物＝差枚会計の「投資」側。
-  for (const btn of document.querySelectorAll<HTMLButtonElement>(
-    '#unit-panel .coin-add',
-  )) {
-    btn.addEventListener('click', () => {
-      const n = Number(btn.dataset.amount ?? '0');
-      if (n > 0) wallet.lend(n);
-    });
-  }
-
-  // サンドの差枚/投資ライブ表示：差枚 = 現在の持メダル − この戦の投資累計。
+  // 差枚は coins そのもの（借りないので持メダルと差枚が一致する）。投資はベット総額。
   const unitInvestEl = document.getElementById('unit-invest');
-  const unitSahmaiEl = document.getElementById('unit-sahmai');
+  const unitPaybackEl = document.getElementById('unit-payback');
   const renderSahmai = () => {
     if (unitInvestEl) unitInvestEl.textContent = String(wallet.investmentTotal.get());
-    if (unitSahmaiEl) {
-      const s = wallet.sahmai();
-      unitSahmaiEl.textContent = `${s > 0 ? '+' : ''}${s}`;
-      unitSahmaiEl.classList.toggle('plus', s > 0);
-      unitSahmaiEl.classList.toggle('minus', s < 0);
-    }
+    if (unitPaybackEl) unitPaybackEl.textContent = String(wallet.paybackTotal.get());
   };
   renderSahmai();
   wallet.coins.subscribe(renderSahmai);
   wallet.investmentTotal.subscribe(renderSahmai);
+  wallet.paybackTotal.subscribe(renderSahmai);
 
   // 戦専用カウンタ（RunRecord 用）。PlayStats は章混在の累計なので差分算出に使えず別持ちする。
   // recordSpin の確定フックで増分し、計数（count-btn）でスナップショット→0リセット。
@@ -1238,8 +1242,9 @@ export async function bootstrap() {
     runReelSpeedMax = Math.max(runReelSpeedMax, speed);
   };
 
-  // 計数＝この戦を締める：spinCount>0 なら1戦を RunHistory に確定記録し、持メダルを流す(0に)＋投資/戦カウンタをリセット。
-  document.getElementById('count-btn')?.addEventListener('click', () => {
+  // 計数＝この戦を締める：spinCount>0 なら1戦を RunHistory に確定記録し、差枚と戦カウンタをリセット。
+  // 呼び口は画面下のドック。**関数にしてあるのは呼び出し元が増えたため**（以前はボタン1つだった）。
+  const settleRun = (): void => {
     // 計数=この戦の区切り。計測中なら自動停止（sahmai が0に戻り時速が誤って跳ねるのを防ぐ）。
     // ※ runTimer は下方で生成（このハンドラはクリック時=bootstrap完了後に走るので参照は安全）
     runTimer.stop();
@@ -1247,8 +1252,9 @@ export async function bootstrap() {
     // 次に通常へ戻る時から別の曲になる。今かかっている音は変えない——
     // 締めた直後に切り替わると、計数の余韻が途切れる。
     bgm.reshuffle();
+    // 借りないので、投資＝ベット総額・回収＝払い出し総額。機械割は payback / investment。
     const investment = wallet.investmentTotal.get();
-    const payback = wallet.coins.get();
+    const payback = wallet.paybackTotal.get();
     // 空打ち（1回も回さず計数）は機械割が算出不能なので記録しない＝離脱は破棄に準ずる
     if (runSpinCount > 0) {
       appendRunRecord({
@@ -1292,7 +1298,8 @@ export async function bootstrap() {
     runAutoUsed = false;
     runReelSpeedMin = Infinity;
     runReelSpeedMax = -Infinity;
-  });
+  };
+  document.getElementById('dock-count')?.addEventListener('click', settleRun);
 
   // 戦の計測タイマー（サンド下部）。フリー=カウントアップ／プリセット分数=カウントダウン。
   // 詳細は ui/RunTimer.ts。計数(count-btn)で締める時に runTimer.stop() を呼ぶ。
@@ -3034,10 +3041,29 @@ export async function bootstrap() {
 
   // === リール配列パネルの開閉（≤ 900px ではオーバーレイで開く） ===
   const reelStripPanel = document.getElementById('reel-strip-panel');
-  const reelStripBtn = document.getElementById('reel-strip-btn');
+  const reelStripBtn = document.getElementById('dock-reels');
   const reelStripClose = reelStripPanel?.querySelector<HTMLButtonElement>('.strip-close');
+  const unitPanelEl = document.getElementById('unit-panel');
+  const dockUnitBtn = document.getElementById('dock-unit');
+
+  /**
+   * シートは1枚だけ開く。**縦長では両方とも画面下から出る**ので、重ねると
+   * 後ろの内容が読めなくなる。開く側が相手を閉じる。
+   */
+  const closeSheets = (except?: Element | null): void => {
+    if (reelStripPanel && reelStripPanel !== except) {
+      reelStripPanel.classList.remove('open');
+      reelStripBtn?.classList.remove('on');
+    }
+    if (unitPanelEl && unitPanelEl !== except) {
+      unitPanelEl.classList.remove('open');
+      dockUnitBtn?.classList.remove('on');
+    }
+  };
+
   const toggleReelStrip = () => {
     if (!reelStripPanel) return;
+    closeSheets(reelStripPanel);
     const isOpen = reelStripPanel.classList.toggle('open');
     if (reelStripBtn) reelStripBtn.classList.toggle('on', isOpen);
   };
@@ -3046,6 +3072,26 @@ export async function bootstrap() {
     reelStripPanel?.classList.remove('open');
     reelStripBtn?.classList.remove('on');
   });
+
+  /**
+   * 画面下のドック。**開いて読むものはここに集める**——遊技中に触るのは
+   * レバーと停止とベットだけで、配列やデータは手を止めて見るものだから、
+   * 筐体のヘッダーではなく画面の縁に置く。参考にしたスロットアプリと同じ位置。
+   *
+   * 開閉の判定は既にある要素へ委譲する（ここで持つと2箇所に同じ状態ができる）。
+   */
+  dockUnitBtn?.addEventListener('click', () => {
+    if (!unitPanelEl) return;
+    closeSheets(unitPanelEl);
+    const isOpen = unitPanelEl.classList.toggle('open');
+    dockUnitBtn.classList.toggle('on', isOpen);
+  });
+  document
+    .getElementById('dock-zukan')
+    ?.addEventListener('click', () => zukanBtn.click());
+  document
+    .getElementById('dock-settings')
+    ?.addEventListener('click', () => settingsBtn.click());
 
   const updateMuteUI = () => {
     if (sfx.isMuted()) {
@@ -3147,10 +3193,47 @@ export async function bootstrap() {
 
   // === キーボードショートカット ===
   // B = BET, Space = LEVER, A/S/D = STOP 左/中/右
-  const KEY_TO_REEL: Record<string, number> = {
-    a: 0,
-    s: 1,
-    d: 2,
+  /** 操作の中身。キーからも画面のボタンからも同じものを呼ぶ。 */
+  const runAction = (action: Action, timeStamp: number): void => {
+    switch (action) {
+      case 'bet':
+        placeBet();
+        return;
+      case 'lever':
+        pullLever();
+        return;
+      case 'stop0':
+      case 'stop1':
+      case 'stop2': {
+        const idx = Number(action.slice(4));
+        // 停止済みのリールをもう一度押すと滑りコマ数が出る（押せる意味が違う）。
+        if (engines[idx]?.state.get() !== 'spinning') toggleSlipBadge(idx);
+        else stopReel(idx, timeStamp);
+        return;
+      }
+      case 'auto':
+        if (!autoAvailable) return;
+        if (autoMode) stopAuto();
+        else startAuto();
+        return;
+      case 'mute':
+        sfx.init();
+        bgm.init();
+        sfx.toggleMute();
+        bgm.setMuted(sfx.isMuted());
+        voice.setMuted(sfx.isMuted());
+        updateMuteUI();
+        return;
+      case 'zukan':
+        zukanOverlay.toggle();
+        return;
+      case 'settings':
+        settingsOverlay.toggle();
+        return;
+      case 'reelStrip':
+        toggleReelStrip();
+        return;
+    }
   };
 
   window.addEventListener('keydown', (ev) => {
@@ -3161,9 +3244,9 @@ export async function bootstrap() {
     ) {
       return;
     }
-    const key = ev.key.toLowerCase();
 
-    // クイズは回答操作なし方式のためキー回答は廃止（答えは全停止後に提示）。
+    // 割り当ての変更中はゲームを動かさない（押したキーを拾う側が受け取る）。
+    if (settingsOverlay.isCapturingKey()) return;
 
     // フリーズ演出中はゲーム操作キーを全てブロック
     if (freezeActive) {
@@ -3171,56 +3254,30 @@ export async function bootstrap() {
       return;
     }
 
-    if (key === 'b') {
-      ev.preventDefault();
-      placeBet();
-      return;
-    }
-    if (key === ' ' || ev.code === 'Space') {
-      ev.preventDefault();
-      pullLever();
-      return;
-    }
-    if (key in KEY_TO_REEL) {
-      ev.preventDefault();
-      const idx = KEY_TO_REEL[key];
-      if (engines[idx]?.state.get() !== 'spinning') toggleSlipBadge(idx);
-      else stopReel(idx, ev.timeStamp);
-      return;
-    }
-    if (key === 'z') {
-      ev.preventDefault();
-      zukanOverlay.toggle();
-      return;
-    }
-    if (key === 'm') {
-      ev.preventDefault();
-      sfx.init();
-      bgm.init();
-      sfx.toggleMute();
-      bgm.setMuted(sfx.isMuted());
-      voice.setMuted(sfx.isMuted());
-      updateMuteUI();
-      return;
-    }
-    if (key === 'o') {
-      ev.preventDefault();
-      if (!autoAvailable) return;
-      if (autoMode) stopAuto();
-      else startAuto();
-      return;
-    }
-    if (key === ',') {
-      ev.preventDefault();
-      settingsOverlay.toggle();
-      return;
-    }
-    if (key === 'r') {
-      ev.preventDefault();
-      toggleReelStrip();
-      return;
-    }
+    const action = keyBindings.actionFor(eventKey(ev));
+    if (!action) return;
+    ev.preventDefault();
+    runAction(action, ev.timeStamp);
   });
+
+  /**
+   * 画面下のキーヒントを今の割り当てで書き直す。**直書きの案内は嘘になる**——
+   * 割り当てを変えられるようにした以上、A・S・D と出したままにはできない。
+   */
+  const renderKeyHint = (): void => {
+    const el = document.getElementById('key-hint');
+    if (!el) return;
+    const k = (a: Action): string => {
+      const key = keyBindings.get(a);
+      return key ? keyLabel(key) : '—';
+    };
+    el.textContent =
+      `${k('lever')}:レバー / ${k('stop0')}・${k('stop1')}・${k('stop2')}:ストップ / ${k('bet')}:BET`;
+  };
+  renderKeyHint();
+  // 割り当てが変わったら呼び直す。**開閉のタイミングに賭けない**——設定を閉じた時に
+  // 更新する形にしていたが、閉じ方が複数あって取りこぼした（×ボタン・Esc・背景）。
+  settingsOverlay.setKeyBindingListener(renderKeyHint);
 
   updateButtons();
 }

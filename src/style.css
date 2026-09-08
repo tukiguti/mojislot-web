@@ -450,45 +450,6 @@ body.has-chapter-bg {
   color: #1b0f0a;
   border-color: var(--gold);
 }
-.unit-slot {
-  height: 8px;
-  margin: 0 14px;
-  border-radius: 4px;
-  background: linear-gradient(180deg, #000 0%, #1a1422 100%);
-  box-shadow:
-    inset 0 1px 2px rgba(0, 0, 0, 0.8),
-    0 1px 0 rgba(255, 255, 255, 0.06);
-}
-.unit-lend-label {
-  text-align: center;
-  font-size: 10px;
-  letter-spacing: 2px;
-  color: var(--magenta);
-}
-.unit-lend-buttons {
-  display: flex;
-  flex-direction: column;
-  gap: 7px;
-}
-.unit-lend-buttons .coin-add {
-  padding: 8px 6px;
-  font-size: 13px;
-  font-weight: 800;
-  font-family: inherit;
-  color: #1b0f0a;
-  background: linear-gradient(180deg, var(--gold-hi) 0%, var(--gold) 100%);
-  border: 1px solid #8a6418;
-  border-radius: 6px;
-  cursor: pointer;
-  box-shadow: inset 0 -2px 0 rgba(0, 0, 0, 0.25);
-}
-.unit-lend-buttons .coin-add:hover {
-  filter: brightness(1.08);
-}
-.unit-lend-buttons .coin-add:active {
-  transform: translateY(1px);
-  box-shadow: none;
-}
 .unit-hint {
   margin-top: auto;
   text-align: center;
@@ -688,33 +649,10 @@ body.has-chapter-bg {
 #zukan-btn,
 #mute-btn,
 #auto-btn,
-#reel-strip-btn {
-  padding: 3px 10px;
-  font-size: 11px;
-  color: var(--gold);
-  background: rgba(255, 215, 0, 0.08);
-  border: 1px solid var(--gold);
-  border-radius: 4px;
-  cursor: pointer;
-  font-family: inherit;
-  letter-spacing: 1px;
-}
 #zukan-btn:hover,
 #mute-btn:hover,
 #auto-btn:hover,
-#reel-strip-btn:hover {
-  background: rgba(255, 215, 0, 0.2);
-}
-
 /* ≤ 900px で出現する配列ボタン。広い画面ではパネル常駐なので不要 */
-#reel-strip-btn {
-  display: none;
-}
-#reel-strip-btn.on {
-  color: #1a1100;
-  background: linear-gradient(180deg, #ffe566 0%, var(--gold) 100%);
-}
-
 /* リール配列パネル内の閉じるボタン（オーバーレイ表示時のみ） */
 #reel-strip-panel .strip-close {
   display: none;
@@ -856,14 +794,15 @@ body.has-chapter-bg {
   display: none;
 }
 
-/* === コイン残量警告 === */
-#coin-display.warning {
-  color: #ff8866;
-  animation: coin-warn 1s ease-in-out infinite;
+/* === 差枚の符号 ===
+   借りない方式にしたので残量の警告は無い（残高で打てなくなることがない）。
+   マイナスは沈んだ赤、プラスは金。点滅はさせない——差枚は常に動くので、
+   点滅すると画面が落ち着かない。 */
+#coin-display.minus {
+  color: #ff6b78;
 }
-#coin-display.critical {
-  color: #ff4444;
-  animation: coin-warn 0.6s ease-in-out infinite;
+#coin-display.plus {
+  color: var(--gold, #f2b33c);
 }
 
 @keyframes coin-warn {0%,
@@ -3458,7 +3397,6 @@ to {
   #zukan-btn,
   #mute-btn,
   #auto-btn,
-  #reel-strip-btn,
   #settings-btn {
     padding: 2px 7px;
     font-size: 10px;
@@ -3490,7 +3428,6 @@ to {
   #zukan-btn,
   #mute-btn,
   #auto-btn,
-  #reel-strip-btn,
   #settings-btn {
     padding: 2px 5px;
     font-size: 9px;
@@ -3519,7 +3456,6 @@ to {
   #zukan-btn,
   #mute-btn,
   #auto-btn,
-  #reel-strip-btn,
   #settings-btn {
     padding: 2px 3px;
     font-size: 8px;
@@ -3541,115 +3477,10 @@ to {
  *   ≤ 480px: スマホ縦 → さらに寸法を詰める
  */
 @media (max-width: 900px) {
-  :root {
-    --layout-pad: 8px;
-    --reel-gap: 0px;
-    --reel-panel-occupy: 0px;
-    --control-h: 154px;
-    /* 狭画面では 440px キャップを外し、ビューポート全体に追随させる。
-     * 縦長 約1:1.22 なので、高さ制約 (100vh - 各帯) を 1.22 で割って game 幅を決める。 */
-    --game-w: max(
-      240px,
-      min(
-        calc(
-          (100vh - var(--layout-pad) * 2 - var(--header-h) - var(--control-h)) / 1.22
-        ),
-        calc(100vw - var(--layout-pad) * 2)
-      )
-    );
-    --game-h: calc(var(--game-w) * 1.22);
-  }
-
-  .game-view {
-    flex-direction: column;
-    align-items: center;
-  }
-
-  /* 配列パネルは既定で非表示。ヘッダーの「配列」ボタンでオーバーレイ表示 */
-  #reel-strip-panel {
-    display: none;
-  }
-
-  #reel-strip-panel.open {
-    display: flex;
-    position: fixed;
-    top: 50%;
-    left: 50%;
-    transform: translate(-50%, -50%);
-    width: min(360px, 92%);
-    max-height: 86vh;
-    z-index: 25;
-    overflow: hidden;
-    /* box-shadow で巨大な半透明黒を全方向に伸ばし、背後の backdrop を作る */
-    box-shadow:
-      0 0 20px rgba(255, 215, 0, 0.4),
-      0 0 0 200vmax rgba(0, 0, 0, 0.7);
-  }
-
-  /* オーバーレイ時のみ × ボタンを出す */
-  #reel-strip-panel.open .strip-close {
-    display: block;
-  }
-
-  /* オーバーレイ表示時はパネル内をスクロール可能に */
-  #reel-strip-panel.open .strip-grid {
-    overflow-y: auto;
-  }
-
-  /* 配列パネルを開くボタンを表示 */
-  #reel-strip-btn {
-    display: inline-block;
-  }
-
-  /* サンド（ユニット）は狭画面では筐体の下に横帯で回す（貸出を押せるように） */
-  #unit-panel {
-    width: var(--game-w);
-    max-height: none;
-    flex-direction: row;
-    flex-wrap: wrap;
-    align-items: center;
-    justify-content: center;
-    gap: 8px;
-    padding: 8px 10px;
-  }
-  #unit-panel .unit-head,
-  #unit-panel .unit-slot,
-  #unit-panel .unit-hint {
-    display: none;
-  }
-  #unit-panel .unit-readout {
-    flex-direction: row;
-    align-items: center;
-    gap: 6px;
-    padding: 4px 8px;
-  }
-  #unit-panel .unit-readout-num {
-    font-size: 16px;
-  }
-  #unit-panel .unit-stat {
-    flex-direction: row;
-    gap: 10px;
-    padding: 4px 8px;
-  }
-  #unit-panel .unit-stat-row {
-    gap: 4px;
-  }
-  #unit-panel .unit-lend-label {
-    width: 100%;
-  }
-  #unit-panel .unit-lend-buttons {
-    flex-direction: row;
-    flex: 1 1 auto;
-    min-width: 0;
-  }
-  #unit-panel .unit-lend-buttons .coin-add {
-    flex: 1;
-    padding: 8px 4px;
-  }
-  #unit-panel .unit-flow {
-    flex: 1 1 auto;
-    min-width: 0;
-  }
+  /* レイアウトの器（筐体の寸法・パネルの畳み方）は画面の向きで決まるので、
+     幅の判定からは外して @media (max-aspect-ratio: 1/1) へ一本化した（2026-09-08）。
+     ここに残すのは「幅が狭いから文字とボタンを縮める」ぶんだけ。横長の狭い
+     ウィンドウでも縮小は要るので、向きではなく幅で判定するのが正しい。 */
 
   /* ヘッダー詰め */
   #info-bar {
@@ -3659,11 +3490,7 @@ to {
   #zukan-btn,
   #mute-btn,
   #auto-btn,
-  #reel-strip-btn {
-    padding: 3px 7px;
-    font-size: 10px;
-  }
-  #settings-btn {
+    #settings-btn {
     padding: 3px 6px;
     font-size: 12px;
   }
@@ -3784,11 +3611,6 @@ to {
 #mute-btn,
 #auto-btn,
 #settings-btn,
-#reel-strip-btn {
-    padding: 2px 5px;
-    font-size: 10px;
-    letter-spacing: 0.5px;
-  }
 #effect-status {
     padding: 2px 8px;
     font-size: 10px;
@@ -4202,4 +4024,279 @@ to {
 }
 .a11y-reduce-motion .sound-cue {
   transition: none;
+}
+
+/* ===================================================================
+   画面下のドック（2026-09-07）
+
+   **開いて読むものはここに集める。** 遊技中に触るのはレバー・停止・ベットだけで、
+   配列やデータは手を止めて見るもの。だから筐体のヘッダーではなく画面の縁に置く。
+   参考にしたスロットアプリはどれもこの位置に操作列を持っていた。
+
+   横長では左右のパネルが常に見えているので、配列とデータのボタンは出さない
+   （開くものが既に開いている状態でボタンを押させない）。
+   =================================================================== */
+
+#dock {
+  position: fixed;
+  left: 50%;
+  bottom: 12px;
+  transform: translateX(-50%);
+  z-index: 60;
+  display: flex;
+  gap: 6px;
+  padding: 6px;
+  border-radius: 14px;
+  background: linear-gradient(180deg, rgba(28, 20, 44, 0.96), rgba(14, 10, 24, 0.96));
+  border: 1px solid var(--chrome-dk, #3a3050);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.08),
+    0 6px 20px rgba(0, 0, 0, 0.55);
+}
+
+.dock-btn {
+  min-width: 62px;
+  padding: 7px 10px 6px;
+  display: grid;
+  justify-items: center;
+  gap: 2px;
+  border: 1px solid transparent;
+  border-radius: 10px;
+  background: transparent;
+  color: var(--text-dim, #9b8ab0);
+  font: inherit;
+  cursor: pointer;
+  transition:
+    background 120ms ease,
+    color 120ms ease;
+}
+
+.dock-btn:hover {
+  background: rgba(255, 255, 255, 0.06);
+  color: var(--text, #f2e9d8);
+}
+
+.dock-btn:focus-visible {
+  outline: 2px solid var(--gold, #f2b33c);
+  outline-offset: 2px;
+}
+
+/* 開いている間は押した側にも状態を出す。押しっぱなしに見えないと閉じ方が分からない。 */
+.dock-btn.on {
+  background: rgba(242, 179, 60, 0.16);
+  border-color: rgba(242, 179, 60, 0.5);
+  color: var(--gold, #f2b33c);
+}
+
+.dock-icon {
+  font-size: 16px;
+  line-height: 1;
+}
+
+.dock-label {
+  font-size: 10px;
+  letter-spacing: 0.08em;
+}
+
+/* 横長：左右のパネルが出ているので、開くボタンは要らない。 */
+@media (min-aspect-ratio: 1/1) {
+  #dock-reels,
+  #dock-unit {
+    display: none;
+  }
+}
+
+/* ===================================================================
+   縦長のレイアウト（2026-09-07）
+
+   **縦長では筐体を画面いっぱいに出す。** 横長を前提に「横の余りから幅を決める」
+   作りだったので、縦長だと幅で頭打ちになって縦が余っていた。ここでは逆に
+   高さを基準にし、左右のパネルは畳んでドックから開く形へ回す。
+
+   打ちながら見る数字（差枚・投資・回収）だけは上の帯に残す。シートへ入れると
+   毎回開くことになり、差枚は1ゲームごとに動く数字なので手が止まる。
+   時間計測は手を止めて見るものなのでシート側でよい。
+   =================================================================== */
+
+/* 右カラム。帯とシートを縦に積む。**縦長では display:contents で箱ごと消す**ので、
+   帯の position:fixed がビューポート基準のまま働く。 */
+#unit-column {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+@media (max-aspect-ratio: 1/1) {
+  #unit-column {
+    display: contents;
+  }
+
+  :root {
+    /* 左右のパネルは畳むので、その占有を差し引かない。上の帯とドックのぶんを引く。 */
+    --unit-band-h: 44px;
+    --dock-h: 64px;
+    --game-w: max(
+      240px,
+      min(
+        calc(100vw - var(--layout-pad) * 2),
+        calc(
+          (
+              100vh - var(--layout-pad) * 2 - var(--unit-band-h) - var(--dock-h) -
+                var(--masthead-h) - var(--header-h) - var(--control-h)
+            ) / 1.22
+        )
+      )
+    );
+  }
+
+  :root {
+    --layout-pad: 8px;
+  }
+
+  .game-view {
+    /* 筐体だけを縦に置く。左右のパネルはシートへ回すので回り込みは要らない。 */
+    flex-direction: column;
+    align-items: center;
+    padding-top: var(--unit-band-h);
+    padding-bottom: var(--dock-h);
+  }
+
+  /* シートの中は縦積みに戻す（横長では右カラムとして縦に並んでいる）。 */
+  #unit-panel {
+    flex-direction: column;
+  }
+
+  #unit-panel .unit-head {
+    display: none;
+  }
+
+  /* 配列は3列のまま、シートの幅いっぱいに広げる。 */
+  #reel-strip-panel .strip-grid {
+    max-height: 56vh;
+    overflow-y: auto;
+  }
+
+  /* 上の帯：打ちながら見る数字だけ。position:fixed で親（畳んだパネル）から抜く。 */
+  #unit-live {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    z-index: 55;
+    display: flex;
+    align-items: center;
+    justify-content: space-around;
+    gap: 12px;
+    height: var(--unit-band-h);
+    padding: 0 14px;
+    background: linear-gradient(180deg, rgba(24, 16, 38, 0.98), rgba(12, 8, 20, 0.98));
+    border-bottom: 1px solid var(--chrome-dk, #3a3050);
+  }
+
+  #unit-live .unit-readout {
+    display: flex;
+    align-items: baseline;
+    gap: 8px;
+    padding: 0;
+    background: none;
+    border: none;
+  }
+
+  #unit-live .unit-stat {
+    display: flex;
+    gap: 14px;
+    padding: 0;
+    border: none;
+  }
+
+  #unit-live .unit-stat-row {
+    display: flex;
+    align-items: baseline;
+    gap: 6px;
+  }
+
+  /* パネル本体は下から出るシートへ。開閉は既にある .open を使う。 */
+  #unit-panel,
+  #reel-strip-panel {
+    position: fixed;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    z-index: 58;
+    width: auto;
+    max-height: 72vh;
+    overflow-y: auto;
+    border-radius: 16px 16px 0 0;
+    transform: translateY(100%);
+    transition: transform 220ms ease;
+    padding-bottom: calc(var(--dock-h) + 8px);
+  }
+
+  #unit-panel.open,
+  #reel-strip-panel.open {
+    transform: translateY(0);
+  }
+
+}
+
+@media (prefers-reduced-motion: reduce) {
+  #unit-panel,
+  #reel-strip-panel {
+    transition: none;
+  }
+}
+
+/* === キー割り当て（2026-09-08） ===
+   押す位置は成績に直結する（ビタ押しの判定は±12ms）ので、見た目の好みではなく
+   遊びやすさの設定として扱う。行は「操作名 → 今のキー」の2列で、キーを押すと
+   その場で待ち受けに入る。 */
+
+.key-binding-list {
+  display: grid;
+  gap: 4px;
+  margin-bottom: 8px;
+}
+
+.key-binding-row {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  align-items: center;
+  gap: 10px;
+  padding: 4px 8px;
+  border-radius: 6px;
+  background: rgba(255, 255, 255, 0.03);
+}
+
+.key-binding-label {
+  font-size: 12px;
+  color: var(--text-dim, #9b8ab0);
+}
+
+.key-binding-key {
+  min-width: 92px;
+  padding: 4px 10px;
+  border: 1px solid var(--chrome-dk, #3a3050);
+  border-radius: 5px;
+  background: rgba(0, 0, 0, 0.35);
+  color: var(--text, #f2e9d8);
+  font: inherit;
+  font-size: 12px;
+  letter-spacing: 0.06em;
+  cursor: pointer;
+}
+
+.key-binding-key:hover {
+  border-color: var(--gold, #f2b33c);
+}
+
+/* 待ち受け中。押すまで戻らないので、他と見分けが付く強さにする。 */
+.key-binding-key.capturing {
+  border-color: var(--gold, #f2b33c);
+  background: rgba(242, 179, 60, 0.18);
+  color: var(--gold, #f2b33c);
+}
+
+.key-binding-key:focus-visible {
+  outline: 2px solid var(--gold, #f2b33c);
+  outline-offset: 2px;
 }
