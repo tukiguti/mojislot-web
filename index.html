@@ -100,7 +100,7 @@
           <button id="timer-reset" class="aux-btn" type="button" title="計測をリセット">リセット</button>
         </div>
       </div>
-      <div class="unit-hint">計数は下のメニューから</div>
+      <div class="unit-hint">計数は操作部の右端</div>
     </aside>
     </div>
 
@@ -179,10 +179,10 @@
           <button class="stop-btn" data-reel="1" data-key="[S]">STOP</button>
           <button class="stop-btn" data-reel="2" data-key="[D]">STOP</button>
         </div>
-        <!-- 右端＝実機の精算ボタンの位置。ドックの「計数」と同じ操作を、
-             機械の側にも置く（実機はここにある）。 -->
+        <!-- 計数＝この戦を締める。操作部の右端に1つだけ置く。
+             以前はドックにも同じものがあり、名前だけ「精算」と違っていた。 -->
         <div class="settle-well">
-          <button id="settle-btn" type="button">精算</button>
+          <button id="settle-btn" type="button">計数</button>
         </div>
         <div id="key-hint">Space:レバー  /  A・S・D:ストップ  /  B:BET  /  1〜4:クイズ</div>
       </footer>
@@ -203,9 +203,6 @@
         </button>
         <button class="dock-btn" id="dock-unit" type="button">
           <span class="dock-icon" aria-hidden="true">▦</span><span class="dock-label">データ</span>
-        </button>
-        <button class="dock-btn" id="dock-count" type="button">
-          <span class="dock-icon" aria-hidden="true">▼</span><span class="dock-label">計数</span>
         </button>
         <button class="dock-btn" id="dock-zukan" type="button">
           <span class="dock-icon" aria-hidden="true">▣</span><span class="dock-label">図鑑</span>
