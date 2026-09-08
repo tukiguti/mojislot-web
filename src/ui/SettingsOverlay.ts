@@ -13,6 +13,7 @@ import {
   type Action,
   type KeyBindings,
 } from '../productions/KeyBindings';
+import { SKINS, loadSkin, saveSkin, type SkinId } from '../productions/CabinetSkin';
 
 /**
  * 設定モーダル：ミッション/表示/リセット/（任意で）デバッグ操作を集約。
@@ -190,6 +191,18 @@ export class SettingsOverlay {
           <div class="settings-note">どれも<b>情報は減りません</b>。動き・光・色を弱めるかわりに、それらが伝えていたことは文字とバッジで残します。</div>
         </div>
         <div class="settings-section">
+          <div class="settings-section-label">筐体の皮</div>
+          <div class="skin-row">
+            ${SKINS.map(
+              (s) => `<button class="skin-swatch" type="button" data-skin-id="${s.id}">
+                <span class="skin-chip skin-chip-${s.id}" aria-hidden="true"></span>
+                <span class="skin-name">${s.name}</span>
+              </button>`,
+            ).join('')}
+          </div>
+          <div class="settings-note skin-note"></div>
+        </div>
+        <div class="settings-section">
           <div class="settings-section-label">キー割り当て</div>
           <div class="key-binding-list"></div>
           <div class="zukan-reset">
@@ -290,6 +303,24 @@ export class SettingsOverlay {
       localStorage.setItem(MOTION_BLUR_KEY, String(v));
       renderBlur(v);
       setMotionBlurStrength(v);
+    });
+
+    // 筐体の皮。押した瞬間に張り替わる——設定を閉じてから確かめる形だと
+    // 3つを見比べられない。
+    const skinBtns = this.root.querySelectorAll<HTMLButtonElement>('.skin-swatch');
+    const skinNote = this.root.querySelector<HTMLElement>('.skin-note')!;
+    const renderSkin = (id: SkinId) => {
+      skinBtns.forEach((b) => b.classList.toggle('on', b.dataset.skinId === id));
+      skinNote.textContent = SKINS.find((s) => s.id === id)?.note ?? '';
+    };
+    renderSkin(loadSkin());
+    skinBtns.forEach((btn) => {
+      btn.addEventListener('click', () => {
+        const id = btn.dataset.skinId as SkinId | undefined;
+        if (!id) return;
+        saveSkin(id);
+        renderSkin(id);
+      });
     });
 
     const resetCoinBtn = this.root.querySelector<HTMLButtonElement>('.reset-coin')!;
