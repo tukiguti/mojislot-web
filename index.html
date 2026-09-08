@@ -33,6 +33,81 @@
   <body>
     <div id="view-play" class="view" hidden></div>
     <div id="view-game" class="view game-view" hidden>
+    <!-- 脇のパネル（左＝リール配列・右＝サンド）。縦長ではシートへ畳む。 -->
+    <aside id="reel-strip-panel">
+      <button class="strip-close" type="button" hidden>×</button>
+      <h3>リール配列</h3>
+      <div class="strip-grid">
+        <div class="strip-column" data-reel="0">
+          <h4>左</h4>
+          <div class="cells"></div>
+        </div>
+        <div class="strip-column" data-reel="1">
+          <h4>中</h4>
+          <div class="cells"></div>
+        </div>
+        <div class="strip-column" data-reel="2">
+          <h4>右</h4>
+          <div class="cells"></div>
+        </div>
+      </div>
+      <div class="strip-hint">停止時に中央セルをハイライトします</div>
+    </aside>
+
+    <div id="unit-column">
+    <div id="unit-live">
+      <div class="unit-readout">
+        <span class="unit-readout-label">差枚</span>
+        <span class="unit-readout-num" id="unit-medal">0</span>
+      </div>
+      <div class="unit-stat">
+        <div class="unit-stat-row">
+          <span class="unit-stat-label">投資</span>
+          <span class="unit-stat-num" id="unit-invest">0</span>
+        </div>
+        <div class="unit-stat-row">
+          <span class="unit-stat-label">回収</span>
+          <span class="unit-stat-num" id="unit-payback">0</span>
+        </div>
+      </div>
+    </div>
+    <aside id="unit-panel">
+      <div class="unit-head">UNIT</div>
+      <div class="unit-timer">
+        <div class="unit-timer-top">
+          <span class="unit-stat-label">時間計測</span>
+          <span class="unit-timer-clock" id="timer-elapsed">00:00</span>
+        </div>
+        <div class="unit-timer-presets" id="timer-presets">
+          <button class="timer-preset active" data-min="0" type="button">フリー</button>
+          <button class="timer-preset" data-min="1" type="button">1分</button>
+          <button class="timer-preset" data-min="3" type="button">3分</button>
+          <button class="timer-preset" data-min="5" type="button">5分</button>
+          <button class="timer-preset" data-min="10" type="button">10分</button>
+        </div>
+        <div class="unit-timer-rates">
+          <div class="unit-timer-rate">
+            <span class="unit-timer-rate-label">分速</span>
+            <span class="unit-timer-rate-num" id="timer-min">—</span>
+          </div>
+          <div class="unit-timer-rate">
+            <span class="unit-timer-rate-label">区間差枚</span>
+            <span class="unit-timer-rate-num" id="timer-total">—</span>
+          </div>
+        </div>
+        <div class="unit-timer-buttons">
+          <button id="timer-toggle" class="aux-btn" type="button">計測開始</button>
+          <button id="timer-reset" class="aux-btn" type="button" title="計測をリセット">リセット</button>
+        </div>
+      </div>
+      <div class="unit-hint">計数は下のメニューから</div>
+    </aside>
+    </div>
+
+
+    <!-- 筐体とドックで1本の柱。ドックは筐体の続き（台のメニュー）なので、
+         浮かせずに下皿の直下へ貼り付ける。縦長だけは画面下へ固定する。 -->
+    <div id="machine-column">
     <div id="cabinet">
       <!-- 筐体の並びは実機に合わせてある（仕様18 §実機の並びへ組み直す）。
            上から トップランプ／タイトルパネル／液晶＋リール窓／情報パネル／
@@ -122,76 +197,6 @@
       <div id="tray" aria-hidden="true"></div>
     </div>
 
-    <aside id="reel-strip-panel">
-      <button class="strip-close" type="button" hidden>×</button>
-      <h3>リール配列</h3>
-      <div class="strip-grid">
-        <div class="strip-column" data-reel="0">
-          <h4>左</h4>
-          <div class="cells"></div>
-        </div>
-        <div class="strip-column" data-reel="1">
-          <h4>中</h4>
-          <div class="cells"></div>
-        </div>
-        <div class="strip-column" data-reel="2">
-          <h4>右</h4>
-          <div class="cells"></div>
-        </div>
-      </div>
-      <div class="strip-hint">停止時に中央セルをハイライトします</div>
-    </aside>
-
-    <div id="unit-column">
-    <div id="unit-live">
-      <div class="unit-readout">
-        <span class="unit-readout-label">差枚</span>
-        <span class="unit-readout-num" id="unit-medal">0</span>
-      </div>
-      <div class="unit-stat">
-        <div class="unit-stat-row">
-          <span class="unit-stat-label">投資</span>
-          <span class="unit-stat-num" id="unit-invest">0</span>
-        </div>
-        <div class="unit-stat-row">
-          <span class="unit-stat-label">回収</span>
-          <span class="unit-stat-num" id="unit-payback">0</span>
-        </div>
-      </div>
-    </div>
-    <aside id="unit-panel">
-      <div class="unit-head">UNIT</div>
-      <div class="unit-timer">
-        <div class="unit-timer-top">
-          <span class="unit-stat-label">時間計測</span>
-          <span class="unit-timer-clock" id="timer-elapsed">00:00</span>
-        </div>
-        <div class="unit-timer-presets" id="timer-presets">
-          <button class="timer-preset active" data-min="0" type="button">フリー</button>
-          <button class="timer-preset" data-min="1" type="button">1分</button>
-          <button class="timer-preset" data-min="3" type="button">3分</button>
-          <button class="timer-preset" data-min="5" type="button">5分</button>
-          <button class="timer-preset" data-min="10" type="button">10分</button>
-        </div>
-        <div class="unit-timer-rates">
-          <div class="unit-timer-rate">
-            <span class="unit-timer-rate-label">分速</span>
-            <span class="unit-timer-rate-num" id="timer-min">—</span>
-          </div>
-          <div class="unit-timer-rate">
-            <span class="unit-timer-rate-label">区間差枚</span>
-            <span class="unit-timer-rate-num" id="timer-total">—</span>
-          </div>
-        </div>
-        <div class="unit-timer-buttons">
-          <button id="timer-toggle" class="aux-btn" type="button">計測開始</button>
-          <button id="timer-reset" class="aux-btn" type="button" title="計測をリセット">リセット</button>
-        </div>
-      </div>
-      <div class="unit-hint">計数は下のメニューから</div>
-    </aside>
-    </div>
-
       <nav id="dock" aria-label="メニュー">
         <button class="dock-btn" id="dock-reels" type="button">
           <span class="dock-icon" aria-hidden="true">▤</span><span class="dock-label">配列</span>
@@ -209,6 +214,7 @@
           <span class="dock-icon" aria-hidden="true">⚙</span><span class="dock-label">設定</span>
         </button>
       </nav>
+    </div>
     </div>
 
     <div id="view-ranking" class="view" hidden></div>
