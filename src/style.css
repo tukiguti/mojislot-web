@@ -124,6 +124,9 @@
   /* 下パネル（ロゴ板＋左右のスピーカー）と下皿。 */
   --lowerpanel-h: 30px;
   --tray-h: 12px;
+  /* ドック（台のメニュー）。筐体の続きとして下皿の直下に貼るので、
+     横長でも高さの計算に入れる。縦長では画面下へ固定するが高さは同じ。 */
+  --dock-h: 62px;
   /* 筐体のうち液晶以外が使う高さの合計。--game-w の計算で2箇所から参照する
      （横長と縦長）。**行を足したらここだけ直せば両方が揃う。** */
   --cab-fixed-h: calc(
@@ -143,11 +146,19 @@
   /* 上限440だと縦に余裕のある画面で筐体が頭打ちになり、下に大きなページ余白が残る
      （ブラウザ110%拡大でちょうど埋まる＝約1割大きいと収まりが良い）。上限を480へ。
      高さ・幅の制約は引き続き効くので、狭い/低い画面では自動で縮む。 */
+  /* **画面の上から下までを使い切る。**
+   *
+   * 以前は 480px の上限を置いていたので、縦に余裕のある画面では筐体が頭打ちになり、
+   * 下に大きな余白が残っていた（ドックがその余白に浮いていた）。上限を外して、
+   * 高さから決まる値をそのまま使う。横に収まらない時だけ幅で頭打ちになる。
+   *
+   * 引くのは 余白×2 ＋ 筐体の固定行 ＋ ドック。残りを 1.22 で割ると液晶の幅。 */
   --game-w: max(
     240px,
     min(
-      480px,
-      calc((100vh - var(--layout-pad) * 2 - var(--cab-fixed-h)) / 1.22),
+      calc(
+        (100vh - var(--layout-pad) * 2 - var(--cab-fixed-h) - var(--dock-h)) / 1.22
+      ),
       calc(100vw - var(--layout-pad) * 2 - var(--reel-panel-occupy))
     )
   );
@@ -204,13 +215,38 @@ textarea {
 .view[hidden] {
   display: none;
 }
-/* ゲームビュー＝従来の3カラム（配列/筐体/サンド）。旧 body のフレックスをここへ移設。 */
+/* ゲームビュー＝3カラム（配列/筐体＋ドック/サンド）。旧 body のフレックスをここへ移設。 */
 .game-view {
   display: flex;
   justify-content: center;
   align-items: flex-start;
   flex-wrap: wrap; /* 狭画面でサンド等が筐体の下へ回り込めるように */
   gap: var(--reel-gap);
+}
+
+/* 筐体とドックの柱。ドックは台のメニューなので、浮かせずに下皿の直下へ貼る。
+   DOM 上は脇のパネルより後ろに置いてあるので、左右の並びは order で決める。 */
+#machine-column {
+  display: flex;
+  flex-direction: column;
+  width: var(--game-w);
+  flex: none;
+}
+#unit-column {
+  order: 1; /* サンドは筐体の右 */
+}
+
+/* 脇のパネルは筐体と同じ高さまで伸ばす。中身が短くても箱は揃える——
+   実機の島でも、台の横のサンドは台と同じ高さの柱として立っている。
+   横長だけ。縦長ではシートへ畳むので高さは関係ない。 */
+@media (min-aspect-ratio: 1/1) {
+  #reel-strip-panel,
+  #unit-column {
+    align-self: stretch;
+  }
+  #unit-panel {
+    flex: 1;
+  }
 }
 
 /* === TOP ランディング === */
@@ -356,7 +392,7 @@ body.has-chapter-bg {
 #reel-strip-panel {
   order: -1; /* 配列パネルは筐体の左へ */
   width: var(--reel-panel-w);
-  max-height: var(--cabinet-h);
+  min-height: 0;
   padding: 14px 14px 12px;
   background: linear-gradient(180deg, var(--side-hi) 0%, var(--side-lo) 100%);
   border: 2px solid var(--cab-edge);
@@ -374,7 +410,7 @@ body.has-chapter-bg {
 /* === 右のサンド（ユニット）：メダル貸出＝コイン補充。実機のサンド見立て === */
 #unit-panel {
   width: var(--unit-panel-w);
-  max-height: var(--cabinet-h);
+  min-height: 0;
   padding: 12px 10px;
   background: linear-gradient(180deg, var(--unit-hi) 0%, var(--unit-lo) 100%);
   border: 2px solid var(--cab-edge);
@@ -4302,27 +4338,32 @@ to {
    （開くものが既に開いている状態でボタンを押させない）。
    =================================================================== */
 
+/* === ドック＝台のメニュー ===
+ * 筐体の続きなので、下皿の直下に幅いっぱいで貼る。以前は画面下に浮かせていて、
+ * **筐体との間に何も無い帯が空いていた**。縦長だけは片手で届く位置が要るので
+ * 画面下へ固定する（下の縦長ブロックで上書き）。 */
 #dock {
-  position: fixed;
-  left: 50%;
-  bottom: 12px;
-  transform: translateX(-50%);
-  z-index: 60;
+  height: var(--dock-h);
   display: flex;
-  gap: 6px;
-  padding: 6px;
-  border-radius: 0;
+  align-items: stretch;
+  justify-content: center;
+  gap: 4px;
+  padding: 5px 6px;
   background: linear-gradient(180deg, var(--bar-hi), var(--bar-lo));
   border: 1px solid var(--cab-edge);
-  box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.08),
-    0 6px 20px rgba(0, 0, 0, 0.55);
+  border-top: none;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.08);
 }
 
 .dock-btn {
-  min-width: 62px;
-  padding: 7px 10px 6px;
+  /* 均等に伸ばすが、伸びすぎない。横長では3つしか出ないので、伸ばしきると
+     1つ 180px の間延びしたボタンになる。 */
+  flex: 1 1 0;
+  min-width: 0;
+  max-width: 120px;
+  padding: 4px 6px;
   display: grid;
+  align-content: center;
   justify-items: center;
   gap: 2px;
   border: 1px solid transparent;
@@ -4396,6 +4437,26 @@ to {
     display: contents;
   }
 
+  /* 縦長では柱の箱を消す。ドックを画面下へ固定するので、柱に囲われていると
+     筐体の下に空の高さだけが残る（帯を fixed にした時と同じ形）。 */
+  #machine-column {
+    display: contents;
+  }
+
+  /* ドックは片手で届く画面下へ。筐体の幅ではなく画面の幅いっぱいに敷く。 */
+  #dock {
+    position: fixed;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    z-index: 60;
+    border-left: none;
+    border-right: none;
+    border-bottom: none;
+    border-top: 1px solid var(--cab-edge);
+    box-shadow: 0 -6px 20px rgba(0, 0, 0, 0.55);
+  }
+
   :root {
     /* 左右のパネルは畳むので、その占有を差し引かない。上の帯とドックのぶんを引く。 */
     --unit-band-h: 44px;
@@ -4422,6 +4483,10 @@ to {
     /* 筐体だけを縦に置く。左右のパネルはシートへ回すので回り込みは要らない。 */
     flex-direction: column;
     align-items: center;
+    /* 縦長では筐体の幅が画面の幅で頭打ちになるので、端末の縦横比によっては
+       高さが余る。**余りは上下へ均等に散らす**——下だけに寄せると、筐体と
+       ドックの間に何も無い帯ができる。 */
+    justify-content: center;
     padding-top: var(--unit-band-h);
     padding-bottom: var(--dock-h);
   }
