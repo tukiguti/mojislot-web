@@ -149,6 +149,11 @@ import {
   nextRemixStage,
 } from './data/machines';
 import './style.css';
+import './skins.css';
+import { applySkin, loadSkin } from './productions/CabinetSkin';
+
+// 保存してある筐体の皮を、筐体が組み上がる前に張る（張り直しで一瞬ちらつくのを防ぐ）。
+applySkin(loadSkin());
 
 const REEL_GAP = 16;
 const REEL_COUNT = 3;

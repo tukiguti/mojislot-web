@@ -14,6 +14,83 @@
   --chrome-dk: #6b6e7a;     /* メタル暗 */
   --ivory: #f3e9d6;         /* 暗地の文字 */
 
+  /* === 筐体の皮（スキン・2026-09-08）===
+   * 筐体の chrome（面・縁・計器・ボタン）は**この変数群だけ**を見る。差し替えれば
+   * 見た目が丸ごと変わる。既定値は現行のクローム×紫×金で、別の皮は `skins.css` が
+   * `body[data-skin]` で上書きする。
+   *
+   * **寸法はここに入れない。** 皮で高さや幅が動くと、向きで切り替わるレイアウト
+   * （縦長／横長）の計算が崩れる。皮が持つのは色・質感・書体だけ。 */
+
+  /* 筐体の面 */
+  --cab-face-hi: var(--bg-panel-hi);
+  --cab-face-lo: var(--bg-panel-lo);
+  --cab-texture: none;           /* ヘアラインや木目を面に重ねる層 */
+  --cab-edge: var(--chrome-dk);  /* 外周の金属 */
+  --cab-line-1: var(--royal);    /* 内側の線・1本目 */
+  --cab-line-2: rgba(242, 179, 60, 0.35); /* 内側の線・2本目 */
+  --cab-sheen: rgba(255, 255, 255, 0.08); /* 面の上端に乗る照り */
+  --cab-glow: rgba(92, 46, 142, 0.4);     /* 筐体の外へ滲む光 */
+  --cab-radius: 16px;
+
+  /* マストヘッド（ロゴ＋豆電球） */
+  --head-hi: #20122f;
+  --head-lo: var(--bg-void);
+  --head-rule: var(--chrome-dk);
+  --mark-font: 'Bungee', system-ui, sans-serif;
+  --mark-color: var(--gold);
+  --mark-spacing: 2px;
+  --mark-glow: rgba(224, 53, 155, 0.45);
+  --bulb-a: var(--gold-hi);
+  --bulb-b: rgba(224, 53, 155, 0.4);
+  --bulb-glow: rgba(224, 53, 155, 0.5);
+
+  /* 情報バーと計器（差枚の7セグ） */
+  --bar-hi: rgba(36, 20, 51, 0.9);
+  --bar-lo: rgba(20, 10, 34, 0.9);
+  --bar-rule: rgba(242, 179, 60, 0.3);
+  --meter-bg: #07040c;
+  --meter-edge: #2a2336;
+  --meter-fg: var(--gold-hi);
+  --meter-glow: rgba(242, 179, 60, 0.45);
+  --meter-label: #9a86b8;
+
+  /* 操作部の面とスピーカーグリル */
+  --panel-hi: var(--bg-panel-hi);
+  --panel-lo: var(--bg-void);
+  --panel-text-dim: #666;
+  --grille-bg: #0a0610;
+  --grille-dot: #2a2238;
+
+  /* ボタン */
+  --deck-hi: #3a2350;
+  --deck-lo: #1c1030;
+  --deck-hi-2: #472b63;
+  --deck-lo-2: #24143a;
+  --deck-text: var(--gold);
+  --deck-ring: rgba(242, 179, 60, 0.3);
+  --stop-1: #ff5a4d;
+  --stop-2: #d9281e;
+  --stop-3: #8c1109;
+  --stop-1h: #ff7065;
+  --stop-2h: #e63125;
+  --stop-3h: #9c150b;
+  --stop-ring: var(--chrome);
+  --stop-halo: rgba(217, 74, 47, 0.45);
+  --stop-text: #fff;
+  --aux-hi: #241a2f;
+  --aux-lo: #150d20;
+  --aux-text: var(--chrome);
+
+  /* 液晶の下辺と、脇のパネル（配列＝左・サンド＝右） */
+  --lcd-rule: rgba(242, 179, 60, 0.25);
+  --side-hi: var(--bg-panel-hi);
+  --side-lo: var(--bg-panel-lo);
+  --side-line: rgba(242, 179, 60, 0.25);
+  --side-glow: rgba(92, 46, 142, 0.35);
+  --unit-hi: #16101f;
+  --unit-lo: #0c0712;
+
   color: var(--ivory);
   background: var(--bg-void);
 
@@ -258,12 +335,12 @@ body.has-chapter-bg {
   width: var(--reel-panel-w);
   max-height: var(--cabinet-h);
   padding: 14px 14px 12px;
-  background: linear-gradient(180deg, var(--bg-panel-hi) 0%, var(--bg-panel-lo) 100%);
-  border: 2px solid var(--chrome-dk);
+  background: linear-gradient(180deg, var(--side-hi) 0%, var(--side-lo) 100%);
+  border: 2px solid var(--cab-edge);
   border-radius: 10px;
   box-shadow:
-    inset 0 0 0 1px rgba(242, 179, 60, 0.25),
-    0 0 16px rgba(92, 46, 142, 0.35);
+    inset 0 0 0 1px var(--side-line),
+    0 0 16px var(--side-glow);
   color: var(--ivory);
   font-family: inherit;
   display: flex;
@@ -276,12 +353,12 @@ body.has-chapter-bg {
   width: var(--unit-panel-w);
   max-height: var(--cabinet-h);
   padding: 12px 10px;
-  background: linear-gradient(180deg, #16101f 0%, #0c0712 100%);
-  border: 2px solid var(--chrome-dk);
+  background: linear-gradient(180deg, var(--unit-hi) 0%, var(--unit-lo) 100%);
+  border: 2px solid var(--cab-edge);
   border-radius: 10px;
   box-shadow:
     inset 0 0 0 1px rgba(255, 255, 255, 0.05),
-    0 0 16px rgba(92, 46, 142, 0.3);
+    0 0 16px var(--side-glow);
   color: var(--ivory);
   display: flex;
   flex-direction: column;
@@ -302,22 +379,23 @@ body.has-chapter-bg {
   align-items: center;
   gap: 2px;
   padding: 6px 4px;
-  background: #07040c;
-  border: 1px solid #2a2336;
+  background: var(--meter-bg);
+  border: 1px solid var(--meter-edge);
   border-radius: 6px;
+  box-shadow: inset 0 2px 5px rgba(0, 0, 0, 0.7);
 }
 .unit-readout-label {
   font-size: 9px;
   letter-spacing: 2px;
-  color: #9a86b8;
+  color: var(--meter-label);
 }
 .unit-readout-num {
   font-family: ui-monospace, 'SFMono-Regular', monospace;
   font-size: 22px;
   font-weight: 700;
   letter-spacing: 1px;
-  color: var(--gold-hi);
-  text-shadow: 0 0 6px rgba(242, 179, 60, 0.5);
+  color: var(--meter-fg);
+  text-shadow: 0 0 6px var(--meter-glow);
 }
 /* 差枚/投資のライブ表示（差枚 = 持メダル − 投資） */
 .unit-stat {
@@ -325,9 +403,10 @@ body.has-chapter-bg {
   flex-direction: column;
   gap: 3px;
   padding: 5px 8px;
-  background: #07040c;
-  border: 1px solid #2a2336;
+  background: var(--meter-bg);
+  border: 1px solid var(--meter-edge);
   border-radius: 6px;
+  box-shadow: inset 0 2px 5px rgba(0, 0, 0, 0.7);
 }
 .unit-stat-row {
   display: flex;
@@ -337,7 +416,7 @@ body.has-chapter-bg {
 .unit-stat-label {
   font-size: 9px;
   letter-spacing: 2px;
-  color: #9a86b8;
+  color: var(--meter-label);
 }
 .unit-stat-num {
   font-family: ui-monospace, 'SFMono-Regular', monospace;
@@ -542,16 +621,21 @@ body.has-chapter-bg {
   grid-template-rows: var(--masthead-h) var(--header-h) var(--game-h) var(--control-h);
   width: var(--game-w);
   height: var(--cabinet-h);
-  background: linear-gradient(180deg, var(--bg-panel-hi) 0%, var(--bg-panel-lo) 100%);
-  border-radius: 16px;
-  /* クローム＋紫＋金の彫刻ベゼル（控えめ＝強い金グローは廃止し、立体感で見せる） */
-  border: 2px solid var(--chrome-dk);
+  background-color: var(--cab-face-lo);
+  background-image:
+    var(--cab-texture),
+    linear-gradient(180deg, var(--cab-face-hi) 0%, var(--cab-face-lo) 100%);
+  border-radius: var(--cab-radius);
+  /* 彫刻ベゼル。強い金グローは廃止し、面取りの階調で立体を出す。
+     上2本の inset は「内側の線」、3本目の照りが面の厚み、外2本が影と滲み。 */
+  border: 2px solid var(--cab-edge);
   box-shadow:
-    inset 0 0 0 2px var(--royal),
-    inset 0 0 0 3px rgba(242, 179, 60, 0.35),
-    inset 0 2px 6px rgba(255, 255, 255, 0.08),
+    inset 0 0 0 2px var(--cab-line-1),
+    inset 0 0 0 3px var(--cab-line-2),
+    inset 0 2px 6px var(--cab-sheen),
+    inset 0 -18px 28px rgba(0, 0, 0, 0.35),
     0 10px 30px rgba(0, 0, 0, 0.6),
-    0 0 22px rgba(92, 46, 142, 0.4);
+    0 0 22px var(--cab-glow);
   overflow: hidden;
   position: relative;
 }
@@ -572,8 +656,14 @@ body.has-chapter-bg {
   align-items: center;
   justify-content: center;
   position: relative;
-  background: linear-gradient(180deg, #20122f 0%, var(--bg-void) 100%);
-  border-bottom: 1px solid var(--chrome-dk);
+  /* 面の質感（ヘアライン・木目）はここにも乗せる。筐体の面はリールと液晶に
+     ほとんど覆われるので、質感が見える場所はマストヘッドと縁しか残らない。 */
+  background-color: var(--head-lo);
+  background-image:
+    var(--cab-texture),
+    linear-gradient(180deg, var(--head-hi) 0%, var(--head-lo) 100%);
+  border-bottom: 1px solid var(--head-rule);
+  box-shadow: inset 0 1px 0 var(--cab-sheen);
   overflow: hidden;
 }
 /* 上縁の豆電球列：暗めの金＋マゼンタ環の点を等間隔に。淡いグローで控えめに灯す */
@@ -586,24 +676,24 @@ body.has-chapter-bg {
   height: 4px;
   background-image: radial-gradient(
     circle at center,
-    var(--gold-hi) 0 1.1px,
-    rgba(224, 53, 155, 0.4) 1.1px 2.2px,
+    var(--bulb-a) 0 1.1px,
+    var(--bulb-b) 1.1px 2.2px,
     transparent 2.4px
   );
   background-size: 15px 4px;
   background-repeat: repeat-x;
   background-position: center;
   opacity: 0.5;
-  filter: drop-shadow(0 0 2px rgba(224, 53, 155, 0.5));
+  filter: drop-shadow(0 0 2px var(--bulb-glow));
 }
 #masthead .mark {
-  font-family: 'Bungee', system-ui, sans-serif;
+  font-family: var(--mark-font);
   font-size: 15px;
-  letter-spacing: 2px;
-  color: var(--gold);
+  letter-spacing: var(--mark-spacing);
+  color: var(--mark-color);
   text-shadow:
     0 0 1px var(--gold-hi),
-    0 0 6px rgba(224, 53, 155, 0.45);
+    0 0 6px var(--mark-glow);
   margin-top: 3px; /* 電飾列のぶん下げる */
 }
 
@@ -615,9 +705,11 @@ body.has-chapter-bg {
   height: 100%;
   gap: 8px;
   padding: 0 12px;
-  background: linear-gradient(180deg, rgba(36, 20, 51, 0.9), rgba(20, 10, 34, 0.9));
-  border-bottom: 1px solid var(--chrome-dk);
-  box-shadow: inset 0 -1px 0 rgba(242, 179, 60, 0.3);
+  background: linear-gradient(180deg, var(--bar-hi), var(--bar-lo));
+  border-bottom: 1px solid var(--head-rule);
+  box-shadow:
+    inset 0 1px 0 var(--cab-sheen),
+    inset 0 -1px 0 var(--bar-rule);
   font-size: 14px;
   font-weight: bold;
   letter-spacing: 1px;
@@ -626,16 +718,17 @@ body.has-chapter-bg {
 
 /* ヘッダー左：持メダル数のデジタルメーター（スマスロ表示部） */
 #coin-display {
-  color: var(--gold-hi);
+  color: var(--meter-fg);
   text-align: left;
   font-family: ui-monospace, 'SFMono-Regular', monospace;
   font-weight: 700;
   letter-spacing: 1px;
   padding: 3px 9px;
-  background: #07040c;
-  border: 1px solid #2a2336;
+  background: var(--meter-bg);
+  border: 1px solid var(--meter-edge);
   border-radius: 5px;
-  text-shadow: 0 0 5px rgba(242, 179, 60, 0.45);
+  box-shadow: inset 0 2px 5px rgba(0, 0, 0, 0.7);
+  text-shadow: 0 0 5px var(--meter-glow);
 }
 #bet-display {
   color: var(--gold);
@@ -1571,10 +1664,12 @@ body.shake {
 #game-area {
   position: relative;
   background: #000;
-  border-bottom: 1px solid var(--chrome-dk);
+  border-bottom: 1px solid var(--cab-edge);
+  /* 液晶とリールを筐体の面より奥に沈める。上下の内影が窓の厚みになる。 */
   box-shadow:
+    inset 0 6px 14px rgba(0, 0, 0, 0.75),
     inset 0 -8px 16px rgba(0, 0, 0, 0.6),
-    inset 0 -1px 0 rgba(242, 179, 60, 0.25);
+    inset 0 -1px 0 var(--lcd-rule);
 }
 
 /* 演出液晶ホスト。全 DOM 演出（フラッシュ/紙吹雪/カットイン/キラキラ/HIT）を
@@ -1655,8 +1750,10 @@ body.shake {
   gap: 6px;
   /* ボタン帯は縮小。液晶を主役に。ボタンは 0.8 倍まで詰める */
   padding: 7px 12px 5px;
-  background: linear-gradient(180deg, var(--bg-panel-hi) 0%, var(--bg-void) 100%);
+  background: linear-gradient(180deg, var(--panel-hi) 0%, var(--panel-lo) 100%);
+  /* 液晶の下から一段手前へせり出す板。上端の照りが段差を作る。 */
   border-top: none;
+  box-shadow: inset 0 2px 0 var(--cab-sheen);
   position: relative; /* 左右のスピーカーグリル(.cabinet-lamp)の基準 */
 }
 
@@ -1671,10 +1768,10 @@ body.shake {
   bottom: 18px;
   width: 42px;
   border-radius: 7px;
-  background-color: #0a0610;
-  background-image: radial-gradient(circle, #2a2238 0 1.5px, transparent 1.9px);
+  background-color: var(--grille-bg);
+  background-image: radial-gradient(circle, var(--grille-dot) 0 1.5px, transparent 1.9px);
   background-size: 9px 9px;
-  border: 1px solid var(--chrome-dk);
+  border: 1px solid var(--cab-edge);
   box-shadow:
     inset 0 0 10px rgba(0, 0, 0, 0.85),
     inset 0 1px 0 rgba(255, 255, 255, 0.05);
@@ -1751,9 +1848,9 @@ body.shake {
   font-weight: 700;
   letter-spacing: 2px;
   font-family: inherit;
-  color: var(--chrome);
-  background: linear-gradient(180deg, #241a2f 0%, #150d20 100%);
-  border: 1px solid var(--chrome-dk);
+  color: var(--aux-text);
+  background: linear-gradient(180deg, var(--aux-hi) 0%, var(--aux-lo) 100%);
+  border: 1px solid var(--cab-edge);
   border-radius: 5px;
   cursor: pointer;
   box-shadow: inset 0 -2px 0 rgba(0, 0, 0, 0.4);
@@ -1775,21 +1872,21 @@ body.shake {
   font-size: 13px;
   font-weight: 800;
   letter-spacing: 1px;
-  color: var(--gold);
-  background: linear-gradient(180deg, #3a2350 0%, #1c1030 100%);
-  border: 2px solid var(--chrome-dk);
+  color: var(--deck-text);
+  background: linear-gradient(180deg, var(--deck-hi) 0%, var(--deck-lo) 100%);
+  border: 2px solid var(--cab-edge);
   border-radius: 7px;
   cursor: pointer;
   font-family: inherit;
   text-shadow: 0 1px 1px rgba(0, 0, 0, 0.5);
   box-shadow:
     inset 0 1px 0 rgba(255, 255, 255, 0.12),
-    inset 0 0 0 1px rgba(242, 179, 60, 0.3),
+    inset 0 0 0 1px var(--deck-ring),
     inset 0 -3px 0 rgba(0, 0, 0, 0.5);
 }
 #bet-btn:hover,
 #lever-btn:hover {
-  background: linear-gradient(180deg, #472b63 0%, #24143a 100%);
+  background: linear-gradient(180deg, var(--deck-hi-2) 0%, var(--deck-lo-2) 100%);
 }
 #bet-btn:active,
 #lever-btn:active {
@@ -1810,14 +1907,14 @@ body.shake {
   font-size: 12px;
   font-weight: 800;
   letter-spacing: 0.5px;
-  color: #fff;
+  color: var(--stop-text);
   background: radial-gradient(
     circle at 50% 32%,
-    #ff5a4d 0%,
-    #d9281e 46%,
-    #8c1109 100%
+    var(--stop-1) 0%,
+    var(--stop-2) 46%,
+    var(--stop-3) 100%
   );
-  border: 3px solid var(--chrome);
+  border: 3px solid var(--stop-ring);
   border-radius: 50%;
   cursor: pointer;
   font-family: inherit;
@@ -1825,15 +1922,15 @@ body.shake {
   box-shadow:
     inset 0 3px 6px rgba(255, 255, 255, 0.35),
     inset 0 -7px 11px rgba(0, 0, 0, 0.45),
-    0 0 0 2px rgba(217, 74, 47, 0.45),
+    0 0 0 2px var(--stop-halo),
     0 4px 8px rgba(0, 0, 0, 0.5);
 }
 .stop-btn:hover {
   background: radial-gradient(
     circle at 50% 32%,
-    #ff7065 0%,
-    #e63125 46%,
-    #9c150b 100%
+    var(--stop-1h) 0%,
+    var(--stop-2h) 46%,
+    var(--stop-3h) 100%
   );
 }
 .stop-btn:active {
@@ -1891,7 +1988,7 @@ body.shake {
   font-size: 9px;
   line-height: 1.4;
   white-space: nowrap;
-  color: #666;
+  color: var(--panel-text-dim);
   letter-spacing: 0;
   pointer-events: none;
   margin-top: 4px;
@@ -4047,8 +4144,8 @@ to {
   gap: 6px;
   padding: 6px;
   border-radius: 14px;
-  background: linear-gradient(180deg, rgba(28, 20, 44, 0.96), rgba(14, 10, 24, 0.96));
-  border: 1px solid var(--chrome-dk, #3a3050);
+  background: linear-gradient(180deg, var(--bar-hi), var(--bar-lo));
+  border: 1px solid var(--cab-edge);
   box-shadow:
     inset 0 1px 0 rgba(255, 255, 255, 0.08),
     0 6px 20px rgba(0, 0, 0, 0.55);
@@ -4189,8 +4286,8 @@ to {
     gap: 12px;
     height: var(--unit-band-h);
     padding: 0 14px;
-    background: linear-gradient(180deg, rgba(24, 16, 38, 0.98), rgba(12, 8, 20, 0.98));
-    border-bottom: 1px solid var(--chrome-dk, #3a3050);
+    background: linear-gradient(180deg, var(--bar-hi), var(--bar-lo));
+    border-bottom: 1px solid var(--cab-edge);
   }
 
   #unit-live .unit-readout {
