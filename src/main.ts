@@ -1297,7 +1297,11 @@ export async function bootstrap() {
   };
 
   // 計数＝この戦を締める：spinCount>0 なら1戦を RunHistory に確定記録し、差枚と戦カウンタをリセット。
-  // 呼び口は画面下のドック。**関数にしてあるのは呼び出し元が増えたため**（以前はボタン1つだった）。
+  //
+  // 呼び口は**操作部の右端の1つだけ**。以前はドックにも同じ動作のボタンがあり、
+  // しかも名前が「精算」と「計数」で違っていた。実機では精算＝クレジットを戻す、
+  // 計数＝メダルを流す、で別物なので、同じ動作に2つの名前を付けるのは紛らわしい。
+  // ここがやるのはメダルを流す方なので「計数」に統一した。
   const settleRun = (): void => {
     // 計数=この戦の区切り。計測中なら自動停止（sahmai が0に戻り時速が誤って跳ねるのを防ぐ）。
     // ※ runTimer は下方で生成（このハンドラはクリック時=bootstrap完了後に走るので参照は安全）
@@ -1353,8 +1357,6 @@ export async function bootstrap() {
     runReelSpeedMin = Infinity;
     runReelSpeedMax = -Infinity;
   };
-  document.getElementById('dock-count')?.addEventListener('click', settleRun);
-  // 操作部の精算＝ドックの計数と同じ。実機はこのボタンが機械の側にある。
   document.getElementById('settle-btn')?.addEventListener('click', settleRun);
 
   // 戦の計測タイマー（サンド下部）。フリー=カウントアップ／プリセット分数=カウントダウン。
