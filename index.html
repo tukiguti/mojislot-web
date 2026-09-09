@@ -55,24 +55,24 @@
     </aside>
 
     <div id="unit-column">
-    <div id="unit-live">
-      <div class="unit-readout">
-        <span class="unit-readout-label">差枚</span>
-        <span class="unit-readout-num" id="unit-medal">0</span>
-      </div>
-      <div class="unit-stat">
-        <div class="unit-stat-row">
-          <span class="unit-stat-label">投資</span>
-          <span class="unit-stat-num" id="unit-invest">0</span>
-        </div>
-        <div class="unit-stat-row">
-          <span class="unit-stat-label">回収</span>
-          <span class="unit-stat-num" id="unit-payback">0</span>
-        </div>
-      </div>
-    </div>
     <aside id="unit-panel">
       <div class="unit-head">UNIT</div>
+      <div id="unit-live">
+        <div class="unit-readout">
+          <span class="unit-readout-label">差枚</span>
+          <span class="unit-readout-num" id="unit-medal">0</span>
+        </div>
+        <div class="unit-stat">
+          <div class="unit-stat-row">
+            <span class="unit-stat-label">投資</span>
+            <span class="unit-stat-num" id="unit-invest">0</span>
+          </div>
+          <div class="unit-stat-row">
+            <span class="unit-stat-label">回収</span>
+            <span class="unit-stat-num" id="unit-payback">0</span>
+          </div>
+        </div>
+      </div>
       <div class="unit-timer">
         <div class="unit-timer-top">
           <span class="unit-stat-label">時間計測</span>
@@ -108,6 +108,9 @@
     <!-- 筐体とドックで1本の柱。ドックは筐体の続き（台のメニュー）なので、
          浮かせずに下皿の直下へ貼り付ける。縦長だけは画面下へ固定する。 -->
     <div id="machine-column">
+      <!-- データランプ＝筐体の上に載る別体の表示器。ホールの台選びと同じ数字を、
+           座って打っている間も出す。中身は DataLamp.ts が描く。 -->
+      <div id="datalamp" aria-label="データカウンター"></div>
     <div id="cabinet">
       <!-- 筐体の並びは実機に合わせてある（仕様18 §実機の並びへ組み直す）。
            上から トップランプ／タイトルパネル／液晶＋リール窓／情報パネル／

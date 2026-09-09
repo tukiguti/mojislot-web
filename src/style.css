@@ -127,6 +127,9 @@
   /* ドック（台のメニュー）。筐体の続きとして下皿の直下に貼るので、
      横長でも高さの計算に入れる。縦長では画面下へ固定するが高さは同じ。 */
   --dock-h: 62px;
+  /* データランプ（筐体の上に載る表示器）。筐体の外側なので --cab-fixed-h には
+     入れず、ドックと同じく柱の高さとして別に引く。 */
+  --datalamp-h: 76px;
   /* 筐体のうち液晶以外が使う高さの合計。--game-w の計算で2箇所から参照する
      （横長と縦長）。**行を足したらここだけ直せば両方が揃う。** */
   --cab-fixed-h: calc(
@@ -157,7 +160,10 @@
     240px,
     min(
       calc(
-        (100vh - var(--layout-pad) * 2 - var(--cab-fixed-h) - var(--dock-h)) / 1.22
+        (
+            100vh - var(--layout-pad) * 2 - var(--cab-fixed-h) - var(--dock-h) -
+              var(--datalamp-h)
+          ) / 1.22
       ),
       calc(100vw - var(--layout-pad) * 2 - var(--reel-panel-occupy))
     )
@@ -709,6 +715,175 @@ body.has-chapter-bg {
   container-type: inline-size;
   container-name: cabinet;
   min-width: 0;
+}
+
+/* === データランプ（データカウンター）===
+ * 筐体の上に載る**別体の表示器**。ホールの設備なので筐体の皮とは分けて、
+ * どの皮でも黒地に7セグの計器として出す——実機のホールでも、台が変わっても
+ * 上の表示器は同じものが並んでいる。
+ *
+ * 中身は `src/ui/DataLamp.ts`。数字は `MachineData`（台ID・日替わり）。 */
+#datalamp {
+  width: 100%;
+  height: var(--datalamp-h);
+  flex: none;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  padding: 5px 8px;
+  margin-bottom: 6px;
+  background: linear-gradient(180deg, #14121c 0%, #08070d 100%);
+  border: 1px solid var(--cab-edge);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.07),
+    0 4px 12px rgba(0, 0, 0, 0.5);
+  overflow: hidden;
+}
+
+.dl-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex: none;
+}
+
+/* 呼び出しランプ。赤＝ハマり、黄＝プラス差枚。消灯が既定。 */
+.dl-lamps {
+  display: flex;
+  gap: 3px;
+  flex: none;
+}
+.dl-lamp {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: #2a2630;
+  box-shadow: inset 0 1px 1px rgba(0, 0, 0, 0.8);
+}
+.dl-lamp-red.on {
+  background: #ff3b30;
+  box-shadow: 0 0 7px rgba(255, 59, 48, 0.9);
+}
+.dl-lamp-yellow.on {
+  background: #ffd166;
+  box-shadow: 0 0 7px rgba(255, 209, 102, 0.9);
+}
+
+/* 台番。ホールの表示器と同じで、常に3桁ゼロ詰め。 */
+.dl-seat {
+  flex: none;
+  font-family: ui-monospace, 'SFMono-Regular', monospace;
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: 1px;
+  padding: 1px 6px;
+  color: #9fe8ff;
+  background: #05070c;
+  border: 1px solid #1d2836;
+  text-shadow: 0 0 5px rgba(120, 220, 255, 0.5);
+}
+
+.dl-stats {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 4px;
+}
+.dl-cell {
+  display: flex;
+  align-items: baseline;
+  gap: 3px;
+  padding: 1px 5px;
+  background: #05070c;
+  border: 1px solid #1d2836;
+  white-space: nowrap;
+}
+.dl-cell span {
+  font-size: 8px;
+  letter-spacing: 1px;
+  color: #6d8496;
+}
+.dl-cell b {
+  font-family: ui-monospace, 'SFMono-Regular', monospace;
+  font-size: 12px;
+  font-weight: 700;
+  color: #ffb454;
+  text-shadow: 0 0 5px rgba(255, 180, 84, 0.45);
+}
+/* BB は赤、RB は青。ホールの表示器の慣習に合わせる。 */
+.dl-cell .dl-bb {
+  color: #ff6b5a;
+  text-shadow: 0 0 5px rgba(255, 107, 90, 0.5);
+}
+.dl-cell .dl-rb {
+  color: #5ac8ff;
+  text-shadow: 0 0 5px rgba(90, 200, 255, 0.5);
+}
+/* サンプルが足りない演出率。**読める数字ではない**ことを明度で伝える。 */
+.dl-cell .dl-effect.thin {
+  color: #6d8496;
+  text-shadow: none;
+}
+
+/* スランプグラフ。折れ線と±0の基準線。 */
+.dl-graph {
+  position: relative;
+  flex: 1;
+  min-height: 0;
+  background: #04060a;
+  border: 1px solid #1d2836;
+}
+.dl-graph-box {
+  position: absolute;
+  inset: 0;
+}
+.dl-graph-svg {
+  width: 100%;
+  height: 100%;
+  display: block;
+}
+.dl-graph-zero {
+  stroke: #2c3a4a;
+  stroke-width: 1;
+  vector-effect: non-scaling-stroke;
+}
+.dl-graph-line {
+  fill: none;
+  stroke: #7ff0ff;
+  stroke-width: 1.5;
+  stroke-linejoin: round;
+  vector-effect: non-scaling-stroke;
+}
+.dl-graph-area.plus {
+  fill: rgba(127, 240, 255, 0.22);
+}
+.dl-graph-area.minus {
+  fill: rgba(255, 107, 90, 0.2);
+}
+/* 折れ線と重なっても読めるよう、地の色を敷く。グラフが伸びる右上に置くので
+   ここは一番重なりやすい。 */
+.dl-graph-label {
+  position: absolute;
+  right: 3px;
+  top: 2px;
+  padding: 0 4px;
+  font-size: 8px;
+  letter-spacing: 1px;
+  color: #6d8496;
+  background: rgba(4, 6, 10, 0.82);
+}
+.dl-graph-label b {
+  font-family: ui-monospace, 'SFMono-Regular', monospace;
+  font-size: 11px;
+  color: #cfd8e6;
+}
+.dl-graph-label b.plus {
+  color: #ffd166;
+}
+.dl-graph-label b.minus {
+  color: #ff6b5a;
 }
 
 /* === トップランプ＝筐体最上部の光る帯。実機の一番上にある光るライン。
@@ -4443,6 +4618,12 @@ to {
     display: contents;
   }
 
+  /* 柱が消えるぶん、データランプは自分で幅を持つ（そのままだと中身の幅まで縮んで、
+     筐体より細い表示器が乗る）。 */
+  #datalamp {
+    width: var(--game-w);
+  }
+
   /* ドックは片手で届く画面下へ。筐体の幅ではなく画面の幅いっぱいに敷く。 */
   #dock {
     position: fixed;
@@ -4458,8 +4639,7 @@ to {
   }
 
   :root {
-    /* 左右のパネルは畳むので、その占有を差し引かない。上の帯とドックのぶんを引く。 */
-    --unit-band-h: 44px;
+    /* 左右のパネルは畳むので、その占有を差し引かない。データランプとドックを引く。 */
     --dock-h: 64px;
     --game-w: max(
       240px,
@@ -4467,8 +4647,8 @@ to {
         calc(100vw - var(--layout-pad) * 2),
         calc(
           (
-              100vh - var(--layout-pad) * 2 - var(--unit-band-h) - var(--dock-h) -
-                var(--cab-fixed-h)
+              100vh - var(--layout-pad) * 2 - var(--dock-h) - var(--cab-fixed-h) -
+                var(--datalamp-h)
             ) / 1.22
         )
       )
@@ -4487,7 +4667,6 @@ to {
        高さが余る。**余りは上下へ均等に散らす**——下だけに寄せると、筐体と
        ドックの間に何も無い帯ができる。 */
     justify-content: center;
-    padding-top: var(--unit-band-h);
     padding-bottom: var(--dock-h);
   }
 
@@ -4506,44 +4685,10 @@ to {
     overflow-y: auto;
   }
 
-  /* 上の帯：打ちながら見る数字だけ。position:fixed で親（畳んだパネル）から抜く。 */
-  #unit-live {
-    position: fixed;
-    top: 0;
-    left: 0;
-    right: 0;
-    z-index: 55;
-    display: flex;
-    align-items: center;
-    justify-content: space-around;
-    gap: 12px;
-    height: var(--unit-band-h);
-    padding: 0 14px;
-    background: linear-gradient(180deg, var(--bar-hi), var(--bar-lo));
-    border-bottom: 1px solid var(--cab-edge);
-  }
-
-  #unit-live .unit-readout {
-    display: flex;
-    align-items: baseline;
-    gap: 8px;
-    padding: 0;
-    background: none;
-    border: none;
-  }
-
-  #unit-live .unit-stat {
-    display: flex;
-    gap: 14px;
-    padding: 0;
-    border: none;
-  }
-
-  #unit-live .unit-stat-row {
-    display: flex;
-    align-items: baseline;
-    gap: 6px;
-  }
+  /* 差枚・投資・回収はサンドの中へ戻した（2026-09-08）。以前はここで画面上部の
+     固定帯にしていたが、**その場所はデータランプのもの**——実機のホールでも、
+     台の上に載っているのは呼び出しランプとカウンターで、自分の投資額ではない。
+     差枚は筐体の情報パネルにも出ているので、帯が無くても打ちながら読める。 */
 
   /* パネル本体は下から出るシートへ。開閉は既にある .open を使う。 */
   #unit-panel,
