@@ -3292,42 +3292,63 @@ body.shake {
   z-index: 9990;
   pointer-events: none;
   border-radius: 4px;
-  transition:
-    box-shadow 260ms ease-out,
-    opacity 260ms ease-out;
 }
-/* 実機のランプの序列（白 < 青 < 緑 < 赤 < 金）。赤と金はテンパイしてからしか出ない */
+/* 実機のランプの序列（白 < 青 < 緑 < 赤 < 金）。赤と金はテンパイしてからしか出ない。
+ *
+ * **段が上がるほど色が中央へ寄る。** 縁だけを光らせていた頃は、画面が大きいほど
+ * 細い枠になって段の差が読めなかった（筐体を幅に比例させて液晶が900pxを超えてから
+ * 特に）。`--step-core` は「色が届かない中心の穴」の大きさで、これが縮むぶん色が
+ * 中へ伸びる。
+ *
+ * 幅は `cqmin`（液晶の短辺）で持つ。px 固定だと大きい画面で縁が細く、小さい画面で
+ * 潰れる——同じ演出が画面サイズで別物になる。 */
 .step-fx[data-step='1'] {
   --step-c: #dde6f2;
-  --step-w: 3px;
-  --step-a: 0.40;
+  --step-w: 1.2cqmin;
+  --step-core: 84%;
+  --step-a: 0.45;
 }
 .step-fx[data-step='2'] {
   --step-c: #4da3ff;
-  --step-w: 5px;
-  --step-a: 0.55;
+  --step-w: 2cqmin;
+  --step-core: 68%;
+  --step-a: 0.62;
 }
 .step-fx[data-step='3'] {
   --step-c: #3ddc84;
-  --step-w: 7px;
-  --step-a: 0.70;
+  --step-w: 3cqmin;
+  --step-core: 54%;
+  --step-a: 0.76;
 }
 .step-fx[data-step='4'] {
   --step-c: #ff4d5e;
-  --step-w: 10px;
-  --step-a: 0.86;
+  --step-w: 4.2cqmin;
+  --step-core: 38%;
+  --step-a: 0.9;
 }
 .step-fx[data-step='5'] {
   --step-c: #ffd700;
-  --step-w: 14px;
+  --step-w: 5.6cqmin;
+  --step-core: 22%;
   --step-a: 1;
 }
 .step-fx {
+  /* 中心から外へ向かう色。穴（--step-core）の外側で立ち上がり、縁で最も濃い。 */
+  background: radial-gradient(
+    ellipse at 50% 50%,
+    transparent var(--step-core, 84%),
+    color-mix(in srgb, var(--step-c, #fff) 45%, transparent) 100%
+  );
   box-shadow:
-    inset 0 0 var(--step-w, 3px) color-mix(in srgb, var(--step-c, #fff) 90%, transparent),
-    inset 0 0 calc(var(--step-w, 3px) * 3.2)
+    inset 0 0 var(--step-w, 1.2cqmin)
+      color-mix(in srgb, var(--step-c, #fff) 90%, transparent),
+    inset 0 0 calc(var(--step-w, 1.2cqmin) * 3.2)
       color-mix(in srgb, var(--step-c, #fff) 55%, transparent);
-  opacity: var(--step-a, 0.4);
+  opacity: var(--step-a, 0.45);
+  transition:
+    background 260ms ease-out,
+    box-shadow 260ms ease-out,
+    opacity 260ms ease-out;
 }
 /* 段が変わった瞬間の脈。1回だけ膨らんで戻る */
 .step-fx.bump {
