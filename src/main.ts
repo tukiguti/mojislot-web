@@ -44,7 +44,11 @@ import {
   streakTierOf,
 } from './productions/EffectPresentation';
 import { settingForMachine } from './productions/HallPolicy';
-import { recordSpin as recordMachineSpin } from './productions/MachineData';
+import {
+  readMachineDay,
+  recordSpin as recordMachineSpin,
+} from './productions/MachineData';
+import { DataLamp } from './ui/DataLamp';
 import { drawEndScreen } from './productions/SettingHint';
 import { drawCabinetLamp } from './productions/CabinetLamp';
 import { EffectEligibility } from './productions/EffectEligibility';
@@ -262,6 +266,12 @@ export async function bootstrap() {
   // データと示唆演出から推測させる（設計: MachineSetting）。
   // **章ではなく台ごと**。同じ島の4台が同じ設定だと、台を選び分ける意味が消える。
   const machineSetting = settingForMachine(machine, new Date());
+  /**
+   * データランプ。筐体の上の表示器で、**その台の今日**を出す。
+   * 1戦の区切り（計数）ではリセットされない——日替わりのデータだから。
+   */
+  const dataLamp = new DataLamp(requireEl('datalamp'), machine.number);
+  dataLamp.update(readMachineDay(machine.id, new Date()));
   /**
    * タイトルパネル（筐体最上部の板）に島名を出す。実機のここは機種名で、
    * ホールの台選びで見えていた板と同じもの。試打台だけは島がまとめ役なので
@@ -2526,13 +2536,15 @@ export async function bootstrap() {
       // 台のカウンターと戦の記録で母数の規則がずれないよう、判定はここで1度だけ。
       const inBonusSpin = bonusZone.isActive();
       const effectShown = currentEffect !== 'none';
-      recordMachineSpin(machine.id, new Date(), {
-        bet: calc.bet,
-        win,
-        bonus: isPremium ? 'big' : isRegular ? 'reg' : null,
-        inBonus: inBonusSpin,
-        effect: effectShown,
-      });
+      dataLamp.update(
+        recordMachineSpin(machine.id, new Date(), {
+          bet: calc.bet,
+          win,
+          bonus: isPremium ? 'big' : isRegular ? 'reg' : null,
+          inBonus: inBonusSpin,
+          effect: effectShown,
+        }),
+      );
 
       // 戦専用カウンタも同じ確定点で増分（計数で RunRecord に確定する）
       runSpinCount += 1;
