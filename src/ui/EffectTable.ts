@@ -28,7 +28,7 @@ export class EffectTable {
     this.root.innerHTML = `
       <div class="ef-head">
         <span class="ef-title">演出データ</span>
-        <span class="ef-cols"><span>発生</span><span>当り</span><span>期待度</span></span>
+        <span>発生</span><span>当り</span><span>期待度</span>
       </div>
       <div class="ef-rows"></div>
       <div class="ef-note">通常時のゲームだけを数えています。ボーナス中は必ず何か出るので混ぜません。<b>薄い行はまだ回数が足りません</b>（${READABLE_SEEN}回未満）。<br />ステップアップは<b>次のゲームの結果</b>で数えます（終了色が指しているのは次ゲームなので）。</div>
