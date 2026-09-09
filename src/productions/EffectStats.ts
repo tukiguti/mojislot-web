@@ -10,6 +10,10 @@
  *
  * デバッグで強制した演出は数えない。狙って出せるものを混ぜると帳簿が壊れる。
  *
+ * **ステップアップだけは次のゲームで採点する。** あの終了色が指しているのは
+ * 「次ゲームがボーナスか」なので、出たゲームの結果で数えると意味が変わる
+ * （レバーで光って停止ごとに色が進み、決まった色で**次ゲーム**を予告する）。
+ *
  * `MachineData` が台ごと・日替わりなのに対して、こちらは**通算**。期待度は台や日で
  * 変わるものではなく、サンプルが多いほど読める数字なので溜め続ける。
  */
@@ -25,9 +29,9 @@ export const EFFECT_KINDS = [
   { key: 'shisa-rainbow', label: '示唆 虹' },
   { key: 'quiz', label: 'クイズ' },
   { key: 'aim', label: '狙え！' },
-  { key: 'step-green', label: '段階 緑' },
-  { key: 'step-red', label: '段階 赤' },
-  { key: 'step-gold', label: '段階 金' },
+  { key: 'step-green', label: 'ステップ 緑' },
+  { key: 'step-red', label: 'ステップ 赤' },
+  { key: 'step-gold', label: 'ステップ 金' },
   { key: 'delay', label: '遅れ' },
   { key: 'lamp', label: '確定ランプ' },
   { key: 'freeze', label: 'フリーズ' },
