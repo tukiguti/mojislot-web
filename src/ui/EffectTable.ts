@@ -31,7 +31,7 @@ export class EffectTable {
         <span class="ef-cols"><span>発生</span><span>当り</span><span>期待度</span></span>
       </div>
       <div class="ef-rows"></div>
-      <div class="ef-note">通常時のゲームだけを数えています。ボーナス中は必ず何か出るので混ぜません。<b>薄い行はまだ回数が足りません</b>（${READABLE_SEEN}回未満）。</div>
+      <div class="ef-note">通常時のゲームだけを数えています。ボーナス中は必ず何か出るので混ぜません。<b>薄い行はまだ回数が足りません</b>（${READABLE_SEEN}回未満）。<br />ステップアップは<b>次のゲームの結果</b>で数えます（終了色が指しているのは次ゲームなので）。</div>
       <div class="ef-actions"><button class="ef-reset" type="button">演出データをリセット</button></div>`;
     this.root
       .querySelector<HTMLButtonElement>('.ef-reset')

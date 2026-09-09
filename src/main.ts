@@ -855,6 +855,22 @@ export async function bootstrap() {
   const markEffect = (key: string): void => {
     spinMarks.add(key);
   };
+  /**
+   * 前ゲームで出たステップアップの終了色。**次ゲームの結果で採点する**ので持ち越す。
+   *
+   * ステップアップはレバーで光り、停止ごとに色が進み、決まった色が指すのは
+   * **次ゲーム**がボーナスかどうか。出たゲームの結果で数えると別の話になる。
+   */
+  let pendingStepKey: string | null = null;
+  /** その持ち越しがデバッグの強制だったか。強制した回は帳簿へ入れない。 */
+  let pendingStepForced = false;
+  /**
+   * このゲームでステップアップが走ったか。**演出率の母数に入れる**ために持つ。
+   * `currentEffect` は none のままなので、これが無いと「画面いっぱいに色が出た
+   * ゲーム」が無演出として数えられる（演出率は設定を読める唯一の数字なので、
+   * 見えたものと数字がずれると読めなくなる）。
+   */
+  let stepRan = false;
   let resultTimer: number | null = null;
   let pendingDebugEffect: ForcedEffect | null = null;
   /** デバッグ：次のレバーで強制する内部役（ボーナスのおかわり確認用）。 */
@@ -1596,7 +1612,7 @@ export async function bootstrap() {
       // 素の出現率はチャンス役の 5.5%、しかも色は 緑80/赤18/金2 なので金は待てない。
       pendingStepColor = color;
       const name = color === 'gold' ? '金' : color === 'red' ? '赤' : '緑';
-      showResult(`段階演出（${name}）を次のレバーに予約`, 'win');
+      showResult(`ステップアップ（${name}）を次のレバーに予約`, 'win');
     },
     triggerCabinetLamp: () => {
       // 設定示唆のランプ。素はボーナス終了時にしか点かないので単体で見られるようにする。
@@ -1776,6 +1792,7 @@ export async function bootstrap() {
     setBetLamp(false);
     spinMarks.clear();
     spinDebugForced = false;
+    stepRan = false;
     bonusSession.resetSpin();
     currentRound = null;
     if (debugVisible) delete cabinetEl.dataset.internalRole;
@@ -1987,28 +2004,40 @@ export async function bootstrap() {
       const role = rolled.role;
       // フリーズ役を引いた＝その場でBIG確定。演出は出さずフリーズシーケンスへ渡す。
       doFreeze = role.freeze;
-      const effect: EffectType = doFreeze ? 'none' : rolled.effect;
-      activateRound(role, effect, doFreeze ? 'freeze' : 'lottery');
 
       // **チェリーと払い出しの大きい小役から、一部がステップアップへ入る。**
-      // 実機の「チャンス役から前兆」と同じ形。このゲームのことは何も言わない
-      // （契機の役は狙えば揃うし、揃わなくても予告は生きる）ので、
-      // 演出の有無とは無関係に出す。
+      // 実機の「チャンス役から前兆」と同じ形。
       //
       // ボーナス中は出さない。次ゲームもボーナス中で、そこでは毎ゲーム演出が
       // 出る（none=0）ので予告するものが無い。
       // デバッグ予約は契機役かどうかを問わない（狙って出せないと確認にならない）。
+      //
+      // **入るかどうかを演出より先に決める。** 入るならこのゲームの演出は出さない
+      // ——ステップアップは画面全体を色で塗り、示唆も画面全体を色で塗るので、
+      // 重ねると**2つの色が同時に出て、どちらが何の話か読めなくなる**。しかも
+      // 示唆はこのゲーム、ステップアップは次ゲームの話で、軸まで違う。
+      // 遅れで一度やった判断と同じ（無演出のゲームでしか出さない）。
+      //
+      // **入る条件そのものは変えていない。** ここを絞るとステップアップが減り、
+      // BIG/REG はステップアップ経由でしか出ないので出玉ごと動いてしまう。
       const forcedStep = pendingStepColor;
       pendingStepColor = null;
-      if (
+      const startStep =
         !doFreeze &&
         !bonusSession.spinActive &&
         (forcedStep !== null ||
-          (isStepTrigger(role) && Math.random() < STEP_ENTRY_RATE))
-      ) {
+          (isStepTrigger(role) && Math.random() < STEP_ENTRY_RATE));
+
+      const effect: EffectType = doFreeze || startStep ? 'none' : rolled.effect;
+      activateRound(role, effect, doFreeze ? 'freeze' : 'lottery');
+
+      if (startStep) {
         const color = forcedStep ?? pickStepColor();
-        markEffect(`step-${color}`);
+        // このゲームではなく**次ゲーム**の結果で採点するので、控えではなく持ち越しへ。
+        pendingStepKey = `step-${color}`;
+        pendingStepForced = forcedStep !== null;
         if (forcedStep !== null) spinDebugForced = true;
+        stepRan = true;
         stepFinalColor = STEP_COLOR_TO_LEVEL[color];
         preRoll = buildPreRoll(color);
         setStep(STEP_LEVER);
@@ -2564,20 +2593,34 @@ export async function bootstrap() {
       // 演出率は設定を読める唯一の数字なので、通常時だけを母数にして数える。
       // 台のカウンターと戦の記録で母数の規則がずれないよう、判定はここで1度だけ。
       const inBonusSpin = bonusZone.isActive();
-      const effectShown = currentEffect !== 'none';
+      // ステップアップは currentEffect に乗らないが、画面いっぱいに色が出る
+      // ＝打ち手には「演出が出た」ゲーム。演出率の母数はその見え方に合わせる。
+      const effectShown = currentEffect !== 'none' || stepRan;
       // 演出の帳簿。**通常時だけ**を母数にする（ボーナス中は必ず何か出るので、
       // 混ぜると率が動く）。デバッグで強制した回は数えない。
-      if (!inBonusSpin && !spinDebugForced) {
-        // 示唆・クイズ・狙え！はレバーONで決まっているので、ここで拾って足す。
-        if (currentEffect === 'shisa' && currentShisaTier) {
-          markEffect(`shisa-${currentShisaTier.color}`);
-        } else if (currentEffect === 'quiz' || currentEffect === 'aim') {
-          markEffect(currentEffect);
+      //
+      // ステップアップは前ゲームから持ち越して**このゲームの結果**で採点する。
+      // あれが指しているのは次ゲームだから。ボーナス中に着地したら捨てる
+      // （予告した相手がボーナス消化になっていて、当たり外れを問えない）。
+      const carriedStep = pendingStepKey;
+      const carriedForced = pendingStepForced;
+      pendingStepKey = null;
+      pendingStepForced = false;
+
+      if (!inBonusSpin) {
+        const keys: string[] = [];
+        if (!spinDebugForced) {
+          // 示唆・クイズ・狙え！はレバーONで決まっているので、ここで拾って足す。
+          if (currentEffect === 'shisa' && currentShisaTier) {
+            markEffect(`shisa-${currentShisaTier.color}`);
+          } else if (currentEffect === 'quiz' || currentEffect === 'aim') {
+            markEffect(currentEffect);
+          }
+          keys.push(...spinMarks);
         }
-        if (spinMarks.size > 0) {
-          effectTable.update(
-            recordEffects([...spinMarks], isPremium || isRegular),
-          );
+        if (carriedStep && !carriedForced) keys.push(carriedStep);
+        if (keys.length > 0) {
+          effectTable.update(recordEffects(keys, isPremium || isRegular));
         }
       }
 
