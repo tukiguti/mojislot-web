@@ -359,11 +359,16 @@ function runChapter(
    * ボーナスはステップアップ経由でしか出さないので、通常抽選からは落とす。
    */
   const STEP_ENTRY_RATE = 0.055 * STEP_ENTRY_MULT;
-  const STEP_COLOR_RATE: readonly (readonly ['green' | 'red' | 'gold', number])[] = [
-    ['green', 0.8], ['red', 0.18], ['gold', 0.02],
+  // **main.ts と同じ値を持つ。片方だけ直すと、測っているモデルが実物とずれる。**
+  // 青を終了色に足した時（2026-09-09）もここを揃えてから測り直した。
+  const STEP_COLOR_RATE: readonly (readonly [
+    'blue' | 'green' | 'red' | 'gold',
+    number,
+  ])[] = [
+    ['blue', 0.45], ['green', 0.35], ['red', 0.18], ['gold', 0.02],
   ];
-  const STEP_BONUS_RATE = { green: 0.3, red: 0.7, gold: 1.0 } as const;
-  const STEP_BIG_RATE = { green: 0.22, red: 0.35, gold: 0.92 } as const;
+  const STEP_BONUS_RATE = { blue: 0.12, green: 0.53, red: 0.7, gold: 1.0 } as const;
+  const STEP_BIG_RATE = { blue: 0.15, green: 0.24, red: 0.35, gold: 0.92 } as const;
   const STEP_TRIGGER_MIN_PAYOUT = 5;
   /** 次ゲームの予約。`bonus` があればそれ、無ければ「必ず演出」の小役ゲーム。 */
   let stepNext: { bonus: 'big' | 'reg' | null } | null = null;
@@ -706,10 +711,11 @@ function runChapter(
     if (pendingBonus && (isPremiumNow || isRegNow)) pendingBonus = null;
     if (isPremiumNow || isRegNow) {
       heldBonusYaku = null;
-    } else if (!pendingBonus && !bonusActive && yaku && effect === 'none' &&
+    } else if (!pendingBonus && !bonusActive && yaku &&
                (yaku.category === 'premium' || yaku.category === 'bonus')) {
-      // 持ち越すのは**無演出のゲームで引いたボーナスだけ**。演出が出ていたゲームは
-      // 何を狙えばいいか教えてあるので、揃えられなければ権利ごと消える。
+      // 〔2026-09-09〕**演出の有無によらず持ち越す**（main.ts と同じ）。実機の
+      // Aタイプはボーナスフラグが消えない。以前は演出の出ていたゲームでこぼしたら
+      // 権利ごと消していたので、ここも合わせて変えてある。
       heldBonusYaku = yaku;
     }
     // チェリー重複：チェリーが実際に揃った時だけ抽選し、次ゲーム以降ボーナス確定。

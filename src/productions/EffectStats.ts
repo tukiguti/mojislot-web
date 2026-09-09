@@ -29,6 +29,7 @@ export const EFFECT_KINDS = [
   { key: 'shisa-rainbow', label: '示唆 虹' },
   { key: 'quiz', label: 'クイズ' },
   { key: 'aim', label: '狙え！' },
+  { key: 'step-blue', label: 'ステップ 青' },
   { key: 'step-green', label: 'ステップ 緑' },
   { key: 'step-red', label: 'ステップ 赤' },
   { key: 'step-gold', label: 'ステップ 金' },

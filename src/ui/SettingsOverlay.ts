@@ -48,7 +48,7 @@ export interface DebugActions {
    * チャンス役の 5.5% しかなく、しかも色は 緑80% / 赤18% / 金2% なので、
    * 金は待っていても出てこない。
    */
-  triggerNextStepUp(color: 'green' | 'red' | 'gold'): void;
+  triggerNextStepUp(color: 'blue' | 'green' | 'red' | 'gold'): void;
   /** 筐体ランプを点ける（設定示唆）。素はボーナス終了時にしか出ない。 */
   triggerCabinetLamp(): void;
   /** ボーナス終了リザルトを出す（終了画面の示唆つき）。 */
@@ -234,6 +234,7 @@ export class SettingsOverlay {
             <button data-debug="shisa" type="button">示唆発動</button>
             <button data-debug="quiz" type="button">クイズ発動</button>
             <button data-debug="tenpai" type="button">プレミアムテンパイ</button>
+            <button data-debug="step-blue" type="button">次レバー ステップアップ青</button>
             <button data-debug="step-green" type="button">次レバー ステップアップ緑</button>
             <button data-debug="step-red" type="button">次レバー ステップアップ赤</button>
             <button data-debug="step-gold" type="button">次レバー ステップアップ金</button>
@@ -384,6 +385,9 @@ export class SettingsOverlay {
             break;
           case 'win':
             this.debugActions.triggerWinTest();
+            break;
+          case 'step-blue':
+            this.debugActions.triggerNextStepUp('blue');
             break;
           case 'step-green':
             this.debugActions.triggerNextStepUp('green');
