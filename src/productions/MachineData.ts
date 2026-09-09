@@ -39,6 +39,20 @@ export const GRAPH_POINTS = 26;
 /** 最初の記録間隔（ゲーム数）。点が溢れたら間引いて倍にしていく。 */
 const INITIAL_SAMPLE_EVERY = 25;
 
+/**
+ * ボーナスを引いた位置。**グラフに縦線で出す**ためだけに持つ。
+ *
+ * 実機のデータカウンターは差枚の折れ線に BIG/REG の縦線を重ねていて、
+ * 「どこで当たってどこから伸びたか」がひと目で読める。回数だけでは
+ * 「連チャンしたのか、まんべんなく当たったのか」が分からない。
+ *
+ * `at` は**その日の何回転目か**。差枚の点（`samples`）と同じ横軸に乗る。
+ */
+export interface BonusMark {
+  at: number;
+  kind: 'big' | 'reg';
+}
+
 export interface MachineDay {
   /** この数字が今日でなければ、表示前にリセットする。 */
   day: string;
@@ -57,6 +71,8 @@ export interface MachineDay {
   samples: number[];
   /** 現在の記録間隔。間引くたびに倍になる。 */
   sampleEvery: number;
+  /** ボーナスを引いた位置（グラフの縦線）。日に数十本なので間引かない。 */
+  bonusMarks: BonusMark[];
   /**
    * 通常時（ボーナス中でない）の回転数と、そのうち**演出が出た**回転数。
    *
@@ -80,6 +96,7 @@ const emptyDay = (day: string): MachineDay => ({
   sahmai: 0,
   samples: [],
   sampleEvery: INITIAL_SAMPLE_EVERY,
+  bonusMarks: [],
   normalSpins: 0,
   effectSpins: 0,
 });
@@ -89,6 +106,7 @@ const normalize = (d: MachineDay): MachineDay => ({
   ...d,
   samples: Array.isArray(d.samples) ? d.samples : [],
   sampleEvery: d.sampleEvery > 0 ? d.sampleEvery : INITIAL_SAMPLE_EVERY,
+  bonusMarks: Array.isArray(d.bonusMarks) ? d.bonusMarks : [],
   normalSpins: d.normalSpins ?? 0,
   effectSpins: d.effectSpins ?? 0,
 });
@@ -276,6 +294,9 @@ export function recordSpin(
     sahmai,
     samples,
     sampleEvery,
+    bonusMarks: spin.bonus
+      ? [...cur.bonusMarks, { at: spins, kind: spin.bonus }]
+      : cur.bonusMarks,
   };
   store[machineId] = next;
   save(store);
