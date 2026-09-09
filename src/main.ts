@@ -3328,9 +3328,18 @@ export async function bootstrap() {
       return;
     }
 
-    const action = keyBindings.actionFor(eventKey(ev));
-    if (!action) return;
+    const actions = keyBindings.actionsFor(eventKey(ev));
+    if (actions.length === 0) return;
     ev.preventDefault();
+    // ベットとレバーは同じキーを共有できる（既定はどちらもスペース）。
+    // **どちらを実行するかは状態で決まる**——ベット前ならベット、ベット後ならレバー。
+    // 押せる方は必ず1つしかないので、1回押すたびに1つ進む。
+    const action =
+      actions.includes('bet') && actions.includes('lever')
+        ? betPlaced
+          ? 'lever'
+          : 'bet'
+        : actions[0];
     runAction(action, ev.timeStamp);
   });
 
@@ -3345,8 +3354,15 @@ export async function bootstrap() {
       const key = keyBindings.get(a);
       return key ? keyLabel(key) : '—';
     };
-    el.textContent =
-      `${k('lever')}:レバー / ${k('stop0')}・${k('stop1')}・${k('stop2')}:ストップ / ${k('bet')}:BET`;
+    // 同じキーなら1つにまとめる。「Space:レバー / … / Space:BET」だと、
+    // 2つ書いてあるぶん別々のキーに見える。
+    const bet = keyBindings.get('bet');
+    const lever = keyBindings.get('lever');
+    const head =
+      bet && bet === lever
+        ? `${k('bet')}:BET→レバー`
+        : `${k('bet')}:BET / ${k('lever')}:レバー`;
+    el.textContent = `${head} / ${k('stop0')}・${k('stop1')}・${k('stop2')}:ストップ`;
   };
   renderKeyHint();
   // 割り当てが変わったら呼び直す。**開閉のタイミングに賭けない**——設定を閉じた時に

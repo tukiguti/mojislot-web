@@ -2308,10 +2308,9 @@ body.shake {
 .stop-row .stop-btn[data-reel='2'] {
   left: calc(var(--reel-cx-2) * 100%);
 }
-/* 押した瞬間の沈み込みは translateY だけにしたいが、位置も transform で
-   持っているので全部を1つに畳む（片方だけ書くと中心がずれる）。 */
+/* 沈み込みは `translate` で。`transform` は中央寄せが入っているので触らない。 */
 .stop-row .stop-btn:active {
-  transform: translate(-50%, -50%) translateY(2px);
+  translate: 0 2px;
 }
 
 /* ⑤ スピーカーグリル＝「音の台(ビタ押し＝リズム)」を明示。
@@ -2445,7 +2444,7 @@ body.shake {
   background: linear-gradient(180deg, var(--deck-hi-2) 0%, var(--deck-lo-2) 100%);
 }
 #bet-btn:active {
-  transform: translateY(2px);
+  translate: 0 2px;
   box-shadow: none;
 }
 /* スマスロ/ディスクアップ風の丸い発光ストップボタン（朱はここだけ） */
@@ -2482,7 +2481,7 @@ body.shake {
   );
 }
 .stop-btn:active {
-  transform: translateY(2px);
+  translate: 0 2px;
   box-shadow: none;
 }
 /* 押せない状態＝**消灯した物理ボタン**。透かして消すのではなく、色を抜いて
@@ -2507,17 +2506,25 @@ body.shake {
   opacity: 0.75;
   filter: grayscale(0.2);
 }
+/* 押した合図（キーからもボタンからも `flashButton` が付ける）。
+ *
+ * **沈み込みは `transform` ではなく `translate` で書く。** アニメーションの
+ * `transform` は要素の `transform` を丸ごと置き換えるので、リールの真下へ
+ * `translate(-50%, -50%)` で寄せてあるストップボタンに当てると、中央寄せごと
+ * 消えて**半個ぶん右下へ飛ぶ**。`translate` は独立したプロパティなので、
+ * 位置決めの `transform` と喧嘩しない。 */
 .flash {
   animation: flash-anim 100ms ease-out;
 }
 
-@keyframes flash-anim {0% {
+@keyframes flash-anim {
+  0% {
     filter: brightness(1.8);
-    transform: translateY(2px);
+    translate: 0 2px;
   }
-100% {
+  100% {
     filter: brightness(1);
-    transform: translateY(0);
+    translate: 0 0;
   }
 }
 /* キー名はストップにだけ出す。MAXBET は3行になって潰れ、レバーは玉なので
