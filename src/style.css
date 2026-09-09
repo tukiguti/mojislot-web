@@ -107,8 +107,10 @@
    */
   --layout-pad: 12px;
   --reel-panel-w: 240px;
-  /* 右のサンド（ユニット）幅 */
-  --unit-panel-w: 144px;
+  /* 右のサンド（ユニット）幅。**演出データの表が入る幅**で決める（2026-09-09）。
+     144px だった頃は見出しが縦書きに折れ、役名の列が潰れて全部「—」に見えていた。
+     数値3列（42px）＋間＋余白を引いて、役名に100pxほど残る幅。 */
+  --unit-panel-w: 260px;
   --reel-gap: 16px;
   /* === 筐体の行（上から実機の順）===
    * トップランプ／タイトルパネル／液晶＋リール窓／情報パネル／操作部／下パネル／下皿。
@@ -419,32 +421,31 @@ body.has-chapter-bg {
   flex-direction: column;
   gap: 4px;
 }
-.ef-head {
-  display: flex;
-  align-items: baseline;
-  justify-content: space-between;
-  gap: 6px;
-  padding-bottom: 3px;
-  border-bottom: 1px solid var(--cab-edge);
-}
-.ef-title {
-  font-size: 10px;
-  letter-spacing: 2px;
-  color: var(--gold);
-}
-/* 見出しの列幅は行と揃える。ずれると数字がどの列か読めない。 */
-/* 行と同じ px で刻む。em にすると見出しと行で文字サイズが違うぶん列がずれる。 */
-.ef-cols {
+/* 見出しは**行とまったく同じグリッド**で組む。別々に組んでいた頃は、見出しの
+   「期待度」だけが行の外へはみ出して、どの数字がどの列か読めなかった。 */
+.ef-head,
+.ef-row {
   display: grid;
-  grid-template-columns: repeat(3, 46px);
+  grid-template-columns: minmax(0, 1fr) repeat(3, 42px);
   gap: 4px;
+}
+.ef-head {
+  align-items: baseline;
+  padding: 0 4px 3px;
+  border-bottom: 1px solid var(--cab-edge);
   font-size: 8px;
   letter-spacing: 0;
   white-space: nowrap;
   color: var(--meter-label);
 }
-.ef-cols span {
+.ef-head span:not(.ef-title) {
   text-align: right;
+}
+.ef-title {
+  font-size: 10px;
+  letter-spacing: 2px;
+  white-space: nowrap;
+  color: var(--gold);
 }
 .ef-rows {
   display: flex;
@@ -452,9 +453,6 @@ body.has-chapter-bg {
   gap: 2px;
 }
 .ef-row {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) repeat(3, 46px);
-  gap: 4px;
   align-items: baseline;
   padding: 2px 4px;
   background: var(--meter-bg);
@@ -531,7 +529,10 @@ body.has-chapter-bg {
 /* === 右のサンド（ユニット）：メダル貸出＝コイン補充。実機のサンド見立て === */
 #unit-panel {
   width: var(--unit-panel-w);
+  /* 中身が柱の高さを超えたらここで送る。伸ばした先で溢れると、下の計測ボタンが
+     画面外へ出て押せなくなる。 */
   min-height: 0;
+  overflow-y: auto;
   padding: 12px 10px;
   background: linear-gradient(180deg, var(--unit-hi) 0%, var(--unit-lo) 100%);
   border: 2px solid var(--cab-edge);
