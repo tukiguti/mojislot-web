@@ -112,24 +112,39 @@
   --reel-gap: 16px;
   /* === 筐体の行（上から実機の順）===
    * トップランプ／タイトルパネル／液晶＋リール窓／情報パネル／操作部／下パネル／下皿。
-   * **液晶より上に情報帯は置かない**——実機にそんなものは無い。計器はリール直下。 */
-  --toplamp-h: 7px;
+   * **液晶より上に情報帯は置かない**——実機にそんなものは無い。計器はリール直下。
+   *
+   * **どの段も筐体の幅に比例させる**（2026-09-09）。固定 px にしていたので、PC の
+   * 縦画面のように幅が1000pxを超えると、液晶とリールだけが伸びて操作部と下パネルが
+   * 薄い帯のまま残り、リールが不自然に大きく見えた。実機の筐体は全体が1つの比率
+   * なので、段も一緒に伸ばす。
+   *
+   * 係数は幅 480px のときの実寸から起こしてある（そこが今までの見た目）。下パネル
+   * だけは 0.063→0.078 へ上げた——薄すぎるという指摘を受けての調整。
+   *
+   * 上下のクランプは端の保険。**下限が効くのは幅で頭打ちになる画面（スマホ縦）
+   * だけ**で、そこは高さが余っているので合計が伸びても収まる。 */
+  --toplamp-h: clamp(5px, calc(var(--game-w) * 0.015), 16px);
   /* タイトルパネル（島名の板）。以前は mojislot のワードマークを出していたが、
      実機のここは機種名なので島名へ。ロゴは下パネルへ移した。 */
-  --masthead-h: 30px;
+  --masthead-h: clamp(24px, calc(var(--game-w) * 0.063), 64px);
   /* 情報パネル＝リール直下の計器（差枚・払出の7セグとランプ）。旧ヘッダーの中身。 */
-  --header-h: 26px;
-  /* 操作部。レバーとストップが1列に並ぶので、2段だった頃より低い（176→104）。 */
-  --control-h: 104px;
+  --header-h: clamp(22px, calc(var(--game-w) * 0.055), 56px);
+  /* 操作部。レバーとストップが1列に並ぶので、2段だった頃より低い。 */
+  --control-h: clamp(80px, calc(var(--game-w) * 0.217), 220px);
   /* 下パネル（ロゴ板＋左右のスピーカー）と下皿。 */
-  --lowerpanel-h: 30px;
-  --tray-h: 12px;
+  --lowerpanel-h: clamp(26px, calc(var(--game-w) * 0.078), 80px);
+  --tray-h: clamp(10px, calc(var(--game-w) * 0.026), 28px);
+  /* 段の合計が幅の何倍になるか。上の係数の和。--game-w を解くのに使う。 */
+  --cab-row-ratio: 0.454;
   /* ドック（台のメニュー）。筐体の続きとして下皿の直下に貼るので、
      横長でも高さの計算に入れる。縦長では画面下へ固定するが高さは同じ。 */
   --dock-h: 62px;
   /* データランプ（筐体の上に載る表示器）。筐体の外側なので --cab-fixed-h には
-     入れず、ドックと同じく柱の高さとして別に引く。 */
-  --datalamp-h: 92px;
+     入れず、ドックと同じく柱の高さとして別に引く。
+     **筐体の幅には比例させない**——ホールの設備で、台が大きくても表示器は同じ
+     ものが並んでいる。縦長では画面が広いので下の向き判定で一段大きくする。 */
+  --datalamp-h: 110px;
   /* 筐体のうち液晶以外が使う高さの合計。--game-w の計算で2箇所から参照する
      （横長と縦長）。**行を足したらここだけ直せば両方が揃う。** */
   --cab-fixed-h: calc(
@@ -156,14 +171,16 @@
    * 高さから決まる値をそのまま使う。横に収まらない時だけ幅で頭打ちになる。
    *
    * 引くのは 余白×2 ＋ 筐体の固定行 ＋ ドック。残りを 1.22 で割ると液晶の幅。 */
+  /* 段の高さが幅に比例するので、`高さ = 幅 * 1.22 + 幅 * 係数の和` になる。
+     幅について解くと、残りの高さを `1.22 + 係数の和` で割ればよい。
+     **--cab-fixed-h をここで引いてはいけない**——あれ自体が --game-w から
+     決まるので、引くと循環する。 */
   --game-w: max(
     240px,
     min(
       calc(
-        (
-            100vh - var(--layout-pad) * 2 - var(--cab-fixed-h) - var(--dock-h) -
-              var(--datalamp-h)
-          ) / 1.22
+        (100vh - var(--layout-pad) * 2 - var(--dock-h) - var(--datalamp-h)) /
+          (1.22 + var(--cab-row-ratio))
       ),
       calc(100vw - var(--layout-pad) * 2 - var(--reel-panel-occupy))
     )
@@ -739,6 +756,11 @@ body.has-chapter-bg {
      与えても、親の高さが不定だと幅と同じ高さに膨らむ）。 */
   grid-template-columns: minmax(0, 1fr) minmax(0, 1.3fr);
   grid-template-rows: minmax(0, 1fr);
+  /* 中の文字を**表示器の幅**に追従させる。スマホ幅では見出しが枠に入りきらず
+     「総スター…」と切れていた。px 固定だと切れるか、大画面で取り残されるかの
+     どちらかにしかならない。 */
+  container-type: inline-size;
+  container-name: dl;
   gap: 6px;
   padding: 5px 6px;
   margin-bottom: 6px;
@@ -765,10 +787,11 @@ body.has-chapter-bg {
   align-items: center;
   gap: 6px;
   flex: none;
-  font-size: 8px;
+  font-size: clamp(7px, 1.5cqw, 13px);
   letter-spacing: 0.5px;
   color: #6d8496;
   white-space: nowrap;
+  overflow: hidden;
 }
 .dl-lamps {
   display: flex;
@@ -794,7 +817,7 @@ body.has-chapter-bg {
 .dl-seat {
   flex: none;
   font-family: ui-monospace, 'SFMono-Regular', monospace;
-  font-size: 11px;
+  font-size: clamp(9px, 2cqw, 17px);
   font-weight: 700;
   letter-spacing: 1px;
   padding: 0 4px;
@@ -825,7 +848,7 @@ body.has-chapter-bg {
 }
 .dl-leg-line b {
   font-family: ui-monospace, 'SFMono-Regular', monospace;
-  font-size: 10px;
+  font-size: clamp(9px, 1.9cqw, 16px);
   color: #cfd8e6;
 }
 .dl-leg-line b.plus {
@@ -841,6 +864,20 @@ body.has-chapter-bg {
 .dl-leg-unit b {
   font-family: ui-monospace, 'SFMono-Regular', monospace;
   color: #9aa8b8;
+}
+
+/* 狭い表示器では系列の色見本を落とす。**色の対応は右のマスが持っている**
+   （BB は赤、RB は青で数字を出している）ので、ここが消えても読めなくなる情報は
+   無い。落とさないと横軸の単位「×NG」が押し出されて、目盛りの 1〜10 が
+   何ゲーム刻みなのか分からなくなる。 */
+@container dl (max-width: 620px) {
+  .dl-legend {
+    gap: 4px;
+  }
+  .dl-leg-big,
+  .dl-leg-reg {
+    display: none;
+  }
 }
 
 .dl-graph-box {
@@ -897,7 +934,7 @@ body.has-chapter-bg {
   flex: none;
   display: grid;
   grid-template-columns: repeat(10, 1fr);
-  font-size: 7px;
+  font-size: clamp(6px, 1.3cqw, 11px);
   line-height: 1;
   color: #4e5d6b;
 }
@@ -926,9 +963,11 @@ body.has-chapter-bg {
 .dl-cell-head {
   flex: none;
   padding: 1px 3px;
-  font-size: 8px;
-  line-height: 1.3;
-  letter-spacing: 0.5px;
+  /* 見出しは枠に収まることが最優先。**切れると何の数字か分からなくなる**ので、
+     字間を詰めてでも入れる。 */
+  font-size: clamp(6.5px, 1.55cqw, 13px);
+  line-height: 1.35;
+  letter-spacing: 0;
   text-align: center;
   color: #cfe6ff;
   background: linear-gradient(180deg, #1d3a5c 0%, #142842 100%);
@@ -948,7 +987,7 @@ body.has-chapter-bg {
 }
 .dl-cell-value b {
   font-family: ui-monospace, 'SFMono-Regular', monospace;
-  font-size: 13px;
+  font-size: clamp(11px, 2.5cqw, 24px);
   font-weight: 700;
   color: #ffb454;
   text-shadow: 0 0 5px rgba(255, 180, 84, 0.45);
@@ -957,7 +996,7 @@ body.has-chapter-bg {
 }
 .dl-cell-value i {
   font-style: normal;
-  font-size: 7px;
+  font-size: clamp(6px, 1.3cqw, 12px);
   color: #6d8496;
 }
 /* BB は赤、RB は青。グラフの縦線と同じ色にして、どの線がどれか対応させる。 */
@@ -1027,7 +1066,9 @@ body.has-chapter-bg {
 }
 #masthead .mark {
   font-family: var(--mark-font);
-  font-size: 15px;
+  /* 段の高さから起こす。段が伸びたのに文字が 15px のままだと、板の中で字だけが
+     取り残されて間延びする。 */
+  font-size: calc(var(--masthead-h) * 0.5);
   letter-spacing: var(--mark-spacing);
   color: var(--mark-color);
   text-shadow:
@@ -1085,7 +1126,7 @@ body.has-chapter-bg {
 }
 .ip-value {
   font-family: ui-monospace, 'SFMono-Regular', monospace;
-  font-size: 15px;
+  font-size: calc(var(--header-h) * 0.58);
   font-weight: 700;
   letter-spacing: 1px;
   min-width: 3ch;
@@ -2168,11 +2209,15 @@ body.shake {
 .deck-well {
   position: absolute;
   left: 5px;
-  top: 6px;
-  width: clamp(40px, 14cqw, 58px);
+  /* 下端はキーヒントのぶんを空ける。**上に貼り付けない**——段が伸びた時に
+     ボタンだけ上に残って、板の下半分が空く。 */
+  top: 0;
+  bottom: 16px;
+  width: clamp(40px, 14cqw, 96px);
   display: flex;
   flex-direction: column;
   align-items: center;
+  justify-content: center;
   gap: 5px;
 }
 
@@ -2180,7 +2225,7 @@ body.shake {
 #lever-btn {
   position: relative;
   width: 100%;
-  height: clamp(34px, 12cqw, 48px);
+  height: clamp(34px, 12cqw, 84px);
   padding: 0;
   background: none;
   border: none;
@@ -2191,7 +2236,7 @@ body.shake {
   justify-content: flex-start;
 }
 .lever-ball {
-  width: clamp(26px, 9.5cqw, 38px);
+  width: clamp(26px, 9.5cqw, 66px);
   aspect-ratio: 1;
   border-radius: 50%;
   background: radial-gradient(circle at 34% 28%, #fff 0%, #ff6b5a 26%, #a8102a 70%, #5c0a14 100%);
@@ -2216,8 +2261,8 @@ body.shake {
   left: 50%;
   bottom: 0;
   transform: translateX(-50%);
-  width: clamp(18px, 6cqw, 24px);
-  height: 7px;
+  width: clamp(18px, 6cqw, 42px);
+  height: clamp(7px, 2cqw, 12px);
   border-radius: 50%;
   background: radial-gradient(ellipse at 50% 35%, #8c909c 0%, #3a3d47 60%, #14161c 100%);
   box-shadow:
@@ -2246,13 +2291,13 @@ body.shake {
   position: absolute;
   left: 0;
   right: 0;
-  top: 8px;
-  height: clamp(38px, 13.5cqw, 58px);
+  top: 0;
+  bottom: 16px;
 }
 .stop-row .stop-btn {
   position: absolute;
-  top: 0;
-  transform: translateX(-50%);
+  top: 50%;
+  transform: translate(-50%, -50%);
 }
 .stop-row .stop-btn[data-reel='0'] {
   left: calc(var(--reel-cx-0) * 100%);
@@ -2263,10 +2308,10 @@ body.shake {
 .stop-row .stop-btn[data-reel='2'] {
   left: calc(var(--reel-cx-2) * 100%);
 }
-/* 押した瞬間の沈み込みは translateY だけにしたいが、横位置も transform で
-   持っているので両方を1つに畳む（片方だけ書くと中心がずれる）。 */
+/* 押した瞬間の沈み込みは translateY だけにしたいが、位置も transform で
+   持っているので全部を1つに畳む（片方だけ書くと中心がずれる）。 */
 .stop-row .stop-btn:active {
-  transform: translateX(-50%) translateY(2px);
+  transform: translate(-50%, -50%) translateY(2px);
 }
 
 /* ⑤ スピーカーグリル＝「音の台(ビタ押し＝リズム)」を明示。
@@ -2277,7 +2322,7 @@ body.shake {
 .cabinet-lamp {
   flex: none;
   height: 100%;
-  width: 64px;
+  width: calc(var(--lowerpanel-h) * 2.2);
   border-radius: 0;
   background-color: var(--grille-bg);
   background-image: radial-gradient(circle, var(--grille-dot) 0 1.5px, transparent 1.9px);
@@ -2370,13 +2415,14 @@ body.shake {
    物理レバーは板ではないので、寸法も見た目も共有できない。 */
 #bet-btn {
   width: 100%;
-  height: clamp(20px, 6cqw, 26px);
+  height: clamp(20px, 6cqw, 44px);
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
   line-height: 1.05;
-  font-size: 11px;
+  /* 2行（MAX / BET）が板から溢れないよう、字も板と一緒に伸び縮みさせる。 */
+  font-size: clamp(8px, 2.2cqw, 16px);
   font-weight: 800;
   letter-spacing: 0.5px;
   color: var(--deck-text);
@@ -2392,7 +2438,7 @@ body.shake {
     inset 0 -3px 0 rgba(0, 0, 0, 0.5);
 }
 #bet-btn span {
-  font-size: 9px;
+  font-size: clamp(7px, 1.8cqw, 13px);
   letter-spacing: 1px;
 }
 #bet-btn:hover {
@@ -2404,9 +2450,9 @@ body.shake {
 }
 /* スマスロ/ディスクアップ風の丸い発光ストップボタン（朱はここだけ） */
 .stop-btn {
-  width: clamp(38px, 13.5cqw, 58px);
+  width: clamp(38px, 13.5cqw, 100px);
   aspect-ratio: 1;
-  font-size: clamp(9px, 2.6cqw, 12px);
+  font-size: clamp(9px, 2.6cqw, 19px);
   font-weight: 800;
   letter-spacing: 0.5px;
   color: var(--stop-text);
@@ -2489,14 +2535,14 @@ body.shake {
 .settle-well {
   position: absolute;
   right: 6px;
-  top: 8px;
-  height: clamp(38px, 13.5cqw, 58px);
+  top: 0;
+  bottom: 16px;
   display: flex;
   align-items: center;
 }
 #settle-btn {
   padding: 5px 8px;
-  font-size: clamp(8px, 2.4cqw, 10px);
+  font-size: clamp(8px, 2.4cqw, 16px);
   font-weight: 700;
   letter-spacing: 1px;
   font-family: inherit;
@@ -2553,7 +2599,7 @@ body.shake {
   align-items: center;
   justify-content: center;
   font-family: var(--mark-font);
-  font-size: 12px;
+  font-size: calc(var(--lowerpanel-h) * 0.4);
   letter-spacing: 0.34em;
   color: var(--isl-lower-text, var(--mark-color));
   text-shadow:
@@ -4194,9 +4240,6 @@ to {
 @media (max-width: 480px) {
   :root {
     --layout-pad: 6px;
-    /* キーヒントが消えるぶん低くできる。ストップは cqw で縮むので、
-       操作部はボタンの高さ＋上下の余白だけあればよい。 */
-    --control-h: 84px;
   }
 
   #info-bar {
@@ -4732,15 +4775,15 @@ to {
   :root {
     /* 左右のパネルは畳むので、その占有を差し引かない。データランプとドックを引く。 */
     --dock-h: 64px;
+    /* 縦長は画面が広いので表示器を一段大きくする。 */
+    --datalamp-h: 132px;
     --game-w: max(
       240px,
       min(
         calc(100vw - var(--layout-pad) * 2),
         calc(
-          (
-              100vh - var(--layout-pad) * 2 - var(--dock-h) - var(--cab-fixed-h) -
-                var(--datalamp-h)
-            ) / 1.22
+          (100vh - var(--layout-pad) * 2 - var(--dock-h) - var(--datalamp-h)) /
+            (1.22 + var(--cab-row-ratio))
         )
       )
     );
