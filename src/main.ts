@@ -92,7 +92,7 @@ import {
   setBlackoutLevel,
   clearBlackout,
   setStepFx,
-  STEP_LEVER,
+  STEP_BLUE,
   STEP_GREEN,
   STEP_RED,
   STEP_GOLD,
@@ -896,15 +896,21 @@ export async function bootstrap() {
    */
   let stepFx = 0;
   /** そのステップアップの終了色。レバーONの時点で決まっている（先読み）。 */
-  let stepFinalColor = STEP_GREEN;
+  let stepFinalColor = STEP_BLUE;
   const setStep = (step: number) => {
     stepFx = step;
     setStepFx(step);
   };
-  /** 段を1つ進める。第3停止では終了色へ飛ぶ。 */
+  /**
+   * 段を1つ進める。第3停止では終了色へ飛ぶ。
+   *
+   * **終了色を追い越さない。** 終了色が青なら3回とも青のままで、段が上がらないこと
+   * 自体が「弱い」という情報になる。クランプが無いと、青どまりのはずが第2停止で
+   * 緑まで上がってから青へ戻る＝色が後退して見える。
+   */
   const bumpStep = (to?: number) => {
     if (stepFx <= 0) return;
-    const next = to ?? stepFx + 1;
+    const next = Math.min(to ?? stepFx + 1, stepFinalColor);
     if (next <= stepFx) return;
     setStep(next);
     sfx.stepUp(next);
@@ -1113,28 +1119,45 @@ export async function bootstrap() {
    * 側からは BIG と REG を外してある（`withoutBonus`）。外した分は miss へ回すので
    * 小役の量も変わらない。フリーズ役だけは通常抽選に残す（別枠の強レア役）。
    */
-  type StepColor = 'green' | 'red' | 'gold';
+  type StepColor = 'blue' | 'green' | 'red' | 'gold';
   /** 契機役のうち、実際にステップアップへ入る割合。ここでボーナスの総量が決まる。 */
   const STEP_ENTRY_RATE = 0.055;
-  /** 色の振り分け。 */
+  /**
+   * 色の振り分け。
+   *
+   * **青を終了色に足した時（2026-09-09）、総量は動かしていない。** 青の分は緑から
+   * 取り、そのぶん緑のボーナス率を上げて、1回のステップアップから出るボーナスを
+   * 0.386 のまま揃えてある（下の検算）。ここを崩すとボーナス確率がそのまま動く
+   * ——BIG/REG はステップアップ経由でしか出ないので。
+   */
   const STEP_COLOR_RATE: readonly (readonly [StepColor, number])[] = [
-    ['green', 0.80],
+    ['blue', 0.45],
+    ['green', 0.35],
     ['red', 0.18],
     ['gold', 0.02],
   ];
   /** 色ごとの「次ゲームがボーナス」の確率。 */
   const STEP_BONUS_RATE: Record<StepColor, number> = {
-    green: 0.30,
+    blue: 0.12,
+    green: 0.53,
     red: 0.70,
     gold: 1.0,
   };
-  /** 色ごとのBIG比率（残りがREG）。全体で現状の BIG:REG ≒ 29.5:70.5 に合わせてある。 */
+  /**
+   * 色ごとのBIG比率（残りがREG）。全体で BIG:REG ≒ 29.9:70.1 に合わせてある。
+   *
+   * 検算（1回のステップアップあたり）:
+   * - ボーナス = .45×.12 + .35×.53 + .18×.70 + .02×1.0 = 0.3855（青の追加前 0.386）
+   * - うちBIG = .054×.15 + .1855×.24 + .126×.35 + .020×.92 = 0.1151（追加前 0.1153）
+   */
   const STEP_BIG_RATE: Record<StepColor, number> = {
-    green: 0.22,
+    blue: 0.15,
+    green: 0.24,
     red: 0.35,
     gold: 0.92,
   };
   const STEP_COLOR_TO_LEVEL: Record<StepColor, number> = {
+    blue: STEP_BLUE,
     green: STEP_GREEN,
     red: STEP_RED,
     gold: STEP_GOLD,
@@ -1609,9 +1632,9 @@ export async function bootstrap() {
       window.setTimeout(() => views[2].stopTenpaiFlash(), 2500);
     },
     triggerNextStepUp: (color: StepColor) => {
-      // 素の出現率はチャンス役の 5.5%、しかも色は 緑80/赤18/金2 なので金は待てない。
+      // 素の出現率はチャンス役の 5.5%、しかも色は 青45/緑35/赤18/金2 なので金は待てない。
       pendingStepColor = color;
-      const name = color === 'gold' ? '金' : color === 'red' ? '赤' : '緑';
+      const name = { blue: '青', green: '緑', red: '赤', gold: '金' }[color];
       showResult(`ステップアップ（${name}）を次のレバーに予約`, 'win');
     },
     triggerCabinetLamp: () => {
@@ -2040,7 +2063,7 @@ export async function bootstrap() {
         stepRan = true;
         stepFinalColor = STEP_COLOR_TO_LEVEL[color];
         preRoll = buildPreRoll(color);
-        setStep(STEP_LEVER);
+        setStep(STEP_BLUE);
       }
     }
 
@@ -2510,21 +2533,26 @@ export async function bootstrap() {
         const flagged = currentInternalYaku();
         if (
           flagged &&
-          (flagged.category === 'premium' || flagged.category === 'bonus') &&
-          currentEffect === 'none'
+          (flagged.category === 'premium' || flagged.category === 'bonus')
         ) {
-          // 〔2026-08-31〕**持ち越すのは無演出のゲームで引いたボーナスだけ。**
-          // クイズ・狙え・示唆が出ていたゲームは「何を狙えばいいか」を教えてあるので、
-          // 揃えられなければそこで終わり——権利ごと消える。教わったうえで外したなら
-          // それは腕の問題で、技術介入がそのまま出玉に出る。そのぶん演出の出る確率を
-          // 上げてある（無演出 0.50→0.35）。
+          // 〔2026-09-09〕**演出の有無によらず持ち越す。** 実機のAタイプは
+          // ボーナスフラグが消えない——揃うまで持ち続ける。以前は演出の出ていた
+          // ゲームでこぼしたら権利ごと消していた（技術介入を出玉へ出すため）が、
+          // 機械の振る舞いとして無理があった。
           heldBonusYaku = flagged;
           // 〔2026-08-30〕**こぼした時点で確定ランプを点ける**（第3停止の少し後）。
           // ボーナスフラグがあったのに揃わなかった＝取りこぼしたという事実は、
           // その場で分かってよい。以前は無告知のまま持ち越し、リーチ目を読める人だけが
           // 察知する形だったが、読めない人はフラグを抱えたまま延々と気づかなかった
           // （初心者の持ち越しが1900ゲーム続いていた）。
-          fireMissLamp(flagged.category === 'premium');
+          //
+          // ただし**演出が出ていたゲームは抽選**（既定50%）。「何を狙えばいいか」は
+          // もう教えてあるので、そこへランプを重ねると告知が二重になる。点かなかった
+          // 側は、リーチ目や出目の違和感から自分で気づく余地が残る。
+          const announce =
+            currentEffect === 'none' ||
+            Math.random() < tuning.announceLamp.missAnnounceWithEffect;
+          if (announce) fireMissLamp(flagged.category === 'premium');
         }
       }
       if (reachKind && heldBonusYaku) {
