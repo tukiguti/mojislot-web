@@ -38,9 +38,16 @@ export const ACTION_LABELS: readonly { action: Action; label: string }[] = [
 
 export type KeyMap = Record<Action, string>;
 
-/** 既定。実機の左から順に a・s・d で止める並びを踏襲する。 */
+/**
+ * 既定。実機の左から順に a・s・d で止める並びを踏襲する。
+ *
+ * **ベットとレバーは同じスペースに割り当てる**（2026-09-09）。実機ではメダルを
+ * 入れてからレバーを叩くが、1ゲームに必ずこの順で続くので、キーを2つ覚えさせる
+ * 意味が薄い。**スペース1回でベット、もう1回で回転**にして、片手で回せるようにする。
+ * 別々にしたい人は設定で振り分けられる。
+ */
 export const DEFAULT_KEYS: KeyMap = {
-  bet: 'b',
+  bet: ' ',
   lever: ' ',
   stop0: 'a',
   stop1: 's',
@@ -73,6 +80,19 @@ export function keyLabel(key: string): string {
 export function eventKey(ev: KeyboardEvent): string {
   if (ev.code === 'Space') return ' ';
   return ev.key.toLowerCase();
+}
+
+/**
+ * 同じキーを共有してよい操作の組。
+ *
+ * **同時に押せる状態にならない操作だけ**を入れる。ベットとレバーは、ベット前は
+ * レバーが効かず、ベット後はベットが効かないので、1つのキーで順に進められる。
+ * 他の操作は状態で分かれないので、共有すると1回の入力で2つ動いてしまう。
+ */
+const SHARED_GROUPS: readonly (readonly Action[])[] = [['bet', 'lever']];
+
+function sharesKeyWith(a: Action, b: Action): boolean {
+  return SHARED_GROUPS.some((g) => g.includes(a) && g.includes(b));
 }
 
 /** 割り当てに使えないキー。ブラウザやページの操作を奪うと戻せなくなる。 */
@@ -118,23 +138,37 @@ export class KeyBindings {
     return this.map[action];
   }
 
-  /** そのキーに割り当てられている操作。無ければ null。 */
+  /**
+   * そのキーに割り当てられている操作を**全部**返す（設定画面に出す順）。
+   * ベットとレバーのように共有できる組があるので、1つに絞らない。
+   * どれを実行するかは状態を知っている側（`main.ts`）が決める。
+   */
+  actionsFor(key: string): Action[] {
+    if (key.length === 0) return [];
+    return ACTION_LABELS.filter((r) => this.map[r.action] === key).map(
+      (r) => r.action,
+    );
+  }
+
+  /** そのキーに割り当てられている操作の先頭。無ければ null。 */
   actionFor(key: string): Action | null {
-    for (const { action } of ACTION_LABELS) {
-      if (this.map[action] === key) return action;
-    }
-    return null;
+    return this.actionsFor(key)[0] ?? null;
   }
 
   /**
    * 割り当てを変える。**同じキーが既に他で使われていたら、そちらを空ける**——
    * 重複を許すと1回の入力で2つ動いてしまう。
+   *
+   * 例外は `SHARED_GROUPS` の組（ベットとレバー）。こちらは状態で分かれるので
+   * 空けない——空けてしまうと、既定のスペース共有が1回の設定変更で壊れる。
    */
   set(action: Action, key: string): boolean {
     if (!isAssignable(key)) return false;
-    const holder = this.actionFor(key);
-    if (holder === action) return true;
-    if (holder) this.map[holder] = '';
+    for (const holder of this.actionsFor(key)) {
+      if (holder === action) continue;
+      if (sharesKeyWith(holder, action)) continue;
+      this.map[holder] = '';
+    }
     this.map[action] = key;
     this.save();
     return true;

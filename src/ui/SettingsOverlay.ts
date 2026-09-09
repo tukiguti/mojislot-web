@@ -208,7 +208,7 @@ export class SettingsOverlay {
           <div class="zukan-reset">
             <button class="reset-keys" type="button">キーを既定に戻す</button>
           </div>
-          <div class="settings-note">押す位置は<b>成績に直結します</b>。ビタ押しの判定は±12msしかないので、指が届く場所へ置いてください。押したいキーを選んでから、そのキーを押します。</div>
+          <div class="settings-note">押す位置は<b>成績に直結します</b>。ビタ押しの判定は±12msしかないので、指が届く場所へ置いてください。押したいキーを選んでから、そのキーを押します。<br />ベットとレバーは<b>既定でどちらもスペース</b>です。1回でベット、もう1回で回転します。別々にしたい時は、片方に違うキーを割り当ててください。</div>
         </div>
         <div class="settings-section">
           <div class="settings-section-label">リセット</div>
