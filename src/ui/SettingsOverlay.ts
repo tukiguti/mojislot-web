@@ -234,9 +234,9 @@ export class SettingsOverlay {
             <button data-debug="shisa" type="button">示唆発動</button>
             <button data-debug="quiz" type="button">クイズ発動</button>
             <button data-debug="tenpai" type="button">プレミアムテンパイ</button>
-            <button data-debug="step-green" type="button">次レバー段階・緑</button>
-            <button data-debug="step-red" type="button">次レバー段階・赤</button>
-            <button data-debug="step-gold" type="button">次レバー段階・金</button>
+            <button data-debug="step-green" type="button">次レバー ステップアップ緑</button>
+            <button data-debug="step-red" type="button">次レバー ステップアップ赤</button>
+            <button data-debug="step-gold" type="button">次レバー ステップアップ金</button>
             <button data-debug="cabinet-lamp" type="button">筐体ランプ</button>
             <button data-debug="bonus-result" type="button">ボーナス終了画面</button>
             <button data-debug="payout-sound" type="button">払い出し音</button>

@@ -49,6 +49,8 @@ import {
   recordSpin as recordMachineSpin,
 } from './productions/MachineData';
 import { DataLamp } from './ui/DataLamp';
+import { recordEffects } from './productions/EffectStats';
+import { EffectTable } from './ui/EffectTable';
 import { drawEndScreen } from './productions/SettingHint';
 import { drawCabinetLamp } from './productions/CabinetLamp';
 import { EffectEligibility } from './productions/EffectEligibility';
@@ -272,6 +274,11 @@ export async function bootstrap() {
    */
   const dataLamp = new DataLamp(requireEl('datalamp'), machine.number);
   dataLamp.update(readMachineDay(machine.id, new Date()));
+  /**
+   * 演出データの表（ドックの「データ」で開くシート）。自分が引いた実績から
+   * 期待度が立ち上がっていくのを見せる。仕様書の数字は出さない。
+   */
+  const effectTable = new EffectTable(requireEl('effect-table'));
   /**
    * タイトルパネル（筐体最上部の板）に島名を出す。実機のここは機種名で、
    * ホールの台選びで見えていた板と同じもの。試打台だけは島がまとめ役なので
@@ -835,6 +842,19 @@ export async function bootstrap() {
   };
   const effectStatusEl = requireEl('effect-status');
   let betPlaced = false;
+  /**
+   * この1ゲームで出た演出の控え。全停止で `EffectStats` へ流して空に戻す。
+   * **同じ演出が2回出ても1回**として数えたいので Set で持つ。
+   */
+  const spinMarks = new Set<string>();
+  /**
+   * この1ゲームでデバッグの強制を使ったか。使った回は帳簿へ入れない——
+   * 狙って出せる演出を混ぜると期待度が壊れる。
+   */
+  let spinDebugForced = false;
+  const markEffect = (key: string): void => {
+    spinMarks.add(key);
+  };
   let resultTimer: number | null = null;
   let pendingDebugEffect: ForcedEffect | null = null;
   /** デバッグ：次のレバーで強制する内部役（ボーナスのおかわり確認用）。 */
@@ -1754,6 +1774,8 @@ export async function bootstrap() {
   const resetForNextSpin = () => {
     betPlaced = false;
     setBetLamp(false);
+    spinMarks.clear();
+    spinDebugForced = false;
     bonusSession.resetSpin();
     currentRound = null;
     if (debugVisible) delete cabinetEl.dataset.internalRole;
@@ -1906,6 +1928,7 @@ export async function bootstrap() {
       // 忘れた頃に発火する（押した本人には上書きされたように見える）。
       const effect = pendingDebugEffect;
       pendingDebugEffect = null;
+      spinDebugForced = true;
       activateRound(drawDebugRole(effect), effect, 'debug');
     } else if (announcedBonus && announcedRole) {
       activateRound(
@@ -1926,6 +1949,7 @@ export async function bootstrap() {
       // デバッグ：内部役を直接指定する。演出は通常どおり抽選する（おかわりの見え方も確認したいため）。
       const forced = pendingForcedRole;
       pendingForcedRole = null;
+      spinDebugForced = true;
       const forcedYaku = internalRoleLottery.yakuFor(forced);
       activateRound(
         forced,
@@ -1983,6 +2007,8 @@ export async function bootstrap() {
           (isStepTrigger(role) && Math.random() < STEP_ENTRY_RATE))
       ) {
         const color = forcedStep ?? pickStepColor();
+        markEffect(`step-${color}`);
+        if (forcedStep !== null) spinDebugForced = true;
         stepFinalColor = STEP_COLOR_TO_LEVEL[color];
         preRoll = buildPreRoll(color);
         setStep(STEP_LEVER);
@@ -1995,6 +2021,9 @@ export async function bootstrap() {
     pendingForcedDelay = false;
     const delayMs =
       !doFreeze && (forcedDelay || rollDelay(currentRound)) ? tuning.delay.ms : 0;
+    if (delayMs > 0) markEffect('delay');
+    if (forcedDelay) spinDebugForced = true;
+    if (doFreeze) markEffect('freeze');
     const startSpin = () => {
       spinPending = false;
       // 滑りの確認は前ゲームの出目とセット。回り出したら消す
@@ -2536,6 +2565,22 @@ export async function bootstrap() {
       // 台のカウンターと戦の記録で母数の規則がずれないよう、判定はここで1度だけ。
       const inBonusSpin = bonusZone.isActive();
       const effectShown = currentEffect !== 'none';
+      // 演出の帳簿。**通常時だけ**を母数にする（ボーナス中は必ず何か出るので、
+      // 混ぜると率が動く）。デバッグで強制した回は数えない。
+      if (!inBonusSpin && !spinDebugForced) {
+        // 示唆・クイズ・狙え！はレバーONで決まっているので、ここで拾って足す。
+        if (currentEffect === 'shisa' && currentShisaTier) {
+          markEffect(`shisa-${currentShisaTier.color}`);
+        } else if (currentEffect === 'quiz' || currentEffect === 'aim') {
+          markEffect(currentEffect);
+        }
+        if (spinMarks.size > 0) {
+          effectTable.update(
+            recordEffects([...spinMarks], isPremium || isRegular),
+          );
+        }
+      }
+
       dataLamp.update(
         recordMachineSpin(machine.id, new Date(), {
           bet: calc.bet,
@@ -2825,6 +2870,7 @@ export async function bootstrap() {
     if (!held || (held.category !== 'premium' && held.category !== 'bonus')) return;
     announcedBonus = held.category === 'premium' ? 'big' : 'reg';
     announcedRole = held;
+    markEffect('lamp');
     announceLampEl.hidden = false;
     requestAnimationFrame(() => announceLampEl.classList.add('lit'));
     sfx.lamp();

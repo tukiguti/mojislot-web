@@ -411,6 +411,104 @@ body.has-chapter-bg {
   background-attachment: fixed;
 }
 
+/* === 演出データの表（ドックの「データ」のシート）===
+ * 仕様書の期待度は出さず、**自分が引いた実績**を数えて見せる。回すほど本当の値に
+ * 近づくので、攻略情報ではなく自分の記録になる。 */
+#effect-table {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.ef-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 6px;
+  padding-bottom: 3px;
+  border-bottom: 1px solid var(--cab-edge);
+}
+.ef-title {
+  font-size: 10px;
+  letter-spacing: 2px;
+  color: var(--gold);
+}
+/* 見出しの列幅は行と揃える。ずれると数字がどの列か読めない。 */
+/* 行と同じ px で刻む。em にすると見出しと行で文字サイズが違うぶん列がずれる。 */
+.ef-cols {
+  display: grid;
+  grid-template-columns: repeat(3, 46px);
+  gap: 4px;
+  font-size: 8px;
+  letter-spacing: 0;
+  white-space: nowrap;
+  color: var(--meter-label);
+}
+.ef-cols span {
+  text-align: right;
+}
+.ef-rows {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.ef-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) repeat(3, 46px);
+  gap: 4px;
+  align-items: baseline;
+  padding: 2px 4px;
+  background: var(--meter-bg);
+  border: 1px solid var(--meter-edge);
+}
+/* 回数が足りない行。**まだ読める数字ではない**ことを明度で伝える。 */
+.ef-row.thin {
+  opacity: 0.5;
+}
+.ef-label {
+  font-size: 10px;
+  letter-spacing: 0.5px;
+  color: var(--ivory);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.ef-num {
+  font-family: ui-monospace, 'SFMono-Regular', monospace;
+  font-size: 11px;
+  text-align: right;
+  color: var(--meter-label);
+}
+.ef-hit {
+  color: #ff8a7a;
+}
+.ef-rate {
+  font-weight: 700;
+  color: var(--meter-fg);
+}
+.ef-note {
+  font-size: 9px;
+  line-height: 1.5;
+  color: var(--panel-text-dim);
+}
+.ef-actions {
+  display: flex;
+}
+.ef-reset {
+  flex: 1;
+  padding: 5px 6px;
+  font-family: inherit;
+  font-size: 10px;
+  letter-spacing: 1px;
+  color: var(--aux-text);
+  background: linear-gradient(180deg, var(--aux-hi) 0%, var(--aux-lo) 100%);
+  border: 1px solid var(--cab-edge);
+  cursor: pointer;
+}
+.ef-reset:hover {
+  color: var(--gold-hi);
+  border-color: var(--gold);
+}
+
 /* === リール配列パネル === */
 #reel-strip-panel {
   order: -1; /* 配列パネルは筐体の左へ */
