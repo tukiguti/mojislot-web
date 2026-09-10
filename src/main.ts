@@ -14,6 +14,12 @@ import {
 import { PayoutCalc } from './core/PayoutCalc';
 import { CoinWallet } from './core/CoinWallet';
 import {
+  KeyBindings,
+  eventKey,
+  keyLabel,
+  type Action,
+} from './productions/KeyBindings';
+import {
   EffectScheduler,
   REEL_BASE_SPEED,
   type EffectType,
@@ -38,7 +44,13 @@ import {
   streakTierOf,
 } from './productions/EffectPresentation';
 import { settingForMachine } from './productions/HallPolicy';
-import { recordSpin as recordMachineSpin } from './productions/MachineData';
+import {
+  readMachineDay,
+  recordSpin as recordMachineSpin,
+} from './productions/MachineData';
+import { DataLamp } from './ui/DataLamp';
+import { recordEffects } from './productions/EffectStats';
+import { EffectTable } from './ui/EffectTable';
 import { drawEndScreen } from './productions/SettingHint';
 import { drawCabinetLamp } from './productions/CabinetLamp';
 import { EffectEligibility } from './productions/EffectEligibility';
@@ -80,7 +92,7 @@ import {
   setBlackoutLevel,
   clearBlackout,
   setStepFx,
-  STEP_LEVER,
+  STEP_BLUE,
   STEP_GREEN,
   STEP_RED,
   STEP_GOLD,
@@ -138,13 +150,23 @@ import {
 import {
   chapterIdOfMachine,
   getCurrentMachine,
+  islandOfMachine,
   isRemixMachine,
   isTrialMachine,
   nextRemixStage,
 } from './data/machines';
 import './style.css';
+import './skins.css';
+import { applySkin, loadSkin } from './productions/CabinetSkin';
 
-const REEL_GAP = 16;
+// 保存してある筐体の皮を、筐体が組み上がる前に張る（張り直しで一瞬ちらつくのを防ぐ）。
+applySkin(loadSkin());
+
+/**
+ * リール3本の間隔。**額（クローム）が左右に 9px ずつ張り出す**ので、16px だと
+ * 隣の額とくっついて3つの窓が1つの横長の窓に見える。実機は窓が分かれている。
+ */
+const REEL_GAP = 26;
 const REEL_COUNT = 3;
 // デバッグ等で明示指定できる演出。
 type ForcedEffect = Exclude<EffectType, 'none'>;
@@ -171,6 +193,26 @@ document.documentElement.style.setProperty(
   '--lcd-ratio',
   String(LIQUID_AREA_H / CANVAS_H),
 );
+
+/**
+ * リール3本の中心が筐体幅のどこに来るかを CSS へ渡す。
+ *
+ * ストップボタンを**リールの真下**へ置くのに使う。押す指とリールの位置が
+ * 対応していないとビタ押しは狙えないのに、以前は3つとも中央寄せだった。
+ * リールの寸法は Pixi 側の定数で決まるので、CSS に同じ数を書くと必ずずれる
+ * （`--lcd-ratio` で一度やった失敗）。ここから流し込む。
+ */
+{
+  const totalW = CELL_WIDTH * REEL_COUNT + REEL_GAP * (REEL_COUNT - 1);
+  const startX = (CANVAS_W - totalW) / 2;
+  for (let i = 0; i < REEL_COUNT; i++) {
+    const cx = startX + i * (CELL_WIDTH + REEL_GAP) + CELL_WIDTH / 2;
+    document.documentElement.style.setProperty(
+      `--reel-cx-${i}`,
+      String(cx / CANVAS_W),
+    );
+  }
+}
 
 /**
  * 複数ペイラインで揃った役の一覧を文字列要約。
@@ -230,6 +272,27 @@ export async function bootstrap() {
   // データと示唆演出から推測させる（設計: MachineSetting）。
   // **章ではなく台ごと**。同じ島の4台が同じ設定だと、台を選び分ける意味が消える。
   const machineSetting = settingForMachine(machine, new Date());
+  /**
+   * データランプ。筐体の上の表示器で、**その台の今日**を出す。
+   * 1戦の区切り（計数）ではリセットされない——日替わりのデータだから。
+   */
+  const dataLamp = new DataLamp(requireEl('datalamp'), machine.number);
+  dataLamp.update(readMachineDay(machine.id, new Date()));
+  /**
+   * 演出データの表（ドックの「データ」で開くシート）。自分が引いた実績から
+   * 期待度が立ち上がっていくのを見せる。仕様書の数字は出さない。
+   */
+  const effectTable = new EffectTable(requireEl('effect-table'));
+  /**
+   * タイトルパネル（筐体最上部の板）に島名を出す。実機のここは機種名で、
+   * ホールの台選びで見えていた板と同じもの。試打台だけは島がまとめ役なので
+   * 章名（打っている配列）の方が手掛かりになる。
+   */
+  {
+    const island = islandOfMachine(machine);
+    const titleEl = document.getElementById('machine-title');
+    if (titleEl) titleEl.textContent = island.trial ? chapter.name : island.name;
+  }
   /**
    * リミックス島はボーナスごとに島が入れ替わる（＝配列を覚え直す）。その見返りに
    * ボーナスを強くする。**この島かどうかは打っている間ずっと変わらない**ので、
@@ -334,6 +397,7 @@ export async function bootstrap() {
   );
   // デバッグ section の表示可否（遊ぶ設定で確定・既定OFF）
   const debugVisible = localStorage.getItem('mojislot.debugVisible.v1') === '1';
+  const keyBindings = new KeyBindings();
   const settingsOverlay = new SettingsOverlay(
     wallet,
     payout.initialCoins,
@@ -343,6 +407,7 @@ export async function bootstrap() {
     () => quizStats,
     challengeTracker,
     debugVisible,
+    keyBindings,
     tuning.reelSpeed,
     tuning.motionBlurStrength,
   );
@@ -607,10 +672,20 @@ export async function bootstrap() {
     voice.play(line, index);
   });
 
-  // リールエリアの背景帯
+  /**
+   * リールエリアの土台。
+   *
+   * **以前は全幅を黒で塗っていた**ので、リール3本の左右に幅の広い黒帯が残り、
+   * 液晶とリールが上下に割れた2つの箱に見えていた。実機（カルミナ系の筐体）は
+   * **液晶が前面の大半を占め、その上にリール窓が小さく浮いている**。
+   *
+   * そこで液晶と同じ土台をここまで伸ばし、**リール3本ぶんだけを不透明な窓**として
+   * 開ける。黒帯だった場所が画面の続きになり、リールは窓に嵌まって見える。
+   * 窓の中を不透明に保つのは読みやすさのため——背景が透けると出目が読めない。
+   */
   const reelBg = new Graphics();
   reelBg.rect(0, LIQUID_AREA_H, CANVAS_W, CANVAS_H - LIQUID_AREA_H);
-  reelBg.fill({ color: 0x000000 });
+  reelBg.fill(liquidGrad);
   app.stage.addChild(reelBg);
 
   const engines: ReelEngine[] = [];
@@ -618,8 +693,17 @@ export async function bootstrap() {
 
   const totalWidth = CELL_WIDTH * REEL_COUNT + REEL_GAP * (REEL_COUNT - 1);
   const startX = (app.screen.width - totalWidth) / 2;
-  // 3コマはリール領域の中央。上下に REEL_PEEK（チラ見せ）＋ FRAME_PAD（枠余白）分を残す。
-  const reelY = LIQUID_AREA_H + REEL_PEEK + FRAME_PAD;
+  /**
+   * リールの縦位置。上下に REEL_PEEK（チラ見せ）＋ FRAME_PAD（枠余白）分を残す。
+   *
+   * さらに `REEL_LIFT` だけ持ち上げて、**窓の下に画面を残す**。実機（カルミナ系）は
+   * リール窓が液晶の下寄りに浮いていて、その下にまだ画面がある。以前は窓の下端が
+   * canvas の下端とちょうど同じで、額の下半分が画面外に出て「額が3方向にしか無い」
+   * ように見えていた。
+   */
+  const REEL_LIFT = 22;
+  const reelY = LIQUID_AREA_H + REEL_PEEK + FRAME_PAD - REEL_LIFT;
+
 
   // 役単位のカラー解決：同じ役の3文字（左/中/右）が同じ色になる
   let colorResolver = new SymbolColorResolver(yakuList);
@@ -679,6 +763,53 @@ export async function bootstrap() {
   // コマ番号（0..20）の表示。デバッグ表示ONの時だけ出す。
   // 押した位置と停止位置の差＝引き込みコマ数を、画面上で数えられるようにする。
   for (const v of views) v.setShowCellIndices(debugVisible);
+
+  /**
+   * リール窓の額（クローム）。**リールの上に重ねる。**
+   *
+   * 実機（カルミナ系）のリール窓は、液晶に開いた穴に金属の枠が嵌まっていて、その
+   * 内側に光る縁がある。ここでは金属の枠がこれ、光る縁は `ReelView` の金枠が担う
+   * （あちらはテンパイで色が変わるので、機能としても分けたままにする）。
+   *
+   * 枠は `ReelView` の金枠の**外側**だけを通る。線幅の半分ずつ内外へ広がるので、
+   * パスを金枠の外周から `BEZEL/2` だけ外へ置くと、内側に食い込まない。
+   */
+  {
+    const BEZEL = 8;
+    const top = reelY - REEL_PEEK - FRAME_PAD;
+    const h = CELL_HEIGHT * VISIBLE_CELLS + (REEL_PEEK + FRAME_PAD) * 2;
+    const bezel = new Graphics();
+    for (let i = 0; i < REEL_COUNT; i++) {
+      const x = startX + i * (CELL_WIDTH + REEL_GAP);
+      // 金枠（線幅3＝±1.5）の外側から始める。重ねると金の線が半分隠れて、
+      // テンパイで色が変わっても分かりにくくなる。
+      const o = BEZEL / 2 + 2;
+      // 落ち影。窓が液晶より手前にせり出して見える。
+      bezel
+        .roundRect(x - o + 1, top - o + 2, CELL_WIDTH + o * 2, h + o * 2, 3)
+        .stroke({ color: 0x000000, width: BEZEL, alpha: 0.5 });
+      // 金属の枠
+      bezel
+        .roundRect(x - o, top - o, CELL_WIDTH + o * 2, h + o * 2, 3)
+        .stroke({ color: 0x8f96a4, width: BEZEL });
+      // 外周の暗い線。液晶の上で金属の輪郭が溶けないよう、外側だけ締める。
+      bezel
+        .roundRect(
+          x - o - BEZEL / 2,
+          top - o - BEZEL / 2,
+          CELL_WIDTH + (o + BEZEL / 2) * 2,
+          h + (o + BEZEL / 2) * 2,
+          3,
+        )
+        .stroke({ color: 0x23262e, width: 1.5 });
+      // 上辺のハイライト（光源は上）。1本入れるだけで平らな帯が金属に見える。
+      bezel
+        .moveTo(x - o, top - o - BEZEL / 2 + 1.5)
+        .lineTo(x + CELL_WIDTH + o, top - o - BEZEL / 2 + 1.5)
+        .stroke({ color: 0xe6ebf2, width: 1.5, alpha: 0.9 });
+    }
+    app.stage.addChild(bezel);
+  }
 
   // ペイラインインジケーター（リール左脇外側に1セットのみ。左右ミラーは冗長なので片側へ）
   const reelHeight = CELL_HEIGHT * VISIBLE_CELLS;
@@ -763,9 +894,53 @@ export async function bootstrap() {
   };
   updateStageStatus();
   const bonusBannerEl = requireEl('bonus-banner');
-  betTextEl.textContent = `Bet: ${calc.bet}`;
+  betTextEl.textContent = `BET ${calc.bet}`;
+  /**
+   * 払出＝このゲームで出た枚数。実機はリール直下の7セグに出る。
+   * ベットで 0 に戻し、揃った時にその枚数を出す。**前のゲームの数字が残ると
+   * 「今いくら出たか」が読めない**ので、次のベットで必ず消す。
+   */
+  const payoutEl = requireEl('payout-display');
+  const setPayout = (n: number): void => {
+    payoutEl.textContent = String(n);
+    payoutEl.classList.toggle('plus', n > 0);
+  };
+  setPayout(0);
+  /** BETランプ。メダルが入っているかを示す（実機の 3BET ランプ）。 */
+  const setBetLamp = (on: boolean): void => {
+    betTextEl.classList.toggle('on', on);
+  };
   const effectStatusEl = requireEl('effect-status');
   let betPlaced = false;
+  /**
+   * この1ゲームで出た演出の控え。全停止で `EffectStats` へ流して空に戻す。
+   * **同じ演出が2回出ても1回**として数えたいので Set で持つ。
+   */
+  const spinMarks = new Set<string>();
+  /**
+   * この1ゲームでデバッグの強制を使ったか。使った回は帳簿へ入れない——
+   * 狙って出せる演出を混ぜると期待度が壊れる。
+   */
+  let spinDebugForced = false;
+  const markEffect = (key: string): void => {
+    spinMarks.add(key);
+  };
+  /**
+   * 前ゲームで出たステップアップの終了色。**次ゲームの結果で採点する**ので持ち越す。
+   *
+   * ステップアップはレバーで光り、停止ごとに色が進み、決まった色が指すのは
+   * **次ゲーム**がボーナスかどうか。出たゲームの結果で数えると別の話になる。
+   */
+  let pendingStepKey: string | null = null;
+  /** その持ち越しがデバッグの強制だったか。強制した回は帳簿へ入れない。 */
+  let pendingStepForced = false;
+  /**
+   * このゲームでステップアップが走ったか。**演出率の母数に入れる**ために持つ。
+   * `currentEffect` は none のままなので、これが無いと「画面いっぱいに色が出た
+   * ゲーム」が無演出として数えられる（演出率は設定を読める唯一の数字なので、
+   * 見えたものと数字がずれると読めなくなる）。
+   */
+  let stepRan = false;
   let resultTimer: number | null = null;
   let pendingDebugEffect: ForcedEffect | null = null;
   /** デバッグ：次のレバーで強制する内部役（ボーナスのおかわり確認用）。 */
@@ -791,15 +966,21 @@ export async function bootstrap() {
    */
   let stepFx = 0;
   /** そのステップアップの終了色。レバーONの時点で決まっている（先読み）。 */
-  let stepFinalColor = STEP_GREEN;
+  let stepFinalColor = STEP_BLUE;
   const setStep = (step: number) => {
     stepFx = step;
     setStepFx(step);
   };
-  /** 段を1つ進める。第3停止では終了色へ飛ぶ。 */
+  /**
+   * 段を1つ進める。第3停止では終了色へ飛ぶ。
+   *
+   * **終了色を追い越さない。** 終了色が青なら3回とも青のままで、段が上がらないこと
+   * 自体が「弱い」という情報になる。クランプが無いと、青どまりのはずが第2停止で
+   * 緑まで上がってから青へ戻る＝色が後退して見える。
+   */
   const bumpStep = (to?: number) => {
     if (stepFx <= 0) return;
-    const next = to ?? stepFx + 1;
+    const next = Math.min(to ?? stepFx + 1, stepFinalColor);
     if (next <= stepFx) return;
     setStep(next);
     sfx.stepUp(next);
@@ -1008,28 +1189,45 @@ export async function bootstrap() {
    * 側からは BIG と REG を外してある（`withoutBonus`）。外した分は miss へ回すので
    * 小役の量も変わらない。フリーズ役だけは通常抽選に残す（別枠の強レア役）。
    */
-  type StepColor = 'green' | 'red' | 'gold';
+  type StepColor = 'blue' | 'green' | 'red' | 'gold';
   /** 契機役のうち、実際にステップアップへ入る割合。ここでボーナスの総量が決まる。 */
   const STEP_ENTRY_RATE = 0.055;
-  /** 色の振り分け。 */
+  /**
+   * 色の振り分け。
+   *
+   * **青を終了色に足した時（2026-09-09）、総量は動かしていない。** 青の分は緑から
+   * 取り、そのぶん緑のボーナス率を上げて、1回のステップアップから出るボーナスを
+   * 0.386 のまま揃えてある（下の検算）。ここを崩すとボーナス確率がそのまま動く
+   * ——BIG/REG はステップアップ経由でしか出ないので。
+   */
   const STEP_COLOR_RATE: readonly (readonly [StepColor, number])[] = [
-    ['green', 0.80],
+    ['blue', 0.45],
+    ['green', 0.35],
     ['red', 0.18],
     ['gold', 0.02],
   ];
   /** 色ごとの「次ゲームがボーナス」の確率。 */
   const STEP_BONUS_RATE: Record<StepColor, number> = {
-    green: 0.30,
+    blue: 0.12,
+    green: 0.53,
     red: 0.70,
     gold: 1.0,
   };
-  /** 色ごとのBIG比率（残りがREG）。全体で現状の BIG:REG ≒ 29.5:70.5 に合わせてある。 */
+  /**
+   * 色ごとのBIG比率（残りがREG）。全体で BIG:REG ≒ 29.9:70.1 に合わせてある。
+   *
+   * 検算（1回のステップアップあたり）:
+   * - ボーナス = .45×.12 + .35×.53 + .18×.70 + .02×1.0 = 0.3855（青の追加前 0.386）
+   * - うちBIG = .054×.15 + .1855×.24 + .126×.35 + .020×.92 = 0.1151（追加前 0.1153）
+   */
   const STEP_BIG_RATE: Record<StepColor, number> = {
-    green: 0.22,
+    blue: 0.15,
+    green: 0.24,
     red: 0.35,
     gold: 0.92,
   };
   const STEP_COLOR_TO_LEVEL: Record<StepColor, number> = {
+    blue: STEP_BLUE,
     green: STEP_GREEN,
     red: STEP_RED,
     gold: STEP_GOLD,
@@ -1143,12 +1341,22 @@ export async function bootstrap() {
     );
   };
 
-  // コイン残量に応じてヘッダー色を警告状態に
+  /**
+   * 差枚の符号を色で見せる。
+   *
+   * **残量の警告はもう無い**——借りない方式にしたので、残高で打てなくなることがない。
+   * 以前は15枚以下で赤、50枚以下で黄にして「そろそろ入れろ」を伝えていた。
+   */
   const updateCoinWarning = (n: number) => {
-    coinEl.classList.remove('warning', 'critical');
-    if (n <= 15) coinEl.classList.add('critical');
-    else if (n <= 50) coinEl.classList.add('warning');
+    coinEl.classList.toggle('minus', n < 0);
+    coinEl.classList.toggle('plus', n > 0);
   };
+
+  /**
+   * 差枚の表示。0 から下へ進むので符号を付けないと減っているのが読めない。
+   * ラベル（「差枚」）は情報パネルの `.ip-label` が持つので、ここは数字だけ。
+   */
+  const coinLabel = (n: number): string => `${n > 0 ? '+' : ''}${n}`;
 
   // コイン表示をなめらかにカウントアップ
   let displayedCoin = wallet.coins.get();
@@ -1159,7 +1367,7 @@ export async function bootstrap() {
     const start = displayedCoin;
     const diff = target - start;
     if (diff === 0) {
-      coinEl.textContent = `MEDAL ${target}`;
+      coinEl.textContent = coinLabel(target);
       return;
     }
     const durMs = Math.min(900, 200 + Math.abs(diff) * 8);
@@ -1168,7 +1376,7 @@ export async function bootstrap() {
       const t = Math.min(1, (now - startTime) / durMs);
       const eased = 1 - Math.pow(1 - t, 3);
       displayedCoin = Math.round(start + diff * eased);
-      coinEl.textContent = `MEDAL ${displayedCoin}`;
+      coinEl.textContent = coinLabel(displayedCoin);
       if (t < 1) {
         coinAnimRaf = requestAnimationFrame(step);
       } else {
@@ -1178,7 +1386,7 @@ export async function bootstrap() {
     };
     coinAnimRaf = requestAnimationFrame(step);
   };
-  coinEl.textContent = `MEDAL ${displayedCoin}`;
+  coinEl.textContent = coinLabel(displayedCoin);
   updateCoinWarning(displayedCoin);
   wallet.coins.subscribe(animateCoinTo);
 
@@ -1186,36 +1394,25 @@ export async function bootstrap() {
   const unitMedalEl = document.getElementById('unit-medal');
   if (unitMedalEl) {
     const setMedal = (n: number) => {
-      unitMedalEl.textContent = String(n);
+      // 借りないので 0 から下へ進む。符号を付けないと「減っている」が読めない。
+      unitMedalEl.textContent = `${n > 0 ? '+' : ''}${n}`;
+      unitMedalEl.classList.toggle('plus', n > 0);
+      unitMedalEl.classList.toggle('minus', n < 0);
     };
     setMedal(wallet.coins.get());
     wallet.coins.subscribe(setMedal);
   }
-  // メダル貸出＝投資（lend）。役の払い出し(win)とは別物＝差枚会計の「投資」側。
-  for (const btn of document.querySelectorAll<HTMLButtonElement>(
-    '#unit-panel .coin-add',
-  )) {
-    btn.addEventListener('click', () => {
-      const n = Number(btn.dataset.amount ?? '0');
-      if (n > 0) wallet.lend(n);
-    });
-  }
-
-  // サンドの差枚/投資ライブ表示：差枚 = 現在の持メダル − この戦の投資累計。
+  // 差枚は coins そのもの（借りないので持メダルと差枚が一致する）。投資はベット総額。
   const unitInvestEl = document.getElementById('unit-invest');
-  const unitSahmaiEl = document.getElementById('unit-sahmai');
+  const unitPaybackEl = document.getElementById('unit-payback');
   const renderSahmai = () => {
     if (unitInvestEl) unitInvestEl.textContent = String(wallet.investmentTotal.get());
-    if (unitSahmaiEl) {
-      const s = wallet.sahmai();
-      unitSahmaiEl.textContent = `${s > 0 ? '+' : ''}${s}`;
-      unitSahmaiEl.classList.toggle('plus', s > 0);
-      unitSahmaiEl.classList.toggle('minus', s < 0);
-    }
+    if (unitPaybackEl) unitPaybackEl.textContent = String(wallet.paybackTotal.get());
   };
   renderSahmai();
   wallet.coins.subscribe(renderSahmai);
   wallet.investmentTotal.subscribe(renderSahmai);
+  wallet.paybackTotal.subscribe(renderSahmai);
 
   // 戦専用カウンタ（RunRecord 用）。PlayStats は章混在の累計なので差分算出に使えず別持ちする。
   // recordSpin の確定フックで増分し、計数（count-btn）でスナップショット→0リセット。
@@ -1238,8 +1435,13 @@ export async function bootstrap() {
     runReelSpeedMax = Math.max(runReelSpeedMax, speed);
   };
 
-  // 計数＝この戦を締める：spinCount>0 なら1戦を RunHistory に確定記録し、持メダルを流す(0に)＋投資/戦カウンタをリセット。
-  document.getElementById('count-btn')?.addEventListener('click', () => {
+  // 計数＝この戦を締める：spinCount>0 なら1戦を RunHistory に確定記録し、差枚と戦カウンタをリセット。
+  //
+  // 呼び口は**操作部の右端の1つだけ**。以前はドックにも同じ動作のボタンがあり、
+  // しかも名前が「精算」と「計数」で違っていた。実機では精算＝クレジットを戻す、
+  // 計数＝メダルを流す、で別物なので、同じ動作に2つの名前を付けるのは紛らわしい。
+  // ここがやるのはメダルを流す方なので「計数」に統一した。
+  const settleRun = (): void => {
     // 計数=この戦の区切り。計測中なら自動停止（sahmai が0に戻り時速が誤って跳ねるのを防ぐ）。
     // ※ runTimer は下方で生成（このハンドラはクリック時=bootstrap完了後に走るので参照は安全）
     runTimer.stop();
@@ -1247,8 +1449,9 @@ export async function bootstrap() {
     // 次に通常へ戻る時から別の曲になる。今かかっている音は変えない——
     // 締めた直後に切り替わると、計数の余韻が途切れる。
     bgm.reshuffle();
+    // 借りないので、投資＝ベット総額・回収＝払い出し総額。機械割は payback / investment。
     const investment = wallet.investmentTotal.get();
-    const payback = wallet.coins.get();
+    const payback = wallet.paybackTotal.get();
     // 空打ち（1回も回さず計数）は機械割が算出不能なので記録しない＝離脱は破棄に準ずる
     if (runSpinCount > 0) {
       appendRunRecord({
@@ -1292,7 +1495,37 @@ export async function bootstrap() {
     runAutoUsed = false;
     runReelSpeedMin = Infinity;
     runReelSpeedMax = -Infinity;
-  });
+  };
+  /**
+   * メニュー（ドックの「メニュー」）。**遊技中に触らないもの**をまとめる。
+   * 計数・消音・ホールへ戻る。オートは遊技中に切り替えるのでドックへ直接置いた。
+   */
+  {
+    const overlay = document.getElementById('menu-overlay');
+    const openBtn = document.getElementById('dock-menu');
+    const closeMenu = (): void => {
+      if (!overlay) return;
+      overlay.hidden = true;
+      openBtn?.classList.remove('on');
+    };
+    openBtn?.addEventListener('click', () => {
+      if (!overlay) return;
+      const open = overlay.hidden === true;
+      overlay.hidden = !open;
+      openBtn.classList.toggle('on', open);
+    });
+    overlay?.querySelector('.menu-close')?.addEventListener('click', closeMenu);
+    // 背景を押しても閉じる。開いたまま打てると、次のゲームでシートが邪魔になる。
+    overlay?.addEventListener('click', (ev) => {
+      if (ev.target === overlay) closeMenu();
+    });
+    // 中の操作を選んだら閉じる。押した結果が見えないと、効いたのか分からない。
+    for (const item of overlay?.querySelectorAll('.menu-item') ?? []) {
+      item.addEventListener('click', closeMenu);
+    }
+  }
+
+  document.getElementById('settle-btn')?.addEventListener('click', settleRun);
 
   // 戦の計測タイマー（サンド下部）。フリー=カウントアップ／プリセット分数=カウントダウン。
   // 詳細は ui/RunTimer.ts。計数(count-btn)で締める時に runTimer.stop() を呼ぶ。
@@ -1498,10 +1731,10 @@ export async function bootstrap() {
       window.setTimeout(() => views[2].stopTenpaiFlash(), 2500);
     },
     triggerNextStepUp: (color: StepColor) => {
-      // 素の出現率はチャンス役の 5.5%、しかも色は 緑80/赤18/金2 なので金は待てない。
+      // 素の出現率はチャンス役の 5.5%、しかも色は 青45/緑35/赤18/金2 なので金は待てない。
       pendingStepColor = color;
-      const name = color === 'gold' ? '金' : color === 'red' ? '赤' : '緑';
-      showResult(`段階演出（${name}）を次のレバーに予約`, 'win');
+      const name = { blue: '青', green: '緑', red: '赤', gold: '金' }[color];
+      showResult(`ステップアップ（${name}）を次のレバーに予約`, 'win');
     },
     triggerCabinetLamp: () => {
       // 設定示唆のランプ。素はボーナス終了時にしか点かないので単体で見られるようにする。
@@ -1678,6 +1911,10 @@ export async function bootstrap() {
 
   const resetForNextSpin = () => {
     betPlaced = false;
+    setBetLamp(false);
+    spinMarks.clear();
+    spinDebugForced = false;
+    stepRan = false;
     bonusSession.resetSpin();
     currentRound = null;
     if (debugVisible) delete cabinetEl.dataset.internalRole;
@@ -1754,6 +1991,8 @@ export async function bootstrap() {
     recordRunSpeed(reelSpeed());
     if (autoMode) runAutoUsed = true;
     betPlaced = true;
+    setBetLamp(true);
+    setPayout(0);
     resultEl.classList.remove('visible');
     flashButton(betBtn);
     sfx.bet();
@@ -1828,6 +2067,7 @@ export async function bootstrap() {
       // 忘れた頃に発火する（押した本人には上書きされたように見える）。
       const effect = pendingDebugEffect;
       pendingDebugEffect = null;
+      spinDebugForced = true;
       activateRound(drawDebugRole(effect), effect, 'debug');
     } else if (announcedBonus && announcedRole) {
       activateRound(
@@ -1848,6 +2088,7 @@ export async function bootstrap() {
       // デバッグ：内部役を直接指定する。演出は通常どおり抽選する（おかわりの見え方も確認したいため）。
       const forced = pendingForcedRole;
       pendingForcedRole = null;
+      spinDebugForced = true;
       const forcedYaku = internalRoleLottery.yakuFor(forced);
       activateRound(
         forced,
@@ -1885,29 +2126,43 @@ export async function bootstrap() {
       const role = rolled.role;
       // フリーズ役を引いた＝その場でBIG確定。演出は出さずフリーズシーケンスへ渡す。
       doFreeze = role.freeze;
-      const effect: EffectType = doFreeze ? 'none' : rolled.effect;
-      activateRound(role, effect, doFreeze ? 'freeze' : 'lottery');
 
       // **チェリーと払い出しの大きい小役から、一部がステップアップへ入る。**
-      // 実機の「チャンス役から前兆」と同じ形。このゲームのことは何も言わない
-      // （契機の役は狙えば揃うし、揃わなくても予告は生きる）ので、
-      // 演出の有無とは無関係に出す。
+      // 実機の「チャンス役から前兆」と同じ形。
       //
       // ボーナス中は出さない。次ゲームもボーナス中で、そこでは毎ゲーム演出が
       // 出る（none=0）ので予告するものが無い。
       // デバッグ予約は契機役かどうかを問わない（狙って出せないと確認にならない）。
+      //
+      // **入るかどうかを演出より先に決める。** 入るならこのゲームの演出は出さない
+      // ——ステップアップは画面全体を色で塗り、示唆も画面全体を色で塗るので、
+      // 重ねると**2つの色が同時に出て、どちらが何の話か読めなくなる**。しかも
+      // 示唆はこのゲーム、ステップアップは次ゲームの話で、軸まで違う。
+      // 遅れで一度やった判断と同じ（無演出のゲームでしか出さない）。
+      //
+      // **入る条件そのものは変えていない。** ここを絞るとステップアップが減り、
+      // BIG/REG はステップアップ経由でしか出ないので出玉ごと動いてしまう。
       const forcedStep = pendingStepColor;
       pendingStepColor = null;
-      if (
+      const startStep =
         !doFreeze &&
         !bonusSession.spinActive &&
         (forcedStep !== null ||
-          (isStepTrigger(role) && Math.random() < STEP_ENTRY_RATE))
-      ) {
+          (isStepTrigger(role) && Math.random() < STEP_ENTRY_RATE));
+
+      const effect: EffectType = doFreeze || startStep ? 'none' : rolled.effect;
+      activateRound(role, effect, doFreeze ? 'freeze' : 'lottery');
+
+      if (startStep) {
         const color = forcedStep ?? pickStepColor();
+        // このゲームではなく**次ゲーム**の結果で採点するので、控えではなく持ち越しへ。
+        pendingStepKey = `step-${color}`;
+        pendingStepForced = forcedStep !== null;
+        if (forcedStep !== null) spinDebugForced = true;
+        stepRan = true;
         stepFinalColor = STEP_COLOR_TO_LEVEL[color];
         preRoll = buildPreRoll(color);
-        setStep(STEP_LEVER);
+        setStep(STEP_BLUE);
       }
     }
 
@@ -1917,6 +2172,9 @@ export async function bootstrap() {
     pendingForcedDelay = false;
     const delayMs =
       !doFreeze && (forcedDelay || rollDelay(currentRound)) ? tuning.delay.ms : 0;
+    if (delayMs > 0) markEffect('delay');
+    if (forcedDelay) spinDebugForced = true;
+    if (doFreeze) markEffect('freeze');
     const startSpin = () => {
       spinPending = false;
       // 滑りの確認は前ゲームの出目とセット。回り出したら消す
@@ -2374,21 +2632,26 @@ export async function bootstrap() {
         const flagged = currentInternalYaku();
         if (
           flagged &&
-          (flagged.category === 'premium' || flagged.category === 'bonus') &&
-          currentEffect === 'none'
+          (flagged.category === 'premium' || flagged.category === 'bonus')
         ) {
-          // 〔2026-08-31〕**持ち越すのは無演出のゲームで引いたボーナスだけ。**
-          // クイズ・狙え・示唆が出ていたゲームは「何を狙えばいいか」を教えてあるので、
-          // 揃えられなければそこで終わり——権利ごと消える。教わったうえで外したなら
-          // それは腕の問題で、技術介入がそのまま出玉に出る。そのぶん演出の出る確率を
-          // 上げてある（無演出 0.50→0.35）。
+          // 〔2026-09-09〕**演出の有無によらず持ち越す。** 実機のAタイプは
+          // ボーナスフラグが消えない——揃うまで持ち続ける。以前は演出の出ていた
+          // ゲームでこぼしたら権利ごと消していた（技術介入を出玉へ出すため）が、
+          // 機械の振る舞いとして無理があった。
           heldBonusYaku = flagged;
           // 〔2026-08-30〕**こぼした時点で確定ランプを点ける**（第3停止の少し後）。
           // ボーナスフラグがあったのに揃わなかった＝取りこぼしたという事実は、
           // その場で分かってよい。以前は無告知のまま持ち越し、リーチ目を読める人だけが
           // 察知する形だったが、読めない人はフラグを抱えたまま延々と気づかなかった
           // （初心者の持ち越しが1900ゲーム続いていた）。
-          fireMissLamp(flagged.category === 'premium');
+          //
+          // ただし**演出が出ていたゲームは抽選**（既定50%）。「何を狙えばいいか」は
+          // もう教えてあるので、そこへランプを重ねると告知が二重になる。点かなかった
+          // 側は、リーチ目や出目の違和感から自分で気づく余地が残る。
+          const announce =
+            currentEffect === 'none' ||
+            Math.random() < tuning.announceLamp.missAnnounceWithEffect;
+          if (announce) fireMissLamp(flagged.category === 'premium');
         }
       }
       if (reachKind && heldBonusYaku) {
@@ -2438,6 +2701,7 @@ export async function bootstrap() {
         if (quizMatched) sfx.quizCorrect();
         else sfx.quizWrong();
       }
+      setPayout(win);
       if (win > 0) {
         wallet.win(win);
         // 3枚で1発。枚数が音の長さになるので、数字を読まなくても大きさが分かる。
@@ -2456,14 +2720,46 @@ export async function bootstrap() {
       // 演出率は設定を読める唯一の数字なので、通常時だけを母数にして数える。
       // 台のカウンターと戦の記録で母数の規則がずれないよう、判定はここで1度だけ。
       const inBonusSpin = bonusZone.isActive();
-      const effectShown = currentEffect !== 'none';
-      recordMachineSpin(machine.id, new Date(), {
-        bet: calc.bet,
-        win,
-        bonus: isPremium ? 'big' : isRegular ? 'reg' : null,
-        inBonus: inBonusSpin,
-        effect: effectShown,
-      });
+      // ステップアップは currentEffect に乗らないが、画面いっぱいに色が出る
+      // ＝打ち手には「演出が出た」ゲーム。演出率の母数はその見え方に合わせる。
+      const effectShown = currentEffect !== 'none' || stepRan;
+      // 演出の帳簿。**通常時だけ**を母数にする（ボーナス中は必ず何か出るので、
+      // 混ぜると率が動く）。デバッグで強制した回は数えない。
+      //
+      // ステップアップは前ゲームから持ち越して**このゲームの結果**で採点する。
+      // あれが指しているのは次ゲームだから。ボーナス中に着地したら捨てる
+      // （予告した相手がボーナス消化になっていて、当たり外れを問えない）。
+      const carriedStep = pendingStepKey;
+      const carriedForced = pendingStepForced;
+      pendingStepKey = null;
+      pendingStepForced = false;
+
+      if (!inBonusSpin) {
+        const keys: string[] = [];
+        if (!spinDebugForced) {
+          // 示唆・クイズ・狙え！はレバーONで決まっているので、ここで拾って足す。
+          if (currentEffect === 'shisa' && currentShisaTier) {
+            markEffect(`shisa-${currentShisaTier.color}`);
+          } else if (currentEffect === 'quiz' || currentEffect === 'aim') {
+            markEffect(currentEffect);
+          }
+          keys.push(...spinMarks);
+        }
+        if (carriedStep && !carriedForced) keys.push(carriedStep);
+        if (keys.length > 0) {
+          effectTable.update(recordEffects(keys, isPremium || isRegular));
+        }
+      }
+
+      dataLamp.update(
+        recordMachineSpin(machine.id, new Date(), {
+          bet: calc.bet,
+          win,
+          bonus: isPremium ? 'big' : isRegular ? 'reg' : null,
+          inBonus: inBonusSpin,
+          effect: effectShown,
+        }),
+      );
 
       // 戦専用カウンタも同じ確定点で増分（計数で RunRecord に確定する）
       runSpinCount += 1;
@@ -2744,6 +3040,7 @@ export async function bootstrap() {
     if (!held || (held.category !== 'premium' && held.category !== 'bonus')) return;
     announcedBonus = held.category === 'premium' ? 'big' : 'reg';
     announcedRole = held;
+    markEffect('lamp');
     announceLampEl.hidden = false;
     requestAnimationFrame(() => announceLampEl.classList.add('lit'));
     sfx.lamp();
@@ -3034,10 +3331,29 @@ export async function bootstrap() {
 
   // === リール配列パネルの開閉（≤ 900px ではオーバーレイで開く） ===
   const reelStripPanel = document.getElementById('reel-strip-panel');
-  const reelStripBtn = document.getElementById('reel-strip-btn');
+  const reelStripBtn = document.getElementById('dock-reels');
   const reelStripClose = reelStripPanel?.querySelector<HTMLButtonElement>('.strip-close');
+  const unitPanelEl = document.getElementById('unit-panel');
+  const dockUnitBtn = document.getElementById('dock-unit');
+
+  /**
+   * シートは1枚だけ開く。**縦長では両方とも画面下から出る**ので、重ねると
+   * 後ろの内容が読めなくなる。開く側が相手を閉じる。
+   */
+  const closeSheets = (except?: Element | null): void => {
+    if (reelStripPanel && reelStripPanel !== except) {
+      reelStripPanel.classList.remove('open');
+      reelStripBtn?.classList.remove('on');
+    }
+    if (unitPanelEl && unitPanelEl !== except) {
+      unitPanelEl.classList.remove('open');
+      dockUnitBtn?.classList.remove('on');
+    }
+  };
+
   const toggleReelStrip = () => {
     if (!reelStripPanel) return;
+    closeSheets(reelStripPanel);
     const isOpen = reelStripPanel.classList.toggle('open');
     if (reelStripBtn) reelStripBtn.classList.toggle('on', isOpen);
   };
@@ -3047,14 +3363,37 @@ export async function bootstrap() {
     reelStripBtn?.classList.remove('on');
   });
 
+  /**
+   * 画面下のドック。**開いて読むものはここに集める**——遊技中に触るのは
+   * レバーと停止とベットだけで、配列やデータは手を止めて見るものだから、
+   * 筐体のヘッダーではなく画面の縁に置く。参考にしたスロットアプリと同じ位置。
+   *
+   * 開閉の判定は既にある要素へ委譲する（ここで持つと2箇所に同じ状態ができる）。
+   */
+  dockUnitBtn?.addEventListener('click', () => {
+    if (!unitPanelEl) return;
+    closeSheets(unitPanelEl);
+    const isOpen = unitPanelEl.classList.toggle('open');
+    dockUnitBtn.classList.toggle('on', isOpen);
+  });
+  document
+    .getElementById('dock-zukan')
+    ?.addEventListener('click', () => zukanBtn.click());
+  document
+    .getElementById('dock-settings')
+    ?.addEventListener('click', () => settingsBtn.click());
+
+  /**
+   * 消音の表示。**アイコンと見出しだけを書き換える**——ボタンごと textContent で
+   * 上書きしていたので、メニューへ移した時に説明文まで消えていた。
+   */
   const updateMuteUI = () => {
-    if (sfx.isMuted()) {
-      muteBtn.textContent = '🔇';
-      muteBtn.classList.add('muted');
-    } else {
-      muteBtn.textContent = '♪';
-      muteBtn.classList.remove('muted');
-    }
+    const muted = sfx.isMuted();
+    const icon = muteBtn.querySelector('.menu-icon');
+    const label = muteBtn.querySelector('.menu-text b');
+    if (icon) icon.textContent = muted ? '🔇' : '♪';
+    if (label) label.textContent = muted ? '消音を解除' : '消音';
+    muteBtn.classList.toggle('muted', muted);
   };
   muteBtn.addEventListener('click', () => {
     sfx.init();
@@ -3147,10 +3486,47 @@ export async function bootstrap() {
 
   // === キーボードショートカット ===
   // B = BET, Space = LEVER, A/S/D = STOP 左/中/右
-  const KEY_TO_REEL: Record<string, number> = {
-    a: 0,
-    s: 1,
-    d: 2,
+  /** 操作の中身。キーからも画面のボタンからも同じものを呼ぶ。 */
+  const runAction = (action: Action, timeStamp: number): void => {
+    switch (action) {
+      case 'bet':
+        placeBet();
+        return;
+      case 'lever':
+        pullLever();
+        return;
+      case 'stop0':
+      case 'stop1':
+      case 'stop2': {
+        const idx = Number(action.slice(4));
+        // 停止済みのリールをもう一度押すと滑りコマ数が出る（押せる意味が違う）。
+        if (engines[idx]?.state.get() !== 'spinning') toggleSlipBadge(idx);
+        else stopReel(idx, timeStamp);
+        return;
+      }
+      case 'auto':
+        if (!autoAvailable) return;
+        if (autoMode) stopAuto();
+        else startAuto();
+        return;
+      case 'mute':
+        sfx.init();
+        bgm.init();
+        sfx.toggleMute();
+        bgm.setMuted(sfx.isMuted());
+        voice.setMuted(sfx.isMuted());
+        updateMuteUI();
+        return;
+      case 'zukan':
+        zukanOverlay.toggle();
+        return;
+      case 'settings':
+        settingsOverlay.toggle();
+        return;
+      case 'reelStrip':
+        toggleReelStrip();
+        return;
+    }
   };
 
   window.addEventListener('keydown', (ev) => {
@@ -3161,9 +3537,9 @@ export async function bootstrap() {
     ) {
       return;
     }
-    const key = ev.key.toLowerCase();
 
-    // クイズは回答操作なし方式のためキー回答は廃止（答えは全停止後に提示）。
+    // 割り当ての変更中はゲームを動かさない（押したキーを拾う側が受け取る）。
+    if (settingsOverlay.isCapturingKey()) return;
 
     // フリーズ演出中はゲーム操作キーを全てブロック
     if (freezeActive) {
@@ -3171,56 +3547,46 @@ export async function bootstrap() {
       return;
     }
 
-    if (key === 'b') {
-      ev.preventDefault();
-      placeBet();
-      return;
-    }
-    if (key === ' ' || ev.code === 'Space') {
-      ev.preventDefault();
-      pullLever();
-      return;
-    }
-    if (key in KEY_TO_REEL) {
-      ev.preventDefault();
-      const idx = KEY_TO_REEL[key];
-      if (engines[idx]?.state.get() !== 'spinning') toggleSlipBadge(idx);
-      else stopReel(idx, ev.timeStamp);
-      return;
-    }
-    if (key === 'z') {
-      ev.preventDefault();
-      zukanOverlay.toggle();
-      return;
-    }
-    if (key === 'm') {
-      ev.preventDefault();
-      sfx.init();
-      bgm.init();
-      sfx.toggleMute();
-      bgm.setMuted(sfx.isMuted());
-      voice.setMuted(sfx.isMuted());
-      updateMuteUI();
-      return;
-    }
-    if (key === 'o') {
-      ev.preventDefault();
-      if (!autoAvailable) return;
-      if (autoMode) stopAuto();
-      else startAuto();
-      return;
-    }
-    if (key === ',') {
-      ev.preventDefault();
-      settingsOverlay.toggle();
-      return;
-    }
-    if (key === 'r') {
-      ev.preventDefault();
-      toggleReelStrip();
-      return;
-    }
+    const actions = keyBindings.actionsFor(eventKey(ev));
+    if (actions.length === 0) return;
+    ev.preventDefault();
+    // ベットとレバーは同じキーを共有できる（既定はどちらもスペース）。
+    // **どちらを実行するかは状態で決まる**——ベット前ならベット、ベット後ならレバー。
+    // 押せる方は必ず1つしかないので、1回押すたびに1つ進む。
+    const action =
+      actions.includes('bet') && actions.includes('lever')
+        ? betPlaced
+          ? 'lever'
+          : 'bet'
+        : actions[0];
+    runAction(action, ev.timeStamp);
   });
+
+  /**
+   * 画面下のキーヒントを今の割り当てで書き直す。**直書きの案内は嘘になる**——
+   * 割り当てを変えられるようにした以上、A・S・D と出したままにはできない。
+   */
+  const renderKeyHint = (): void => {
+    const el = document.getElementById('key-hint');
+    if (!el) return;
+    const k = (a: Action): string => {
+      const key = keyBindings.get(a);
+      return key ? keyLabel(key) : '—';
+    };
+    // 同じキーなら1つにまとめる。「Space:レバー / … / Space:BET」だと、
+    // 2つ書いてあるぶん別々のキーに見える。
+    const bet = keyBindings.get('bet');
+    const lever = keyBindings.get('lever');
+    const head =
+      bet && bet === lever
+        ? `${k('bet')}:BET→レバー`
+        : `${k('bet')}:BET / ${k('lever')}:レバー`;
+    el.textContent = `${head} / ${k('stop0')}・${k('stop1')}・${k('stop2')}:ストップ`;
+  };
+  renderKeyHint();
+  // 割り当てが変わったら呼び直す。**開閉のタイミングに賭けない**——設定を閉じた時に
+  // 更新する形にしていたが、閉じ方が複数あって取りこぼした（×ボタン・Esc・背景）。
+  settingsOverlay.setKeyBindingListener(renderKeyHint);
 
   updateButtons();
 }

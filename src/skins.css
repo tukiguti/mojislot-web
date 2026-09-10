@@ -1,0 +1,279 @@
+/**
+ * 筐体の皮（スキン）。
+ *
+ * `style.css` の `:root` にある `--cab-*` / `--head-*` / `--bar-*` / `--panel-*` /
+ * `--deck-*` / `--stop-*` / `--side-*` だけを上書きする。筐体の chrome はこの変数群
+ * しか見ていないので、ここを差し替えれば見た目が丸ごと変わる。
+ *
+ * **寸法は持たせない。** 皮が高さや幅を動かすと、向きで切り替わるレイアウト
+ * （縦長／横長）の計算が崩れる。持つのは色・質感・書体だけ。
+ *
+ * 角丸（`--cab-radius`）は皮で変えられる作りにしてあるが、**どの皮も 0 のまま**に
+ * している。実機の筐体は成形板の角ばった箱で、丸めるとアプリのカードに見える。
+ *
+ * `royal` は `:root` の既定値そのものなので、ここに規則は要らない（データ属性が
+ * 無い＝royal）。`src/productions/CabinetSkin.ts` が `body[data-skin]` を張る。
+ */
+
+/* === ミッドナイト：黒×ホログラム（現代機・スマスロ路線）===
+ * 面はほぼ黒のヘアライン仕上げ。光は電光シアンに寄せ、金を一切使わない。
+ * 縁の金属を明るくして、面との明度差で厚みを出す。 */
+body[data-skin='midnight'],
+.skin-chip-midnight {
+  --cab-face-hi: #171a22;
+  --cab-face-lo: #0a0c11;
+  --cab-texture: repeating-linear-gradient(
+    90deg,
+    rgba(255, 255, 255, 0.035) 0 1px,
+    transparent 1px 3px
+  );
+  --cab-edge: #9aa2b4;
+  --cab-line-1: #1e3358;
+  --cab-line-2: rgba(122, 226, 255, 0.3);
+  --cab-sheen: rgba(255, 255, 255, 0.14);
+  --cab-glow: rgba(56, 160, 255, 0.38);
+
+  --head-hi: #10141c;
+  --head-lo: #06080c;
+  --head-rule: #4a5468;
+  --mark-color: #dff4ff;
+  --mark-spacing: 4px;
+  --mark-glow: rgba(90, 200, 255, 0.55);
+  --bulb-a: #b7f0ff;
+  --bulb-b: rgba(96, 120, 255, 0.45);
+  --bulb-glow: rgba(96, 180, 255, 0.6);
+
+  --bar-hi: rgba(20, 26, 36, 0.92);
+  --bar-lo: rgba(8, 11, 17, 0.94);
+  --bar-rule: rgba(122, 226, 255, 0.35);
+  --meter-bg: #03060a;
+  --meter-edge: #1d2836;
+  --meter-fg: #7ff0ff;
+  --meter-glow: rgba(80, 230, 255, 0.5);
+  --meter-label: #6d8496;
+
+  --panel-hi: #171a22;
+  --panel-lo: #0a0c11;
+  --panel-text-dim: #5d6a7d;
+  --grille-bg: #05070b;
+  --grille-dot: #223142;
+
+  --deck-hi: #1e2733;
+  --deck-lo: #0d131c;
+  --deck-hi-2: #2a3644;
+  --deck-lo-2: #141c27;
+  --deck-text: #dff4ff;
+  --deck-ring: rgba(122, 226, 255, 0.32);
+  /* STOP も氷青へ。朱＝STOP の一点という現行の規律は royal のもので、
+     この皮では「光っている透明ボタン」に置き換える（文字は暗色で抜く）。 */
+  --stop-1: #a8f6ff;
+  --stop-2: #17a8dd;
+  --stop-3: #05405f;
+  --stop-1h: #c4faff;
+  --stop-2h: #2cc0f2;
+  --stop-3h: #0a5378;
+  --stop-ring: #b9c4d4;
+  --stop-halo: rgba(60, 190, 255, 0.5);
+  --stop-text: #04222e;
+  --aux-hi: #131922;
+  --aux-lo: #080c12;
+  --aux-text: #9fb3c8;
+
+  --lcd-rule: rgba(122, 226, 255, 0.3);
+  --side-hi: #141821;
+  --side-lo: #0a0d13;
+  --side-line: rgba(122, 226, 255, 0.22);
+  --side-glow: rgba(56, 160, 255, 0.3);
+  --unit-hi: #10141c;
+  --unit-lo: #06090e;
+}
+
+/* === レトロ：木目×朱×クリーム（4号機路線）===
+ * 面は木目、操作部はクリームの成形板、計器は赤い 7 セグ。角丸を落として
+ * 角ばらせる。豆電球は電球色にして、電飾＝本物の豆電球に見せる。 */
+body[data-skin='retro'],
+.skin-chip-retro {
+  --cab-face-hi: #7a5233;
+  --cab-face-lo: #402a19;
+  --cab-texture: repeating-linear-gradient(
+    92deg,
+    rgba(0, 0, 0, 0.16) 0 2px,
+    rgba(255, 236, 196, 0.05) 2px 5px,
+    transparent 5px 11px
+  );
+  --cab-edge: #e3cfa4;
+  --cab-line-1: #8c2f22;
+  --cab-line-2: rgba(240, 220, 170, 0.45);
+  --cab-sheen: rgba(255, 235, 190, 0.16);
+  --cab-glow: rgba(214, 132, 48, 0.38);
+
+  --head-hi: #6f4d30;
+  --head-lo: #3d2817;
+  --head-rule: #b99a63;
+  --mark-color: #ffe6ab;
+  --mark-spacing: 3px;
+  --mark-glow: rgba(255, 150, 60, 0.5);
+  --bulb-a: #ffe6ab;
+  --bulb-b: rgba(217, 74, 47, 0.55);
+  --bulb-glow: rgba(255, 170, 70, 0.65);
+
+  --bar-hi: rgba(48, 30, 18, 0.95);
+  --bar-lo: rgba(26, 16, 9, 0.95);
+  --bar-rule: rgba(240, 220, 170, 0.4);
+  --meter-bg: #180604;
+  --meter-edge: #4a2318;
+  --meter-fg: #ff6a3d;
+  --meter-glow: rgba(255, 90, 50, 0.55);
+  --meter-label: #a37b52;
+
+  /* 操作部だけクリームの成形板。文字とボタンは暗色へ入れ替える。 */
+  --panel-hi: #e6d4ad;
+  --panel-lo: #b99a6c;
+  --panel-text-dim: #6b573a;
+  --grille-bg: #1a1008;
+  --grille-dot: #6b4a22;
+
+  --deck-hi: #d9c091;
+  --deck-lo: #a8875c;
+  --deck-hi-2: #e8d2a8;
+  --deck-lo-2: #b9976a;
+  --deck-text: #3a2410;
+  --deck-ring: rgba(90, 55, 20, 0.45);
+  --stop-1: #ff6a52;
+  --stop-2: #d3301f;
+  --stop-3: #7c0f06;
+  --stop-1h: #ff8570;
+  --stop-2h: #e63e2b;
+  --stop-3h: #8e150a;
+  --stop-ring: #f0dcae;
+  --stop-halo: rgba(211, 48, 31, 0.5);
+  --stop-text: #fff;
+  --aux-hi: #c9b184;
+  --aux-lo: #9c8055;
+  --aux-text: #33200c;
+
+  --lcd-rule: rgba(240, 220, 170, 0.4);
+  --side-hi: #6b4a2f;
+  --side-lo: #3a2617;
+  --side-line: rgba(240, 220, 170, 0.3);
+  --side-glow: rgba(200, 120, 40, 0.3);
+  --unit-hi: #2a1a10;
+  --unit-lo: #160d07;
+}
+
+/* === 設定の見本（スウォッチ）===
+ * 皮を選ぶボタン。見本は上の皮の変数をそのまま読むので、色を二重に書かない
+ * （`.skin-chip-*` を上の規則のセレクタに並べてある）。royal だけは `:root` の
+ * 既定値が本体なので、見本が要る 4 つの値だけをここで名指しする。 */
+.skin-chip-royal {
+  --cab-face-hi: #241433;
+  --cab-face-lo: #160b26;
+  --cab-edge: #6b6e7a;
+  --cab-line-2: rgba(242, 179, 60, 0.35);
+  --mark-color: #f2b33c;
+  --stop-2: #d9281e;
+}
+
+.skin-row {
+  display: flex;
+  gap: 8px;
+}
+
+.skin-swatch {
+  flex: 1;
+  display: grid;
+  justify-items: center;
+  gap: 5px;
+  padding: 8px 4px 6px;
+  background: transparent;
+  border: 1px solid #3a3050;
+  border-radius: 8px;
+  color: #9b8ab0;
+  font: inherit;
+  font-size: 11px;
+  cursor: pointer;
+}
+
+.skin-swatch:hover {
+  border-color: rgba(242, 179, 60, 0.5);
+  color: #f2e9d8;
+}
+
+.skin-swatch.on {
+  border-color: #f2b33c;
+  color: #f2b33c;
+  background: rgba(242, 179, 60, 0.12);
+}
+
+/* 見本の中身は筐体の縮小版。面のグラデ・縁の金属・内側の線・ロゴの帯・STOP の粒。 */
+.skin-chip {
+  position: relative;
+  width: 46px;
+  height: 32px;
+  border: 1px solid var(--cab-edge);
+  background-image:
+    var(--cab-texture),
+    linear-gradient(180deg, var(--cab-face-hi) 0%, var(--cab-face-lo) 100%);
+  box-shadow: inset 0 0 0 1px var(--cab-line-2);
+}
+
+/* ロゴの帯 */
+.skin-chip::before {
+  content: '';
+  position: absolute;
+  top: 4px;
+  left: 8px;
+  right: 8px;
+  height: 2px;
+  border-radius: 1px;
+  background: var(--mark-color);
+}
+
+/* STOP の粒 */
+.skin-chip::after {
+  content: '';
+  position: absolute;
+  bottom: 4px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--stop-2);
+  box-shadow:
+    -9px 0 0 var(--stop-2),
+    9px 0 0 var(--stop-2);
+}
+
+.skin-name {
+  letter-spacing: 0.04em;
+}
+
+/* === 皮ごとの基本色（筐体まわりだけ）===
+ * `--gold` / `--chrome` は筐体の細かい所（Bet 表示・ヘッダーのボタン・パネルの
+ * 見出し・オートの点灯）でまだ直接使われている。皮ごとに一箇所で寄せる。
+ *
+ * ただし**液晶の中と、図鑑・設定は皮の外**に置く（下の打ち消し）。カットインや
+ * バナーの絵は金色の PNG で描いてあるので、まわりだけ皮の色に塗り替えると絵と
+ * 食い違う。皮が変えるのは「筐体」で、「画面に映っているもの」ではない。 */
+body[data-skin='midnight'] #view-game {
+  --gold: #6fdcff;
+  --gold-hi: #c7f4ff;
+  --chrome: #cfd8e6;
+  --chrome-dk: #4a5468;
+}
+
+body[data-skin='retro'] #view-game {
+  --gold: #f0c063;
+  --gold-hi: #ffe6ab;
+  --chrome: #e3cfa4;
+  --chrome-dk: #8a6a3c;
+}
+
+body[data-skin] #game-area,
+body[data-skin] #overlays {
+  --gold: #f2b33c;
+  --gold-hi: #ffe39a;
+  --chrome: #c7c9d1;
+  --chrome-dk: #6b6e7a;
+}

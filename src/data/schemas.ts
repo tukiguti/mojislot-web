@@ -532,6 +532,14 @@ export const TuningSchema = z.object({
       /** 「遅れ」の間（ms）。BIG確定のプレミア。 */
       lateDelayMs: z.number().min(0).default(380),
       /**
+       * **演出が出ていたゲームでボーナスをこぼした時**に確定ランプが点く確率。
+       *
+       * 無演出でこぼした時は必ず点く——そこが唯一の告知だから。演出が出ていた
+       * ゲームは「何を狙えばいいか」を既に教えてあるので、告知は half でよい。
+       * 点かなかった側は、リーチ目や出目の違和感から自分で気づく余地が残る。
+       */
+      missAnnounceWithEffect: z.number().min(0).max(1).default(0.5),
+      /**
        * 点き方のプレミア。**BIGを持っている時だけ**抽選し、出れば種別がBIGだと分かる。
        * ジャグラーのランプと同じで、点く速さそのものが情報になる。
        * REGの時は必ず通常の間で点くので、通常＝どちらもあり得る。
@@ -554,6 +562,7 @@ export const TuningSchema = z.object({
       bigRatio: 0.3,
       missDelayMs: 120,
       lateDelayMs: 380,
+      missAnnounceWithEffect: 0.5,
       premium: { instant: 0.06, late: 0.06, nextLever: 0.04 },
       revealAfterMisses: 7,
     }),

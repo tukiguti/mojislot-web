@@ -14,6 +14,87 @@
   --chrome-dk: #6b6e7a;     /* メタル暗 */
   --ivory: #f3e9d6;         /* 暗地の文字 */
 
+  /* === 筐体の皮（スキン・2026-09-08）===
+   * 筐体の chrome（面・縁・計器・ボタン）は**この変数群だけ**を見る。差し替えれば
+   * 見た目が丸ごと変わる。既定値は現行のクローム×紫×金で、別の皮は `skins.css` が
+   * `body[data-skin]` で上書きする。
+   *
+   * **寸法はここに入れない。** 皮で高さや幅が動くと、向きで切り替わるレイアウト
+   * （縦長／横長）の計算が崩れる。皮が持つのは色・質感・書体だけ。 */
+
+  /* 筐体の面 */
+  --cab-face-hi: var(--bg-panel-hi);
+  --cab-face-lo: var(--bg-panel-lo);
+  --cab-texture: none;           /* ヘアラインや木目を面に重ねる層 */
+  --cab-edge: var(--chrome-dk);  /* 外周の金属 */
+  --cab-line-1: var(--royal);    /* 内側の線・1本目 */
+  --cab-line-2: rgba(242, 179, 60, 0.35); /* 内側の線・2本目 */
+  --cab-sheen: rgba(255, 255, 255, 0.08); /* 面の上端に乗る照り */
+  --cab-glow: rgba(92, 46, 142, 0.4);     /* 筐体の外へ滲む光 */
+  /* **角は落とさない**（2026-09-08）。実機の筐体は成形板の角ばった箱で、
+     丸めるとアプリのカードに見える。皮ごとに変えられる形は残すが、既定は0。
+     丸いままにしてよいのは物理的に丸いもの——ストップボタン、レバーの玉、
+     ランプのドームだけ。 */
+  --cab-radius: 0px;
+
+  /* マストヘッド（ロゴ＋豆電球） */
+  --head-hi: #20122f;
+  --head-lo: var(--bg-void);
+  --head-rule: var(--chrome-dk);
+  --mark-font: 'Bungee', system-ui, sans-serif;
+  --mark-color: var(--gold);
+  --mark-spacing: 2px;
+  --mark-glow: rgba(224, 53, 155, 0.45);
+  --bulb-a: var(--gold-hi);
+  --bulb-b: rgba(224, 53, 155, 0.4);
+  --bulb-glow: rgba(224, 53, 155, 0.5);
+
+  /* 情報バーと計器（差枚の7セグ） */
+  --bar-hi: rgba(36, 20, 51, 0.9);
+  --bar-lo: rgba(20, 10, 34, 0.9);
+  --bar-rule: rgba(242, 179, 60, 0.3);
+  --meter-bg: #07040c;
+  --meter-edge: #2a2336;
+  --meter-fg: var(--gold-hi);
+  --meter-glow: rgba(242, 179, 60, 0.45);
+  --meter-label: #9a86b8;
+
+  /* 操作部の面とスピーカーグリル */
+  --panel-hi: var(--bg-panel-hi);
+  --panel-lo: var(--bg-void);
+  --panel-text-dim: #666;
+  --grille-bg: #0a0610;
+  --grille-dot: #2a2238;
+
+  /* ボタン */
+  --deck-hi: #3a2350;
+  --deck-lo: #1c1030;
+  --deck-hi-2: #472b63;
+  --deck-lo-2: #24143a;
+  --deck-text: var(--gold);
+  --deck-ring: rgba(242, 179, 60, 0.3);
+  --stop-1: #ff5a4d;
+  --stop-2: #d9281e;
+  --stop-3: #8c1109;
+  --stop-1h: #ff7065;
+  --stop-2h: #e63125;
+  --stop-3h: #9c150b;
+  --stop-ring: var(--chrome);
+  --stop-halo: rgba(217, 74, 47, 0.45);
+  --stop-text: #fff;
+  --aux-hi: #241a2f;
+  --aux-lo: #150d20;
+  --aux-text: var(--chrome);
+
+  /* 液晶の下辺と、脇のパネル（配列＝左・サンド＝右） */
+  --lcd-rule: rgba(242, 179, 60, 0.25);
+  --side-hi: var(--bg-panel-hi);
+  --side-lo: var(--bg-panel-lo);
+  --side-line: rgba(242, 179, 60, 0.25);
+  --side-glow: rgba(92, 46, 142, 0.35);
+  --unit-hi: #16101f;
+  --unit-lo: #0c0712;
+
   color: var(--ivory);
   background: var(--bg-void);
 
@@ -26,14 +107,56 @@
    */
   --layout-pad: 12px;
   --reel-panel-w: 240px;
-  /* 右のサンド（ユニット）幅 */
-  --unit-panel-w: 144px;
+  /* 右のサンド（ユニット）幅。**演出データの表が入る幅**で決める（2026-09-09）。
+     144px だった頃は見出しが縦書きに折れ、役名の列が潰れて全部「—」に見えていた。
+     数値3列（42px）＋間＋余白を引いて、役名に100pxほど残る幅。 */
+  --unit-panel-w: 260px;
   --reel-gap: 16px;
-  --header-h: 44px;
-  /* マストヘッド（ロゴ＋電飾）の薄い帯 */
-  --masthead-h: 28px;
-  /* ボタンエリア（帯）の高さ。ボタン自体は 0.8 倍で、帯はそれを 0.8 比率で収める高さ。 */
-  --control-h: 176px;
+  /* === 筐体の行（上から実機の順）===
+   * トップランプ／タイトルパネル／液晶＋リール窓／情報パネル／操作部／下パネル／下皿。
+   * **液晶より上に情報帯は置かない**——実機にそんなものは無い。計器はリール直下。
+   *
+   * **どの段も筐体の幅に比例させる**（2026-09-09）。固定 px にしていたので、PC の
+   * 縦画面のように幅が1000pxを超えると、液晶とリールだけが伸びて操作部と下パネルが
+   * 薄い帯のまま残り、リールが不自然に大きく見えた。実機の筐体は全体が1つの比率
+   * なので、段も一緒に伸ばす。
+   *
+   * 係数は幅 480px のときの実寸から起こしてある（そこが今までの見た目）。下パネル
+   * だけは 0.063→0.078 へ上げた——薄すぎるという指摘を受けての調整。
+   *
+   * 上下のクランプは端の保険。**下限が効くのは幅で頭打ちになる画面（スマホ縦）
+   * だけ**で、そこは高さが余っているので合計が伸びても収まる。 */
+  --toplamp-h: clamp(4px, calc(var(--game-w) * 0.020), 18px);
+  /* タイトルパネル（島名の板）。**絵を置く板**なので筐体の高さの1割を取る
+     （2026-09-10）。以前は 3.8% しかなく、絵を入れても帯にしかならなかった。 */
+  --masthead-h: clamp(44px, calc(var(--game-w) * 0.200), 150px);
+  /* 情報パネル＝リール直下の計器（差枚・払出の7セグとランプ）。旧ヘッダーの中身。 */
+  --header-h: clamp(22px, calc(var(--game-w) * 0.060), 60px);
+  /* 操作部。レバーとストップが1列に並ぶ。 */
+  --control-h: clamp(80px, calc(var(--game-w) * 0.240), 230px);
+  /* 下パネル（島を象徴する絵の板）と下皿。下パネルもタイトルと同じく高さの1割。 */
+  --lowerpanel-h: clamp(44px, calc(var(--game-w) * 0.200), 150px);
+  --tray-h: clamp(14px, calc(var(--game-w) * 0.060), 46px);
+  /* 段の合計が幅の何倍になるか。上の係数の和。--game-w を解くのに使う。
+   *
+   * **液晶が筐体の何割を占めるかはこの数で決まる。** 1.22 /(1.22 + ここ) が液晶の
+   * 割合で、0.454 の頃は 72.9% だった——絵を置く板が残らず、リールだけが大きい
+   * 「巨大な画面に細い縁が付いたもの」に見えていた。0.780 で 61% になる。 */
+  --cab-row-ratio: 0.780;
+  /* ドック（台のメニュー）。筐体の続きとして下皿の直下に貼るので、
+     横長でも高さの計算に入れる。縦長では画面下へ固定するが高さは同じ。 */
+  --dock-h: 62px;
+  /* データランプ（筐体の上に載る表示器）。筐体の外側なので --cab-fixed-h には
+     入れず、ドックと同じく柱の高さとして別に引く。
+     **筐体の幅には比例させない**——ホールの設備で、台が大きくても表示器は同じ
+     ものが並んでいる。縦長では画面が広いので下の向き判定で一段大きくする。 */
+  --datalamp-h: 110px;
+  /* 筐体のうち液晶以外が使う高さの合計。--game-w の計算で2箇所から参照する
+     （横長と縦長）。**行を足したらここだけ直せば両方が揃う。** */
+  --cab-fixed-h: calc(
+    var(--toplamp-h) + var(--masthead-h) + var(--header-h) + var(--control-h) +
+      var(--lowerpanel-h) + var(--tray-h)
+  );
   /* 演出液晶が cabinet 内に占める高さの比。**Pixi の `LIQUID_AREA_H / CANVAS_H` と同じ値**
      （`src/main.ts`）。DOM演出（カットイン・フラッシュ・BONUSバナー）はこの比で液晶に
      合わせるので、ずれると演出がリールへはみ出す。
@@ -47,18 +170,35 @@
   /* 上限440だと縦に余裕のある画面で筐体が頭打ちになり、下に大きなページ余白が残る
      （ブラウザ110%拡大でちょうど埋まる＝約1割大きいと収まりが良い）。上限を480へ。
      高さ・幅の制約は引き続き効くので、狭い/低い画面では自動で縮む。 */
+  /* **画面の上から下までを使い切る。**
+   *
+   * 以前は 480px の上限を置いていたので、縦に余裕のある画面では筐体が頭打ちになり、
+   * 下に大きな余白が残っていた（ドックがその余白に浮いていた）。上限を外して、
+   * 高さから決まる値をそのまま使う。横に収まらない時だけ幅で頭打ちになる。
+   *
+   * 引くのは 余白×2 ＋ 筐体の固定行 ＋ ドック。残りを 1.22 で割ると液晶の幅。 */
+  /* 段の高さが幅に比例するので、`高さ = 幅 * 1.22 + 幅 * 係数の和` になる。
+     幅について解くと、残りの高さを `1.22 + 係数の和` で割ればよい。
+     **--cab-fixed-h をここで引いてはいけない**——あれ自体が --game-w から
+     決まるので、引くと循環する。 */
   --game-w: max(
     240px,
     min(
-      480px,
       calc(
-        (100vh - var(--layout-pad) * 2 - var(--masthead-h) - var(--header-h) - var(--control-h)) / 1.22
+        (100vh - var(--layout-pad) * 2 - var(--dock-h) - var(--datalamp-h)) /
+          (1.22 + var(--cab-row-ratio))
       ),
       calc(100vw - var(--layout-pad) * 2 - var(--reel-panel-occupy))
     )
   );
   --game-h: calc(var(--game-w) * 1.22);
-  --cabinet-h: calc(var(--game-h) + var(--masthead-h) + var(--header-h) + var(--control-h));
+  --cabinet-h: calc(var(--game-h) + var(--cab-fixed-h));
+  /* リールの中心が筐体幅のどこに来るか。**main.ts が Pixi の実寸から流し込む**
+     （--lcd-ratio と同じ手口）。ストップボタンをリールの真下へ置くのに使う。
+     ここの値は流し込み前の保険で、Pixi 側 600px 幅・セル130・間隔16 の実測。 */
+  --reel-cx-0: 0.2567;
+  --reel-cx-1: 0.5;
+  --reel-cx-2: 0.7433;
 }
 * {
   box-sizing: border-box;
@@ -104,13 +244,38 @@ textarea {
 .view[hidden] {
   display: none;
 }
-/* ゲームビュー＝従来の3カラム（配列/筐体/サンド）。旧 body のフレックスをここへ移設。 */
+/* ゲームビュー＝3カラム（配列/筐体＋ドック/サンド）。旧 body のフレックスをここへ移設。 */
 .game-view {
   display: flex;
   justify-content: center;
   align-items: flex-start;
   flex-wrap: wrap; /* 狭画面でサンド等が筐体の下へ回り込めるように */
   gap: var(--reel-gap);
+}
+
+/* 筐体とドックの柱。ドックは台のメニューなので、浮かせずに下皿の直下へ貼る。
+   DOM 上は脇のパネルより後ろに置いてあるので、左右の並びは order で決める。 */
+#machine-column {
+  display: flex;
+  flex-direction: column;
+  width: var(--game-w);
+  flex: none;
+}
+#unit-column {
+  order: 1; /* サンドは筐体の右 */
+}
+
+/* 脇のパネルは筐体と同じ高さまで伸ばす。中身が短くても箱は揃える——
+   実機の島でも、台の横のサンドは台と同じ高さの柱として立っている。
+   横長だけ。縦長ではシートへ畳むので高さは関係ない。 */
+@media (min-aspect-ratio: 1/1) {
+  #reel-strip-panel,
+  #unit-column {
+    align-self: stretch;
+  }
+  #unit-panel {
+    flex: 1;
+  }
 }
 
 /* === TOP ランディング === */
@@ -215,31 +380,10 @@ textarea {
 }
 
 /* ゲーム内マストヘッド左の「TOPへ」ボタン */
-#home-btn {
-  position: absolute;
-  left: 8px;
-  top: 50%;
-  transform: translateY(-50%);
-  width: 24px;
-  height: 20px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: 0;
-  cursor: pointer;
-  font-family: inherit;
-  font-size: 13px;
-  line-height: 1;
-  color: var(--chrome);
-  background: rgba(255, 255, 255, 0.06);
-  border: 1px solid var(--chrome-dk);
-  border-radius: 5px;
-  z-index: 2;
-}
-#home-btn:hover {
-  color: var(--gold-hi);
-  border-color: rgba(242, 179, 60, 0.5);
-}
+/* ホールへ戻るはメニューの中の1行（2026-09-10・タイトルパネルから移設）。
+   見た目は `.menu-item` が持つので、ここでは何も指定しない。
+   **以前のタイトルパネル用の絶対配置を残していたら、メニューの中で画面の左端へ
+   飛んで縦書きになった。** 場所を変えたら、場所を決めていた規則を消す。 */
 
 /* 章ごとの背景パネル（main.ts が --chapter-bg を設定）。
    画像が無い章は url が 404 になり、背景色(#050505)にフォールバックする。
@@ -252,18 +396,112 @@ body.has-chapter-bg {
   background-attachment: fixed;
 }
 
+/* === 演出データの表（ドックの「データ」のシート）===
+ * 仕様書の期待度は出さず、**自分が引いた実績**を数えて見せる。回すほど本当の値に
+ * 近づくので、攻略情報ではなく自分の記録になる。 */
+#effect-table {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+/* 見出しは**行とまったく同じグリッド**で組む。別々に組んでいた頃は、見出しの
+   「期待度」だけが行の外へはみ出して、どの数字がどの列か読めなかった。 */
+.ef-head,
+.ef-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) repeat(3, 42px);
+  gap: 4px;
+}
+.ef-head {
+  align-items: baseline;
+  padding: 0 4px 3px;
+  border-bottom: 1px solid var(--cab-edge);
+  font-size: 8px;
+  letter-spacing: 0;
+  white-space: nowrap;
+  color: var(--meter-label);
+}
+.ef-head span:not(.ef-title) {
+  text-align: right;
+}
+.ef-title {
+  font-size: 10px;
+  letter-spacing: 2px;
+  white-space: nowrap;
+  color: var(--gold);
+}
+.ef-rows {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.ef-row {
+  align-items: baseline;
+  padding: 2px 4px;
+  background: var(--meter-bg);
+  border: 1px solid var(--meter-edge);
+}
+/* 回数が足りない行。**まだ読める数字ではない**ことを明度で伝える。 */
+.ef-row.thin {
+  opacity: 0.5;
+}
+.ef-label {
+  font-size: 10px;
+  letter-spacing: 0.5px;
+  color: var(--ivory);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.ef-num {
+  font-family: ui-monospace, 'SFMono-Regular', monospace;
+  font-size: 11px;
+  text-align: right;
+  color: var(--meter-label);
+}
+.ef-hit {
+  color: #ff8a7a;
+}
+.ef-rate {
+  font-weight: 700;
+  color: var(--meter-fg);
+}
+.ef-note {
+  font-size: 9px;
+  line-height: 1.5;
+  color: var(--panel-text-dim);
+}
+.ef-actions {
+  display: flex;
+}
+.ef-reset {
+  flex: 1;
+  padding: 5px 6px;
+  font-family: inherit;
+  font-size: 10px;
+  letter-spacing: 1px;
+  color: var(--aux-text);
+  background: linear-gradient(180deg, var(--aux-hi) 0%, var(--aux-lo) 100%);
+  border: 1px solid var(--cab-edge);
+  cursor: pointer;
+}
+.ef-reset:hover {
+  color: var(--gold-hi);
+  border-color: var(--gold);
+}
+
 /* === リール配列パネル === */
 #reel-strip-panel {
   order: -1; /* 配列パネルは筐体の左へ */
   width: var(--reel-panel-w);
-  max-height: var(--cabinet-h);
+  min-height: 0;
   padding: 14px 14px 12px;
-  background: linear-gradient(180deg, var(--bg-panel-hi) 0%, var(--bg-panel-lo) 100%);
-  border: 2px solid var(--chrome-dk);
-  border-radius: 10px;
+  background: linear-gradient(180deg, var(--side-hi) 0%, var(--side-lo) 100%);
+  border: 2px solid var(--cab-edge);
+  border-radius: 0;
   box-shadow:
-    inset 0 0 0 1px rgba(242, 179, 60, 0.25),
-    0 0 16px rgba(92, 46, 142, 0.35);
+    inset 0 0 0 1px var(--side-line),
+    0 0 16px var(--side-glow);
   color: var(--ivory);
   font-family: inherit;
   display: flex;
@@ -274,14 +512,17 @@ body.has-chapter-bg {
 /* === 右のサンド（ユニット）：メダル貸出＝コイン補充。実機のサンド見立て === */
 #unit-panel {
   width: var(--unit-panel-w);
-  max-height: var(--cabinet-h);
+  /* 中身が柱の高さを超えたらここで送る。伸ばした先で溢れると、下の計測ボタンが
+     画面外へ出て押せなくなる。 */
+  min-height: 0;
+  overflow-y: auto;
   padding: 12px 10px;
-  background: linear-gradient(180deg, #16101f 0%, #0c0712 100%);
-  border: 2px solid var(--chrome-dk);
-  border-radius: 10px;
+  background: linear-gradient(180deg, var(--unit-hi) 0%, var(--unit-lo) 100%);
+  border: 2px solid var(--cab-edge);
+  border-radius: 0;
   box-shadow:
     inset 0 0 0 1px rgba(255, 255, 255, 0.05),
-    0 0 16px rgba(92, 46, 142, 0.3);
+    0 0 16px var(--side-glow);
   color: var(--ivory);
   display: flex;
   flex-direction: column;
@@ -302,22 +543,23 @@ body.has-chapter-bg {
   align-items: center;
   gap: 2px;
   padding: 6px 4px;
-  background: #07040c;
-  border: 1px solid #2a2336;
-  border-radius: 6px;
+  background: var(--meter-bg);
+  border: 1px solid var(--meter-edge);
+  border-radius: 0;
+  box-shadow: inset 0 2px 5px rgba(0, 0, 0, 0.7);
 }
 .unit-readout-label {
   font-size: 9px;
   letter-spacing: 2px;
-  color: #9a86b8;
+  color: var(--meter-label);
 }
 .unit-readout-num {
   font-family: ui-monospace, 'SFMono-Regular', monospace;
   font-size: 22px;
   font-weight: 700;
   letter-spacing: 1px;
-  color: var(--gold-hi);
-  text-shadow: 0 0 6px rgba(242, 179, 60, 0.5);
+  color: var(--meter-fg);
+  text-shadow: 0 0 6px var(--meter-glow);
 }
 /* 差枚/投資のライブ表示（差枚 = 持メダル − 投資） */
 .unit-stat {
@@ -325,9 +567,10 @@ body.has-chapter-bg {
   flex-direction: column;
   gap: 3px;
   padding: 5px 8px;
-  background: #07040c;
-  border: 1px solid #2a2336;
-  border-radius: 6px;
+  background: var(--meter-bg);
+  border: 1px solid var(--meter-edge);
+  border-radius: 0;
+  box-shadow: inset 0 2px 5px rgba(0, 0, 0, 0.7);
 }
 .unit-stat-row {
   display: flex;
@@ -337,7 +580,7 @@ body.has-chapter-bg {
 .unit-stat-label {
   font-size: 9px;
   letter-spacing: 2px;
-  color: #9a86b8;
+  color: var(--meter-label);
 }
 .unit-stat-num {
   font-family: ui-monospace, 'SFMono-Regular', monospace;
@@ -363,7 +606,7 @@ body.has-chapter-bg {
   padding: 6px 8px;
   background: #07040c;
   border: 1px solid #2a2336;
-  border-radius: 6px;
+  border-radius: 0;
 }
 .unit-timer-top {
   display: flex;
@@ -395,7 +638,7 @@ body.has-chapter-bg {
   color: var(--ivory);
   background: rgba(92, 46, 142, 0.2);
   border: 1px solid #2a2336;
-  border-radius: 999px;
+  border-radius: 0;
 }
 .timer-preset:hover {
   border-color: rgba(242, 179, 60, 0.5);
@@ -417,7 +660,7 @@ body.has-chapter-bg {
   justify-content: space-between;
   padding: 2px 4px;
   background: #110a1c;
-  border-radius: 4px;
+  border-radius: 0;
 }
 .unit-timer-rate-label {
   font-size: 9px;
@@ -449,45 +692,6 @@ body.has-chapter-bg {
   background: linear-gradient(180deg, var(--gold-hi) 0%, var(--gold) 100%);
   color: #1b0f0a;
   border-color: var(--gold);
-}
-.unit-slot {
-  height: 8px;
-  margin: 0 14px;
-  border-radius: 4px;
-  background: linear-gradient(180deg, #000 0%, #1a1422 100%);
-  box-shadow:
-    inset 0 1px 2px rgba(0, 0, 0, 0.8),
-    0 1px 0 rgba(255, 255, 255, 0.06);
-}
-.unit-lend-label {
-  text-align: center;
-  font-size: 10px;
-  letter-spacing: 2px;
-  color: var(--magenta);
-}
-.unit-lend-buttons {
-  display: flex;
-  flex-direction: column;
-  gap: 7px;
-}
-.unit-lend-buttons .coin-add {
-  padding: 8px 6px;
-  font-size: 13px;
-  font-weight: 800;
-  font-family: inherit;
-  color: #1b0f0a;
-  background: linear-gradient(180deg, var(--gold-hi) 0%, var(--gold) 100%);
-  border: 1px solid #8a6418;
-  border-radius: 6px;
-  cursor: pointer;
-  box-shadow: inset 0 -2px 0 rgba(0, 0, 0, 0.25);
-}
-.unit-lend-buttons .coin-add:hover {
-  filter: brightness(1.08);
-}
-.unit-lend-buttons .coin-add:active {
-  transform: translateY(1px);
-  box-shadow: none;
 }
 .unit-hint {
   margin-top: auto;
@@ -539,7 +743,7 @@ body.has-chapter-bg {
     'Hiragino Mincho ProN', 'Yu Mincho', 'MS PMincho', serif;
   /* 背景色は JS から symbolColorCss() で動的設定（タイル方式） */
   border: 1px solid rgba(0, 0, 0, 0.6);
-  border-radius: 4px;
+  border-radius: 0;
   color: #fff;
   text-shadow:
     0 0 2px rgba(0, 0, 0, 1),
@@ -578,19 +782,26 @@ body.has-chapter-bg {
      列が筐体幅を突き破る → ヘッダー右や canvas(リール)が右にはみ出し overflow:hidden で切れる。
      minmax(0,1fr) で列を筐体内幅に固定し、中身は縮める。 */
   grid-template-columns: minmax(0, 1fr);
-  grid-template-rows: var(--masthead-h) var(--header-h) var(--game-h) var(--control-h);
+  grid-template-rows:
+    var(--toplamp-h) var(--masthead-h) var(--game-h) var(--header-h)
+    var(--control-h) var(--lowerpanel-h) var(--tray-h);
   width: var(--game-w);
   height: var(--cabinet-h);
-  background: linear-gradient(180deg, var(--bg-panel-hi) 0%, var(--bg-panel-lo) 100%);
-  border-radius: 16px;
-  /* クローム＋紫＋金の彫刻ベゼル（控えめ＝強い金グローは廃止し、立体感で見せる） */
-  border: 2px solid var(--chrome-dk);
+  background-color: var(--cab-face-lo);
+  background-image:
+    var(--cab-texture),
+    linear-gradient(180deg, var(--cab-face-hi) 0%, var(--cab-face-lo) 100%);
+  border-radius: var(--cab-radius);
+  /* 彫刻ベゼル。強い金グローは廃止し、面取りの階調で立体を出す。
+     上2本の inset は「内側の線」、3本目の照りが面の厚み、外2本が影と滲み。 */
+  border: 2px solid var(--cab-edge);
   box-shadow:
-    inset 0 0 0 2px var(--royal),
-    inset 0 0 0 3px rgba(242, 179, 60, 0.35),
-    inset 0 2px 6px rgba(255, 255, 255, 0.08),
+    inset 0 0 0 2px var(--cab-line-1),
+    inset 0 0 0 3px var(--cab-line-2),
+    inset 0 2px 6px var(--cab-sheen),
+    inset 0 -18px 28px rgba(0, 0, 0, 0.35),
     0 10px 30px rgba(0, 0, 0, 0.6),
-    0 0 22px rgba(92, 46, 142, 0.4);
+    0 0 22px var(--cab-glow);
   overflow: hidden;
   position: relative;
 }
@@ -605,14 +816,314 @@ body.has-chapter-bg {
   min-width: 0;
 }
 
-/* === マストヘッド（ロゴ＋控えめマーキー電飾＝署名）=== */
+/* === データランプ（データカウンター）===
+ * 筐体の上に載る**別体の表示器**。ホールの設備なので筐体の皮とは分けて、
+ * どの皮でも黒地の計器として出す——実機のホールでも、台が変わっても上の
+ * 表示器は同じものが並んでいる。
+ *
+ * 並びは実機アプリの表示器に倣う。**左＝スランプグラフ、右＝数値のマス**で、
+ * マスは上段が回数・下段がその確率。列で対応させる（総スタート↔合算・
+ * BB↔BB確率・RB↔RB確率・ハマり↔演出率）。
+ *
+ * 中身は `src/ui/DataLamp.ts`。数字は `MachineData`（台ID・日替わり）。 */
+#datalamp {
+  width: 100%;
+  height: var(--datalamp-h);
+  flex: none;
+  display: grid;
+  /* 左のグラフと右のマス。マスの方をやや広く取る——数字が読めないと表示器の
+     意味が無いので、**削るのはグラフの幅の方**。
+     行を `minmax(0, 1fr)` で縛るのが要点。**縛らないと中の SVG が縦横比のぶん
+     だけ伸びて、表示器の高さを突き破る**（viewBox 100x100 の SVG に高さ 100% を
+     与えても、親の高さが不定だと幅と同じ高さに膨らむ）。 */
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1.3fr);
+  grid-template-rows: minmax(0, 1fr);
+  /* 中の文字を**表示器の幅**に追従させる。スマホ幅では見出しが枠に入りきらず
+     「総スター…」と切れていた。px 固定だと切れるか、大画面で取り残されるかの
+     どちらかにしかならない。 */
+  container-type: inline-size;
+  container-name: dl;
+  gap: 6px;
+  padding: 5px 6px;
+  margin-bottom: 6px;
+  background: linear-gradient(180deg, #14121c 0%, #08070d 100%);
+  border: 1px solid var(--cab-edge);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.07),
+    0 4px 12px rgba(0, 0, 0, 0.5);
+  overflow: hidden;
+}
+
+/* === 左：スランプグラフ === */
+.dl-graph {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+  min-height: 0;
+}
+
+/* 凡例の行。呼び出しランプ・台番・系列の色・差枚・横軸の単位。 */
+.dl-legend {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex: none;
+  font-size: clamp(7px, 1.5cqw, 13px);
+  letter-spacing: 0.5px;
+  color: #6d8496;
+  white-space: nowrap;
+  overflow: hidden;
+}
+.dl-lamps {
+  display: flex;
+  gap: 3px;
+  flex: none;
+}
+.dl-lamp {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: #2a2630;
+  box-shadow: inset 0 1px 1px rgba(0, 0, 0, 0.8);
+}
+.dl-lamp-red.on {
+  background: #ff3b30;
+  box-shadow: 0 0 7px rgba(255, 59, 48, 0.9);
+}
+.dl-lamp-yellow.on {
+  background: #ffd166;
+  box-shadow: 0 0 7px rgba(255, 209, 102, 0.9);
+}
+/* 台番。ホールの表示器と同じで、常に3桁ゼロ詰め。 */
+.dl-seat {
+  flex: none;
+  font-family: ui-monospace, 'SFMono-Regular', monospace;
+  font-size: clamp(9px, 2cqw, 17px);
+  font-weight: 700;
+  letter-spacing: 1px;
+  padding: 0 4px;
+  color: #9fe8ff;
+  background: #05070c;
+  border: 1px solid #1d2836;
+}
+/* 系列の色見本。グラフに実際に出ている線と同じ色で、飾りではない。 */
+.dl-leg {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+}
+.dl-leg::before {
+  content: '';
+  width: 8px;
+  height: 3px;
+  background: currentColor;
+}
+.dl-leg-big {
+  color: #ff6b5a;
+}
+.dl-leg-reg {
+  color: #5ac8ff;
+}
+.dl-leg-line {
+  color: #e8f4ff;
+}
+.dl-leg-line b {
+  font-family: ui-monospace, 'SFMono-Regular', monospace;
+  font-size: clamp(9px, 1.9cqw, 16px);
+  color: #cfd8e6;
+}
+.dl-leg-line b.plus {
+  color: #ffd166;
+}
+.dl-leg-line b.minus {
+  color: #ff6b5a;
+}
+.dl-leg-unit {
+  margin-left: auto;
+  flex: none;
+}
+.dl-leg-unit b {
+  font-family: ui-monospace, 'SFMono-Regular', monospace;
+  color: #9aa8b8;
+}
+
+/* 狭い表示器では系列の色見本を落とす。**色の対応は右のマスが持っている**
+   （BB は赤、RB は青で数字を出している）ので、ここが消えても読めなくなる情報は
+   無い。落とさないと横軸の単位「×NG」が押し出されて、目盛りの 1〜10 が
+   何ゲーム刻みなのか分からなくなる。 */
+@container dl (max-width: 620px) {
+  .dl-legend {
+    gap: 4px;
+  }
+  .dl-leg-big,
+  .dl-leg-reg {
+    display: none;
+  }
+}
+
+.dl-graph-box {
+  flex: 1;
+  min-height: 0;
+  background: #04060a;
+  border: 1px solid #1d2836;
+}
+.dl-g-svg {
+  width: 100%;
+  height: 100%;
+  display: block;
+}
+.dl-g-grid {
+  stroke: #131c26;
+  stroke-width: 1;
+  vector-effect: non-scaling-stroke;
+}
+.dl-g-zero {
+  stroke: #2c3a4a;
+  stroke-width: 1;
+  vector-effect: non-scaling-stroke;
+}
+/* ボーナスを引いた位置。回数だけでは「連チャンしたのか、まんべんなく当たったのか」
+   が分からないので、縦線で並びを見せる。 */
+.dl-g-mark {
+  stroke-width: 1;
+  vector-effect: non-scaling-stroke;
+  opacity: 0.75;
+}
+.dl-g-mark-big {
+  stroke: #ff6b5a;
+}
+.dl-g-mark-reg {
+  stroke: #5ac8ff;
+}
+/* 差枚の線は白。RB の縦線（水色）と近い色にすると、どちらの線か読み分けられない。 */
+.dl-g-line {
+  fill: none;
+  stroke: #e8f4ff;
+  stroke-width: 1.5;
+  stroke-linejoin: round;
+  vector-effect: non-scaling-stroke;
+}
+.dl-g-area.plus {
+  fill: rgba(200, 230, 255, 0.18);
+}
+.dl-g-area.minus {
+  fill: rgba(255, 107, 90, 0.2);
+}
+
+/* 横軸の目盛り。1列＝凡例に出している「×N G」。 */
+.dl-axis {
+  flex: none;
+  display: grid;
+  grid-template-columns: repeat(10, 1fr);
+  font-size: clamp(6px, 1.3cqw, 11px);
+  line-height: 1;
+  color: #4e5d6b;
+}
+.dl-axis span {
+  text-align: center;
+}
+
+/* === 右：数値のマス。上段＝回数、下段＝確率 === */
+.dl-cells {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  grid-template-rows: repeat(2, minmax(0, 1fr));
+  gap: 3px;
+  min-width: 0;
+  min-height: 0;
+}
+.dl-cell {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  background: #05070c;
+  border: 1px solid #1d2836;
+  overflow: hidden;
+}
+/* 見出しは帯にして値と分ける。実機の表示器がこの形で、ひと目でどの数字か分かる。 */
+.dl-cell-head {
+  flex: none;
+  padding: 1px 3px;
+  /* 見出しは枠に収まることが最優先。**切れると何の数字か分からなくなる**ので、
+     字間を詰めてでも入れる。 */
+  font-size: clamp(6.5px, 1.55cqw, 13px);
+  line-height: 1.35;
+  letter-spacing: 0;
+  text-align: center;
+  color: #cfe6ff;
+  background: linear-gradient(180deg, #1d3a5c 0%, #142842 100%);
+  border-bottom: 1px solid #1d2836;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.dl-cell-value {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 1px;
+  padding: 0 4px;
+  min-width: 0;
+}
+.dl-cell-value b {
+  font-family: ui-monospace, 'SFMono-Regular', monospace;
+  font-size: clamp(11px, 2.5cqw, 24px);
+  font-weight: 700;
+  color: #ffb454;
+  text-shadow: 0 0 5px rgba(255, 180, 84, 0.45);
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.dl-cell-value i {
+  font-style: normal;
+  font-size: clamp(6px, 1.3cqw, 12px);
+  color: #6d8496;
+}
+/* BB は赤、RB は青。グラフの縦線と同じ色にして、どの線がどれか対応させる。 */
+.dl-cell-value b.dl-bb,
+.dl-cell-value b.dl-bbrate {
+  color: #ff6b5a;
+  text-shadow: 0 0 5px rgba(255, 107, 90, 0.5);
+}
+.dl-cell-value b.dl-rb,
+.dl-cell-value b.dl-rbrate {
+  color: #5ac8ff;
+  text-shadow: 0 0 5px rgba(90, 200, 255, 0.5);
+}
+/* サンプルが足りない演出率。**読める数字ではない**ことを明度で伝える。 */
+.dl-cell-value b.dl-effect.thin {
+  color: #6d8496;
+  text-shadow: none;
+}
+
+/* === トップランプ＝筐体最上部の光る帯。実機の一番上にある光るライン。
+ * 島テーマの色（--isl-top）が来ればそれを使い、無ければ皮の色で光る。 === */
+#toplamp {
+  background: var(--isl-top, linear-gradient(180deg, var(--gold-hi), var(--gold)));
+  border-radius: var(--cab-radius) var(--cab-radius) 0 0;
+  box-shadow:
+    inset 0 -1px 2px rgba(0, 0, 0, 0.45),
+    0 0 10px var(--cab-glow);
+}
+
+/* === タイトルパネル（島名の板）＋控えめマーキー電飾 ===
+ * 実機のここは機種名の板。以前は mojislot のワードマークを出していたが、
+ * ロゴは下パネルへ移し、ここは打っている台の島名にした。 */
 #masthead {
   display: flex;
   align-items: center;
   justify-content: center;
   position: relative;
-  background: linear-gradient(180deg, #20122f 0%, var(--bg-void) 100%);
-  border-bottom: 1px solid var(--chrome-dk);
+  /* 面の質感（ヘアライン・木目）はここにも乗せる。筐体の面はリールと液晶に
+     ほとんど覆われるので、質感が見える場所はマストヘッドと縁しか残らない。 */
+  background-color: var(--head-lo);
+  background-image:
+    var(--cab-texture),
+    linear-gradient(180deg, var(--head-hi) 0%, var(--head-lo) 100%);
+  border-bottom: 1px solid var(--head-rule);
+  box-shadow: inset 0 1px 0 var(--cab-sheen);
   overflow: hidden;
 }
 /* 上縁の豆電球列：暗めの金＋マゼンタ環の点を等間隔に。淡いグローで控えめに灯す */
@@ -625,94 +1136,109 @@ body.has-chapter-bg {
   height: 4px;
   background-image: radial-gradient(
     circle at center,
-    var(--gold-hi) 0 1.1px,
-    rgba(224, 53, 155, 0.4) 1.1px 2.2px,
+    var(--bulb-a) 0 1.1px,
+    var(--bulb-b) 1.1px 2.2px,
     transparent 2.4px
   );
   background-size: 15px 4px;
   background-repeat: repeat-x;
   background-position: center;
   opacity: 0.5;
-  filter: drop-shadow(0 0 2px rgba(224, 53, 155, 0.5));
+  filter: drop-shadow(0 0 2px var(--bulb-glow));
 }
 #masthead .mark {
-  font-family: 'Bungee', system-ui, sans-serif;
-  font-size: 15px;
-  letter-spacing: 2px;
-  color: var(--gold);
+  font-family: var(--mark-font);
+  /* 段の高さから起こす。段が伸びたのに文字が 15px のままだと、板の中で字だけが
+     取り残されて間延びする。上限は付ける——板を厚くした時に字だけが巨大になる。 */
+  font-size: clamp(15px, calc(var(--masthead-h) * 0.42), 48px);
+  letter-spacing: var(--mark-spacing);
+  color: var(--mark-color);
   text-shadow:
     0 0 1px var(--gold-hi),
-    0 0 6px rgba(224, 53, 155, 0.45);
+    0 0 6px var(--mark-glow);
   margin-top: 3px; /* 電飾列のぶん下げる */
+  /* 島名は日本語なので、Bungee（ラテン専用）だと和文だけ代替フォントに落ちて
+     字面が揃わない。和文が来る前提で本文フォントを先に置く。 */
+  font-family: 'Hiragino Sans', 'Yu Gothic', var(--mark-font), sans-serif;
+  font-weight: 800;
+  /* 左の ≡ と右のツール列に食い込まないよう、中央の帯だけを使う。 */
+  max-width: calc(100% - 140px);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 /* === ヘッダー === */
+/* === 情報パネル（リール直下の計器）===
+ * 実機はリール窓のすぐ下に CREDIT と 払出 の7セグがあり、その間に
+ * REPLAY / START / BET のランプが並ぶ。左＝差枚、右＝払出、中央＝ランプ。 */
 #info-bar {
   display: grid;
   grid-template-columns: auto 1fr auto;
   align-items: center;
   height: 100%;
   gap: 8px;
-  padding: 0 12px;
-  background: linear-gradient(180deg, rgba(36, 20, 51, 0.9), rgba(20, 10, 34, 0.9));
-  border-bottom: 1px solid var(--chrome-dk);
-  box-shadow: inset 0 -1px 0 rgba(242, 179, 60, 0.3);
+  padding: 0 8px;
+  background: linear-gradient(180deg, var(--bar-hi), var(--bar-lo));
+  border-top: 1px solid var(--cab-edge);
+  border-bottom: 1px solid var(--head-rule);
+  box-shadow:
+    inset 0 1px 0 var(--cab-sheen),
+    inset 0 -1px 0 var(--bar-rule);
   font-size: 14px;
   font-weight: bold;
   letter-spacing: 1px;
   white-space: nowrap;
 }
 
-/* ヘッダー左：持メダル数のデジタルメーター（スマスロ表示部） */
-#coin-display {
-  color: var(--gold-hi);
-  text-align: left;
+/* 計器1つ分。ラベルは小さく添えるだけで、読ませるのは数字。 */
+.ip-meter {
+  display: flex;
+  align-items: baseline;
+  gap: 5px;
+}
+.ip-meter-right {
+  justify-self: end;
+}
+.ip-label {
+  font-size: 8px;
+  font-weight: 400;
+  letter-spacing: 1.5px;
+  color: var(--meter-label);
+}
+.ip-value {
   font-family: ui-monospace, 'SFMono-Regular', monospace;
+  font-size: calc(var(--header-h) * 0.58);
   font-weight: 700;
   letter-spacing: 1px;
-  padding: 3px 9px;
-  background: #07040c;
-  border: 1px solid #2a2336;
-  border-radius: 5px;
-  text-shadow: 0 0 5px rgba(242, 179, 60, 0.45);
-}
-#bet-display {
-  color: var(--gold);
+  min-width: 3ch;
   text-align: right;
+  color: var(--meter-fg);
+  text-shadow: 0 0 5px var(--meter-glow);
+}
+/* 中央のランプ列。実機の REPLAY / START / BET と同じ、消えている方が既定の小さな札。 */
+.ip-lamps {
+  justify-self: center;
   display: flex;
   align-items: center;
-  justify-content: flex-end;
-  gap: 6px;
-  flex-wrap: nowrap;
+  gap: 5px;
 }
-#zukan-btn,
-#mute-btn,
-#auto-btn,
-#reel-strip-btn {
-  padding: 3px 10px;
-  font-size: 11px;
-  color: var(--gold);
-  background: rgba(255, 215, 0, 0.08);
-  border: 1px solid var(--gold);
-  border-radius: 4px;
-  cursor: pointer;
-  font-family: inherit;
+.ip-lamp {
+  font-size: 8px;
+  font-weight: 700;
   letter-spacing: 1px;
+  padding: 2px 5px;
+  border-radius: 0;
+  border: 1px solid var(--meter-edge);
+  color: var(--meter-label);
+  background: var(--meter-bg);
 }
-#zukan-btn:hover,
-#mute-btn:hover,
-#auto-btn:hover,
-#reel-strip-btn:hover {
-  background: rgba(255, 215, 0, 0.2);
-}
-
-/* ≤ 900px で出現する配列ボタン。広い画面ではパネル常駐なので不要 */
-#reel-strip-btn {
-  display: none;
-}
-#reel-strip-btn.on {
-  color: #1a1100;
-  background: linear-gradient(180deg, #ffe566 0%, var(--gold) 100%);
+/* 点灯。リプレイが揃った次のゲームだけ光る。 */
+.ip-lamp.on {
+  color: #ffd9d5;
+  border-color: rgba(255, 90, 70, 0.7);
+  background: rgba(180, 40, 30, 0.35);
+  text-shadow: 0 0 6px rgba(255, 90, 70, 0.8);
 }
 
 /* リール配列パネル内の閉じるボタン（オーバーレイ表示時のみ） */
@@ -727,47 +1253,41 @@ body.has-chapter-bg {
   color: var(--gold);
   background: rgba(0, 0, 0, 0.6);
   border: 1px solid var(--gold);
-  border-radius: 4px;
+  border-radius: 0;
   cursor: pointer;
   font-family: inherit;
   z-index: 2;
 }
+/* オートはドックのボタン（2026-09-10・タイトルパネルから移設）。**点いている間は
+   ドックの中で光らせる**——遊技中に切り替えるものなので、状態が一目で要る。 */
 #auto-btn.on {
   color: #1a1100;
   background: linear-gradient(180deg, #ffe566 0%, var(--gold) 100%);
-  box-shadow: 0 0 10px rgba(255, 215, 0, 0.8);
+  border-color: var(--gold);
+  box-shadow: 0 0 10px rgba(255, 215, 0, 0.55);
 }
 
 /* OFFにした後、現在ゲームだけ消化している最中。ONとは別の色で「もう終わる」と示す。 */
 #auto-btn.finishing {
   color: #1a1100;
   background: linear-gradient(180deg, #cdd6e0 0%, #9aa7b5 100%);
-  box-shadow: 0 0 8px rgba(205, 214, 224, 0.6);
+  border-color: #9aa7b5;
+  box-shadow: 0 0 8px rgba(205, 214, 224, 0.5);
 }
-#mute-btn {
-  min-width: 28px;
-  padding: 3px 6px;
-}
+/* 消音中の印。メニューの中に入ったので、行ごと沈める。 */
 #mute-btn.muted {
-  color: #888;
-  border-color: #555;
-  background: rgba(80, 80, 80, 0.2);
+  opacity: 0.55;
 }
-#status-stack {
-  justify-self: center;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 3px;
-}
+/* 情報パネル中央のランプ列。以前は液晶の上で縦積みだったが、実機のこの位置は
+   横一列のランプ帯なので横並びにした（.ip-lamps が並びを持つ）。 */
 #effect-status {
-  padding: 4px 14px;
+  padding: 2px 8px;
   background: rgba(20, 20, 20, 0.85);
   border: 1px solid #555;
-  border-radius: 4px;
-  font-size: 12px;
+  border-radius: 0;
+  font-size: 10px;
   color: #aaa;
-  letter-spacing: 1.5px;
+  letter-spacing: 1px;
   transition:
     color 0.2s ease,
     border-color 0.2s ease,
@@ -856,14 +1376,15 @@ body.has-chapter-bg {
   display: none;
 }
 
-/* === コイン残量警告 === */
-#coin-display.warning {
-  color: #ff8866;
-  animation: coin-warn 1s ease-in-out infinite;
+/* === 差枚の符号 ===
+   借りない方式にしたので残量の警告は無い（残高で打てなくなることがない）。
+   マイナスは沈んだ赤、プラスは金。点滅はさせない——差枚は常に動くので、
+   点滅すると画面が落ち着かない。 */
+#coin-display.minus {
+  color: #ff6b78;
 }
-#coin-display.critical {
-  color: #ff4444;
-  animation: coin-warn 0.6s ease-in-out infinite;
+#coin-display.plus {
+  color: var(--gold, #f2b33c);
 }
 
 @keyframes coin-warn {0%,
@@ -1632,10 +2153,12 @@ body.shake {
 #game-area {
   position: relative;
   background: #000;
-  border-bottom: 1px solid var(--chrome-dk);
+  border-bottom: 1px solid var(--cab-edge);
+  /* 液晶とリールを筐体の面より奥に沈める。上下の内影が窓の厚みになる。 */
   box-shadow:
+    inset 0 6px 14px rgba(0, 0, 0, 0.75),
     inset 0 -8px 16px rgba(0, 0, 0, 0.6),
-    inset 0 -1px 0 rgba(242, 179, 60, 0.25);
+    inset 0 -1px 0 var(--lcd-rule);
 }
 
 /* 演出液晶ホスト。全 DOM 演出（フラッシュ/紙吹雪/カットイン/キラキラ/HIT）を
@@ -1708,17 +2231,135 @@ body.shake {
 }
 
 /* === コントロールパネル === */
+/* === 操作部 ===
+ * 実機の並びは「左端にレバー、その内側に BET、ストップ3つはリールの真下」。
+ * 以前は BET とレバーを1段目、ストップを2段目に置いて全部中央寄せだったので、
+ * **どのボタンがどのリールか対応していなかった**——ビタ押しは指とリールの
+ * 位置が対応していないと狙えない。
+ *
+ * ストップは `--reel-cx-*`（main.ts が Pixi の実寸から流し込む）で絶対配置する。
+ * 左のデッキはその外側に収まる幅しか使わない。 */
 #control-panel {
+  position: relative;
+  /* ボタンの寸法を**筐体幅**に追従させる。ビューポート幅ではなく筐体幅なのは、
+     --game-w が高さからも決まるため（ブラウザ拡大や低い画面では、画面が広くても
+     筐体だけが細くなる）。細くなるとストップがリール位置へ寄って、左のデッキと
+     ぶつかる——そこを cqw で一緒に縮める。 */
+  container-type: inline-size;
+  container-name: ctrl;
+  padding: 0;
+  background: linear-gradient(180deg, var(--panel-hi) 0%, var(--panel-lo) 100%);
+  border-top: none;
+  box-shadow: inset 0 2px 0 var(--cab-sheen);
+}
+
+/* 左のデッキ。MAXBET の下にレバー。実機はレバーが一番左だが、ここは
+   **指の届きやすさを優先**して BET を上、レバーを下に置く（レバーの方が押す回数が多い）。 */
+.deck-well {
+  position: absolute;
+  left: 5px;
+  /* 下端はキーヒントのぶんを空ける。**上に貼り付けない**——段が伸びた時に
+     ボタンだけ上に残って、板の下半分が空く。 */
+  top: 0;
+  bottom: 16px;
+  width: clamp(40px, 14cqw, 96px);
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 6px;
-  /* ボタン帯は縮小。液晶を主役に。ボタンは 0.8 倍まで詰める */
-  padding: 7px 12px 5px;
-  background: linear-gradient(180deg, var(--bg-panel-hi) 0%, var(--bg-void) 100%);
-  border-top: none;
-  position: relative; /* 左右のスピーカーグリル(.cabinet-lamp)の基準 */
+  gap: 5px;
+}
+
+/* レバー。玉と棒で物理レバーに見せる。押すと玉が沈んで棒が縮む。 */
+#lever-btn {
+  position: relative;
+  width: 100%;
+  height: clamp(34px, 12cqw, 84px);
+  padding: 0;
+  background: none;
+  border: none;
+  cursor: pointer;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: flex-start;
+}
+.lever-ball {
+  width: clamp(26px, 9.5cqw, 66px);
+  aspect-ratio: 1;
+  border-radius: 50%;
+  background: radial-gradient(circle at 34% 28%, #fff 0%, #ff6b5a 26%, #a8102a 70%, #5c0a14 100%);
+  border: 1px solid #5c0a14;
+  box-shadow:
+    inset 0 -3px 5px rgba(0, 0, 0, 0.45),
+    0 3px 6px rgba(0, 0, 0, 0.55);
+  transition: transform 90ms ease-out;
+}
+.lever-rod {
+  width: 7px;
+  height: 13px;
+  border-radius: 0 0 2px 2px;
+  background: linear-gradient(90deg, #6e727c 0%, #e8eaef 45%, #6e727c 100%);
+  transition: height 90ms ease-out;
+}
+/* 台座。棒が操作部の板から生えているように見せる穴と縁。これが無いと
+   玉と棒が板の上に浮いて、押せるものに見えない。 */
+#lever-btn::after {
+  content: '';
+  position: absolute;
+  left: 50%;
+  bottom: 0;
+  transform: translateX(-50%);
+  width: clamp(18px, 6cqw, 42px);
+  height: clamp(7px, 2cqw, 12px);
+  border-radius: 50%;
+  background: radial-gradient(ellipse at 50% 35%, #8c909c 0%, #3a3d47 60%, #14161c 100%);
+  box-shadow:
+    inset 0 1px 1px rgba(255, 255, 255, 0.35),
+    0 1px 2px rgba(0, 0, 0, 0.6);
+}
+#lever-btn:hover .lever-ball {
+  filter: brightness(1.12);
+}
+/* 引き下げ。玉が下がって棒が飲み込まれる。 */
+#lever-btn:active .lever-ball {
+  transform: translateY(8px);
+}
+#lever-btn:active .lever-rod {
+  height: 5px;
+}
+#lever-btn:disabled {
+  cursor: default;
+}
+#lever-btn:disabled .lever-ball {
+  filter: grayscale(0.45) brightness(0.72);
+}
+
+/* ストップ3つ。リールの真下に、リールと同じ間隔で並べる。 */
+.stop-row {
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 0;
+  bottom: 16px;
+}
+.stop-row .stop-btn {
+  position: absolute;
+  top: 50%;
+  transform: translate(-50%, -50%);
+}
+.stop-row .stop-btn[data-reel='0'] {
+  left: calc(var(--reel-cx-0) * 100%);
+}
+.stop-row .stop-btn[data-reel='1'] {
+  left: calc(var(--reel-cx-1) * 100%);
+}
+.stop-row .stop-btn[data-reel='2'] {
+  left: calc(var(--reel-cx-2) * 100%);
+}
+/* 沈み込みは `translate` で。`transform` は中央寄せが入っているので触らない。 */
+.stop-row .stop-btn:active {
+  translate: 0 2px;
 }
 
 /* ⑤ スピーカーグリル＝「音の台(ビタ押し＝リズム)」を明示。
@@ -1727,15 +2368,16 @@ body.shake {
    ここは**筐体ランプ**でもある。ボーナス終了時に設定示唆で光る（productions/CabinetLamp.ts）。
    疑似要素で描いていたがJSから状態を持たせられないので実要素にした。 */
 .cabinet-lamp {
-  position: absolute;
-  top: 18px;
-  bottom: 18px;
-  width: 42px;
-  border-radius: 7px;
-  background-color: #0a0610;
-  background-image: radial-gradient(circle, #2a2238 0 1.5px, transparent 1.9px);
+  flex: none;
+  height: 100%;
+  /* **幅は板の幅で決める。** 高さ基準にしていたので、下パネルを厚くした途端に
+     左右のスピーカーが板の幅を食い尽くし、真ん中のロゴが外へ押し出された。 */
+  width: clamp(32px, 18%, 110px);
+  border-radius: 0;
+  background-color: var(--grille-bg);
+  background-image: radial-gradient(circle, var(--grille-dot) 0 1.5px, transparent 1.9px);
   background-size: 9px 9px;
-  border: 1px solid var(--chrome-dk);
+  border: 1px solid var(--cab-edge);
   box-shadow:
     inset 0 0 10px rgba(0, 0, 0, 0.85),
     inset 0 1px 0 rgba(255, 255, 255, 0.05);
@@ -1746,12 +2388,8 @@ body.shake {
     box-shadow 220ms ease-out,
     border-color 220ms ease-out;
 }
-.cabinet-lamp[data-side='left'] {
-  left: 12px;
-}
-.cabinet-lamp[data-side='right'] {
-  right: 12px;
-}
+/* 左右の別は今は位置の指定に使っていない（下パネルの flex が並べる）。
+   属性は CabinetLamp.ts が個別に光らせるときの手掛かりとして残す。 */
 /* 点灯。グリルの穴（radial-gradient のドット）自体を光らせて、外へ滲ませる。
    --lamp は点灯色、--lamp-dim はドットの地色。 */
 .cabinet-lamp[data-lamp] {
@@ -1791,12 +2429,6 @@ body.shake {
     animation: none;
   }
 }
-.ctrl-row {
-  display: flex;
-  gap: 11px;
-  justify-content: center;
-}
-
 /* ⑥ 精算/計数＝サンド（ユニット）側のメダル入出力ボタン。
    操作部中央に浮かせず、貸出・持メダルと同じ場所＝サンドにまとめる（スマスロの計数はユニット側）。 */
 .unit-flow {
@@ -1812,10 +2444,10 @@ body.shake {
   font-weight: 700;
   letter-spacing: 2px;
   font-family: inherit;
-  color: var(--chrome);
-  background: linear-gradient(180deg, #241a2f 0%, #150d20 100%);
-  border: 1px solid var(--chrome-dk);
-  border-radius: 5px;
+  color: var(--aux-text);
+  background: linear-gradient(180deg, var(--aux-hi) 0%, var(--aux-lo) 100%);
+  border: 1px solid var(--cab-edge);
+  border-radius: 0;
   cursor: pointer;
   box-shadow: inset 0 -2px 0 rgba(0, 0, 0, 0.4);
 }
@@ -1828,57 +2460,59 @@ body.shake {
   box-shadow: none;
 }
 
-/* デッキボタン（BET/LEVER）＝紫×クローム＋金。STOPの丸とは別格の角丸プレート */
-#bet-btn,
-#lever-btn {
-  width: 90px;
-  height: 40px;
-  font-size: 13px;
+/* MAXBET＝紫×クローム＋金の角丸プレート。実機の BET は小さな長方形で、
+   レバーやストップより控えめ。**レバーはこのルールから外してある**——
+   物理レバーは板ではないので、寸法も見た目も共有できない。 */
+#bet-btn {
+  width: 100%;
+  height: clamp(20px, 6cqw, 44px);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  line-height: 1.05;
+  /* 2行（MAX / BET）が板から溢れないよう、字も板と一緒に伸び縮みさせる。 */
+  font-size: clamp(8px, 2.2cqw, 16px);
   font-weight: 800;
-  letter-spacing: 1px;
-  color: var(--gold);
-  background: linear-gradient(180deg, #3a2350 0%, #1c1030 100%);
-  border: 2px solid var(--chrome-dk);
-  border-radius: 7px;
+  letter-spacing: 0.5px;
+  color: var(--deck-text);
+  background: linear-gradient(180deg, var(--deck-hi) 0%, var(--deck-lo) 100%);
+  border: 2px solid var(--cab-edge);
+  border-radius: 0;
   cursor: pointer;
   font-family: inherit;
   text-shadow: 0 1px 1px rgba(0, 0, 0, 0.5);
   box-shadow:
     inset 0 1px 0 rgba(255, 255, 255, 0.12),
-    inset 0 0 0 1px rgba(242, 179, 60, 0.3),
+    inset 0 0 0 1px var(--deck-ring),
     inset 0 -3px 0 rgba(0, 0, 0, 0.5);
 }
-#bet-btn:hover,
-#lever-btn:hover {
-  background: linear-gradient(180deg, #472b63 0%, #24143a 100%);
+#bet-btn span {
+  font-size: clamp(7px, 1.8cqw, 13px);
+  letter-spacing: 1px;
 }
-#bet-btn:active,
-#lever-btn:active {
-  transform: translateY(2px);
+#bet-btn:hover {
+  background: linear-gradient(180deg, var(--deck-hi-2) 0%, var(--deck-lo-2) 100%);
+}
+#bet-btn:active {
+  translate: 0 2px;
   box-shadow: none;
 }
-.stop-cell {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 4px;
-}
-
 /* スマスロ/ディスクアップ風の丸い発光ストップボタン（朱はここだけ） */
 .stop-btn {
-  width: 58px;
-  height: 58px;
-  font-size: 12px;
+  width: clamp(38px, 13.5cqw, 100px);
+  aspect-ratio: 1;
+  font-size: clamp(9px, 2.6cqw, 19px);
   font-weight: 800;
   letter-spacing: 0.5px;
-  color: #fff;
+  color: var(--stop-text);
   background: radial-gradient(
     circle at 50% 32%,
-    #ff5a4d 0%,
-    #d9281e 46%,
-    #8c1109 100%
+    var(--stop-1) 0%,
+    var(--stop-2) 46%,
+    var(--stop-3) 100%
   );
-  border: 3px solid var(--chrome);
+  border: 3px solid var(--stop-ring);
   border-radius: 50%;
   cursor: pointer;
   font-family: inherit;
@@ -1886,33 +2520,36 @@ body.shake {
   box-shadow:
     inset 0 3px 6px rgba(255, 255, 255, 0.35),
     inset 0 -7px 11px rgba(0, 0, 0, 0.45),
-    0 0 0 2px rgba(217, 74, 47, 0.45),
+    0 0 0 2px var(--stop-halo),
     0 4px 8px rgba(0, 0, 0, 0.5);
 }
 .stop-btn:hover {
   background: radial-gradient(
     circle at 50% 32%,
-    #ff7065 0%,
-    #e63125 46%,
-    #9c150b 100%
+    var(--stop-1h) 0%,
+    var(--stop-2h) 46%,
+    var(--stop-3h) 100%
   );
 }
 .stop-btn:active {
-  transform: translateY(2px);
+  translate: 0 2px;
   box-shadow: none;
 }
+/* 押せない状態＝**消灯した物理ボタン**。透かして消すのではなく、色を抜いて
+   暗くする。透明度で消すと、レトロ皮のようなクリーム色の操作板では
+   ボタンごと板に溶けて「そこに何があるか」すら分からなくなる。 */
 #bet-btn:disabled,
 #lever-btn:disabled,
 .stop-btn:disabled {
-  opacity: 0.35;
+  opacity: 0.8;
   cursor: not-allowed;
-  filter: grayscale(0.5);
+  filter: grayscale(0.8) brightness(0.6);
 }
 /* 停止済みのリール：もう一度押すと滑りコマ数が出る。
    「まだ止められる」と誤読させないよう、赤の押し味を落として細い金縁にする。 */
 .stop-btn.checkable {
-  opacity: 0.5;
-  filter: grayscale(0.55);
+  opacity: 0.85;
+  filter: grayscale(0.6) brightness(0.72);
   box-shadow: none;
   border-color: rgba(255, 215, 0, 0.45);
 }
@@ -1920,21 +2557,29 @@ body.shake {
   opacity: 0.75;
   filter: grayscale(0.2);
 }
+/* 押した合図（キーからもボタンからも `flashButton` が付ける）。
+ *
+ * **沈み込みは `transform` ではなく `translate` で書く。** アニメーションの
+ * `transform` は要素の `transform` を丸ごと置き換えるので、リールの真下へ
+ * `translate(-50%, -50%)` で寄せてあるストップボタンに当てると、中央寄せごと
+ * 消えて**半個ぶん右下へ飛ぶ**。`translate` は独立したプロパティなので、
+ * 位置決めの `transform` と喧嘩しない。 */
 .flash {
   animation: flash-anim 100ms ease-out;
 }
 
-@keyframes flash-anim {0% {
+@keyframes flash-anim {
+  0% {
     filter: brightness(1.8);
-    transform: translateY(2px);
+    translate: 0 2px;
   }
-100% {
+  100% {
     filter: brightness(1);
-    transform: translateY(0);
+    translate: 0 0;
   }
 }
-#bet-btn::after,
-#lever-btn::after,
+/* キー名はストップにだけ出す。MAXBET は3行になって潰れ、レバーは玉なので
+   文字を乗せる面が無い。どちらのキーも下のキーヒントと設定から読める。 */
 .stop-btn::after {
   content: attr(data-key);
   display: block;
@@ -1944,18 +2589,151 @@ body.shake {
   margin-top: 2px;
   letter-spacing: 0.5px;
 }
+/* === メニュー（ドックの「メニュー」）===
+ * 遊技中に触らないものをまとめる。計数・消音・ホールへ戻る。 */
+#menu-overlay {
+  position: fixed;
+  inset: 0;
+  /* **`#overlays` が `pointer-events: none` なので、自分で戻す。** 戻さないと
+     クリックが全部すり抜けて、開いているのに何も押せない（背後の筐体に当たる）。
+     設定・図鑑のオーバーレイも同じ理由で `auto` を明示している。 */
+  pointer-events: auto;
+  /* 設定(210)より下、ドック(60)より上。設定を開いている間はそちらが前面。 */
+  z-index: 200;
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  padding: 0 0 calc(var(--dock-h) + 10px);
+  background: rgba(0, 0, 0, 0.55);
+}
+#menu-overlay[hidden] {
+  display: none;
+}
+.menu-sheet {
+  width: min(360px, 92vw);
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 10px;
+  background: linear-gradient(180deg, var(--bar-hi), var(--bar-lo));
+  border: 1px solid var(--cab-edge);
+  box-shadow: 0 8px 26px rgba(0, 0, 0, 0.7);
+}
+.menu-head {
+  padding-bottom: 6px;
+  font-size: 10px;
+  letter-spacing: 3px;
+  text-align: center;
+  color: var(--meter-label);
+  border-bottom: 1px solid var(--cab-edge);
+}
+.menu-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 9px 10px;
+  font-family: inherit;
+  text-align: left;
+  color: var(--ivory);
+  background: var(--meter-bg);
+  border: 1px solid var(--meter-edge);
+  cursor: pointer;
+}
+.menu-item:hover {
+  border-color: var(--gold);
+}
+.menu-item:active {
+  translate: 0 1px;
+}
+.menu-icon {
+  flex: none;
+  width: 22px;
+  text-align: center;
+  font-size: 15px;
+  color: var(--gold);
+}
+.menu-text {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+.menu-text b {
+  font-size: 13px;
+  letter-spacing: 1px;
+}
+.menu-text i {
+  font-style: normal;
+  font-size: 10px;
+  color: var(--panel-text-dim);
+}
+.menu-close {
+  margin-top: 4px;
+  padding: 8px;
+  font-family: inherit;
+  font-size: 11px;
+  letter-spacing: 2px;
+  color: var(--aux-text);
+  background: linear-gradient(180deg, var(--aux-hi) 0%, var(--aux-lo) 100%);
+  border: 1px solid var(--cab-edge);
+  cursor: pointer;
+}
+.menu-close:hover {
+  color: var(--gold-hi);
+  border-color: var(--gold);
+}
+
+/* 操作部の下端に1行。ボタンの絶対配置とぶつからないよう、下に貼り付ける。 */
 #key-hint {
-  width: 100%;
-  /* 左右のスピーカーグリル(.cabinet-lamp width42+inset12)を避けつつ、1行で収める */
-  padding: 0 48px;
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 3px;
+  padding: 0 8px;
   text-align: center;
   font-size: 9px;
   line-height: 1.4;
   white-space: nowrap;
-  color: #666;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  color: var(--panel-text-dim);
   letter-spacing: 0;
   pointer-events: none;
-  margin-top: 4px;
+}
+
+/* === 下パネル（ロゴ板）と下皿 ===
+ * 実機の腰から下。ロゴ板を左右のスピーカーが挟み、その下に下皿がある。
+ * 筐体ランプ（設定示唆）はこのスピーカーが担う——実機でも光るのはここ。 */
+#lowerpanel {
+  display: flex;
+  align-items: stretch;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 4px 8px;
+  background: var(--isl-lower, linear-gradient(180deg, var(--panel-hi), var(--panel-lo)));
+  border-top: 1px solid var(--cab-edge);
+  box-shadow: inset 0 2px 5px rgba(0, 0, 0, 0.5);
+}
+.lower-mark {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: var(--mark-font);
+  font-size: clamp(11px, calc(var(--lowerpanel-h) * 0.22), 26px);
+  letter-spacing: 0.28em;
+  color: var(--isl-lower-text, var(--mark-color));
+  text-shadow:
+    0 0 1px var(--gold-hi),
+    0 0 8px var(--mark-glow);
+}
+
+/* 下皿。何も置かない暗い受け皿で、筐体の底を締める。 */
+#tray {
+  background: linear-gradient(180deg, #0a0710 0%, #05030a 100%);
+  border-top: 1px solid var(--cab-edge);
+  border-radius: 0 0 var(--cab-radius) var(--cab-radius);
+  box-shadow: inset 0 5px 10px rgba(0, 0, 0, 0.9);
 }
 #overlays {
   position: absolute;
@@ -2530,42 +3308,63 @@ body.shake {
   z-index: 9990;
   pointer-events: none;
   border-radius: 4px;
-  transition:
-    box-shadow 260ms ease-out,
-    opacity 260ms ease-out;
 }
-/* 実機のランプの序列（白 < 青 < 緑 < 赤 < 金）。赤と金はテンパイしてからしか出ない */
+/* 実機のランプの序列（白 < 青 < 緑 < 赤 < 金）。赤と金はテンパイしてからしか出ない。
+ *
+ * **段が上がるほど色が中央へ寄る。** 縁だけを光らせていた頃は、画面が大きいほど
+ * 細い枠になって段の差が読めなかった（筐体を幅に比例させて液晶が900pxを超えてから
+ * 特に）。`--step-core` は「色が届かない中心の穴」の大きさで、これが縮むぶん色が
+ * 中へ伸びる。
+ *
+ * 幅は `cqmin`（液晶の短辺）で持つ。px 固定だと大きい画面で縁が細く、小さい画面で
+ * 潰れる——同じ演出が画面サイズで別物になる。 */
 .step-fx[data-step='1'] {
   --step-c: #dde6f2;
-  --step-w: 3px;
-  --step-a: 0.40;
+  --step-w: 1.2cqmin;
+  --step-core: 84%;
+  --step-a: 0.45;
 }
 .step-fx[data-step='2'] {
   --step-c: #4da3ff;
-  --step-w: 5px;
-  --step-a: 0.55;
+  --step-w: 2cqmin;
+  --step-core: 68%;
+  --step-a: 0.62;
 }
 .step-fx[data-step='3'] {
   --step-c: #3ddc84;
-  --step-w: 7px;
-  --step-a: 0.70;
+  --step-w: 3cqmin;
+  --step-core: 54%;
+  --step-a: 0.76;
 }
 .step-fx[data-step='4'] {
   --step-c: #ff4d5e;
-  --step-w: 10px;
-  --step-a: 0.86;
+  --step-w: 4.2cqmin;
+  --step-core: 38%;
+  --step-a: 0.9;
 }
 .step-fx[data-step='5'] {
   --step-c: #ffd700;
-  --step-w: 14px;
+  --step-w: 5.6cqmin;
+  --step-core: 22%;
   --step-a: 1;
 }
 .step-fx {
+  /* 中心から外へ向かう色。穴（--step-core）の外側で立ち上がり、縁で最も濃い。 */
+  background: radial-gradient(
+    ellipse at 50% 50%,
+    transparent var(--step-core, 84%),
+    color-mix(in srgb, var(--step-c, #fff) 45%, transparent) 100%
+  );
   box-shadow:
-    inset 0 0 var(--step-w, 3px) color-mix(in srgb, var(--step-c, #fff) 90%, transparent),
-    inset 0 0 calc(var(--step-w, 3px) * 3.2)
+    inset 0 0 var(--step-w, 1.2cqmin)
+      color-mix(in srgb, var(--step-c, #fff) 90%, transparent),
+    inset 0 0 calc(var(--step-w, 1.2cqmin) * 3.2)
       color-mix(in srgb, var(--step-c, #fff) 55%, transparent);
-  opacity: var(--step-a, 0.4);
+  opacity: var(--step-a, 0.45);
+  transition:
+    background 260ms ease-out,
+    box-shadow 260ms ease-out,
+    opacity 260ms ease-out;
 }
 /* 段が変わった瞬間の脈。1回だけ膨らんで戻る */
 .step-fx.bump {
@@ -3437,97 +4236,47 @@ to {
   }
 }
 
-/* ===== 筐体幅ベースのヘッダー圧縮（@container）=====
- * --game-w は高さからも決まるため、ブラウザ拡大や低い画面では
- * ビューポートが広くても筐体だけが細くなり、ヘッダー右（♪/図鑑/⚙）や
- * リールが筐体幅を超えて overflow:hidden で切れる。
- * ビューポート幅の @media では拾えないので、筐体幅基準で段階圧縮する。 */
-/* 1段目：軽く詰める（ボタン余白/フォント/gap） */
-@container cabinet (max-width: 418px) {
-  #info-bar {
-    padding: 0 8px;
-    gap: 6px;
-    font-size: 12px;
-  }
-  #coin-display {
-    padding: 3px 7px;
-  }
-  #bet-display {
-    gap: 4px;
-  }
-  #zukan-btn,
-  #mute-btn,
-  #auto-btn,
-  #reel-strip-btn,
-  #settings-btn {
-    padding: 2px 7px;
-    font-size: 10px;
-    letter-spacing: 0.5px;
-  }
-  #effect-status {
-    padding: 3px 9px;
-    font-size: 11px;
-    letter-spacing: 1px;
-  }
-}
-
-/* 2段目：Bet表示を落とし、ボタンを一段小さく */
-@container cabinet (max-width: 372px) {
+/* ===== 筐体幅ベースの情報パネル圧縮（@container）=====
+ * --game-w は高さからも決まるので、ブラウザ拡大や低い画面ではビューポートが
+ * 広くても筐体だけが細くなり、計器とランプが筐体幅を超えて切れる。
+ * ビューポート幅の @media では拾えないため、筐体幅基準で詰める。
+ *
+ * 操作部（レバー・ストップ・精算）はここではなく `cqw` で連続的に縮む。
+ * ストップはリール位置に貼り付いているので、段階的に飛ばすと左のデッキと
+ * ぶつかる瞬間ができてしまう。 */
+@container cabinet (max-width: 400px) {
   #info-bar {
     padding: 0 5px;
     gap: 4px;
-    font-size: 11px;
   }
-  #bet-text {
-    display: none; /* Bet:3 はステータスから読めるので最優先で落とす */
+  .ip-value {
+    font-size: 13px;
   }
-  #coin-display {
-    padding: 2px 6px;
-  }
-  #bet-display {
-    gap: 3px;
-  }
-  #zukan-btn,
-  #mute-btn,
-  #auto-btn,
-  #reel-strip-btn,
-  #settings-btn {
-    padding: 2px 5px;
-    font-size: 9px;
-    letter-spacing: 0;
+  .ip-lamps {
+    gap: 4px;
   }
   #effect-status {
-    padding: 2px 7px;
-    font-size: 10px;
+    padding: 2px 6px;
+    font-size: 9px;
     letter-spacing: 0.5px;
   }
 }
 
-/* 3段目：高ブラウザ拡大の極狭（〜270px）。アイコン級まで詰めて全ボタンを残す */
-@container cabinet (max-width: 330px) {
+/* 極狭（高ブラウザ拡大）。BET ランプを落として計器と状態だけ残す——
+   ベット済みかどうかは MAXBET ボタンの押せる／押せないでも読める。 */
+@container cabinet (max-width: 320px) {
   #info-bar {
     padding: 0 3px;
     gap: 3px;
   }
-  #coin-display {
-    padding: 2px 4px;
-    font-size: 11px;
+  .ip-label {
+    display: none;
   }
-  #bet-display {
-    gap: 2px;
+  .ip-value {
+    font-size: 12px;
   }
-  #zukan-btn,
-  #mute-btn,
-  #auto-btn,
-  #reel-strip-btn,
-  #settings-btn {
-    padding: 2px 3px;
-    font-size: 8px;
-  }
-  #effect-status {
-    padding: 2px 4px;
-    font-size: 9px;
-    letter-spacing: 0;
+  #bet-text {
+    display: none;
   }
 }
 
@@ -3541,161 +4290,28 @@ to {
  *   ≤ 480px: スマホ縦 → さらに寸法を詰める
  */
 @media (max-width: 900px) {
-  :root {
-    --layout-pad: 8px;
-    --reel-gap: 0px;
-    --reel-panel-occupy: 0px;
-    --control-h: 154px;
-    /* 狭画面では 440px キャップを外し、ビューポート全体に追随させる。
-     * 縦長 約1:1.22 なので、高さ制約 (100vh - 各帯) を 1.22 で割って game 幅を決める。 */
-    --game-w: max(
-      240px,
-      min(
-        calc(
-          (100vh - var(--layout-pad) * 2 - var(--header-h) - var(--control-h)) / 1.22
-        ),
-        calc(100vw - var(--layout-pad) * 2)
-      )
-    );
-    --game-h: calc(var(--game-w) * 1.22);
-  }
+  /* レイアウトの器（筐体の寸法・パネルの畳み方）は画面の向きで決まるので、
+     幅の判定からは外して @media (max-aspect-ratio: 1/1) へ一本化した（2026-09-08）。
+     ここに残すのは「幅が狭いから文字とボタンを縮める」ぶんだけ。横長の狭い
+     ウィンドウでも縮小は要るので、向きではなく幅で判定するのが正しい。 */
 
-  .game-view {
-    flex-direction: column;
-    align-items: center;
-  }
-
-  /* 配列パネルは既定で非表示。ヘッダーの「配列」ボタンでオーバーレイ表示 */
-  #reel-strip-panel {
-    display: none;
-  }
-
-  #reel-strip-panel.open {
-    display: flex;
-    position: fixed;
-    top: 50%;
-    left: 50%;
-    transform: translate(-50%, -50%);
-    width: min(360px, 92%);
-    max-height: 86vh;
-    z-index: 25;
-    overflow: hidden;
-    /* box-shadow で巨大な半透明黒を全方向に伸ばし、背後の backdrop を作る */
-    box-shadow:
-      0 0 20px rgba(255, 215, 0, 0.4),
-      0 0 0 200vmax rgba(0, 0, 0, 0.7);
-  }
-
-  /* オーバーレイ時のみ × ボタンを出す */
-  #reel-strip-panel.open .strip-close {
-    display: block;
-  }
-
-  /* オーバーレイ表示時はパネル内をスクロール可能に */
-  #reel-strip-panel.open .strip-grid {
-    overflow-y: auto;
-  }
-
-  /* 配列パネルを開くボタンを表示 */
-  #reel-strip-btn {
-    display: inline-block;
-  }
-
-  /* サンド（ユニット）は狭画面では筐体の下に横帯で回す（貸出を押せるように） */
-  #unit-panel {
-    width: var(--game-w);
-    max-height: none;
-    flex-direction: row;
-    flex-wrap: wrap;
-    align-items: center;
-    justify-content: center;
-    gap: 8px;
-    padding: 8px 10px;
-  }
-  #unit-panel .unit-head,
-  #unit-panel .unit-slot,
-  #unit-panel .unit-hint {
-    display: none;
-  }
-  #unit-panel .unit-readout {
-    flex-direction: row;
-    align-items: center;
-    gap: 6px;
-    padding: 4px 8px;
-  }
-  #unit-panel .unit-readout-num {
-    font-size: 16px;
-  }
-  #unit-panel .unit-stat {
-    flex-direction: row;
-    gap: 10px;
-    padding: 4px 8px;
-  }
-  #unit-panel .unit-stat-row {
-    gap: 4px;
-  }
-  #unit-panel .unit-lend-label {
-    width: 100%;
-  }
-  #unit-panel .unit-lend-buttons {
-    flex-direction: row;
-    flex: 1 1 auto;
-    min-width: 0;
-  }
-  #unit-panel .unit-lend-buttons .coin-add {
-    flex: 1;
-    padding: 8px 4px;
-  }
-  #unit-panel .unit-flow {
-    flex: 1 1 auto;
-    min-width: 0;
-  }
-
-  /* ヘッダー詰め */
+  /* 情報パネル詰め */
   #info-bar {
-    padding: 0 10px;
+    padding: 0 6px;
     font-size: 12px;
   }
-  #zukan-btn,
-  #mute-btn,
-  #auto-btn,
-  #reel-strip-btn {
-    padding: 3px 7px;
-    font-size: 10px;
-  }
-  #settings-btn {
-    padding: 3px 6px;
-    font-size: 12px;
+  .masthead-tools button {
+    padding: 2px 5px;
+    font-size: 8px;
   }
   #effect-status {
-    padding: 3px 10px;
-    font-size: 11px;
+    padding: 2px 7px;
+    font-size: 9px;
   }
 
-  /* コントロール: ボタン縮小 */
-  #control-panel {
-    gap: 5px;
-    padding: 6px 10px 5px;
-  }
-  /* 狭画面はボタンと重なるのでスピーカーグリル（＝筐体ランプ）を隠す。
-     示唆は終了画面の一言でも読めるので、ここが消えても情報は落ちない。 */
-  .cabinet-lamp {
-    display: none;
-  }
-  #bet-btn,
-  #lever-btn {
-    width: 80px;
-    height: 36px;
-    font-size: 13px;
-  }
-  .stop-btn {
-    width: 56px;
-    height: 38px;
-    font-size: 14px;
-  }
-  .ctrl-row {
-    gap: 10px;
-  }
+  /* 操作部のボタンは cqw で連続的に縮むので、ここで寸法は触らない。
+     以前は幅ごとに px を上書きしていたが、**ストップはリール位置に貼り付いて
+     いる**ので、段階的に飛ばすと左のデッキとぶつかる幅ができてしまう。 */
   #key-hint {
     display: none; /* スマホ・タブレットではキーボード操作しないので */
   }
@@ -3763,63 +4379,21 @@ to {
   }
 }
 
-@media (max-width: 480px) {:root {
+@media (max-width: 480px) {
+  :root {
     --layout-pad: 6px;
-    --control-h: 140px;
   }
 
-  /* ヘッダーをさらに詰める。AUTO/♪/図鑑/⚙ を 1 行に押し込む */
   #info-bar {
-    padding: 0 6px;
+    padding: 0 5px;
     font-size: 11px;
-    grid-template-columns: auto 1fr auto;
   }
-#bet-display {
-    gap: 4px;
-  }
-#bet-text {
-    display: none; /* Bet: 3 はステータスバーで読み取れる */
-  }
-#zukan-btn,
-#mute-btn,
-#auto-btn,
-#settings-btn,
-#reel-strip-btn {
-    padding: 2px 5px;
-    font-size: 10px;
+  #effect-status {
+    padding: 2px 6px;
+    font-size: 9px;
     letter-spacing: 0.5px;
   }
-#effect-status {
-    padding: 2px 8px;
-    font-size: 10px;
-    letter-spacing: 1px;
-  }
-
-  /* コントロール: スマホ親指で押せる最小サイズ程度に */
-  #control-panel {
-    gap: 6px;
-    padding: 10px 8px 8px;
-  }
-#bet-btn,
-#lever-btn {
-    width: 96px;
-    height: 44px;
-    font-size: 14px;
-  }
-.stop-btn {
-    width: 68px;
-    height: 48px;
-    font-size: 14px;
-  }
-.ctrl-row {
-    gap: 8px;
-  }
-.ctrl-row.stop-row {
-    gap: 10px;
-  }
-#bet-btn::after,
-#lever-btn::after,
-.stop-btn::after {
+  .stop-btn::after {
     display: none; /* キーバインドラベルは PC のみ */
   }
 
@@ -4202,4 +4776,278 @@ to {
 }
 .a11y-reduce-motion .sound-cue {
   transition: none;
+}
+
+/* ===================================================================
+   画面下のドック（2026-09-07）
+
+   **開いて読むものはここに集める。** 遊技中に触るのはレバー・停止・ベットだけで、
+   配列やデータは手を止めて見るもの。だから筐体のヘッダーではなく画面の縁に置く。
+   参考にしたスロットアプリはどれもこの位置に操作列を持っていた。
+
+   横長では左右のパネルが常に見えているので、配列とデータのボタンは出さない
+   （開くものが既に開いている状態でボタンを押させない）。
+   =================================================================== */
+
+/* === ドック＝台のメニュー ===
+ * 筐体の続きなので、下皿の直下に幅いっぱいで貼る。以前は画面下に浮かせていて、
+ * **筐体との間に何も無い帯が空いていた**。縦長だけは片手で届く位置が要るので
+ * 画面下へ固定する（下の縦長ブロックで上書き）。 */
+#dock {
+  height: var(--dock-h);
+  display: flex;
+  align-items: stretch;
+  justify-content: center;
+  gap: 4px;
+  padding: 5px 6px;
+  background: linear-gradient(180deg, var(--bar-hi), var(--bar-lo));
+  border: 1px solid var(--cab-edge);
+  border-top: none;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.08);
+}
+
+.dock-btn {
+  /* 均等に伸ばすが、伸びすぎない。横長では3つしか出ないので、伸ばしきると
+     1つ 180px の間延びしたボタンになる。 */
+  flex: 1 1 0;
+  min-width: 0;
+  max-width: 120px;
+  padding: 4px 6px;
+  display: grid;
+  align-content: center;
+  justify-items: center;
+  gap: 2px;
+  border: 1px solid transparent;
+  border-radius: 0;
+  background: transparent;
+  color: var(--text-dim, #9b8ab0);
+  font: inherit;
+  cursor: pointer;
+  transition:
+    background 120ms ease,
+    color 120ms ease;
+}
+
+.dock-btn:hover {
+  background: rgba(255, 255, 255, 0.06);
+  color: var(--text, #f2e9d8);
+}
+
+.dock-btn:focus-visible {
+  outline: 2px solid var(--gold, #f2b33c);
+  outline-offset: 2px;
+}
+
+/* 開いている間は押した側にも状態を出す。押しっぱなしに見えないと閉じ方が分からない。 */
+.dock-btn.on {
+  background: rgba(242, 179, 60, 0.16);
+  border-color: rgba(242, 179, 60, 0.5);
+  color: var(--gold, #f2b33c);
+}
+
+.dock-icon {
+  font-size: 16px;
+  line-height: 1;
+}
+
+.dock-label {
+  font-size: 10px;
+  letter-spacing: 0.08em;
+}
+
+/* 横長：左右のパネルが出ているので、開くボタンは要らない。 */
+@media (min-aspect-ratio: 1/1) {
+  #dock-reels,
+  #dock-unit {
+    display: none;
+  }
+}
+
+/* ===================================================================
+   縦長のレイアウト（2026-09-07）
+
+   **縦長では筐体を画面いっぱいに出す。** 横長を前提に「横の余りから幅を決める」
+   作りだったので、縦長だと幅で頭打ちになって縦が余っていた。ここでは逆に
+   高さを基準にし、左右のパネルは畳んでドックから開く形へ回す。
+
+   打ちながら見る数字（差枚・投資・回収）だけは上の帯に残す。シートへ入れると
+   毎回開くことになり、差枚は1ゲームごとに動く数字なので手が止まる。
+   時間計測は手を止めて見るものなのでシート側でよい。
+   =================================================================== */
+
+/* 右カラム。帯とシートを縦に積む。**縦長では display:contents で箱ごと消す**ので、
+   帯の position:fixed がビューポート基準のまま働く。 */
+#unit-column {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+@media (max-aspect-ratio: 1/1) {
+  #unit-column {
+    display: contents;
+  }
+
+  /* 縦長では柱の箱を消す。ドックを画面下へ固定するので、柱に囲われていると
+     筐体の下に空の高さだけが残る（帯を fixed にした時と同じ形）。 */
+  #machine-column {
+    display: contents;
+  }
+
+  /* 柱が消えるぶん、データランプは自分で幅を持つ（そのままだと中身の幅まで縮んで、
+     筐体より細い表示器が乗る）。 */
+  #datalamp {
+    width: var(--game-w);
+  }
+
+  /* ドックは片手で届く画面下へ。筐体の幅ではなく画面の幅いっぱいに敷く。 */
+  #dock {
+    position: fixed;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    z-index: 60;
+    border-left: none;
+    border-right: none;
+    border-bottom: none;
+    border-top: 1px solid var(--cab-edge);
+    box-shadow: 0 -6px 20px rgba(0, 0, 0, 0.55);
+  }
+
+  :root {
+    /* 左右のパネルは畳むので、その占有を差し引かない。データランプとドックを引く。 */
+    --dock-h: 64px;
+    /* 縦長は画面が広いので表示器を一段大きくする。 */
+    --datalamp-h: 132px;
+    --game-w: max(
+      240px,
+      min(
+        calc(100vw - var(--layout-pad) * 2),
+        calc(
+          (100vh - var(--layout-pad) * 2 - var(--dock-h) - var(--datalamp-h)) /
+            (1.22 + var(--cab-row-ratio))
+        )
+      )
+    );
+  }
+
+  :root {
+    --layout-pad: 8px;
+  }
+
+  .game-view {
+    /* 筐体だけを縦に置く。左右のパネルはシートへ回すので回り込みは要らない。 */
+    flex-direction: column;
+    align-items: center;
+    /* 縦長では筐体の幅が画面の幅で頭打ちになるので、端末の縦横比によっては
+       高さが余る。**余りは上下へ均等に散らす**——下だけに寄せると、筐体と
+       ドックの間に何も無い帯ができる。 */
+    justify-content: center;
+    padding-bottom: var(--dock-h);
+  }
+
+  /* シートの中は縦積みに戻す（横長では右カラムとして縦に並んでいる）。 */
+  #unit-panel {
+    flex-direction: column;
+  }
+
+  #unit-panel .unit-head {
+    display: none;
+  }
+
+  /* 配列は3列のまま、シートの幅いっぱいに広げる。 */
+  #reel-strip-panel .strip-grid {
+    max-height: 56vh;
+    overflow-y: auto;
+  }
+
+  /* 差枚・投資・回収はサンドの中へ戻した（2026-09-08）。以前はここで画面上部の
+     固定帯にしていたが、**その場所はデータランプのもの**——実機のホールでも、
+     台の上に載っているのは呼び出しランプとカウンターで、自分の投資額ではない。
+     差枚は筐体の情報パネルにも出ているので、帯が無くても打ちながら読める。 */
+
+  /* パネル本体は下から出るシートへ。開閉は既にある .open を使う。 */
+  #unit-panel,
+  #reel-strip-panel {
+    position: fixed;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    z-index: 58;
+    width: auto;
+    max-height: 72vh;
+    overflow-y: auto;
+    border-radius: 0;
+    transform: translateY(100%);
+    transition: transform 220ms ease;
+    padding-bottom: calc(var(--dock-h) + 8px);
+  }
+
+  #unit-panel.open,
+  #reel-strip-panel.open {
+    transform: translateY(0);
+  }
+
+}
+
+@media (prefers-reduced-motion: reduce) {
+  #unit-panel,
+  #reel-strip-panel {
+    transition: none;
+  }
+}
+
+/* === キー割り当て（2026-09-08） ===
+   押す位置は成績に直結する（ビタ押しの判定は±12ms）ので、見た目の好みではなく
+   遊びやすさの設定として扱う。行は「操作名 → 今のキー」の2列で、キーを押すと
+   その場で待ち受けに入る。 */
+
+.key-binding-list {
+  display: grid;
+  gap: 4px;
+  margin-bottom: 8px;
+}
+
+.key-binding-row {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  align-items: center;
+  gap: 10px;
+  padding: 4px 8px;
+  border-radius: 6px;
+  background: rgba(255, 255, 255, 0.03);
+}
+
+.key-binding-label {
+  font-size: 12px;
+  color: var(--text-dim, #9b8ab0);
+}
+
+.key-binding-key {
+  min-width: 92px;
+  padding: 4px 10px;
+  border: 1px solid var(--chrome-dk, #3a3050);
+  border-radius: 5px;
+  background: rgba(0, 0, 0, 0.35);
+  color: var(--text, #f2e9d8);
+  font: inherit;
+  font-size: 12px;
+  letter-spacing: 0.06em;
+  cursor: pointer;
+}
+
+.key-binding-key:hover {
+  border-color: var(--gold, #f2b33c);
+}
+
+/* 待ち受け中。押すまで戻らないので、他と見分けが付く強さにする。 */
+.key-binding-key.capturing {
+  border-color: var(--gold, #f2b33c);
+  background: rgba(242, 179, 60, 0.18);
+  color: var(--gold, #f2b33c);
+}
+
+.key-binding-key:focus-visible {
+  outline: 2px solid var(--gold, #f2b33c);
+  outline-offset: 2px;
 }

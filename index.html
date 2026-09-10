@@ -33,72 +33,7 @@
   <body>
     <div id="view-play" class="view" hidden></div>
     <div id="view-game" class="view game-view" hidden>
-    <div id="cabinet">
-      <div id="masthead">
-        <button id="home-btn" type="button" title="ホールへ戻る" aria-label="ホールへ戻る">≡</button>
-        <span class="mark">mojislot</span>
-      </div>
-      <div class="header-shell">
-        <header id="info-bar">
-          <div id="coin-display">MEDAL 0</div>
-          <div id="status-stack">
-            <div id="effect-status">通常</div>
-          </div>
-          <div id="bet-display">
-            <span id="bet-text">Bet: 3</span>
-            <button id="auto-btn" type="button" title="オート [O]">AUTO</button>
-            <button id="mute-btn" type="button" title="音量 [M]">♪</button>
-            <button id="reel-strip-btn" type="button" title="リール配列 [R]">配列</button>
-            <button id="zukan-btn" type="button" title="図鑑 [Z]">図鑑</button>
-            <button id="settings-btn" type="button" title="設定 [,]">⚙</button>
-          </div>
-        </header>
-      </div>
-
-      <div id="game-area">
-        <canvas id="game"></canvas>
-        <!-- 進行ステータスは演出液晶の左上に出す（ヘッダーを溢れさせない） -->
-        <div id="lcd-status">
-          <!-- リミックス島だけ出す。いま何の配列を打っているかが常時見えていないと、
-               ボーナス終了時の一瞬の告知を見逃した人に手掛かりが残らない -->
-          <div id="stage-status" hidden></div>
-          <div id="bonus-status" hidden></div>
-          <div id="streak-status" hidden></div>
-          <div id="rescue-status" hidden></div>
-        </div>
-        <div id="result-display"></div>
-      </div>
-
-      <div id="overlays">
-        <div id="zukan-overlay" hidden></div>
-        <div id="settings-overlay" hidden></div>
-        <div id="bonus-banner" hidden></div>
-      </div>
-
-      <footer id="control-panel">
-        <!-- スピーカーグリル＝筐体ランプ。ボーナス終了時に設定示唆で光る。
-             疑似要素で描いていたが、JSから状態を持たせられないので実要素にした。 -->
-        <div class="cabinet-lamp" data-side="left" aria-hidden="true"></div>
-        <div class="cabinet-lamp" data-side="right" aria-hidden="true"></div>
-        <div class="ctrl-row">
-          <button id="bet-btn" data-key="[B]">MAXBET</button>
-          <button id="lever-btn" data-key="[Space]">LEVER</button>
-        </div>
-        <div class="ctrl-row stop-row" id="reel-buttons">
-          <div class="stop-cell">
-            <button class="stop-btn" data-reel="0" data-key="[A]">STOP</button>
-          </div>
-          <div class="stop-cell">
-            <button class="stop-btn" data-reel="1" data-key="[S]">STOP</button>
-          </div>
-          <div class="stop-cell">
-            <button class="stop-btn" data-reel="2" data-key="[D]">STOP</button>
-          </div>
-        </div>
-        <div id="key-hint">Space:レバー  /  A・S・D:ストップ  /  B:BET  /  1〜4:クイズ</div>
-      </footer>
-    </div>
-
+    <!-- 脇のパネル（左＝リール配列・右＝サンド）。縦長ではシートへ畳む。 -->
     <aside id="reel-strip-panel">
       <button class="strip-close" type="button" hidden>×</button>
       <h3>リール配列</h3>
@@ -119,20 +54,25 @@
       <div class="strip-hint">停止時に中央セルをハイライトします</div>
     </aside>
 
+    <div id="unit-column">
     <aside id="unit-panel">
-      <div class="unit-head">UNIT</div>
-      <div class="unit-readout">
-        <span class="unit-readout-label">持メダル</span>
-        <span class="unit-readout-num" id="unit-medal">0</span>
-      </div>
-      <div class="unit-stat">
-        <div class="unit-stat-row">
-          <span class="unit-stat-label">差枚</span>
-          <span class="unit-stat-num" id="unit-sahmai">0</span>
+      <div class="unit-head">データ</div>
+      <!-- 演出データ（発生回数と期待度）。中身は EffectTable.ts が描く。 -->
+      <div id="effect-table"></div>
+      <div id="unit-live">
+        <div class="unit-readout">
+          <span class="unit-readout-label">差枚</span>
+          <span class="unit-readout-num" id="unit-medal">0</span>
         </div>
-        <div class="unit-stat-row">
-          <span class="unit-stat-label">投資</span>
-          <span class="unit-stat-num" id="unit-invest">0</span>
+        <div class="unit-stat">
+          <div class="unit-stat-row">
+            <span class="unit-stat-label">投資</span>
+            <span class="unit-stat-num" id="unit-invest">0</span>
+          </div>
+          <div class="unit-stat-row">
+            <span class="unit-stat-label">回収</span>
+            <span class="unit-stat-num" id="unit-payback">0</span>
+          </div>
         </div>
       </div>
       <div class="unit-timer">
@@ -162,19 +102,142 @@
           <button id="timer-reset" class="aux-btn" type="button" title="計測をリセット">リセット</button>
         </div>
       </div>
-      <div class="unit-slot" aria-hidden="true"></div>
-      <div class="unit-lend-label">メダル貸出</div>
-      <div class="unit-lend-buttons">
-        <button class="coin-add" data-amount="100" type="button">＋100</button>
-        <button class="coin-add" data-amount="500" type="button">＋500</button>
-        <button class="coin-add" data-amount="1000" type="button">＋1000</button>
-        <button class="coin-add" data-amount="5000" type="button">＋5000</button>
-      </div>
-      <div class="unit-flow">
-        <button id="count-btn" class="aux-btn" type="button" title="計数（この戦を締めて持メダルを流す）">計数</button>
-      </div>
-      <div class="unit-hint">貸出＝投資／計数＝締める</div>
+      <div class="unit-hint">計数は操作部の右端</div>
     </aside>
+    </div>
+
+
+    <!-- 筐体とドックで1本の柱。ドックは筐体の続き（台のメニュー）なので、
+         浮かせずに下皿の直下へ貼り付ける。縦長だけは画面下へ固定する。 -->
+    <div id="machine-column">
+      <!-- データランプ＝筐体の上に載る別体の表示器。ホールの台選びと同じ数字を、
+           座って打っている間も出す。中身は DataLamp.ts が描く。 -->
+      <div id="datalamp" aria-label="データカウンター"></div>
+    <div id="cabinet">
+      <!-- 筐体の並びは実機に合わせてある（仕様18 §実機の並びへ組み直す）。
+           上から トップランプ／タイトルパネル／液晶＋リール窓／情報パネル／
+           操作部／下パネル／下皿。ホールの台選びで見えている筐体と同じ構造。 -->
+      <div id="toplamp" aria-hidden="true"></div>
+      <!-- タイトルパネルは**絵の板**。実機の上部パネルは機種名の看板で、操作するものは
+           何も付いていない。ボタンは全部ドックへ移した（2026-09-10）。 -->
+      <div id="masthead">
+        <span class="mark" id="machine-title">mojislot</span>
+      </div>
+
+      <div id="game-area">
+        <canvas id="game"></canvas>
+        <!-- 進行ステータスは演出液晶の左上に出す（ヘッダーを溢れさせない） -->
+        <div id="lcd-status">
+          <!-- リミックス島だけ出す。いま何の配列を打っているかが常時見えていないと、
+               ボーナス終了時の一瞬の告知を見逃した人に手掛かりが残らない -->
+          <div id="stage-status" hidden></div>
+          <div id="bonus-status" hidden></div>
+          <div id="streak-status" hidden></div>
+          <div id="rescue-status" hidden></div>
+        </div>
+        <div id="result-display"></div>
+      </div>
+
+      <div id="overlays">
+        <div id="zukan-overlay" hidden></div>
+        <div id="settings-overlay" hidden></div>
+        <!-- メニュー：遊技中には触らないものをまとめる。ホールへ戻る・計数・消音。
+             図鑑と設定のボタンはドックが担うが、`main.ts` が ID で掴んでいるので
+             実体はここに隠して置いておく。 -->
+        <div id="menu-overlay" hidden>
+          <div class="menu-sheet">
+            <div class="menu-head">メニュー</div>
+            <button id="settle-btn" class="menu-item" type="button">
+              <span class="menu-icon" aria-hidden="true">▼</span>
+              <span class="menu-text"><b>計数</b><i>この戦を締めて記録する</i></span>
+            </button>
+            <button id="mute-btn" class="menu-item" type="button" title="音量 [M]">
+              <span class="menu-icon" aria-hidden="true">♪</span>
+              <span class="menu-text"><b>消音</b><i>BGMと効果音を止める。ビタ押しの音も止まります</i></span>
+            </button>
+            <button id="home-btn" class="menu-item" type="button">
+              <span class="menu-icon" aria-hidden="true">⌂</span>
+              <span class="menu-text"><b>ホールへ戻る</b><i>台を選び直す</i></span>
+            </button>
+            <button class="menu-close" type="button">閉じる</button>
+            <button id="zukan-btn" type="button" hidden>図鑑</button>
+            <button id="settings-btn" type="button" hidden>設定</button>
+          </div>
+        </div>
+        <div id="bonus-banner" hidden></div>
+      </div>
+
+      <!-- 情報パネル＝リール直下の計器。実機はここに CREDIT と 払出 の7セグ、
+           間に REPLAY / START / BET のランプが並ぶ。以前は液晶の上にヘッダーとして
+           置いていたが、実機に上部の情報帯は無い。 -->
+      <div class="header-shell">
+        <header id="info-bar">
+          <div class="ip-meter">
+            <span class="ip-label">差枚</span>
+            <span class="ip-value" id="coin-display">0</span>
+          </div>
+          <div class="ip-lamps" id="status-stack">
+            <span class="ip-lamp" id="bet-text">BET 3</span>
+            <div id="effect-status">通常</div>
+          </div>
+          <div class="ip-meter ip-meter-right">
+            <span class="ip-label">払出</span>
+            <span class="ip-value" id="payout-display">0</span>
+          </div>
+        </header>
+      </div>
+
+      <footer id="control-panel">
+        <!-- 左のデッキ：MAXBET の上にレバー。実機はレバーが左端で、その内側に
+             BET が並ぶ。ストップは下の .stop-row がリールの真下へ絶対配置する。 -->
+        <div class="deck-well">
+          <button id="bet-btn" data-key="[Space]">MAX<span>BET</span></button>
+          <button id="lever-btn" data-key="[Space]" aria-label="レバー">
+            <span class="lever-ball" aria-hidden="true"></span>
+            <span class="lever-rod" aria-hidden="true"></span>
+          </button>
+        </div>
+        <div class="stop-row" id="reel-buttons">
+          <button class="stop-btn" data-reel="0" data-key="[A]">STOP</button>
+          <button class="stop-btn" data-reel="1" data-key="[S]">STOP</button>
+          <button class="stop-btn" data-reel="2" data-key="[D]">STOP</button>
+        </div>
+        <div id="key-hint">Space:レバー  /  A・S・D:ストップ  /  B:BET  /  1〜4:クイズ</div>
+      </footer>
+
+      <!-- 下パネル＝ロゴ板。スピーカーグリル（筐体ランプ）はここで左右に付く。
+           実機の下部スピーカーの位置で、ロゴを挟む形になる。 -->
+      <div id="lowerpanel">
+        <div class="cabinet-lamp" data-side="left" aria-hidden="true"></div>
+        <span class="lower-mark">MOJISLOT</span>
+        <div class="cabinet-lamp" data-side="right" aria-hidden="true"></div>
+      </div>
+      <div id="tray" aria-hidden="true"></div>
+    </div>
+
+      <nav id="dock" aria-label="メニュー">
+        <button class="dock-btn" id="dock-reels" type="button">
+          <span class="dock-icon" aria-hidden="true">▤</span><span class="dock-label">配列</span>
+        </button>
+        <button class="dock-btn" id="dock-unit" type="button">
+          <span class="dock-icon" aria-hidden="true">▦</span><span class="dock-label">データ</span>
+        </button>
+        <!-- オートは遊技中に切り替えるので、しまい込まずドックに直接置く。
+             状態（ON / 消化中）はこのボタン自身の色で出す。 -->
+        <button class="dock-btn" id="auto-btn" type="button" title="オート [O]">
+          <span class="dock-icon" aria-hidden="true">▶</span><span class="dock-label">オート</span>
+        </button>
+        <button class="dock-btn" id="dock-zukan" type="button">
+          <span class="dock-icon" aria-hidden="true">▣</span><span class="dock-label">図鑑</span>
+        </button>
+        <button class="dock-btn" id="dock-settings" type="button">
+          <span class="dock-icon" aria-hidden="true">⚙</span><span class="dock-label">設定</span>
+        </button>
+        <button class="dock-btn" id="dock-menu" type="button">
+          <span class="dock-icon" aria-hidden="true">≡</span><span class="dock-label">メニュー</span>
+        </button>
+      </nav>
+    </div>
     </div>
 
     <div id="view-ranking" class="view" hidden></div>
