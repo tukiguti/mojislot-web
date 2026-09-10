@@ -2594,7 +2594,12 @@ body.shake {
 #menu-overlay {
   position: fixed;
   inset: 0;
-  z-index: 62;
+  /* **`#overlays` が `pointer-events: none` なので、自分で戻す。** 戻さないと
+     クリックが全部すり抜けて、開いているのに何も押せない（背後の筐体に当たる）。
+     設定・図鑑のオーバーレイも同じ理由で `auto` を明示している。 */
+  pointer-events: auto;
+  /* 設定(210)より下、ドック(60)より上。設定を開いている間はそちらが前面。 */
+  z-index: 200;
   display: flex;
   align-items: flex-end;
   justify-content: center;
