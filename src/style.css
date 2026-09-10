@@ -380,31 +380,10 @@ textarea {
 }
 
 /* ゲーム内マストヘッド左の「TOPへ」ボタン */
-#home-btn {
-  position: absolute;
-  left: 8px;
-  top: 50%;
-  transform: translateY(-50%);
-  width: 24px;
-  height: 20px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: 0;
-  cursor: pointer;
-  font-family: inherit;
-  font-size: 13px;
-  line-height: 1;
-  color: var(--chrome);
-  background: rgba(255, 255, 255, 0.06);
-  border: 1px solid var(--chrome-dk);
-  border-radius: 0;
-  z-index: 2;
-}
-#home-btn:hover {
-  color: var(--gold-hi);
-  border-color: rgba(242, 179, 60, 0.5);
-}
+/* ホールへ戻るはメニューの中の1行（2026-09-10・タイトルパネルから移設）。
+   見た目は `.menu-item` が持つので、ここでは何も指定しない。
+   **以前のタイトルパネル用の絶対配置を残していたら、メニューの中で画面の左端へ
+   飛んで縦書きになった。** 場所を変えたら、場所を決めていた規則を消す。 */
 
 /* 章ごとの背景パネル（main.ts が --chapter-bg を設定）。
    画像が無い章は url が 404 になり、背景色(#050505)にフォールバックする。
@@ -1262,38 +1241,6 @@ body.has-chapter-bg {
   text-shadow: 0 0 6px rgba(255, 90, 70, 0.8);
 }
 
-/* === タイトルパネル右のアプリ操作（オート・消音・図鑑・設定）===
- * 実機の筐体には無いものなので、機械の面ではなく**アプリの帯**であるタイトル
- * パネルに寄せる。図鑑と設定はドックにあるので既定で hidden。 */
-.masthead-tools {
-  position: absolute;
-  right: 8px;
-  top: 50%;
-  transform: translateY(-50%);
-  display: flex;
-  align-items: center;
-  gap: 4px;
-}
-.masthead-tools button {
-  padding: 2px 7px;
-  font-size: 9px;
-  font-weight: 700;
-  letter-spacing: 0.5px;
-  font-family: inherit;
-  color: var(--gold);
-  background: rgba(0, 0, 0, 0.4);
-  border: 1px solid var(--cab-edge);
-  border-radius: 0;
-  cursor: pointer;
-}
-.masthead-tools button:hover {
-  color: var(--gold-hi);
-  border-color: var(--gold);
-}
-.masthead-tools button[hidden] {
-  display: none;
-}
-
 /* リール配列パネル内の閉じるボタン（オーバーレイ表示時のみ） */
 #reel-strip-panel .strip-close {
   display: none;
@@ -1311,26 +1258,25 @@ body.has-chapter-bg {
   font-family: inherit;
   z-index: 2;
 }
+/* オートはドックのボタン（2026-09-10・タイトルパネルから移設）。**点いている間は
+   ドックの中で光らせる**——遊技中に切り替えるものなので、状態が一目で要る。 */
 #auto-btn.on {
   color: #1a1100;
   background: linear-gradient(180deg, #ffe566 0%, var(--gold) 100%);
-  box-shadow: 0 0 10px rgba(255, 215, 0, 0.8);
+  border-color: var(--gold);
+  box-shadow: 0 0 10px rgba(255, 215, 0, 0.55);
 }
 
 /* OFFにした後、現在ゲームだけ消化している最中。ONとは別の色で「もう終わる」と示す。 */
 #auto-btn.finishing {
   color: #1a1100;
   background: linear-gradient(180deg, #cdd6e0 0%, #9aa7b5 100%);
-  box-shadow: 0 0 8px rgba(205, 214, 224, 0.6);
+  border-color: #9aa7b5;
+  box-shadow: 0 0 8px rgba(205, 214, 224, 0.5);
 }
-#mute-btn {
-  min-width: 28px;
-  padding: 3px 6px;
-}
+/* 消音中の印。メニューの中に入ったので、行ごと沈める。 */
 #mute-btn.muted {
-  color: #888;
-  border-color: #555;
-  background: rgba(80, 80, 80, 0.2);
+  opacity: 0.55;
 }
 /* 情報パネル中央のランプ列。以前は液晶の上で縦積みだったが、実機のこの位置は
    横一列のランプ帯なので横並びにした（.ip-lamps が並びを持つ）。 */
@@ -2643,35 +2589,93 @@ body.shake {
   margin-top: 2px;
   letter-spacing: 0.5px;
 }
-/* 右端の精算。実機の位置に合わせただけで、中身はドックの「計数」と同じ。 */
-.settle-well {
-  position: absolute;
-  right: 6px;
-  top: 0;
-  bottom: 16px;
+/* === メニュー（ドックの「メニュー」）===
+ * 遊技中に触らないものをまとめる。計数・消音・ホールへ戻る。 */
+#menu-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 62;
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  padding: 0 0 calc(var(--dock-h) + 10px);
+  background: rgba(0, 0, 0, 0.55);
+}
+#menu-overlay[hidden] {
+  display: none;
+}
+.menu-sheet {
+  width: min(360px, 92vw);
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 10px;
+  background: linear-gradient(180deg, var(--bar-hi), var(--bar-lo));
+  border: 1px solid var(--cab-edge);
+  box-shadow: 0 8px 26px rgba(0, 0, 0, 0.7);
+}
+.menu-head {
+  padding-bottom: 6px;
+  font-size: 10px;
+  letter-spacing: 3px;
+  text-align: center;
+  color: var(--meter-label);
+  border-bottom: 1px solid var(--cab-edge);
+}
+.menu-item {
   display: flex;
   align-items: center;
-}
-#settle-btn {
-  padding: 5px 8px;
-  font-size: clamp(8px, 2.4cqw, 16px);
-  font-weight: 700;
-  letter-spacing: 1px;
+  gap: 10px;
+  padding: 9px 10px;
   font-family: inherit;
+  text-align: left;
+  color: var(--ivory);
+  background: var(--meter-bg);
+  border: 1px solid var(--meter-edge);
+  cursor: pointer;
+}
+.menu-item:hover {
+  border-color: var(--gold);
+}
+.menu-item:active {
+  translate: 0 1px;
+}
+.menu-icon {
+  flex: none;
+  width: 22px;
+  text-align: center;
+  font-size: 15px;
+  color: var(--gold);
+}
+.menu-text {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+.menu-text b {
+  font-size: 13px;
+  letter-spacing: 1px;
+}
+.menu-text i {
+  font-style: normal;
+  font-size: 10px;
+  color: var(--panel-text-dim);
+}
+.menu-close {
+  margin-top: 4px;
+  padding: 8px;
+  font-family: inherit;
+  font-size: 11px;
+  letter-spacing: 2px;
   color: var(--aux-text);
   background: linear-gradient(180deg, var(--aux-hi) 0%, var(--aux-lo) 100%);
   border: 1px solid var(--cab-edge);
-  border-radius: 0;
   cursor: pointer;
-  box-shadow: inset 0 -2px 0 rgba(0, 0, 0, 0.4);
 }
-#settle-btn:hover {
+.menu-close:hover {
   color: var(--gold-hi);
   border-color: var(--gold);
-}
-#settle-btn:active {
-  transform: translateY(1px);
-  box-shadow: none;
 }
 
 /* 操作部の下端に1行。ボタンの絶対配置とぶつからないよう、下に貼り付ける。 */

@@ -118,15 +118,10 @@
            上から トップランプ／タイトルパネル／液晶＋リール窓／情報パネル／
            操作部／下パネル／下皿。ホールの台選びで見えている筐体と同じ構造。 -->
       <div id="toplamp" aria-hidden="true"></div>
+      <!-- タイトルパネルは**絵の板**。実機の上部パネルは機種名の看板で、操作するものは
+           何も付いていない。ボタンは全部ドックへ移した（2026-09-10）。 -->
       <div id="masthead">
-        <button id="home-btn" type="button" title="ホールへ戻る" aria-label="ホールへ戻る">≡</button>
         <span class="mark" id="machine-title">mojislot</span>
-        <div class="masthead-tools">
-          <button id="auto-btn" type="button" title="オート [O]">AUTO</button>
-          <button id="mute-btn" type="button" title="音量 [M]">♪</button>
-          <button id="zukan-btn" type="button" title="図鑑 [Z]" hidden>図鑑</button>
-          <button id="settings-btn" type="button" title="設定 [,]" hidden>⚙</button>
-        </div>
       </div>
 
       <div id="game-area">
@@ -146,6 +141,29 @@
       <div id="overlays">
         <div id="zukan-overlay" hidden></div>
         <div id="settings-overlay" hidden></div>
+        <!-- メニュー：遊技中には触らないものをまとめる。ホールへ戻る・計数・消音。
+             図鑑と設定のボタンはドックが担うが、`main.ts` が ID で掴んでいるので
+             実体はここに隠して置いておく。 -->
+        <div id="menu-overlay" hidden>
+          <div class="menu-sheet">
+            <div class="menu-head">メニュー</div>
+            <button id="settle-btn" class="menu-item" type="button">
+              <span class="menu-icon" aria-hidden="true">▼</span>
+              <span class="menu-text"><b>計数</b><i>この戦を締めて記録する</i></span>
+            </button>
+            <button id="mute-btn" class="menu-item" type="button" title="音量 [M]">
+              <span class="menu-icon" aria-hidden="true">♪</span>
+              <span class="menu-text"><b>消音</b><i>BGMと効果音を止める。ビタ押しの音も止まります</i></span>
+            </button>
+            <button id="home-btn" class="menu-item" type="button">
+              <span class="menu-icon" aria-hidden="true">⌂</span>
+              <span class="menu-text"><b>ホールへ戻る</b><i>台を選び直す</i></span>
+            </button>
+            <button class="menu-close" type="button">閉じる</button>
+            <button id="zukan-btn" type="button" hidden>図鑑</button>
+            <button id="settings-btn" type="button" hidden>設定</button>
+          </div>
+        </div>
         <div id="bonus-banner" hidden></div>
       </div>
 
@@ -184,11 +202,6 @@
           <button class="stop-btn" data-reel="1" data-key="[S]">STOP</button>
           <button class="stop-btn" data-reel="2" data-key="[D]">STOP</button>
         </div>
-        <!-- 計数＝この戦を締める。操作部の右端に1つだけ置く。
-             以前はドックにも同じものがあり、名前だけ「精算」と違っていた。 -->
-        <div class="settle-well">
-          <button id="settle-btn" type="button">計数</button>
-        </div>
         <div id="key-hint">Space:レバー  /  A・S・D:ストップ  /  B:BET  /  1〜4:クイズ</div>
       </footer>
 
@@ -209,11 +222,19 @@
         <button class="dock-btn" id="dock-unit" type="button">
           <span class="dock-icon" aria-hidden="true">▦</span><span class="dock-label">データ</span>
         </button>
+        <!-- オートは遊技中に切り替えるので、しまい込まずドックに直接置く。
+             状態（ON / 消化中）はこのボタン自身の色で出す。 -->
+        <button class="dock-btn" id="auto-btn" type="button" title="オート [O]">
+          <span class="dock-icon" aria-hidden="true">▶</span><span class="dock-label">オート</span>
+        </button>
         <button class="dock-btn" id="dock-zukan" type="button">
           <span class="dock-icon" aria-hidden="true">▣</span><span class="dock-label">図鑑</span>
         </button>
         <button class="dock-btn" id="dock-settings" type="button">
           <span class="dock-icon" aria-hidden="true">⚙</span><span class="dock-label">設定</span>
+        </button>
+        <button class="dock-btn" id="dock-menu" type="button">
+          <span class="dock-icon" aria-hidden="true">≡</span><span class="dock-label">メニュー</span>
         </button>
       </nav>
     </div>

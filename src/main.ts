@@ -1496,6 +1496,35 @@ export async function bootstrap() {
     runReelSpeedMin = Infinity;
     runReelSpeedMax = -Infinity;
   };
+  /**
+   * メニュー（ドックの「メニュー」）。**遊技中に触らないもの**をまとめる。
+   * 計数・消音・ホールへ戻る。オートは遊技中に切り替えるのでドックへ直接置いた。
+   */
+  {
+    const overlay = document.getElementById('menu-overlay');
+    const openBtn = document.getElementById('dock-menu');
+    const closeMenu = (): void => {
+      if (!overlay) return;
+      overlay.hidden = true;
+      openBtn?.classList.remove('on');
+    };
+    openBtn?.addEventListener('click', () => {
+      if (!overlay) return;
+      const open = overlay.hidden === true;
+      overlay.hidden = !open;
+      openBtn.classList.toggle('on', open);
+    });
+    overlay?.querySelector('.menu-close')?.addEventListener('click', closeMenu);
+    // 背景を押しても閉じる。開いたまま打てると、次のゲームでシートが邪魔になる。
+    overlay?.addEventListener('click', (ev) => {
+      if (ev.target === overlay) closeMenu();
+    });
+    // 中の操作を選んだら閉じる。押した結果が見えないと、効いたのか分からない。
+    for (const item of overlay?.querySelectorAll('.menu-item') ?? []) {
+      item.addEventListener('click', closeMenu);
+    }
+  }
+
   document.getElementById('settle-btn')?.addEventListener('click', settleRun);
 
   // 戦の計測タイマー（サンド下部）。フリー=カウントアップ／プリセット分数=カウントダウン。
@@ -3354,14 +3383,17 @@ export async function bootstrap() {
     .getElementById('dock-settings')
     ?.addEventListener('click', () => settingsBtn.click());
 
+  /**
+   * 消音の表示。**アイコンと見出しだけを書き換える**——ボタンごと textContent で
+   * 上書きしていたので、メニューへ移した時に説明文まで消えていた。
+   */
   const updateMuteUI = () => {
-    if (sfx.isMuted()) {
-      muteBtn.textContent = '🔇';
-      muteBtn.classList.add('muted');
-    } else {
-      muteBtn.textContent = '♪';
-      muteBtn.classList.remove('muted');
-    }
+    const muted = sfx.isMuted();
+    const icon = muteBtn.querySelector('.menu-icon');
+    const label = muteBtn.querySelector('.menu-text b');
+    if (icon) icon.textContent = muted ? '🔇' : '♪';
+    if (label) label.textContent = muted ? '消音を解除' : '消音';
+    muteBtn.classList.toggle('muted', muted);
   };
   muteBtn.addEventListener('click', () => {
     sfx.init();
