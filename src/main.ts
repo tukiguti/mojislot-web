@@ -162,7 +162,11 @@ import { applySkin, loadSkin } from './productions/CabinetSkin';
 // 保存してある筐体の皮を、筐体が組み上がる前に張る（張り直しで一瞬ちらつくのを防ぐ）。
 applySkin(loadSkin());
 
-const REEL_GAP = 16;
+/**
+ * リール3本の間隔。**額（クローム）が左右に 9px ずつ張り出す**ので、16px だと
+ * 隣の額とくっついて3つの窓が1つの横長の窓に見える。実機は窓が分かれている。
+ */
+const REEL_GAP = 26;
 const REEL_COUNT = 3;
 // デバッグ等で明示指定できる演出。
 type ForcedEffect = Exclude<EffectType, 'none'>;
@@ -668,10 +672,20 @@ export async function bootstrap() {
     voice.play(line, index);
   });
 
-  // リールエリアの背景帯
+  /**
+   * リールエリアの土台。
+   *
+   * **以前は全幅を黒で塗っていた**ので、リール3本の左右に幅の広い黒帯が残り、
+   * 液晶とリールが上下に割れた2つの箱に見えていた。実機（カルミナ系の筐体）は
+   * **液晶が前面の大半を占め、その上にリール窓が小さく浮いている**。
+   *
+   * そこで液晶と同じ土台をここまで伸ばし、**リール3本ぶんだけを不透明な窓**として
+   * 開ける。黒帯だった場所が画面の続きになり、リールは窓に嵌まって見える。
+   * 窓の中を不透明に保つのは読みやすさのため——背景が透けると出目が読めない。
+   */
   const reelBg = new Graphics();
   reelBg.rect(0, LIQUID_AREA_H, CANVAS_W, CANVAS_H - LIQUID_AREA_H);
-  reelBg.fill({ color: 0x000000 });
+  reelBg.fill(liquidGrad);
   app.stage.addChild(reelBg);
 
   const engines: ReelEngine[] = [];
@@ -679,8 +693,17 @@ export async function bootstrap() {
 
   const totalWidth = CELL_WIDTH * REEL_COUNT + REEL_GAP * (REEL_COUNT - 1);
   const startX = (app.screen.width - totalWidth) / 2;
-  // 3コマはリール領域の中央。上下に REEL_PEEK（チラ見せ）＋ FRAME_PAD（枠余白）分を残す。
-  const reelY = LIQUID_AREA_H + REEL_PEEK + FRAME_PAD;
+  /**
+   * リールの縦位置。上下に REEL_PEEK（チラ見せ）＋ FRAME_PAD（枠余白）分を残す。
+   *
+   * さらに `REEL_LIFT` だけ持ち上げて、**窓の下に画面を残す**。実機（カルミナ系）は
+   * リール窓が液晶の下寄りに浮いていて、その下にまだ画面がある。以前は窓の下端が
+   * canvas の下端とちょうど同じで、額の下半分が画面外に出て「額が3方向にしか無い」
+   * ように見えていた。
+   */
+  const REEL_LIFT = 22;
+  const reelY = LIQUID_AREA_H + REEL_PEEK + FRAME_PAD - REEL_LIFT;
+
 
   // 役単位のカラー解決：同じ役の3文字（左/中/右）が同じ色になる
   let colorResolver = new SymbolColorResolver(yakuList);
@@ -740,6 +763,53 @@ export async function bootstrap() {
   // コマ番号（0..20）の表示。デバッグ表示ONの時だけ出す。
   // 押した位置と停止位置の差＝引き込みコマ数を、画面上で数えられるようにする。
   for (const v of views) v.setShowCellIndices(debugVisible);
+
+  /**
+   * リール窓の額（クローム）。**リールの上に重ねる。**
+   *
+   * 実機（カルミナ系）のリール窓は、液晶に開いた穴に金属の枠が嵌まっていて、その
+   * 内側に光る縁がある。ここでは金属の枠がこれ、光る縁は `ReelView` の金枠が担う
+   * （あちらはテンパイで色が変わるので、機能としても分けたままにする）。
+   *
+   * 枠は `ReelView` の金枠の**外側**だけを通る。線幅の半分ずつ内外へ広がるので、
+   * パスを金枠の外周から `BEZEL/2` だけ外へ置くと、内側に食い込まない。
+   */
+  {
+    const BEZEL = 8;
+    const top = reelY - REEL_PEEK - FRAME_PAD;
+    const h = CELL_HEIGHT * VISIBLE_CELLS + (REEL_PEEK + FRAME_PAD) * 2;
+    const bezel = new Graphics();
+    for (let i = 0; i < REEL_COUNT; i++) {
+      const x = startX + i * (CELL_WIDTH + REEL_GAP);
+      // 金枠（線幅3＝±1.5）の外側から始める。重ねると金の線が半分隠れて、
+      // テンパイで色が変わっても分かりにくくなる。
+      const o = BEZEL / 2 + 2;
+      // 落ち影。窓が液晶より手前にせり出して見える。
+      bezel
+        .roundRect(x - o + 1, top - o + 2, CELL_WIDTH + o * 2, h + o * 2, 3)
+        .stroke({ color: 0x000000, width: BEZEL, alpha: 0.5 });
+      // 金属の枠
+      bezel
+        .roundRect(x - o, top - o, CELL_WIDTH + o * 2, h + o * 2, 3)
+        .stroke({ color: 0x8f96a4, width: BEZEL });
+      // 外周の暗い線。液晶の上で金属の輪郭が溶けないよう、外側だけ締める。
+      bezel
+        .roundRect(
+          x - o - BEZEL / 2,
+          top - o - BEZEL / 2,
+          CELL_WIDTH + (o + BEZEL / 2) * 2,
+          h + (o + BEZEL / 2) * 2,
+          3,
+        )
+        .stroke({ color: 0x23262e, width: 1.5 });
+      // 上辺のハイライト（光源は上）。1本入れるだけで平らな帯が金属に見える。
+      bezel
+        .moveTo(x - o, top - o - BEZEL / 2 + 1.5)
+        .lineTo(x + CELL_WIDTH + o, top - o - BEZEL / 2 + 1.5)
+        .stroke({ color: 0xe6ebf2, width: 1.5, alpha: 0.9 });
+    }
+    app.stage.addChild(bezel);
+  }
 
   // ペイラインインジケーター（リール左脇外側に1セットのみ。左右ミラーは冗長なので片側へ）
   const reelHeight = CELL_HEIGHT * VISIBLE_CELLS;
