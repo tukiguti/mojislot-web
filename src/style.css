@@ -126,19 +126,23 @@
    *
    * 上下のクランプは端の保険。**下限が効くのは幅で頭打ちになる画面（スマホ縦）
    * だけ**で、そこは高さが余っているので合計が伸びても収まる。 */
-  --toplamp-h: clamp(5px, calc(var(--game-w) * 0.015), 16px);
-  /* タイトルパネル（島名の板）。以前は mojislot のワードマークを出していたが、
-     実機のここは機種名なので島名へ。ロゴは下パネルへ移した。 */
-  --masthead-h: clamp(24px, calc(var(--game-w) * 0.063), 64px);
+  --toplamp-h: clamp(4px, calc(var(--game-w) * 0.020), 18px);
+  /* タイトルパネル（島名の板）。**絵を置く板**なので筐体の高さの1割を取る
+     （2026-09-10）。以前は 3.8% しかなく、絵を入れても帯にしかならなかった。 */
+  --masthead-h: clamp(44px, calc(var(--game-w) * 0.200), 150px);
   /* 情報パネル＝リール直下の計器（差枚・払出の7セグとランプ）。旧ヘッダーの中身。 */
-  --header-h: clamp(22px, calc(var(--game-w) * 0.055), 56px);
-  /* 操作部。レバーとストップが1列に並ぶので、2段だった頃より低い。 */
-  --control-h: clamp(80px, calc(var(--game-w) * 0.217), 220px);
-  /* 下パネル（ロゴ板＋左右のスピーカー）と下皿。 */
-  --lowerpanel-h: clamp(26px, calc(var(--game-w) * 0.078), 80px);
-  --tray-h: clamp(10px, calc(var(--game-w) * 0.026), 28px);
-  /* 段の合計が幅の何倍になるか。上の係数の和。--game-w を解くのに使う。 */
-  --cab-row-ratio: 0.454;
+  --header-h: clamp(22px, calc(var(--game-w) * 0.060), 60px);
+  /* 操作部。レバーとストップが1列に並ぶ。 */
+  --control-h: clamp(80px, calc(var(--game-w) * 0.240), 230px);
+  /* 下パネル（島を象徴する絵の板）と下皿。下パネルもタイトルと同じく高さの1割。 */
+  --lowerpanel-h: clamp(44px, calc(var(--game-w) * 0.200), 150px);
+  --tray-h: clamp(14px, calc(var(--game-w) * 0.060), 46px);
+  /* 段の合計が幅の何倍になるか。上の係数の和。--game-w を解くのに使う。
+   *
+   * **液晶が筐体の何割を占めるかはこの数で決まる。** 1.22 /(1.22 + ここ) が液晶の
+   * 割合で、0.454 の頃は 72.9% だった——絵を置く板が残らず、リールだけが大きい
+   * 「巨大な画面に細い縁が付いたもの」に見えていた。0.780 で 61% になる。 */
+  --cab-row-ratio: 0.780;
   /* ドック（台のメニュー）。筐体の続きとして下皿の直下に貼るので、
      横長でも高さの計算に入れる。縦長では画面下へ固定するが高さは同じ。 */
   --dock-h: 62px;
@@ -1166,8 +1170,8 @@ body.has-chapter-bg {
 #masthead .mark {
   font-family: var(--mark-font);
   /* 段の高さから起こす。段が伸びたのに文字が 15px のままだと、板の中で字だけが
-     取り残されて間延びする。 */
-  font-size: calc(var(--masthead-h) * 0.5);
+     取り残されて間延びする。上限は付ける——板を厚くした時に字だけが巨大になる。 */
+  font-size: clamp(15px, calc(var(--masthead-h) * 0.42), 48px);
   letter-spacing: var(--mark-spacing);
   color: var(--mark-color);
   text-shadow:
@@ -2420,7 +2424,9 @@ body.shake {
 .cabinet-lamp {
   flex: none;
   height: 100%;
-  width: calc(var(--lowerpanel-h) * 2.2);
+  /* **幅は板の幅で決める。** 高さ基準にしていたので、下パネルを厚くした途端に
+     左右のスピーカーが板の幅を食い尽くし、真ん中のロゴが外へ押し出された。 */
+  width: clamp(32px, 18%, 110px);
   border-radius: 0;
   background-color: var(--grille-bg);
   background-image: radial-gradient(circle, var(--grille-dot) 0 1.5px, transparent 1.9px);
@@ -2705,8 +2711,8 @@ body.shake {
   align-items: center;
   justify-content: center;
   font-family: var(--mark-font);
-  font-size: calc(var(--lowerpanel-h) * 0.4);
-  letter-spacing: 0.34em;
+  font-size: clamp(11px, calc(var(--lowerpanel-h) * 0.22), 26px);
+  letter-spacing: 0.28em;
   color: var(--isl-lower-text, var(--mark-color));
   text-shadow:
     0 0 1px var(--gold-hi),
