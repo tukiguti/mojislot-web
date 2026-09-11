@@ -108,6 +108,17 @@
    * 縦比率の体感: 演出液晶 : リール : ボタン ≒ 1.3 : 0.9 : 0.8
    * 横は reel-strip-panel(240) + gap(16) を引いた残り、縦は header + control を引いた残りを 1.22 で割る。
    */
+  /* **画面の高さは `svh` で測る。**
+   *
+   * `100vh` はスマホのブラウザUI（URLバー）の下に隠れる分まで含むので、実機では
+   * 画面より1割ほど高い値になり、**必ず少しだけスクロールが要る**状態になっていた。
+   * `svh` は UI が出ている状態＝いちばん狭い高さなので、URLバーが出ていても
+   * 引っ込んでいても収まる。`dvh` はスクロールのたびに値が動いて再レイアウトが
+   * 跳ねるので使わない。 */
+  --vh: 100vh;
+  /* ホームインジケータやノッチの領域。ここに部品を置くと指が届かない。 */
+  --safe-b: env(safe-area-inset-bottom, 0px);
+  --safe-t: env(safe-area-inset-top, 0px);
   --layout-pad: 12px;
   --reel-panel-w: 240px;
   /* 右のサンド（ユニット）幅。**演出データの表が入る幅**で決める（2026-09-09）。
@@ -188,7 +199,7 @@
     240px,
     min(
       calc(
-        (100vh - var(--layout-pad) * 2 - var(--dock-h) - var(--datalamp-h)) /
+        (var(--vh) - var(--layout-pad) * 2 - var(--dock-h) - var(--datalamp-h)) /
           (1.22 + var(--cab-row-ratio))
       ),
       calc(100vw - var(--layout-pad) * 2 - var(--reel-panel-occupy))
@@ -203,6 +214,12 @@
   --reel-cx-1: 0.5;
   --reel-cx-2: 0.7433;
 }
+@supports (height: 100svh) {
+  :root {
+    --vh: 100svh;
+  }
+}
+
 * {
   box-sizing: border-box;
   margin: 0;
@@ -222,7 +239,7 @@
  * 入力欄だけは選択を戻す。会員カードの名前は、選択もカーソル移動もできないと直せない。
  */
 body {
-  min-height: 100vh;
+  min-height: var(--vh);
   touch-action: manipulation;
   -webkit-tap-highlight-color: transparent;
   user-select: none;
@@ -240,7 +257,7 @@ textarea {
 /* === ビュー（ホール / ゲーム / ランキング / 会員カード）===
    各ビューはフルスクリーン。ルータが #view-{route} を hidden トグルで出し分ける。 */
 .view {
-  min-height: 100vh;
+  min-height: var(--vh);
   padding: var(--layout-pad);
 }
 /* クラス指定にして .view[hidden](0,2,0) が .game-view(0,1,0) に確実に勝つ＝hiddenで隠れる */
@@ -285,7 +302,7 @@ textarea {
 .landing {
   max-width: 520px;
   margin: 0 auto;
-  min-height: calc(100vh - var(--layout-pad) * 2);
+  min-height: calc(var(--vh) - var(--layout-pad) * 2);
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -4975,13 +4992,17 @@ to {
     width: var(--game-w);
   }
 
-  /* ドックは片手で届く画面下へ。筐体の幅ではなく画面の幅いっぱいに敷く。 */
+  /* ドックは片手で届く画面下へ。筐体の幅ではなく画面の幅いっぱいに敷く。
+     ホームインジケータの領域ぶんだけ底上げする——そこにボタンを置くと指が
+     インジケータに取られて押せない。 */
   #dock {
     position: fixed;
     left: 0;
     right: 0;
     bottom: 0;
     z-index: 60;
+    height: calc(var(--dock-h) + var(--safe-b));
+    padding-bottom: calc(5px + var(--safe-b));
     border-left: none;
     border-right: none;
     border-bottom: none;
@@ -4994,12 +5015,19 @@ to {
     --dock-h: 64px;
     /* 縦長は画面が広いので表示器を一段大きくする。 */
     --datalamp-h: 132px;
+    /* **下限は 190px。** 240px だと iPhone SE（375x667）で筐体が画面より 59px 高くなり、
+       少しだけスクロールが要る状態になっていた。下限で床を作ると、そこから先は
+       はみ出すしかない——**画面に収まることを優先**して床を下げる。
+       190px は 320x568（iPhone 5s 世代）でも収まる値。 */
     --game-w: max(
-      240px,
+      190px,
       min(
         calc(100vw - var(--layout-pad) * 2),
         calc(
-          (100vh - var(--layout-pad) * 2 - var(--dock-h) - var(--datalamp-h)) /
+          (
+              var(--vh) - var(--layout-pad) * 2 - var(--dock-h) - var(--datalamp-h) -
+                var(--safe-t) - var(--safe-b)
+            ) /
             (1.22 + var(--cab-row-ratio))
         )
       )
@@ -5010,6 +5038,21 @@ to {
     --layout-pad: 8px;
   }
 
+  /* 背の低い画面（iPhone SE 等）では、筐体の取り分を作るために上下の設備を削る。
+     表示器とドックは**中身が減らない範囲**で詰められる（文字は cqw で追従する）。 */
+  @media (max-height: 720px) {
+    :root {
+      --datalamp-h: 92px;
+      --dock-h: 54px;
+    }
+  }
+  @media (max-height: 620px) {
+    :root {
+      --datalamp-h: 76px;
+      --dock-h: 48px;
+    }
+  }
+
   .game-view {
     /* 筐体だけを縦に置く。左右のパネルはシートへ回すので回り込みは要らない。 */
     flex-direction: column;
@@ -5018,7 +5061,8 @@ to {
        高さが余る。**余りは上下へ均等に散らす**——下だけに寄せると、筐体と
        ドックの間に何も無い帯ができる。 */
     justify-content: center;
-    padding-bottom: var(--dock-h);
+    padding-top: var(--safe-t);
+    padding-bottom: calc(var(--dock-h) + var(--safe-b));
   }
 
   /* シートの中は縦積みに戻す（横長では右カラムとして縦に並んでいる）。 */
