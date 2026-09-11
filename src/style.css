@@ -2399,12 +2399,19 @@ body.shake {
 }
 
 /* ストップ3つ。リールの真下に、リールと同じ間隔で並べる。 */
+/* ストップ3つの入れ物。**操作部の全幅を覆う箱**なので、そのままだと左のデッキ
+   （MAXBET・レバー）の上に乗ってクリックを奪う。箱は当たり判定を持たず、
+   中のボタンだけが受け取る。 */
 .stop-row {
   position: absolute;
   left: 0;
   right: 0;
   top: 0;
   bottom: 16px;
+  pointer-events: none;
+}
+.stop-row .stop-btn {
+  pointer-events: auto;
 }
 .stop-row .stop-btn {
   position: absolute;
