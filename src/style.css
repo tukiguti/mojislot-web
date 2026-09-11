@@ -102,11 +102,12 @@
   background: var(--bg-void);
 
   /* === レイアウト寸法（ビューポートに収める） ===
-   * メイン液晶は縦長（約 1:1.22、Pixi 内部 600x732）。演出液晶1.3 : リール0.9 を canvas 内で配分。
-   * cabinet width = game 幅(--game-w)、game 高さ = 幅 x 1.22(--game-h)。
+   * 液晶は Pixi 内部 600x640（2026-09-11 に 732 から低くした）。縦横比は
+   * `--game-aspect` に main.ts から流し込む。
+   * cabinet width = game 幅(--game-w)、game 高さ = 幅 x --game-aspect(--game-h)。
    * cabinet 内の固定高さ: header(44) + control-panel(--control-h)
    * 縦比率の体感: 演出液晶 : リール : ボタン ≒ 1.3 : 0.9 : 0.8
-   * 横は reel-strip-panel(240) + gap(16) を引いた残り、縦は header + control を引いた残りを 1.22 で割る。
+   * 横は reel-strip-panel(240) + gap(16) を引いた残り、縦は残りを --game-aspect + 段の係数で割る。
    */
   /* **画面の高さは `svh` で測る。**
    *
@@ -115,6 +116,10 @@
    * `svh` は UI が出ている状態＝いちばん狭い高さなので、URLバーが出ていても
    * 引っ込んでいても収まる。`dvh` はスクロールのたびに値が動いて再レイアウトが
    * 跳ねるので使わない。 */
+  /* canvas の縦横比。**main.ts が Pixi の実寸から流し込む**（`--lcd-ratio` と同じ手口）。
+     ここの値は流し込み前の保険で、`CANVAS_H / CANVAS_W` と揃えておく。
+     筐体の高さ＝幅 ×（この比 ＋ 段の係数の和）。 */
+  --game-aspect: 1.067;
   --vh: 100vh;
   /* ホームインジケータやノッチの領域。ここに部品を置くと指が届かない。 */
   --safe-b: env(safe-area-inset-bottom, 0px);
@@ -145,17 +150,18 @@
      （2026-09-10）。以前は 3.8% しかなく、絵を入れても帯にしかならなかった。 */
   --masthead-h: clamp(44px, calc(var(--game-w) * 0.200), 150px);
   /* 情報パネル＝リール直下の計器（差枚・払出の7セグとランプ）。旧ヘッダーの中身。 */
-  --header-h: clamp(22px, calc(var(--game-w) * 0.060), 60px);
+  --header-h: clamp(14px, calc(var(--game-w) * 0.060), 60px);
   /* 操作部。レバーとストップが1列に並ぶ。 */
-  --control-h: clamp(80px, calc(var(--game-w) * 0.240), 230px);
+  --control-h: clamp(56px, calc(var(--game-w) * 0.240), 230px);
   /* 下パネル（島を象徴する絵の板）と下皿。下パネルもタイトルと同じく高さの1割。 */
   --lowerpanel-h: clamp(44px, calc(var(--game-w) * 0.200), 150px);
   --tray-h: clamp(14px, calc(var(--game-w) * 0.060), 46px);
   /* 段の合計が幅の何倍になるか。上の係数の和。--game-w を解くのに使う。
    *
-   * **液晶が筐体の何割を占めるかはこの数で決まる。** 1.22 /(1.22 + ここ) が液晶の
-   * 割合で、0.454 の頃は 72.9% だった——絵を置く板が残らず、リールだけが大きい
-   * 「巨大な画面に細い縁が付いたもの」に見えていた。0.780 で 61% になる。 */
+   * **液晶が筐体の何割を占めるかはこの数で決まる。**
+   * `--game-aspect /(--game-aspect + ここ)` が液晶の割合。0.454 の頃は 72.9% で、
+   * 絵を置く板が残らず「巨大な画面に細い縁が付いたもの」に見えていた。0.780 に
+   * 上げて 61%、さらに canvas を低くして（1.22→1.07）筐体が 1:2.05→1:1.85 になる。 */
   --cab-row-ratio: 0.780;
   /* ドック（台のメニュー）。筐体の続きとして下皿の直下に貼るので、
      横長でも高さの計算に入れる。縦長では画面下へ固定するが高さは同じ。 */
@@ -165,6 +171,9 @@
      **筐体の幅には比例させない**——ホールの設備で、台が大きくても表示器は同じ
      ものが並んでいる。縦長では画面が広いので下の向き判定で一段大きくする。 */
   --datalamp-h: 110px;
+  /* 表示器と筐体の隙間。**--game-w の式でも引く**——ここを margin だけで作ると、
+     高さの計算に入らないぶん画面からはみ出してスクロールが生まれる。 */
+  --datalamp-gap: 6px;
   /* 筐体のうち液晶以外が使う高さの合計。--game-w の計算で2箇所から参照する
      （横長と縦長）。**行を足したらここだけ直せば両方が揃う。** */
   --cab-fixed-h: calc(
@@ -176,7 +185,7 @@
      合わせるので、ずれると演出がリールへはみ出す。
      以前は 432/732 が2箇所に直書きされており、リールのチラ見せ（REEL_PEEK）と枠余白
      （FRAME_PAD）が入って液晶が 400 に縮んだ時に**片方だけ取り残された**。 */
-  --lcd-ratio: calc(400 / 732);
+  --lcd-ratio: calc(300 / 640);
   /* 横幅から差し引く両脇パネル（配列＝左・サンド＝右）の占有。狭画面では 0 に */
   --reel-panel-occupy: calc(
     var(--reel-panel-w) + var(--unit-panel-w) + var(--reel-gap) * 2
@@ -190,22 +199,25 @@
    * 下に大きな余白が残っていた（ドックがその余白に浮いていた）。上限を外して、
    * 高さから決まる値をそのまま使う。横に収まらない時だけ幅で頭打ちになる。
    *
-   * 引くのは 余白×2 ＋ 筐体の固定行 ＋ ドック。残りを 1.22 で割ると液晶の幅。 */
-  /* 段の高さが幅に比例するので、`高さ = 幅 * 1.22 + 幅 * 係数の和` になる。
-     幅について解くと、残りの高さを `1.22 + 係数の和` で割ればよい。
+   * 引くのは 余白×2 ＋ 筐体の固定行 ＋ ドック。 */
+  /* 段の高さが幅に比例するので、`高さ = 幅 * --game-aspect + 幅 * 係数の和` になる。
+     幅について解くと、残りの高さを `--game-aspect + 係数の和` で割ればよい。
      **--cab-fixed-h をここで引いてはいけない**——あれ自体が --game-w から
      決まるので、引くと循環する。 */
   --game-w: max(
     240px,
     min(
       calc(
-        (var(--vh) - var(--layout-pad) * 2 - var(--dock-h) - var(--datalamp-h)) /
-          (1.22 + var(--cab-row-ratio))
+        (
+            var(--vh) - var(--layout-pad) * 2 - var(--dock-h) - var(--datalamp-h) -
+              var(--datalamp-gap)
+          ) /
+          (var(--game-aspect) + var(--cab-row-ratio))
       ),
       calc(100vw - var(--layout-pad) * 2 - var(--reel-panel-occupy))
     )
   );
-  --game-h: calc(var(--game-w) * 1.22);
+  --game-h: calc(var(--game-w) * var(--game-aspect));
   --cabinet-h: calc(var(--game-h) + var(--cab-fixed-h));
   /* リールの中心が筐体幅のどこに来るか。**main.ts が Pixi の実寸から流し込む**
      （--lcd-ratio と同じ手口）。ストップボタンをリールの真下へ置くのに使う。
@@ -877,7 +889,7 @@ body.has-chapter-bg {
   container-name: dl;
   gap: 6px;
   padding: 5px 6px;
-  margin-bottom: 6px;
+  margin-bottom: var(--datalamp-gap);
   background: linear-gradient(180deg, #14121c 0%, #08070d 100%);
   border: 1px solid var(--cab-edge);
   box-shadow:
@@ -5026,9 +5038,9 @@ to {
         calc(
           (
               var(--vh) - var(--layout-pad) * 2 - var(--dock-h) - var(--datalamp-h) -
-                var(--safe-t) - var(--safe-b)
+                var(--datalamp-gap) - var(--safe-t) - var(--safe-b)
             ) /
-            (1.22 + var(--cab-row-ratio))
+            (var(--game-aspect) + var(--cab-row-ratio))
         )
       )
     );

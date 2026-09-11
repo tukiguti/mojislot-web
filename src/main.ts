@@ -173,13 +173,26 @@ type ForcedEffect = Exclude<EffectType, 'none'>;
 /** ステージチェンジの確率（1ゲームあたり）。情景3種を10ゲームに1度ほど入れ替える。 */
 const STAGE_CHANGE_RATE = 1 / 10;
 const CANVAS_W = 600;
-const CANVAS_H = 732;
-// 液晶エリア（演出液晶＋マスコット領域）の高さ。
-// リール領域 = CANVAS_H - LIQUID_AREA_H = 上下チラ見せ(REEL_PEEK*2) + 中央3コマ(300) + 枠余白(FRAME_PAD*2)。
-// 隣の図柄を上下に覗かせる。図柄と金枠の線の間には FRAME_PAD の黒余白を挟む（被り防止）。
-// 上部の空間にカットイン・演出を表示し、ジンはリール際（下部）に立たせる。
-const LIQUID_AREA_H =
-  CANVAS_H - (CELL_HEIGHT * VISIBLE_CELLS + REEL_PEEK * 2 + FRAME_PAD * 2);
+/**
+ * 演出領域の高さ。**DOM演出（カットイン・フラッシュ・バナー）が重なる範囲**で、
+ * リール窓の上端までを指す。以前は「canvas からリール帯を引いた残り」という
+ * 引き算で出していたが、canvas の高さを決める側に回ったので直接持つ。
+ *
+ * 400 → 300（2026-09-11）。筐体が 1:2.05 と縦長すぎてスマホの横幅が2割余っていた。
+ * canvas を低くするぶんは**リールと演出領域から半分ずつ**出している（セルは
+ * 100→92）。リールの実寸は筐体が広がるぶんで相殺され、画面上はほぼ変わらない。
+ */
+const LIQUID_AREA_H = 300;
+/** リール窓の額が枠の外へ張り出す幅（`bezel` の描画と対）。 */
+const REEL_BEZEL_OUT = 10;
+/** 窓の下に残す画面。ここが 0 だと額の下半分が画面外へ出る。 */
+const REEL_BOTTOM_GAP = 14;
+/** リール帯の高さ＝中央3コマ＋上下チラ見せ＋枠余白。 */
+const REEL_BLOCK_H =
+  CELL_HEIGHT * VISIBLE_CELLS + REEL_PEEK * 2 + FRAME_PAD * 2;
+const CANVAS_H = Math.round(
+  LIQUID_AREA_H + REEL_BEZEL_OUT * 2 + REEL_BLOCK_H + REEL_BOTTOM_GAP,
+);
 
 /**
  * 液晶の高さの比を CSS へ渡す。DOM演出（カットイン・フラッシュ・BONUSバナー）は
@@ -192,6 +205,18 @@ const LIQUID_AREA_H =
 document.documentElement.style.setProperty(
   '--lcd-ratio',
   String(LIQUID_AREA_H / CANVAS_H),
+);
+
+/**
+ * canvas の縦横比を CSS へ渡す。**筐体の高さはこれで決まる**
+ * （筐体 = 幅 × (この比 + 段の係数の和)）。
+ *
+ * CSS に 1.22 と直書きしていたので、canvas を低くした時に3箇所を手で直す必要が
+ * あった。ここから流し込めば、`CANVAS_H` を動かすだけで筐体の形が追随する。
+ */
+document.documentElement.style.setProperty(
+  '--game-aspect',
+  String(CANVAS_H / CANVAS_W),
 );
 
 /**
@@ -694,15 +719,11 @@ export async function bootstrap() {
   const totalWidth = CELL_WIDTH * REEL_COUNT + REEL_GAP * (REEL_COUNT - 1);
   const startX = (app.screen.width - totalWidth) / 2;
   /**
-   * リールの縦位置。上下に REEL_PEEK（チラ見せ）＋ FRAME_PAD（枠余白）分を残す。
-   *
-   * さらに `REEL_LIFT` だけ持ち上げて、**窓の下に画面を残す**。実機（カルミナ系）は
-   * リール窓が液晶の下寄りに浮いていて、その下にまだ画面がある。以前は窓の下端が
-   * canvas の下端とちょうど同じで、額の下半分が画面外に出て「額が3方向にしか無い」
-   * ように見えていた。
+   * リールの縦位置。窓の額の上端が演出領域の下端にちょうど接する。
+   * 額（`REEL_BEZEL_OUT`）と枠余白（`FRAME_PAD`）とチラ見せ（`REEL_PEEK`）を
+   * 順に足した位置が、中央3コマの先頭。
    */
-  const REEL_LIFT = 22;
-  const reelY = LIQUID_AREA_H + REEL_PEEK + FRAME_PAD - REEL_LIFT;
+  const reelY = LIQUID_AREA_H + REEL_BEZEL_OUT + FRAME_PAD + REEL_PEEK;
 
 
   // 役単位のカラー解決：同じ役の3文字（左/中/右）が同じ色になる
