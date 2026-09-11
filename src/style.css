@@ -36,6 +36,9 @@
      丸いままにしてよいのは物理的に丸いもの——ストップボタン、レバーの玉、
      ランプのドームだけ。 */
   --cab-radius: 0px;
+  /* 上部看板の肩の落ち幅。台形の上辺が左右からどれだけ内側に入るか。
+     筐体の幅に比例させる——px 固定だと、幅が変わったときに傾きが変わる。 */
+  --cab-shoulder: 9%;
 
   /* マストヘッド（ロゴ＋豆電球） */
   --head-hi: #20122f;
@@ -788,7 +791,19 @@ body.has-chapter-bg {
   width: var(--game-w);
   height: var(--cabinet-h);
   background-color: var(--cab-face-lo);
+  /* 左右の縁に**縦のハイライト**を1本ずつ。実機の筐体は側面が丸みを持っていて、
+     そこに光が縦に走る。真っ平らな面に線を1本入れるだけで、板が箱になる。 */
   background-image:
+    linear-gradient(
+      90deg,
+      var(--cab-sheen) 0 1px,
+      transparent 1px 4px,
+      var(--cab-sheen) 4px 5px,
+      transparent 5px calc(100% - 5px),
+      var(--cab-sheen) calc(100% - 5px) calc(100% - 4px),
+      transparent calc(100% - 4px) calc(100% - 1px),
+      var(--cab-sheen) calc(100% - 1px) 100%
+    ),
     var(--cab-texture),
     linear-gradient(180deg, var(--cab-face-hi) 0%, var(--cab-face-lo) 100%);
   border-radius: var(--cab-radius);
@@ -1106,6 +1121,13 @@ body.has-chapter-bg {
   box-shadow:
     inset 0 -1px 2px rgba(0, 0, 0, 0.45),
     0 0 10px var(--cab-glow);
+  /* 下のタイトルパネルの台形に合わせて、上辺を狭める。 */
+  clip-path: polygon(
+    var(--cab-shoulder) 0%,
+    calc(100% - var(--cab-shoulder)) 0%,
+    calc(100% - var(--cab-shoulder) + 6px) 100%,
+    calc(var(--cab-shoulder) - 6px) 100%
+  );
 }
 
 /* === タイトルパネル（島名の板）＋控えめマーキー電飾 ===
@@ -1122,9 +1144,19 @@ body.has-chapter-bg {
   background-image:
     var(--cab-texture),
     linear-gradient(180deg, var(--head-hi) 0%, var(--head-lo) 100%);
-  border-bottom: 1px solid var(--head-rule);
+  border-bottom: none;
   box-shadow: inset 0 1px 0 var(--cab-sheen);
   overflow: hidden;
+  /* **台形。** 上が狭く、下に向かって肩が広がる。実機（カルミナ系）の上部看板は
+     この形で、真四角の帯を積むだけの見た目から抜ける最初の一手になる。
+     `clip-path` は要素の外へは描けないので、傾きは中身（島名）に食い込まない
+     程度に留める。 */
+  clip-path: polygon(
+    var(--cab-shoulder) 0%,
+    calc(100% - var(--cab-shoulder)) 0%,
+    100% 100%,
+    0% 100%
+  );
 }
 /* 上縁の豆電球列：暗めの金＋マゼンタ環の点を等間隔に。淡いグローで控えめに灯す */
 #masthead::before {
@@ -1173,6 +1205,7 @@ body.has-chapter-bg {
  * 実機はリール窓のすぐ下に CREDIT と 払出 の7セグがあり、その間に
  * REPLAY / START / BET のランプが並ぶ。左＝差枚、右＝払出、中央＝ランプ。 */
 #info-bar {
+  position: relative;
   display: grid;
   grid-template-columns: auto 1fr auto;
   align-items: center;
@@ -2239,6 +2272,36 @@ body.shake {
  *
  * ストップは `--reel-cx-*`（main.ts が Pixi の実寸から流し込む）で絶対配置する。
  * 左のデッキはその外側に収まる幅しか使わない。 */
+/* 段の境目に**厚みのある金属のモール**を入れる。1本の線で切っていた頃は、
+   同じ太さの水平線が7本並ぶだけで「表の行」に見えていた。実機の筐体は板と板の
+   合わせ目に成形パーツが挟まっていて、そこで光が折れる。 */
+#info-bar::before,
+#control-panel::before,
+#lowerpanel::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 0;
+  height: clamp(3px, 1.1cqw, 7px);
+  background: linear-gradient(
+    180deg,
+    #e4e9f0 0%,
+    #9aa1af 38%,
+    #4c525e 62%,
+    #1b1e25 100%
+  );
+  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.55);
+  z-index: 3;
+  pointer-events: none;
+}
+/* 下パネルは操作部より手前へせり出す。**モールを左右へ少しはみ出させる**と、
+   板の重なりに段差が出て、真っ平らな積み重ねから抜ける。 */
+#lowerpanel::before {
+  left: -2px;
+  right: -2px;
+}
+
 #control-panel {
   position: relative;
   /* ボタンの寸法を**筐体幅**に追従させる。ビューポート幅ではなく筐体幅なのは、
@@ -2336,12 +2399,19 @@ body.shake {
 }
 
 /* ストップ3つ。リールの真下に、リールと同じ間隔で並べる。 */
+/* ストップ3つの入れ物。**操作部の全幅を覆う箱**なので、そのままだと左のデッキ
+   （MAXBET・レバー）の上に乗ってクリックを奪う。箱は当たり判定を持たず、
+   中のボタンだけが受け取る。 */
 .stop-row {
   position: absolute;
   left: 0;
   right: 0;
   top: 0;
   bottom: 16px;
+  pointer-events: none;
+}
+.stop-row .stop-btn {
+  pointer-events: auto;
 }
 .stop-row .stop-btn {
   position: absolute;
@@ -2705,6 +2775,7 @@ body.shake {
  * 実機の腰から下。ロゴ板を左右のスピーカーが挟み、その下に下皿がある。
  * 筐体ランプ（設定示唆）はこのスピーカーが担う——実機でも光るのはここ。 */
 #lowerpanel {
+  position: relative;
   display: flex;
   align-items: stretch;
   justify-content: space-between;
@@ -2729,11 +2800,15 @@ body.shake {
 }
 
 /* 下皿。何も置かない暗い受け皿で、筐体の底を締める。 */
+/* 下皿。**筐体より狭くして腰から下をくびれさせる。** 上から下まで同じ幅だと、
+   輪郭が1本の垂直線になって「積んだ矩形」から抜けない。 */
 #tray {
+  margin: 0 var(--cab-shoulder);
   background: linear-gradient(180deg, #0a0710 0%, #05030a 100%);
   border-top: 1px solid var(--cab-edge);
-  border-radius: 0 0 var(--cab-radius) var(--cab-radius);
   box-shadow: inset 0 5px 10px rgba(0, 0, 0, 0.9);
+  /* 手前が広い台形。皿は手前へ向かって開く。 */
+  clip-path: polygon(6px 0%, calc(100% - 6px) 0%, 100% 100%, 0% 100%);
 }
 #overlays {
   position: absolute;
