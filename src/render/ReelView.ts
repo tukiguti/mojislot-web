@@ -20,8 +20,16 @@ export type SymbolTierFn = (symbol: string) => SymbolTier;
  */
 export type SymbolTextureFn = (symbol: string) => Texture | null;
 
-export const CELL_WIDTH = 130;
-export const CELL_HEIGHT = 100;
+/**
+ * 1コマの大きさ（2026-09-11 に 130x100 → 120x92）。
+ *
+ * 筐体が縦長すぎて（1:2.05）スマホの横幅が2割余っていたので、canvas を低くした。
+ * **縦だけ縮めると文字が枠から溢れる**——グリフは `CELL_WIDTH / 絵の幅` で拡大して
+ * いて、高さは比例で付いてくるだけなので、幅も一緒に縮める必要がある。
+ * 130:100 と 120:92 で縦横比はほぼ同じ（1.300 / 1.304）。
+ */
+export const CELL_WIDTH = 120;
+export const CELL_HEIGHT = 92;
 export const VISIBLE_CELLS = 3;
 
 /**
