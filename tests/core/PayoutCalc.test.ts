@@ -17,7 +17,6 @@ const PAYOUT: Payout = {
     { minStreak: 2, mult: 1.2 },
     { minStreak: 5, mult: 2.0 },
   ],
-  aimBonusMultiplier: 1.5,
 };
 
 // 小役はカテゴリ既定を持たない（4種を枚数で区別するので役ごとの payout が必須）。
@@ -97,23 +96,5 @@ describe('PayoutCalc.streakMult', () => {
     expect(calc.streakMult(11)).toBe(2.0);
     expect(calc.streakMult(12)).toBe(3.0);
     expect(calc.streakMult(99)).toBe(3.0);
-  });
-});
-
-describe('PayoutCalc.aimBonus', () => {
-  const calc = new PayoutCalc(PAYOUT);
-
-  it('予告役が揃ったライン配当 ×(mult−1) の floor（上乗せ分のみ）', () => {
-    expect(calc.aimBonus([hit('core')])).toBe(2); // floor(5×0.5)
-    expect(calc.aimBonus([hit('core'), hit('core')])).toBe(5); // floor(10×0.5)
-  });
-
-  it('ボーナス中・コンボ込みの配当に対して上乗せ（上限適用後の配当が基準）', () => {
-    // base = floor(5×min(3.0, 2.5×2.0)) = floor(5×3.0) = 15 → floor(15×0.5)=7
-    expect(calc.aimBonus([hit('core')], true, 2.0)).toBe(7);
-  });
-
-  it('予告役が揃っていない（空配列）なら 0', () => {
-    expect(calc.aimBonus([])).toBe(0);
   });
 });

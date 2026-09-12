@@ -2563,6 +2563,7 @@ body.shake {
    レバーやストップより控えめ。**レバーはこのルールから外してある**——
    物理レバーは板ではないので、寸法も見た目も共有できない。 */
 #bet-btn {
+  position: relative;
   width: 100%;
   height: clamp(20px, 6cqw, 44px);
   display: flex;
@@ -2596,6 +2597,33 @@ body.shake {
 #bet-btn:active {
   translate: 0 2px;
   box-shadow: none;
+}
+
+/* 指の当たり判定を見た目より広げる（2026-09-12）。実機のスマホで
+   「MAXBET とレバーがちょっとだけ押しにくい」という報告。390px 幅だと
+   MAXBET は 47x20px しかなく、狙って押す必要があった。
+
+   **見た目は変えない。** 実機の BET は小さな長方形で、板を大きくすると
+   デッキの質感が崩れる。広げるのは判定だけ。
+
+   **判定同士は被ってよい。** ベット前はレバーが無効、ベット後は BET が無効で、
+   常にどちらか一方しか効かない。ただし**無効な側の判定は消す**——残すと、
+   効かないボタンの判定が効くボタンを覆って、押しても何も起きなくなる。 */
+#bet-btn::before,
+#lever-btn::before {
+  content: '';
+  position: absolute;
+  inset: -12px -10px;
+}
+#bet-btn:disabled::before,
+#lever-btn:disabled::before {
+  content: none;
+}
+/* 無効な側は指を通す。**判定を消すだけでは足りない**——レバーの玉（子要素）が
+   BET の広げた判定の上に残り、押しても何も起きない帯ができる。 */
+#bet-btn:disabled,
+#lever-btn:disabled {
+  pointer-events: none;
 }
 /* スマスロ/ディスクアップ風の丸い発光ストップボタン（朱はここだけ） */
 .stop-btn {

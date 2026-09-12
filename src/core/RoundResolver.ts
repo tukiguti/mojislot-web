@@ -30,8 +30,6 @@ export interface RoundInput {
   bonusActive: boolean;
   /** このゲームを含める前の連チャン数。 */
   streakBefore: number;
-  /** 予告役（狙え＝予告役／クイズ＝答えの役）。無ければ null。 */
-  noticeYakuId: string | null;
   /**
    * 各リールの停止時スベリコマ数。0＝引き込みも蹴りも働かず自力で止めた。
    * 役に必要なリールが全部0なら「ビタ押し」＝配当にボーナスが付く。
@@ -59,14 +57,12 @@ export interface RoundOutcome {
   /** このゲームを含めた連チャン数（ハズレなら0）。 */
   streakAfter: number;
   streakMult: number;
-  /** 払い出し合計（= base + singleWin + noticeBonus + bitaBonus）。 */
+  /** 払い出し合計（= base + singleWin + bitaBonus）。 */
   win: number;
   /** 内訳：成立ラインの通常配当。 */
   base: number;
   /** 内訳：1枚役ぶん（倍率非適用の固定枚数）。 */
   singleWin: number;
-  /** 内訳：予告役の達成ボーナス（上乗せ分のみ）。 */
-  noticeBonus: number;
   /** 内訳：ビタ押しボーナス（上乗せ分のみ）。 */
   bitaBonus: number;
   /** 役に必要なリールを**全部**自力で止めたか（＝ビタ押し成立）。 */
@@ -118,14 +114,11 @@ export class RoundResolver {
     const base = calc.calcMulti(hits, input.bonusActive, streakMult);
     // 1枚役は倍率を掛けず、何ライン揃っても1Gあたり1枚まで。
     const singleWin = singleHits.length > 0 ? singlePayout : 0;
-    const noticeBonus = input.noticeYakuId
-      ? calc.aimBonus(
-          hits.filter((h) => h.yaku.id === input.noticeYakuId),
-          input.bonusActive,
-          streakMult,
-        )
-      : 0;
-
+    // **出玉に効く技術介入はビタ押しだけ**（2026-09-12）。狙え・クイズの的中にも
+    // 配当を上乗せしていたが、どちらも演出が当たりを教えている場面で、そこで増える
+    // のは「演出は情報だけを持つ」と食い違う。当てた価値は引き込み対象になること
+    // （＝取りこぼさないこと）で既に払われている。
+    //
     // ビタ押し：役に必要なリールを1本残らず自力で止めた時だけ。
     // チェリー（2文字役）は右リールが不問なので、その本数は要求しない。
     const required = requiredReels(hits);
@@ -152,10 +145,9 @@ export class RoundResolver {
       reachKind,
       streakAfter,
       streakMult,
-      win: base + singleWin + noticeBonus + bitaBonus,
+      win: base + singleWin + bitaBonus,
       base,
       singleWin,
-      noticeBonus,
       bitaBonus,
       bitaPerfect,
       selfStoppedReels: selfStopped,

@@ -250,15 +250,14 @@ export const PayoutSchema = z.object({
       { minStreak: 5, mult: 1.5 },
       { minStreak: 10, mult: 2.0 },
     ]),
-  // 「狙え！」予告役が実際に成立した時の達成ボーナス倍率（その役ライン分の配当に上乗せ）。
-  aimBonusMultiplier: z.number().positive().default(1.5),
   // ボーナス倍率×コンボ倍率の積算上限。combined をここで頭打ちにする（コンボ天井）。
   // 腕による機械割の開きを抑える主要な調整点で、10.0→4.5→3.0 と下げてきた。
   // 現行 data/payouts では 3.0。省略時フォールバックも 3.0。
   maxComboMultiplier: z.number().positive().default(3),
   /**
    * ビタ押し（＝引き込みも蹴りも使わず、役に必要なリールを**全部**自力で止めた）時の
-   * 配当倍率。上乗せ分のみを加算する（aimBonusMultiplier と同じ扱い）。
+   * 配当倍率。上乗せ分のみを加算する。**出玉に効く技術介入はこれだけ**——
+   * 狙え・クイズの的中に付けていた加算は廃止した（2026-09-12）。
    * 到達率は腕で大きく開く（実測: 初心者3.9% / 中級9.8% / 上級26.6% / 神68.9%）。
    */
   bitaMultiplier: z.number().positive().default(1.5),

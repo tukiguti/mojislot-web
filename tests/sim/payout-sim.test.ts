@@ -624,8 +624,6 @@ function runChapter(
       flagYakuIds: flagIdsNow(),
       bonusActive,
       streakBefore: streak,
-      noticeYakuId:
-        (effect === 'aim' || effect === 'quiz') && flagId ? flagId : null,
       slipCells: slipPerReel,
     });
     const { hits, willHit, streakAfter, win } = outcome;
