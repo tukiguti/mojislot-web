@@ -22,7 +22,9 @@
   "rescueMissThreshold": 30,
   "bonus": {
     "spinsPerBig": 10,
-    "spinsPerReg": 5
+    "spinsPerReg": 5,
+    "okawariSpinsBig": 5,
+    "okawariSpinsReg": 3
   },
   "assist": {
     "pullInCells": 4,

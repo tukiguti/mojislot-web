@@ -250,15 +250,20 @@ export const PayoutSchema = z.object({
       { minStreak: 5, mult: 1.5 },
       { minStreak: 10, mult: 2.0 },
     ]),
-  // 「狙え！」予告役が実際に成立した時の達成ボーナス倍率（その役ライン分の配当に上乗せ）。
-  aimBonusMultiplier: z.number().positive().default(1.5),
+  /**
+   * **ボーナス図柄が揃った時の払い出し**（通常時の初当たり・ボーナス中のおかわり共通）。
+   * 実機のボーナス成立がリプレイ相当なのと同じで、BET と同額の 3 枚だけ返す
+   * （2026-09-13。以前は BIG 15枚 / REG 10枚）。倍率もコンボも乗せない。
+   */
+  bonusYakuPayout: z.number().nonnegative().default(3),
   // ボーナス倍率×コンボ倍率の積算上限。combined をここで頭打ちにする（コンボ天井）。
   // 腕による機械割の開きを抑える主要な調整点で、10.0→4.5→3.0 と下げてきた。
   // 現行 data/payouts では 3.0。省略時フォールバックも 3.0。
   maxComboMultiplier: z.number().positive().default(3),
   /**
    * ビタ押し（＝引き込みも蹴りも使わず、役に必要なリールを**全部**自力で止めた）時の
-   * 配当倍率。上乗せ分のみを加算する（aimBonusMultiplier と同じ扱い）。
+   * 配当倍率。上乗せ分のみを加算する。**出玉に効く技術介入はこれだけ**——
+   * 狙え・クイズの的中に付けていた加算は廃止した（2026-09-12）。
    * 到達率は腕で大きく開く（実測: 初心者3.9% / 中級9.8% / 上級26.6% / 神68.9%）。
    */
   bitaMultiplier: z.number().positive().default(1.5),
@@ -486,13 +491,25 @@ export const TuningSchema = z.object({
       spinsPerBig: z.number().int().positive().default(10),
       spinsPerReg: z.number().int().positive().default(5),
       /**
+       * おかわり（消化中の再当選）で足すゲーム数。**新規突入より薄い**——
+       * 当選率を上げて何度も乗せる形にしてあるので、突入と同じ量を足すと
+       * ボーナスが終わらなくなる（[21] payout.md §上乗せ）。
+       */
+      okawariSpinsBig: z.number().int().nonnegative().default(5),
+      okawariSpinsReg: z.number().int().nonnegative().default(3),
+      /**
        * ボーナス中の示唆tier（省略時は assist.shisaTiers を流用）。
        * ボーナス中は演出100%なので、通常と同じ赤6%/金2%だと「おかわり」が毎セット当たって
        * 区間が終わらなくなる。ここで赤/金を絞ることでおかわりをレアな契機にする。
        */
       shisaTiers: z.array(ShisaTierSchema).min(1).optional(),
     })
-    .default({ spinsPerBig: 10, spinsPerReg: 5 }),
+    .default({
+      spinsPerBig: 10,
+      spinsPerReg: 5,
+      okawariSpinsBig: 5,
+      okawariSpinsReg: 3,
+    }),
   /**
    * 引き込み（目押し補助）。実機同様、**引き込み窓は内部役だけで決まり演出では変わらない**。
    * 難易度はリール配列（図柄の間隔）が担う＝4コマ内に図柄が無ければ取りこぼす。

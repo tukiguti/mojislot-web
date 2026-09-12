@@ -7,6 +7,8 @@ import type { PaylineHit } from '../../src/core/YakuJudge';
 const PAYOUT: Payout = {
   betPerSpin: 3,
   baseMultiplier: { premium: 25, bonus: 6, cherry: 2 },
+  // ボーナス図柄は配当ではなく権利。BET と同額だけ返す（倍率もコンボも乗らない）。
+  bonusYakuPayout: 3,
   bonusZoneMultiplier: 2.5,
   // ボーナス倍率×コンボ倍率の積算上限（出玉の伸びすぎ防止）。
   maxComboMultiplier: 3.0,
@@ -17,7 +19,6 @@ const PAYOUT: Payout = {
     { minStreak: 2, mult: 1.2 },
     { minStreak: 5, mult: 2.0 },
   ],
-  aimBonusMultiplier: 1.5,
 };
 
 // 小役はカテゴリ既定を持たない（4種を枚数で区別するので役ごとの payout が必須）。
@@ -47,8 +48,15 @@ describe('PayoutCalc.calc', () => {
   it('通常時の払い出し = baseMultiplier そのもの（betは掛け枚数=コストで払い出しには掛けない）', () => {
     expect(calc.calc(yaku('cherry'))).toBe(2); // base 2
     expect(calc.calc(yaku('core'))).toBe(5); // base 5
-    expect(calc.calc(yaku('bonus'))).toBe(6); // base 6
-    expect(calc.calc(yaku('premium'))).toBe(25); // base 25
+    // **ボーナス図柄は baseMultiplier を使わない。** 通常時もボーナス中も
+    // bonusYakuPayout（＝BET と同額の3枚）固定で、倍率もコンボも乗らない。
+    expect(calc.calc(yaku('bonus'))).toBe(3);
+    expect(calc.calc(yaku('premium'))).toBe(3);
+  });
+
+  it('ボーナス図柄はボーナス中・コンボ中でも 3 のまま（権利であって配当ではない）', () => {
+    expect(calc.calc(yaku('premium'), true, 3.0)).toBe(3);
+    expect(calc.calc(yaku('bonus'), true, 3.0)).toBe(3);
   });
 
   it('役なしは 0', () => {
@@ -97,23 +105,5 @@ describe('PayoutCalc.streakMult', () => {
     expect(calc.streakMult(11)).toBe(2.0);
     expect(calc.streakMult(12)).toBe(3.0);
     expect(calc.streakMult(99)).toBe(3.0);
-  });
-});
-
-describe('PayoutCalc.aimBonus', () => {
-  const calc = new PayoutCalc(PAYOUT);
-
-  it('予告役が揃ったライン配当 ×(mult−1) の floor（上乗せ分のみ）', () => {
-    expect(calc.aimBonus([hit('core')])).toBe(2); // floor(5×0.5)
-    expect(calc.aimBonus([hit('core'), hit('core')])).toBe(5); // floor(10×0.5)
-  });
-
-  it('ボーナス中・コンボ込みの配当に対して上乗せ（上限適用後の配当が基準）', () => {
-    // base = floor(5×min(3.0, 2.5×2.0)) = floor(5×3.0) = 15 → floor(15×0.5)=7
-    expect(calc.aimBonus([hit('core')], true, 2.0)).toBe(7);
-  });
-
-  it('予告役が揃っていない（空配列）なら 0', () => {
-    expect(calc.aimBonus([])).toBe(0);
   });
 });

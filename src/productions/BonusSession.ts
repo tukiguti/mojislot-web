@@ -80,12 +80,17 @@ export class BonusSession {
     // big は常に採用（＝昇格）、reg は新規突入の時だけ。これで降格が起きない。
     if (kind === 'big' || !isAddition) this.runKind = kind;
     this.zone.trigger(kind);
+    // 上乗せ表示に出す数。**おかわりは突入より薄い**ので、どちらで入ったかで変わる。
+    const cfg = this.zone.config;
     return {
       isAddition,
-      spinsAdded:
-        kind === 'reg'
-          ? this.zone.config.spinsPerReg
-          : this.zone.config.spinsPerBonus,
+      spinsAdded: isAddition
+        ? kind === 'reg'
+          ? cfg.okawariSpinsReg
+          : cfg.okawariSpinsBig
+        : kind === 'reg'
+          ? cfg.spinsPerReg
+          : cfg.spinsPerBonus,
     };
   }
 

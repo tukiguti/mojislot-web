@@ -19,6 +19,10 @@ export interface BonusConfig {
   spinsPerBonus: number;
   /** レギュラーボーナス1回の継続スピン数（ビッグより短い） */
   spinsPerReg: number;
+  /** おかわり（消化中の再当選）で足すスピン数。BIG中に引いた時。 */
+  okawariSpinsBig: number;
+  /** おかわりで足すスピン数。REG中に引いた時。 */
+  okawariSpinsReg: number;
   /** ボーナス中の演出レート（none/shisa/quiz/aim の合計が 1.0 になる必要あり） */
   bonusEffectRates: EffectRates;
 }
@@ -26,6 +30,17 @@ export interface BonusConfig {
 export const DEFAULT_BONUS_CONFIG: BonusConfig = {
   spinsPerBonus: 10,
   spinsPerReg: 5,
+  /**
+   * **おかわりは新規突入より薄く、そのぶん何度も乗る**（2026-09-13）。
+   * 以前は突入と同じ +10G / +5G を、ボーナス中の 6.7% で引いていた。上乗せを
+   * 半分にして当選率を3.5倍（約23%＝4〜5ゲームに1回）へ振り直し、
+   * 「繋げている間ずっと伸びる」形にする。
+   *
+   * 1ゲームあたりの期待上乗せが 1.0G を超えるとボーナスが終わらなくなるので、
+   * ここを触る時は必ず sim で測り直す（現行は約0.78G）。
+   */
+  okawariSpinsBig: 5,
+  okawariSpinsReg: 3,
   /**
    * ボーナス中は必ず何らかの演出を出す（none = 0）。
    * 「ずっと示唆 / 狙え / クイズ」=「演出 100%」のためのバランス設定。
@@ -50,9 +65,16 @@ export class BonusZone {
    * big のまま降格しない）。区間の identity は最初に引いた BIG を保つ。
    */
   trigger(kind: BonusKind = 'big'): void {
-    const spins = kind === 'reg' ? this.config.spinsPerReg : this.config.spinsPerBonus;
     const wasActive = this.active.get();
     // おかわり（active 中の再当選）は残り回数に加算（上乗せ）。新規突入はセット。
+    // **足すゲーム数は別**——おかわりは薄く何度も乗せる（上の config を参照）。
+    const spins = wasActive
+      ? kind === 'reg'
+        ? this.config.okawariSpinsReg
+        : this.config.okawariSpinsBig
+      : kind === 'reg'
+        ? this.config.spinsPerReg
+        : this.config.spinsPerBonus;
     this.remaining.set(wasActive ? this.remaining.get() + spins : spins);
     // 既に big の区間中は big を維持（reg では降格させない）。それ以外は引いた種別。
     const nextKind: BonusKind = wasActive && this.kind.get() === 'big' ? 'big' : kind;
