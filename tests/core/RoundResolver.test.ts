@@ -11,7 +11,7 @@ import type { Payout, YakuList } from '../../src/data/schemas';
  *
  * 単純な足し算に見えて、崩れても気づきにくい規則が入っている：
  *  - 1枚役は倍率非適用・1Gあたり1枚まで（こぼしが美味しくなると連を狙わなくなる）
- *  - 予告役の達成ボーナスは通常配当への**上乗せ**（置き換えではない）
+ *  - 出玉に効く技術介入は**ビタ押しだけ**（狙え・クイズの的中への加算は 2026-09-12 に廃止）
  *  - 連チャン倍率は成立**後**の数で評価（達成スピンから恩恵が乗る）
  * ここが狂うと出玉率だけがじわじわずれる。
  */
@@ -46,7 +46,6 @@ const PAYOUT: Payout = {
     { minStreak: 3, mult: 1.5 },
   ],
   maxComboMultiplier: 4.5,
-  aimBonusMultiplier: 1.5,
   bitaMultiplier: 2,
 } as unknown as Payout;
 
@@ -69,7 +68,6 @@ const middleOnly = (a: string, b: string, c: string): Grid3x3 => [
 const resolve = (grid: Grid3x3, flags: string[], opts: Partial<{
   bonusActive: boolean;
   streakBefore: number;
-  noticeYakuId: string | null;
   slipCells: number[];
 }> = {}) =>
   resolver.resolve({
@@ -77,7 +75,6 @@ const resolve = (grid: Grid3x3, flags: string[], opts: Partial<{
     flagYakuIds: flags,
     bonusActive: opts.bonusActive ?? false,
     streakBefore: opts.streakBefore ?? 0,
-    noticeYakuId: opts.noticeYakuId ?? null,
     slipCells: opts.slipCells ?? [1, 1, 1],
   });
 
@@ -92,7 +89,7 @@ describe('RoundResolver', () => {
   it('通常役の払い出しは base のみ', () => {
     const r = resolve(middleOnly('あ', 'い', 'う'), ['core_a']);
     expect(r.willHit).toBe(true);
-    expect(r).toMatchObject({ base: 5, singleWin: 0, noticeBonus: 0, win: 5 });
+    expect(r).toMatchObject({ base: 5, singleWin: 0, win: 5 });
   });
 
   it('1枚役は倍率を掛けず、連チャンにも乗せない', () => {
@@ -124,23 +121,6 @@ describe('RoundResolver', () => {
     });
     // 2.2 × 1.5 = 3.3（上限4.5未満なのでそのまま）
     expect(r.win).toBe(Math.floor(5 * 3.3));
-  });
-
-  it('予告役の的中は通常配当への上乗せ（置き換えではない）', () => {
-    const r = resolve(middleOnly('あ', 'い', 'う'), ['core_a'], {
-      noticeYakuId: 'core_a',
-    });
-    expect(r.base).toBe(5);
-    expect(r.noticeBonus).toBe(Math.floor(5 * 0.5)); // 2
-    expect(r.win).toBe(7);
-  });
-
-  it('予告役が外れたら上乗せは付かない', () => {
-    const r = resolve(middleOnly('あ', 'い', 'う'), ['core_a'], {
-      noticeYakuId: 'core_b',
-    });
-    expect(r.noticeBonus).toBe(0);
-    expect(r.win).toBe(5);
   });
 
   it('プレミアム成立はBIG、レギュラー役はREGとして返す', () => {

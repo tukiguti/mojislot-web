@@ -13,6 +13,9 @@ import { BonusSession } from '../../src/productions/BonusSession';
 const CONFIG = {
   spinsPerBonus: 3,
   spinsPerReg: 2,
+  // おかわりは突入より薄い（本番の 10G/5G に対する 5G/3G と同じ関係）。
+  okawariSpinsBig: 2,
+  okawariSpinsReg: 1,
   bonusEffectRates: { none: 0, shisa: 0.5, quiz: 0.2, aim: 0.3 },
 };
 
@@ -55,7 +58,8 @@ describe('BonusSession', () => {
     const first = s.enter('big');
     expect(first).toEqual({ isAddition: false, spinsAdded: 3 });
     const second = s.enter('big');
-    expect(second).toEqual({ isAddition: true, spinsAdded: 3 });
+    // おかわりで足すのは okawariSpinsBig。突入と同じ量は足さない。
+    expect(second).toEqual({ isAddition: true, spinsAdded: 2 });
   });
 
   it('BIG区間中のREGおかわりでも区間はBIGのまま（降格しない）', () => {
@@ -65,20 +69,20 @@ describe('BonusSession', () => {
     s.enter('reg'); // 同一Gでのおかわり
     s.settle(0);
     s.resetSpin();
-    // 突入G自体は通常時のゲームなので消費されない。big3G + reg2G = 5G まるごと残る。
+    // 突入G自体は通常時のゲームなので消費されない。big3G + regおかわり1G = 4G 残る。
     let end = null;
-    for (let i = 0; i < 5; i++) end = playSpin(s, 1);
-    expect(end).toEqual({ payout: 5, kind: 'big' });
+    for (let i = 0; i < 4; i++) end = playSpin(s, 1);
+    expect(end).toEqual({ payout: 4, kind: 'big' });
   });
 
   it('REG区間中のBIGは区間をBIGへ昇格させる', () => {
     const s = newSession();
     playSpin(s, 0, 'reg'); // 残り2G
-    const end = playSpin(s, 7, 'big'); // 上乗せ+3G、この1Gも消費 → 残り4G
+    const end = playSpin(s, 7, 'big'); // 上乗せ+2G、この1Gも消費 → 残り3G
     expect(end).toBeNull();
     // おかわりGの払い出しは（突入Gではないので）集計に入る
     let last = null;
-    for (let i = 0; i < 4; i++) last = playSpin(s, 0);
+    for (let i = 0; i < 3; i++) last = playSpin(s, 0);
     expect(last).toEqual({ payout: 7, kind: 'big' });
   });
 

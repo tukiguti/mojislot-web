@@ -347,6 +347,11 @@ export async function bootstrap() {
   const bonusSpins = remix
     ? { big: REMIX.spinsPerBig, reg: REMIX.spinsPerReg }
     : { big: tuning.bonus.spinsPerBig, reg: tuning.bonus.spinsPerReg };
+  /** おかわりで足すゲーム数。突入より薄く、そのぶん何度も乗る。 */
+  const okawariSpins = {
+    big: tuning.bonus.okawariSpinsBig,
+    reg: tuning.bonus.okawariSpinsReg,
+  };
   /**
    * 設定を適用した演出レート。**設定差の主役はここ**（MachineSetting の NONE_MULTIPLIER）。
    * 高設定ほど無演出が減り、何を狙えばよいか分かるゲームが増える＝取りこぼしが減る。
@@ -388,6 +393,8 @@ export async function bootstrap() {
   const bonusZone = new BonusZone({
     spinsPerBonus: bonusSpins.big,
     spinsPerReg: bonusSpins.reg,
+    okawariSpinsBig: okawariSpins.big,
+    okawariSpinsReg: okawariSpins.reg,
     bonusEffectRates: effectRates.bonus,
   });
   // 突入〜消化しきりの区間管理（獲得集計・おかわり判定・締め）は BonusSession が持つ。
@@ -860,6 +867,8 @@ export async function bootstrap() {
   const betTextEl = requireEl('bet-text');
   const leverBtn = requireEl<HTMLButtonElement>('lever-btn');
   const betBtn = requireEl<HTMLButtonElement>('bet-btn');
+  /** MAXBET とレバーが載る台。台のどこを押しても操作が進むようにする。 */
+  const deckWell = document.querySelector<HTMLElement>('.deck-well');
   const stopBtns = Array.from(
     document.querySelectorAll<HTMLButtonElement>('.stop-btn'),
   );
@@ -2294,17 +2303,6 @@ export async function bootstrap() {
       (slot) => slot === 'reg' || slot === 'big0' || slot === 'big1',
     );
 
-  /**
-   * 蹴りで除外する「予告した役」ID。aim/quiz が premium/bonus を予告した時、その役は
-   * 蹴らずに通す（予告役を優先）。それ以外の演出/役では null＝全 premium/bonus を蹴る対象。
-   */
-  const currentTargetYakuId = (): string | null => {
-    if (currentEffect === 'aim' || currentEffect === 'quiz') {
-      return activeDisplayYakuId();
-    }
-    return null;
-  };
-
   /** aim/quiz は第1・第2停止にも中段引き込みが効く（＝予告に従えば取れる）。 */
   const isAimLikeEffect = (): boolean =>
     currentEffect === 'aim' || currentEffect === 'quiz';
@@ -2619,12 +2617,11 @@ export async function bootstrap() {
         flagYakuIds: activeFlagYakuIds(),
         bonusActive: bonusSession.spinActive,
         streakBefore: playStats.stats.get().streak,
-        noticeYakuId: currentTargetYakuId(),
         slipCells: lastSlipCells,
       });
       const { hits, willHit, premiumHit, bonusHit, isPremium, isRegular } =
         outcome;
-      const { streakAfter, streakMult, noticeBonus, win, reachKind } = outcome;
+      const { streakAfter, streakMult, win, reachKind } = outcome;
       const quizTargetYakuId =
         currentEffect === 'quiz' ? quizState.targetYakuId() : null;
       // 問題IDは resolve で消えるので、判定の前に控える。
@@ -2822,15 +2819,15 @@ export async function bootstrap() {
         const bonusTag = bonusSession.spinActive ? ' ×BONUS' : '';
         const streakTag = streakMult > 1 ? ` ${streakAfter}連 ×${streakMult}` : '';
         const lineTag = hits.length > 1 ? ` (${hits.length}ライン)` : '';
-        const noticeLabel = currentEffect === 'quiz' ? 'クイズ的中' : '狙え的中';
-        const noticeTag = noticeBonus > 0 ? ` ★${noticeLabel}+${noticeBonus}` : '';
+        // **「★クイズ的中」は出さない**（2026-09-13）。予告した役が揃った時点で
+        // 的中しているので、役名と一緒に書くと同じことを二度言うことになる。
         // ビタ押し＝ゲームに一切助けられず揃えた。上乗せ額と一緒に明示する。
         const bitaTag =
           outcome.bitaBonus > 0 ? ` ⚡ビタ押し+${outcome.bitaBonus}` : '';
         // 役名は重複なしで「みかん×2 ＋ すしや」のように要約
         const yakuLabel = summarizeHits(hits);
         showResult(
-          `${yakuLabel}！ +${win}${bonusTag}${streakTag}${lineTag}${noticeTag}${bitaTag}`,
+          `${yakuLabel}！ +${win}${bonusTag}${streakTag}${lineTag}${bitaTag}`,
           cls,
         );
         // 図鑑には揃ったユニーク役を全部記録
@@ -2882,8 +2879,8 @@ export async function bootstrap() {
         else if (isRegular) showCoinBurstAt(16);
         else if (win >= 50) showCoinBurstAt(12);
         else if (win >= 24) showCoinBurstAt(5);
-        // 予告役的中（狙え／クイズ正解）は配当の大小に関わらず、達成感のコインバーストを別途出す
-        if (noticeBonus > 0) showCoinBurstAt(10);
+        // 予告役的中（狙え／クイズ正解）でコインは撒かない——**配当が増えていない**
+        // ので、撒くと出玉が付いたように読めてしまう。的中は結果表示の★で伝える。
         // ビタ押し成立は配当の大小に関わらず祝う（技術が報われた瞬間）
         if (outcome.bitaBonus > 0) {
           showCoinBurstAt(12);
@@ -3151,6 +3148,22 @@ export async function bootstrap() {
 
   betBtn.addEventListener('click', placeBet);
   leverBtn.addEventListener('click', pullLever);
+  /**
+   * デッキ（MAXBET とレバーが載る台）は、**どこを押しても今できる方が起きる**。
+   *
+   * スマホで「MAXBET とレバーがちょっとだけ押しにくい」という報告（2026-09-12）。
+   * 390px 幅だと MAXBET は 47x20px しかなく、狙って押す必要があった。判定を
+   * 広げる（CSS の ::before）だけでは板と板の間に隙間が残るので、台そのものを
+   * 受け皿にする。**取り違えは起こらない**——ベット前はレバーが無効、ベット後は
+   * BET が無効で、常にどちらか一方しか効かない。
+   *
+   * ボタン自身の click はここへ来ても無視する（委譲すると二重に走る）。
+   */
+  deckWell?.addEventListener('click', (ev) => {
+    if (ev.target !== deckWell) return;
+    if (!betBtn.disabled) placeBet();
+    else if (!leverBtn.disabled) pullLever();
+  });
   stopBtns.forEach((btn) => {
     const idx = Number(btn.dataset.reel ?? -1);
     btn.addEventListener('pointerdown', (ev) => {
