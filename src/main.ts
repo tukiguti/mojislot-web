@@ -2303,17 +2303,6 @@ export async function bootstrap() {
       (slot) => slot === 'reg' || slot === 'big0' || slot === 'big1',
     );
 
-  /**
-   * 蹴りで除外する「予告した役」ID。aim/quiz が premium/bonus を予告した時、その役は
-   * 蹴らずに通す（予告役を優先）。それ以外の演出/役では null＝全 premium/bonus を蹴る対象。
-   */
-  const currentTargetYakuId = (): string | null => {
-    if (currentEffect === 'aim' || currentEffect === 'quiz') {
-      return activeDisplayYakuId();
-    }
-    return null;
-  };
-
   /** aim/quiz は第1・第2停止にも中段引き込みが効く（＝予告に従えば取れる）。 */
   const isAimLikeEffect = (): boolean =>
     currentEffect === 'aim' || currentEffect === 'quiz';
@@ -2623,9 +2612,6 @@ export async function bootstrap() {
       // 出目から成立ラインと払い出しを確定させる（表示はしない純粋な計算）。
       const grid = extractGrid(engines);
       const middleSymbols = grid[1] as [string, string, string]; // 既存UI互換用
-      // 予告役（狙え＝予告役／クイズ＝答えの役）。**配当は動かさない**
-      // （2026-09-12 に加算を廃止）。的中したことを表示に残すためだけに控える。
-      const noticeYakuId = currentTargetYakuId();
       const outcome = roundResolver.resolve({
         grid,
         flagYakuIds: activeFlagYakuIds(),
@@ -2636,8 +2622,6 @@ export async function bootstrap() {
       const { hits, willHit, premiumHit, bonusHit, isPremium, isRegular } =
         outcome;
       const { streakAfter, streakMult, win, reachKind } = outcome;
-      const noticeHit =
-        noticeYakuId !== null && hits.some((h) => h.yaku.id === noticeYakuId);
       const quizTargetYakuId =
         currentEffect === 'quiz' ? quizState.targetYakuId() : null;
       // 問題IDは resolve で消えるので、判定の前に控える。
@@ -2835,15 +2819,15 @@ export async function bootstrap() {
         const bonusTag = bonusSession.spinActive ? ' ×BONUS' : '';
         const streakTag = streakMult > 1 ? ` ${streakAfter}連 ×${streakMult}` : '';
         const lineTag = hits.length > 1 ? ` (${hits.length}ライン)` : '';
-        const noticeLabel = currentEffect === 'quiz' ? 'クイズ的中' : '狙え的中';
-        const noticeTag = noticeHit ? ` ★${noticeLabel}` : '';
+        // **「★クイズ的中」は出さない**（2026-09-13）。予告した役が揃った時点で
+        // 的中しているので、役名と一緒に書くと同じことを二度言うことになる。
         // ビタ押し＝ゲームに一切助けられず揃えた。上乗せ額と一緒に明示する。
         const bitaTag =
           outcome.bitaBonus > 0 ? ` ⚡ビタ押し+${outcome.bitaBonus}` : '';
         // 役名は重複なしで「みかん×2 ＋ すしや」のように要約
         const yakuLabel = summarizeHits(hits);
         showResult(
-          `${yakuLabel}！ +${win}${bonusTag}${streakTag}${lineTag}${noticeTag}${bitaTag}`,
+          `${yakuLabel}！ +${win}${bonusTag}${streakTag}${lineTag}${bitaTag}`,
           cls,
         );
         // 図鑑には揃ったユニーク役を全部記録
