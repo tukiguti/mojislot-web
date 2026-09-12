@@ -39,6 +39,15 @@ export class PayoutCalc {
 
   calc(yaku: Yaku | null, bonusActive = false, streakMult = 1): number {
     if (!yaku) return 0;
+    // **ボーナス図柄は配当ではなく権利**（2026-09-13）。実機のボーナス成立が
+    // リプレイ相当なのと同じで、BET と同額の 3 枚だけ返す。倍率もコンボも乗せない。
+    //
+    // 以前は BIG 15枚 / REG 10枚を配っていた。ボーナス中のおかわりを増やすと、
+    // **ゲーム数と配当の二重取り**になって出玉が跳ねる（おかわり率を上げた測定で
+    // 上級が 190% を超えた原因）。上乗せで受け取るのはゲーム数だけにする。
+    if (yaku.category === 'premium' || yaku.category === 'bonus') {
+      return this.payout.bonusYakuPayout;
+    }
     // base はそのものが「コンボなしの払い出し枚数」。betPerSpin は掛け枚数=コスト（毎ゲーム消費）で
     // あって払い出しには掛けない（＝役 base × 倍率がそのまま枚数）。
     const base = this.baseOf(yaku);

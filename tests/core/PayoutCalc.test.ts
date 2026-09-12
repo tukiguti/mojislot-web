@@ -7,6 +7,8 @@ import type { PaylineHit } from '../../src/core/YakuJudge';
 const PAYOUT: Payout = {
   betPerSpin: 3,
   baseMultiplier: { premium: 25, bonus: 6, cherry: 2 },
+  // ボーナス図柄は配当ではなく権利。BET と同額だけ返す（倍率もコンボも乗らない）。
+  bonusYakuPayout: 3,
   bonusZoneMultiplier: 2.5,
   // ボーナス倍率×コンボ倍率の積算上限（出玉の伸びすぎ防止）。
   maxComboMultiplier: 3.0,
@@ -46,8 +48,15 @@ describe('PayoutCalc.calc', () => {
   it('通常時の払い出し = baseMultiplier そのもの（betは掛け枚数=コストで払い出しには掛けない）', () => {
     expect(calc.calc(yaku('cherry'))).toBe(2); // base 2
     expect(calc.calc(yaku('core'))).toBe(5); // base 5
-    expect(calc.calc(yaku('bonus'))).toBe(6); // base 6
-    expect(calc.calc(yaku('premium'))).toBe(25); // base 25
+    // **ボーナス図柄は baseMultiplier を使わない。** 通常時もボーナス中も
+    // bonusYakuPayout（＝BET と同額の3枚）固定で、倍率もコンボも乗らない。
+    expect(calc.calc(yaku('bonus'))).toBe(3);
+    expect(calc.calc(yaku('premium'))).toBe(3);
+  });
+
+  it('ボーナス図柄はボーナス中・コンボ中でも 3 のまま（権利であって配当ではない）', () => {
+    expect(calc.calc(yaku('premium'), true, 3.0)).toBe(3);
+    expect(calc.calc(yaku('bonus'), true, 3.0)).toBe(3);
   });
 
   it('役なしは 0', () => {

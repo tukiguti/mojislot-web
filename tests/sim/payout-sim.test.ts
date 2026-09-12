@@ -90,6 +90,76 @@ const STEP_ENTRY_MULT = process.env.STEP_ENTRY_MULT
   ? Number(process.env.STEP_ENTRY_MULT)
   : 1;
 /**
+ * `OKAWARI_MULT` … **ボーナス中の再当選（おかわり）**のレートに掛ける。
+ *
+ * ボーナス中は毎ゲーム当選役があるので、増やしたぶんは小役から比例で引く
+ * （合計1を保つ）。突入率は動かさず、**1回のボーナスの長さだけ**が変わる。
+ */
+const OKAWARI_MULT = process.env.OKAWARI_MULT
+  ? Number(process.env.OKAWARI_MULT)
+  : 1;
+/**
+ * `BIG_SPINS` / `REG_SPINS` … ボーナス1回の**規定ゲーム数**を上書きする。
+ * 現行は 10G / 5G（元は 15G / 8G）。おかわりが乗るので、増やすと効きは増幅される。
+ */
+const BIG_SPINS = process.env.BIG_SPINS ? Number(process.env.BIG_SPINS) : undefined;
+const REG_SPINS = process.env.REG_SPINS ? Number(process.env.REG_SPINS) : undefined;
+/**
+ * `COMBO_STEP` / `COMBO_ADD` … **ボーナス中のコンボがゲーム数になる**。
+ * コンボが STEP 連に達するごとに残りゲーム数へ ADD を足す（0 で無効）。
+ *
+ * おかわり（内部抽選の再当選）が「引き」なのに対し、こちらは**腕がそのまま
+ * ゲーム数に変わる**。こぼした時点でコンボが切れるので、延長係数は
+ * `1/(1 - ADD/STEP)` を上限に、こぼし率のぶんだけ下がる。
+ * **ADD >= STEP は発散する**（1ゲーム消化するたびに1ゲーム以上増える）。
+ */
+const COMBO_STEP = process.env.COMBO_STEP ? Number(process.env.COMBO_STEP) : 0;
+const COMBO_ADD = process.env.COMBO_ADD ? Number(process.env.COMBO_ADD) : 1;
+/**
+ * `ADDON_RATE` / `ADDON_BIG` / `ADDON_REG` … **ボーナス中の上乗せ抽選**。
+ *
+ * 役を揃えたゲームだけ ADDON_RATE で抽選し、当たれば BIG中は ADDON_BIG、
+ * REG中は ADDON_REG ゲームを足す。**こぼすと抽選そのものが無い**ので腕が効く。
+ *
+ * 1ゲームあたりの期待上乗せ E = 揃う率 × ADDON_RATE × 上乗せG。
+ * ボーナスの長さは `1/(1-E)` 倍になり、**E が 1.0 で発散する**。
+ */
+/**
+ * `OKAWARI_BIG` / `OKAWARI_REG` … **おかわりで足すゲーム数**を新規突入と別に持つ。
+ * 既定では規定ゲーム数と同じ（BIG +10G / REG +5G）だが、**薄く何度も**乗せる形を
+ * 測るために分けた。1ゲームあたりの期待上乗せ E は
+ * `揃う率 × (REG当選率 × REG上乗せ + BIG当選率 × BIG上乗せ)`。
+ */
+const OKAWARI_BIG = process.env.OKAWARI_BIG ? Number(process.env.OKAWARI_BIG) : undefined;
+const OKAWARI_REG = process.env.OKAWARI_REG ? Number(process.env.OKAWARI_REG) : undefined;
+const ADDON_RATE = process.env.ADDON_RATE ? Number(process.env.ADDON_RATE) : 0;
+const ADDON_BIG = process.env.ADDON_BIG ? Number(process.env.ADDON_BIG) : 5;
+const ADDON_REG = process.env.ADDON_REG ? Number(process.env.ADDON_REG) : 3;
+
+/**
+ * ボーナス中（state='bonus'）のボーナス役レートに倍率を掛ける。
+ * `scaleBonusRate` は通常・救済だけを動かすので、おかわりはこちらで測る。
+ */
+function scaleOkawariRate(list: YakuList, mult: number): YakuList {
+  const roles = list.internalRoles.map((r) => ({ ...r, rate: { ...r.rate } }));
+  let delta = 0;
+  for (const r of roles) {
+    if (r.kind !== 'reg' && r.kind !== 'big') continue;
+    const next = r.rate.bonus * mult;
+    delta += next - r.rate.bonus;
+    r.rate.bonus = next;
+  }
+  // ボーナス中はハズレが無いので、小役とチェリーから比例で引いて合計1を保つ。
+  const others = roles.filter((r) => r.kind === 'core' || r.kind === 'cherry');
+  const total = others.reduce((a, r) => a + r.rate.bonus, 0);
+  if (total > 0) {
+    for (const r of others) {
+      r.rate.bonus = Math.max(0, r.rate.bonus - delta * (r.rate.bonus / total));
+    }
+  }
+  return { ...list, internalRoles: roles };
+}
+/**
  * プレイヤーが狙い位置（図柄が窓の上端に来る位置）の手前何コマを狙うか。
  *
  * 滑りは前方向にしか効かないので、ピンポイントを狙うと押し遅れが一切救済されない。
@@ -237,12 +307,19 @@ function runChapter(
       : setting
         ? applySetting(baseYaku, setting)
         : baseYaku;
-  const yakuList: YakuList = REMIX_MODE ? applyRemixBoost(withSetting) : withSetting;
+  const withOkawari =
+    OKAWARI_MULT !== 1 ? scaleOkawariRate(withSetting, OKAWARI_MULT) : withSetting;
+  const yakuList: YakuList = REMIX_MODE ? applyRemixBoost(withOkawari) : withOkawari;
   const reelCfg = ReelConfigSchema.parse(readJson(`${DATA}/reels/${chapter}.json`));
   const payout: Payout = PayoutSchema.parse(readJson(`${DATA}/payouts/default.json`));
   const tuning: Tuning = TuningSchema.parse(readJson(`${DATA}/tuning/default.json`));
-  const spinsBig = REMIX_MODE ? REMIX.spinsPerBig : tuning.bonus.spinsPerBig;
-  const spinsReg = REMIX_MODE ? REMIX.spinsPerReg : tuning.bonus.spinsPerReg;
+  const spinsBig =
+    BIG_SPINS ?? (REMIX_MODE ? REMIX.spinsPerBig : tuning.bonus.spinsPerBig);
+  const spinsReg =
+    REG_SPINS ?? (REMIX_MODE ? REMIX.spinsPerReg : tuning.bonus.spinsPerReg);
+  // おかわりで足すゲーム数。**本番と同じく tuning から読む**（環境変数は上書き用）。
+  const okawariBig = OKAWARI_BIG ?? tuning.bonus.okawariSpinsBig;
+  const okawariReg = OKAWARI_REG ?? tuning.bonus.okawariSpinsReg;
   // 設定差の主役は演出レート（無演出の割合）。本番と同じ関数で適用する。
   const effectRates = NONE_MULT !== undefined
     ? {
@@ -768,10 +845,21 @@ function runChapter(
         curBonusKind = isPremium ? 'big' : 'reg';
         curBonusPayout = 0;
         if (isPremium) res.big++; else res.reg++;
+        bonusRemaining += isPremium ? spinsBig : spinsReg;
+      } else {
+        // おかわり（消化中の再当選）。新規突入とは別のゲーム数を足せる。
+        bonusRemaining += isPremium ? okawariBig : okawariReg;
       }
-      bonusRemaining += isPremium ? spinsBig : spinsReg;
     }
     if (bonusActive) {
+      // コンボ上乗せ：STEP 連ごとに ADD ゲーム。消化（--）より先に足す。
+      if (COMBO_STEP > 0 && willHit && streakAfter % COMBO_STEP === 0) {
+        bonusRemaining += COMBO_ADD;
+      }
+      // 上乗せ抽選：揃えたゲームだけ引ける。種別で上乗せGが変わる。
+      if (ADDON_RATE > 0 && willHit && rng() < ADDON_RATE) {
+        bonusRemaining += curBonusKind === 'reg' ? ADDON_REG : ADDON_BIG;
+      }
       bonusRemaining--;
       if (bonusRemaining === 0) {
         if (curBonusKind === 'big') res.bigPayout += curBonusPayout;
@@ -831,7 +919,7 @@ describe.skipIf(!RUN)('出玉シミュレーション（新モデル）', () => 
         `${((bSpill / Math.max(1, bMiss)) * 100).toFixed(1).padStart(5)}%`,
       );
     }
-    console.log('\n===== 出玉シミュレーション（' + (NONE_MULT !== undefined ? 'none×' + NONE_MULT + '・' : '') + (STEP_BONUS_MULT !== 1 ? 'stepB×' + STEP_BONUS_MULT + '・' : '') + (STEP_ENTRY_MULT !== 1 ? 'stepE×' + STEP_ENTRY_MULT + '・' : '') + (BONUS_MULT !== undefined ? 'bonus×' + BONUS_MULT + '・' : '') + (SETTING ? '設定' + SETTING + '・' : '') + SPINS + 'G/腕・全5章）=====\n' + lines.join('\n'));
+    console.log('\n===== 出玉シミュレーション（' + (NONE_MULT !== undefined ? 'none×' + NONE_MULT + '・' : '') + (STEP_BONUS_MULT !== 1 ? 'stepB×' + STEP_BONUS_MULT + '・' : '') + (STEP_ENTRY_MULT !== 1 ? 'stepE×' + STEP_ENTRY_MULT + '・' : '') + (BONUS_MULT !== undefined ? 'bonus×' + BONUS_MULT + '・' : '') + (OKAWARI_MULT !== 1 ? 'おかわり×' + OKAWARI_MULT + '・' : '') + (OKAWARI_BIG !== undefined || OKAWARI_REG !== undefined ? 'おかわり+' + (OKAWARI_BIG ?? 10) + 'G/+' + (OKAWARI_REG ?? 5) + 'G・' : '') + (BIG_SPINS !== undefined || REG_SPINS !== undefined ? 'BIG' + (BIG_SPINS ?? 10) + 'G/REG' + (REG_SPINS ?? 5) + 'G・' : '') + (COMBO_STEP > 0 ? COMBO_STEP + '連ごと+' + COMBO_ADD + 'G・' : '') + (ADDON_RATE > 0 ? '上乗せ' + Math.round(ADDON_RATE * 100) + '%(BB+' + ADDON_BIG + 'G/RB+' + ADDON_REG + 'G)・' : '') + (SETTING ? '設定' + SETTING + '・' : '') + SPINS + 'G/腕・全5章）=====\n' + lines.join('\n'));
 
     // 「引き込みなし＝ビタ押し」の到達度。成立ゲームのうち貢献リールを何本自力で止めたか。
     const bita: string[] = [];

@@ -71,6 +71,8 @@ function newGame() {
   const zone = new BonusZone({
     spinsPerBonus: tuning.bonus.spinsPerBig,
     spinsPerReg: tuning.bonus.spinsPerReg,
+    okawariSpinsBig: tuning.bonus.okawariSpinsBig,
+    okawariSpinsReg: tuning.bonus.okawariSpinsReg,
     bonusEffectRates: tuning.effectRates.bonus,
   });
   const session = new BonusSession(zone);
@@ -345,8 +347,11 @@ describe('1ゲームの通し（BET→停止→配当→ボーナス）', () => 
     spinAiming(g, big.id, bigRole.id); // 突入
     const add = spinAiming(g, big.id, bigRole.id); // 消化中の再当選
     expect(add.entry).toMatchObject({ isAddition: true });
-    // 上乗せぶん残数が増える（消化した1Gを差し引いても増えている）
-    expect(g.zone.remaining.get()).toBe(tuning.bonus.spinsPerBig * 2 - 1);
+    // 上乗せぶん残数が増える（消化した1Gを差し引いても増えている）。
+    // **おかわりで足すのは okawariSpinsBig**——突入と同じ量は足さない。
+    expect(g.zone.remaining.get()).toBe(
+      tuning.bonus.spinsPerBig + tuning.bonus.okawariSpinsBig - 1,
+    );
 
     // おかわりゲームの払い出しは（突入ゲームではないので）区間の獲得に入る
     let end = null;

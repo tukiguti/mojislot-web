@@ -38,6 +38,7 @@
       "mult": 3.6
     }
   ],
+  "bonusYakuPayout": 3,
   "maxComboMultiplier": 4.0,
   "bitaMultiplier": 1.15
 }

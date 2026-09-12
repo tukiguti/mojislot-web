@@ -347,6 +347,11 @@ export async function bootstrap() {
   const bonusSpins = remix
     ? { big: REMIX.spinsPerBig, reg: REMIX.spinsPerReg }
     : { big: tuning.bonus.spinsPerBig, reg: tuning.bonus.spinsPerReg };
+  /** おかわりで足すゲーム数。突入より薄く、そのぶん何度も乗る。 */
+  const okawariSpins = {
+    big: tuning.bonus.okawariSpinsBig,
+    reg: tuning.bonus.okawariSpinsReg,
+  };
   /**
    * 設定を適用した演出レート。**設定差の主役はここ**（MachineSetting の NONE_MULTIPLIER）。
    * 高設定ほど無演出が減り、何を狙えばよいか分かるゲームが増える＝取りこぼしが減る。
@@ -388,6 +393,8 @@ export async function bootstrap() {
   const bonusZone = new BonusZone({
     spinsPerBonus: bonusSpins.big,
     spinsPerReg: bonusSpins.reg,
+    okawariSpinsBig: okawariSpins.big,
+    okawariSpinsReg: okawariSpins.reg,
     bonusEffectRates: effectRates.bonus,
   });
   // 突入〜消化しきりの区間管理（獲得集計・おかわり判定・締め）は BonusSession が持つ。

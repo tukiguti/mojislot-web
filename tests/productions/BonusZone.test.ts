@@ -4,6 +4,9 @@ import { BonusZone } from '../../src/productions/BonusZone';
 const CONFIG = {
   spinsPerBonus: 10,
   spinsPerReg: 5,
+  // おかわりは突入より薄い（本番と同じ 5 / 3）。
+  okawariSpinsBig: 5,
+  okawariSpinsReg: 3,
   bonusEffectRates: { none: 0, shisa: 0.5, quiz: 0.2, aim: 0.3 },
 };
 
@@ -26,23 +29,23 @@ describe('BonusZone.trigger', () => {
   it('active 中の再トリガーは残り回数に加算（おかわり）', () => {
     const z = new BonusZone(CONFIG);
     z.trigger('big'); // 10
-    z.trigger('big'); // +10 = 20
-    expect(z.remaining.get()).toBe(20);
+    z.trigger('big'); // +5（おかわりは突入より薄い）= 15
+    expect(z.remaining.get()).toBe(15);
   });
 
   it('reg 中に big を引くと big へ昇格＋加算', () => {
     const z = new BonusZone(CONFIG);
     z.trigger('reg'); // 5, reg
-    z.trigger('big'); // +10 = 15, big へ昇格
-    expect(z.remaining.get()).toBe(15);
+    z.trigger('big'); // +5 = 10, big へ昇格
+    expect(z.remaining.get()).toBe(10);
     expect(z.kind.get()).toBe('big');
   });
 
   it('big 中に reg を引いても種別は降格しない（big 維持）＋加算', () => {
     const z = new BonusZone(CONFIG);
     z.trigger('big'); // 10, big
-    z.trigger('reg'); // +5 = 15, big のまま（降格しない）
-    expect(z.remaining.get()).toBe(15);
+    z.trigger('reg'); // +3 = 13, big のまま（降格しない）
+    expect(z.remaining.get()).toBe(13);
     expect(z.kind.get()).toBe('big');
   });
 });
