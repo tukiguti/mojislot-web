@@ -81,6 +81,7 @@ import {
   setEffectA11y,
   showAimNotice,
   hideAimNotice,
+  hideAimReel,
   showShisaNotice,
   hideShisaNotice,
   setEffectHost,
@@ -2513,6 +2514,9 @@ export async function bootstrap() {
       sfx.stop();
     }
     views[idx].triggerStopBounce();
+    // 押したリールの狙えガイドは消す。止めた後も文字と矢印が浮いていると、
+    // まだ狙うものが残っているように見える（2026-09-14）。
+    hideAimReel(idx);
     // ステップアップを1段。第3停止で終了色（＝次ゲームの予告）まで開く。
     // 押した位置や出目では変わらない——チェリーを落としても予告は生きる。
     bumpStep(stopOrder.length >= REEL_COUNT ? stepFinalColor : undefined);

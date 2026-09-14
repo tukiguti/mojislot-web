@@ -479,10 +479,12 @@ export function showAimNotice(opts: AimNoticeOptions): void {
   // 狙う図柄は**各リールの上**に1文字ずつ置く（どのリールで何を狙うかを直結させる）。
   // 中央にまとめて並べる旧方式は廃止（リール上の表示と二重になるため）。
   const reelTopFrac = opts.reelTopYFrac ?? 260 / 600;
-  // 矢印は高さ28pxの三角。先端がリール上端の少し**上**で止まるよう -38 に置く
-  // （-8 だとリールに20px食い込んで図柄が隠れていた）。図柄タイルはさらに上。
-  const reelTopY = rect.top + rect.height * reelTopFrac - 38;
-  const symbolY = rect.top + rect.height * reelTopFrac - 96;
+  // 矢印は高さ22pxの三角。先端がリール上端の少し**上**で止まるよう -32 に置く
+  // （-8 だとリールに食い込んで図柄が隠れていた）。図柄タイル（40px）はさらに上で、
+  // 矢印の上端との間を8px空ける。**札と矢印を小さくした時はここも一緒に直す**——
+  // top は上端基準なので、高さだけ変えると先端の位置がずれる（2026-09-14）。
+  const reelTopY = rect.top + rect.height * reelTopFrac - 32;
+  const symbolY = rect.top + rect.height * reelTopFrac - 80;
   for (let i = 0; i < 3; i++) {
     if (opts.arrowReels && !opts.arrowReels[i]) continue;
     const sym = opts.symbols[i];
@@ -497,6 +499,7 @@ export function showAimNotice(opts: AimNoticeOptions): void {
         tile.style.borderColor = c;
         tile.style.textShadow = `0 0 4px rgba(0,0,0,1), 0 0 10px ${c}`;
       }
+      tile.dataset.reel = String(i);
       tile.style.left = `${rect.left + rect.width * reelCenterFracs[i]}px`;
       tile.style.top = `${symbolY}px`;
       tile.style.animationDelay = `${i * 120}ms`;
@@ -506,6 +509,7 @@ export function showAimNotice(opts: AimNoticeOptions): void {
     const arrow = document.createElement('div');
     arrow.className = 'aim-arrow';
     if (opts.hasPremium) arrow.classList.add('premium');
+    arrow.dataset.reel = String(i);
     arrow.style.left = `${rect.left + rect.width * reelCenterFracs[i]}px`;
     arrow.style.top = `${reelTopY}px`;
     // 矢印は順番にバウンス（左→中→右）させる
@@ -514,6 +518,20 @@ export function showAimNotice(opts: AimNoticeOptions): void {
     requestAnimationFrame(() => arrow.classList.add('show'));
   }
   requestAnimationFrame(() => notice.classList.add('show'));
+}
+
+/**
+ * 1本ぶんのガイド（狙う文字と矢印）を消す。**押したリールの分は残さない**
+ * （2026-09-14）。止めた後も文字が浮いていると、まだ狙うものが残っているように
+ * 見えるうえ、残りのリールを読む邪魔になる。
+ */
+export function hideAimReel(index: number): void {
+  document
+    .querySelectorAll(`.aim-reel-symbol[data-reel="${index}"], .aim-arrow[data-reel="${index}"]`)
+    .forEach((el) => {
+      el.classList.add('out');
+      window.setTimeout(() => el.remove(), 240);
+    });
 }
 
 export function hideAimNotice(): void {
