@@ -464,6 +464,8 @@ export async function bootstrap() {
   let currentShisaTier: ShisaTier | null = null;
   /** 示唆が「狙え！」へ発展済みか（1ゲーム1回だけ発展させる）。 */
   let shisaEscalated = false;
+  /** 示唆が外れたことを既に伝えたか（1ゲーム1回だけ）。 */
+  let shisaMissShown = false;
 
   // === フリーズ演出の状態 ===
   // freezeActive: シーケンス中は全ユーザー入力をブロックし、stopReel の引き込み/蹴りも無効化する。
@@ -1159,6 +1161,7 @@ export async function bootstrap() {
       cabinetEl.dataset.internalRole = `${role.kind}:${role.yakuId ?? '-'}`;
     }
     shisaEscalated = false;
+    shisaMissShown = false;
     applyEffect(effect, {
       targetYaku: yaku,
       shisaTier,
@@ -2583,6 +2586,20 @@ export async function bootstrap() {
           arrowReels: engines.map((e) => e.state.get() === 'spinning'),
         });
         sfx.shisa();
+      } else if (!shisaMissShown) {
+        // **発展しなかった＝ハズレ一確**（2026-09-22）。
+        //
+        // 有効ラインは窓の3コマから作るので、止めたリールの窓に内部役の文字が
+        // 無いなら、その役はもう揃えられない。示唆は「候補のどれかが当たって
+        // いる」しか言っていないが、**発展こそが候補を1役へ絞る唯一の出口**
+        // なので、発展しなかった時点で候補は全部外れたことになる。
+        //
+        // 候補を出したまま最後まで回させるより、その場で伝える。残りの停止で
+        // 1枚役が揃えば全停止時に「1枚役 +1」で上書きされる（1枚役は役では
+        // なく取りこぼしの受け皿なので、ハズレと言った後に出ても矛盾しない）。
+        shisaMissShown = true;
+        hideShisaNotice();
+        showResult('ハズレ', 'none');
       }
     }
 
