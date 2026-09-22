@@ -322,6 +322,17 @@ body[data-skin='retro'] #masthead .mark {
 .stop-row .stop-btn {
   top: 15.3cqw;
 }
+/* リールの中心は canvas に対する比なので、画面の枠（--scr-side）のぶん内側へ写す。
+   **これを消すとストップがリールより外へ広がる**（style.css の既定は枠を知らない）。 */
+.stop-row .stop-btn[data-reel='0'] {
+  left: calc((var(--scr-side) + var(--reel-cx-0) * (1 - 2 * var(--scr-side))) * 100%);
+}
+.stop-row .stop-btn[data-reel='1'] {
+  left: calc((var(--scr-side) + var(--reel-cx-1) * (1 - 2 * var(--scr-side))) * 100%);
+}
+.stop-row .stop-btn[data-reel='2'] {
+  left: calc((var(--scr-side) + var(--reel-cx-2) * (1 - 2 * var(--scr-side))) * 100%);
+}
 .stop-btn {
   width: 9.2cqw;
   height: 8.4cqw;
