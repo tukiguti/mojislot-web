@@ -4237,94 +4237,9 @@ to {
 }
 
 /* ===== 連チャンオーラ：cabinet の外周を脈動させる ===== */
-#cabinet.streak-aura {
-  animation: streak-aura-pulse 1.6s ease-in-out infinite;
-}
-#cabinet.streak-aura-hot {
-  animation: streak-aura-pulse-hot 1.2s ease-in-out infinite;
-  border-color: #ff8a00;
-}
-#cabinet.streak-aura-fever {
-  animation: streak-aura-pulse-fever 0.8s ease-in-out infinite;
-  border-color: #ff3366;
-}
-
-@keyframes streak-aura-pulse {0%,
-100% {
-    box-shadow:
-      0 0 40px rgba(255, 215, 0, 0.35),
-      inset 0 0 0 2px #2a2a2a,
-      0 0 24px rgba(255, 215, 0, 0.45);
-  }
-50% {
-    box-shadow:
-      0 0 40px rgba(255, 215, 0, 0.35),
-      inset 0 0 0 2px #2a2a2a,
-      0 0 60px rgba(255, 215, 0, 0.85);
-  }
-}
-
-@keyframes streak-aura-pulse-hot {0%,
-100% {
-    box-shadow:
-      0 0 40px rgba(255, 215, 0, 0.35),
-      inset 0 0 0 2px #2a2a2a,
-      0 0 36px rgba(255, 138, 0, 0.6),
-      0 0 80px rgba(255, 138, 0, 0.35);
-  }
-50% {
-    box-shadow:
-      0 0 40px rgba(255, 215, 0, 0.35),
-      inset 0 0 0 2px #2a2a2a,
-      0 0 72px rgba(255, 138, 0, 1),
-      0 0 120px rgba(255, 138, 0, 0.55);
-  }
-}
-
-@keyframes streak-aura-pulse-fever {0%,
-100% {
-    box-shadow:
-      0 0 40px rgba(255, 215, 0, 0.35),
-      inset 0 0 0 2px #2a2a2a,
-      0 0 48px rgba(255, 51, 102, 0.7),
-      0 0 100px rgba(255, 51, 102, 0.5),
-      0 0 180px rgba(255, 215, 0, 0.4);
-  }
-50% {
-    box-shadow:
-      0 0 40px rgba(255, 215, 0, 0.35),
-      inset 0 0 0 2px #2a2a2a,
-      0 0 90px rgba(255, 51, 102, 1),
-      0 0 160px rgba(255, 215, 0, 0.75),
-      0 0 240px rgba(255, 51, 102, 0.6);
-  }
-}
-
-/* tier4(12連〜): 虹色の最上位オーラ */
-#cabinet.streak-aura-max {
-  animation: streak-aura-pulse-max 0.7s ease-in-out infinite;
-  border-color: #c060ff;
-}
-
-@keyframes streak-aura-pulse-max {0%,
-100% {
-    box-shadow:
-      0 0 40px rgba(255, 215, 0, 0.4),
-      inset 0 0 0 2px #2a2a2a,
-      0 0 60px rgba(192, 96, 255, 0.7),
-      0 0 120px rgba(102, 204, 255, 0.5),
-      0 0 200px rgba(255, 51, 102, 0.4);
-  }
-50% {
-    box-shadow:
-      0 0 40px rgba(255, 215, 0, 0.4),
-      inset 0 0 0 2px #2a2a2a,
-      0 0 110px rgba(192, 96, 255, 1),
-      0 0 190px rgba(102, 204, 255, 0.8),
-      0 0 280px rgba(255, 51, 102, 0.6);
-  }
-}
-
+/* 連チャン中に**筐体の外側を光らせるのはやめた**（2026-09-23）。5連あたりから筐体の
+   周りが明滅して、画面の外まで光が溢れていた。連チャンは液晶の内側の色づけ（下）と
+   左上のバッジで伝える。 */
 /* 連チャン段に応じて演出液晶(LCD)の縁を段階的にトーン付けする＝「背景の昇格」。
    reel は隠さない控えめなインセット・ヴィネット。 */
 #cabinet.streak-aura #game-area {

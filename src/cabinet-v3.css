@@ -221,7 +221,9 @@ body[data-skin='retro'] #masthead .mark {
   margin: 0 calc(var(--deck-over) * 100%);
   padding: calc(var(--game-w) * var(--scr-top)) calc(var(--game-w) * (var(--scr-wall) + var(--scr-chrome)))
     calc(var(--game-w) * var(--scr-bot));
-  background: var(--v3-body-sheen), var(--v3-body);
+  /* 縦の照りは載せない。画面の段だけで上から下へ暗くすると、枠の横の壁が
+     下へ行くほど沈んで見える（見本の壁は同じ色のまま）。 */
+  background: var(--v3-body);
   min-height: 0;
 }
 /* クロム枠。液晶の外周に --scr-chrome の厚みで回す。 */
@@ -250,7 +252,7 @@ body[data-skin='retro'] #masthead .mark {
 /* === 計器の溝：画面の下の細い窓に BET と演出のランプ === */
 .header-shell {
   margin: 0 calc(var(--deck-over) * 100%);
-  background: var(--v3-body-sheen), var(--v3-body);
+  background: var(--v3-body);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -328,15 +330,17 @@ body[data-skin='retro'] #masthead .mark {
    リールの間隔そのままだと台の前面で間延びするという判断で、真ん中は動かない。 */
 .stop-row {
   --stop-spread: 0.75;
+  /* 3つまとめて左へずらす量（筐体の幅に対する比）。 */
+  --stop-shift: -0.03;
 }
 .stop-row .stop-btn[data-reel='0'] {
-  left: calc((0.5 + (var(--scr-side) + var(--reel-cx-0) * (1 - 2 * var(--scr-side)) - 0.5) * var(--stop-spread)) * 100%);
+  left: calc((0.5 + var(--stop-shift) + (var(--scr-side) + var(--reel-cx-0) * (1 - 2 * var(--scr-side)) - 0.5) * var(--stop-spread)) * 100%);
 }
 .stop-row .stop-btn[data-reel='1'] {
-  left: calc((0.5 + (var(--scr-side) + var(--reel-cx-1) * (1 - 2 * var(--scr-side)) - 0.5) * var(--stop-spread)) * 100%);
+  left: calc((0.5 + var(--stop-shift) + (var(--scr-side) + var(--reel-cx-1) * (1 - 2 * var(--scr-side)) - 0.5) * var(--stop-spread)) * 100%);
 }
 .stop-row .stop-btn[data-reel='2'] {
-  left: calc((0.5 + (var(--scr-side) + var(--reel-cx-2) * (1 - 2 * var(--scr-side)) - 0.5) * var(--stop-spread)) * 100%);
+  left: calc((0.5 + var(--stop-shift) + (var(--scr-side) + var(--reel-cx-2) * (1 - 2 * var(--scr-side)) - 0.5) * var(--stop-spread)) * 100%);
 }
 .stop-btn {
   width: 9.2cqw;
