@@ -302,87 +302,197 @@ body[data-skin='retro'] #masthead .mark {
   pointer-events: none;
 }
 
-/* ストップは**リールの真下**。リールの中心は canvas に対する比なので、
-   画面の枠（--scr-side）のぶん内側へ写す。縦は前面（金の帯より下）の中央。 */
-.stop-row {
-  top: 33.5%;
-  bottom: 0;
-}
-/* キーヒントは上面へ。前面はボタンで埋まるので、下端に置くとボタンの裏に潜る。 */
+/* === 操作部の部品：デザインの座標をそのまま写す ===
+ * 見本の操作部は幅 1000・高さ 238 で、いまの操作部（幅の 0.24）とほぼ同じ比。
+ * **見本の1単位 = 0.1cqw**（cqw は操作部の幅）、縦は操作部の上端（見本の y=1508）から
+ * 測る。部品の位置と大きさはここに書いた数字がそのまま見本の座標に対応する。 */
+
+/* 見本に無いものは出さない。BET と演出のランプ、キーヒント。 */
+#info-bar .ip-lamps,
 #key-hint {
-  top: 5%;
-  bottom: auto;
-  padding-left: 22%;
-  font-size: max(8px, 1.9cqw);
-  line-height: 1.2;
-  color: rgba(20, 22, 28, 0.72);
-  text-shadow: 0 1px 0 rgba(255, 255, 255, 0.45);
-}
-body[data-skin='midnight'] #key-hint {
-  color: rgba(230, 240, 250, 0.6);
-  text-shadow: none;
-}
-.stop-row .stop-btn[data-reel='0'] {
-  left: calc((var(--scr-side) + var(--reel-cx-0) * (1 - 2 * var(--scr-side))) * 100%);
-}
-.stop-row .stop-btn[data-reel='1'] {
-  left: calc((var(--scr-side) + var(--reel-cx-1) * (1 - 2 * var(--scr-side))) * 100%);
-}
-.stop-row .stop-btn[data-reel='2'] {
-  left: calc((var(--scr-side) + var(--reel-cx-2) * (1 - 2 * var(--scr-side))) * 100%);
-}
-/* ボタンは黒い受け皿（cup）にはまり、縁をクロムが囲む。受け皿と縁のぶん外へ
-   広がるので、本体は前面に収まる大きさにする（v3 の比率で幅の約1割）。 */
-.stop-btn {
-  width: clamp(34px, 10.5cqw, 84px);
-  font-size: clamp(8px, 2.2cqw, 16px);
-  color: var(--v3-stop-text);
-  background: var(--v3-stop);
-  border: none;
-  box-shadow:
-    inset 0 3px 5px rgba(255, 255, 255, 0.35),
-    inset 0 -6px 10px rgba(0, 0, 0, 0.45),
-    0 0 0 max(3px, 1.1cqw) #05060a,
-    0 0 0 max(4px, 1.6cqw) var(--v3-cup-rim),
-    0 5px 9px max(4px, 1.6cqw) rgba(0, 0, 0, 0.5);
-}
-.stop-btn:hover {
-  background: var(--v3-stop);
-  filter: brightness(1.12);
+  display: none;
 }
 
-/* 左のデッキ（MAXBET とレバー）。台形の肩に掛からないよう少し内へ。 */
-.deck-well {
-  left: calc(var(--deck-over) * 100% + 1.2cqw);
-  top: 4%;
-  bottom: 4%;
+/* ストップ：見本の (x, 1661) に rx46 ry42 の楕円、受け皿 rx55 ry51、縁 rx64 ry60
+   （受け皿と縁は 5 単位下）。x だけは**リールの真下**へ写す（見本は中央寄せ）。 */
+.stop-row {
+  top: 0;
+  bottom: 0;
 }
-#bet-btn {
-  color: #fff;
-  background: var(--v3-btn);
+.stop-row .stop-btn {
+  top: 15.3cqw;
+}
+.stop-btn {
+  width: 9.2cqw;
+  height: 8.4cqw;
+  aspect-ratio: auto;
   border: none;
-  border-radius: 999px;
-  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.6);
+  border-radius: 50%;
+  color: var(--v3-stop-text);
+  font-size: 1.7cqw;
+  background:
+    radial-gradient(ellipse 24% 12% at 35% 24%, rgba(255, 255, 255, 0.42), transparent 100%),
+    var(--v3-stop);
   box-shadow:
-    inset 0 2px 3px rgba(255, 255, 255, 0.4),
-    inset 0 -3px 5px rgba(0, 0, 0, 0.45),
-    0 0 0 2px #05060a,
-    0 0 0 3px var(--v3-cup-rim),
-    0 3px 6px 2px rgba(0, 0, 0, 0.45);
+    0 0.5cqw 0 0.9cqw #05060a,
+    0 0.5cqw 0 1.8cqw var(--v3-cup-rim),
+    0 1.2cqw 1.4cqw 1.8cqw rgba(0, 0, 0, 0.45);
+}
+.stop-btn::after {
+  font-size: 1.3cqw;
+}
+.stop-btn:hover {
+  background:
+    radial-gradient(ellipse 24% 12% at 35% 24%, rgba(255, 255, 255, 0.42), transparent 100%),
+    var(--v3-stop);
+  filter: brightness(1.12);
+}
+.stop-row .stop-btn:active {
+  translate: 0 1.1cqw;
+}
+
+/* 左の台。レバーと MAXBET の当たり判定の受け皿（main.ts の委譲）なので、
+   レバーの周りだけを覆う。MAXBET は見本どおり上面の x=300 に置く。 */
+.deck-well {
+  left: 0;
+  top: 0;
+  bottom: 0;
+  width: 22cqw;
+  display: block;
+}
+
+/* MAXBET：見本の (300, 1543) に rx40 ry18 の赤い楕円。下に黒い影と
+   クロムの輪（(300, 1552) rx48 ry22）。**文字は無い**。 */
+#bet-btn {
+  position: absolute;
+  left: 26cqw;
+  top: 1.7cqw;
+  width: 8cqw;
+  height: 3.6cqw;
+  padding: 0;
+  font-size: 0;
+  color: transparent;
+  text-shadow: none;
+  border: none;
+  border-radius: 50%;
+  background: var(--v3-btn);
+  box-shadow:
+    0 0.9cqw 0 0 rgba(0, 0, 0, 0.55),
+    0 0.9cqw 0 0.8cqw var(--v3-ring-mid),
+    0 1.9cqw 1cqw 0.6cqw rgba(0, 0, 0, 0.45);
+}
+#bet-btn span {
+  display: none;
+}
+#bet-btn::after {
+  content: '';
+  position: absolute;
+  left: 0.8cqw;
+  top: 0.3cqw;
+  width: 3.6cqw;
+  height: 1.4cqw;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.45);
+  transform: rotate(-8deg);
+  pointer-events: none;
 }
 #bet-btn:hover {
   background: var(--v3-btn);
   filter: brightness(1.12);
 }
-.lever-ball {
-  background: var(--v3-ball);
-  border-color: rgba(0, 0, 0, 0.55);
+#bet-btn:active {
+  translate: 0 0.7cqw;
+  box-shadow: 0 0.2cqw 0 0.8cqw var(--v3-ring-mid);
 }
-.lever-rod {
-  background: var(--v3-ring);
+
+/* レバー：見本の (150, 1668) に台座 rx60 ry56、黒い溝 rx47 ry44、内側の台座
+   rx41 ry38、その上に r38 の玉。押すと玉が 44 単位沈み、隠れていた軸が伸びる。 */
+#lever-btn {
+  position: absolute;
+  left: 9cqw;
+  top: 10.4cqw;
+  width: 12cqw;
+  height: 11.2cqw;
+  padding: 0;
+  display: block;
+  border: none;
+  border-radius: 50%;
+  background: var(--v3-lever-base);
+  box-shadow: 0 0.6cqw 1.2cqw rgba(0, 0, 0, 0.5);
 }
+/* 黒い溝 */
 #lever-btn::after {
+  content: '';
+  position: absolute;
+  left: 1.3cqw;
+  top: 1.2cqw;
+  width: 9.4cqw;
+  height: 8.8cqw;
+  bottom: auto;
+  transform: none;
+  border-radius: 50%;
+  background: rgba(0, 0, 0, 0.6);
+  box-shadow: 0 0 0 0 transparent;
+  pointer-events: none;
+}
+/* 軸。ふだんは縮めて隠し、押した時だけ伸びる（玉が沈んだ下から覗く）。 */
+.lever-rod {
+  position: absolute;
+  left: 3.6cqw;
+  top: 4.8cqw;
+  width: 4.8cqw;
+  height: 6cqw;
+  border-radius: 0;
   background: var(--v3-ring);
+  clip-path: polygon(0 0, 100% 0, 87.5% 100%, 12.5% 100%);
+  transform-origin: top center;
+  transform: scaleY(0.16);
+  transition: transform 0.12s ease-out;
+  z-index: 1;
+}
+/* 内側の台座と玉。台座は玉の後ろの輪として、玉のボックスシャドウで描く。 */
+.lever-ball {
+  position: absolute;
+  left: 2.2cqw;
+  top: 1.1cqw;
+  width: 7.6cqw;
+  height: 7.6cqw;
+  border: none;
+  border-radius: 50%;
+  background:
+    radial-gradient(ellipse 16% 10% at 32% 18%, rgba(255, 255, 255, 0.75), transparent 100%),
+    var(--v3-ball);
+  box-shadow:
+    0 0.4cqw 0 0.3cqw var(--v3-lever-inner),
+    0 2.7cqw 1cqw -2cqw var(--v3-accent);
+  z-index: 2;
+  transition: transform 0.13s cubic-bezier(0.3, 1.5, 0.5, 1);
+}
+#lever-btn:hover .lever-ball {
+  filter: brightness(1.1);
+}
+#lever-btn:active .lever-ball {
+  transform: translateY(4.4cqw);
+}
+#lever-btn:active .lever-rod {
+  height: 6cqw;
+  transform: scaleY(1);
+}
+
+:root {
+  --v3-lever-base: linear-gradient(90deg, #3b424b 0%, #f6f8fa 22%, #9aa3ad 55%, #3b424b 100%);
+  --v3-lever-inner: #c6ccd3;
+  --v3-ring-mid: #9aa3ad;
+}
+body[data-skin='midnight'] {
+  --v3-lever-base: linear-gradient(90deg, #15181e 0%, #8e97a3 22%, #4c535d 55%, #15181e 100%);
+  --v3-lever-inner: #5c646f;
+  --v3-ring-mid: #4c535d;
+}
+body[data-skin='retro'] {
+  --v3-lever-base: linear-gradient(90deg, #6e4f12 0%, #fbeec6 22%, #d1a542 55%, #6e4f12 100%);
+  --v3-lever-inner: #d1a542;
+  --v3-ring-mid: #d1a542;
 }
 
 /* === 下パネル：色の板に丸いスピーカーが2つ ===
@@ -450,4 +560,34 @@ body[data-skin='midnight'] #key-hint {
 body[data-skin='retro'] .lower-mark {
   color: #6b4529;
   text-shadow: 0 1px 0 rgba(255, 255, 255, 0.6);
+}
+
+/* ストップに文字は載せない（見本どおり）。キーは設定で確かめられる。 */
+.stop-btn {
+  font-size: 0;
+}
+.stop-btn::after {
+  content: none;
+}
+
+/* **押せない時も色は残す。** 灰色に抜くと見本の琥珀の玉・赤いボタンと別物に見える。
+   少し暗くするだけにして、押せる時との差は明るさで付ける。 */
+#bet-btn:disabled,
+#lever-btn:disabled,
+.stop-btn:disabled {
+  opacity: 1;
+  filter: brightness(0.62) saturate(0.85);
+}
+#lever-btn:disabled .lever-ball {
+  filter: none;
+}
+.stop-btn.checkable {
+  opacity: 1;
+  filter: brightness(0.7) saturate(0.8);
+  /* 止めた後も受け皿と縁は残す（style.css 側はここで影を消している）。 */
+  border: none;
+  box-shadow:
+    0 0.5cqw 0 0.9cqw #05060a,
+    0 0.5cqw 0 1.8cqw var(--v3-cup-rim),
+    0 1.2cqw 1.4cqw 1.8cqw rgba(0, 0, 0, 0.45);
 }
