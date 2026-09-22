@@ -323,15 +323,20 @@ body[data-skin='retro'] #masthead .mark {
   top: 15.3cqw;
 }
 /* リールの中心は canvas に対する比なので、画面の枠（--scr-side）のぶん内側へ写す。
-   **これを消すとストップがリールより外へ広がる**（style.css の既定は枠を知らない）。 */
+   **これを消すとストップがリールより外へ広がる**（style.css の既定は枠を知らない）。
+   そのうえで中央からの距離を --stop-spread 倍に詰める（2026-09-23 に 0.75）。
+   リールの間隔そのままだと台の前面で間延びするという判断で、真ん中は動かない。 */
+.stop-row {
+  --stop-spread: 0.75;
+}
 .stop-row .stop-btn[data-reel='0'] {
-  left: calc((var(--scr-side) + var(--reel-cx-0) * (1 - 2 * var(--scr-side))) * 100%);
+  left: calc((0.5 + (var(--scr-side) + var(--reel-cx-0) * (1 - 2 * var(--scr-side)) - 0.5) * var(--stop-spread)) * 100%);
 }
 .stop-row .stop-btn[data-reel='1'] {
-  left: calc((var(--scr-side) + var(--reel-cx-1) * (1 - 2 * var(--scr-side))) * 100%);
+  left: calc((0.5 + (var(--scr-side) + var(--reel-cx-1) * (1 - 2 * var(--scr-side)) - 0.5) * var(--stop-spread)) * 100%);
 }
 .stop-row .stop-btn[data-reel='2'] {
-  left: calc((var(--scr-side) + var(--reel-cx-2) * (1 - 2 * var(--scr-side))) * 100%);
+  left: calc((0.5 + (var(--scr-side) + var(--reel-cx-2) * (1 - 2 * var(--scr-side)) - 0.5) * var(--stop-spread)) * 100%);
 }
 .stop-btn {
   width: 9.2cqw;
