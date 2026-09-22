@@ -136,6 +136,17 @@
           <div id="rescue-status" hidden></div>
         </div>
         <div id="result-display"></div>
+        <!-- 差枚と払出はリールの左下・右下に置く（2026-09-23）。リールと同じ視野に
+             入るので、止めた瞬間の払い出しと手持ちの増減が目を動かさずに読める。
+             位置は main.ts が Pixi の寸法から流し込む（--reel-gutter / --reel-bottom）。 -->
+        <div class="reel-meter reel-meter-left">
+          <span class="rm-label">差枚</span>
+          <span class="rm-value" id="coin-display">0</span>
+        </div>
+        <div class="reel-meter reel-meter-right">
+          <span class="rm-label">払出</span>
+          <span class="rm-value" id="payout-display">0</span>
+        </div>
       </div>
 
       <div id="overlays">
@@ -167,22 +178,13 @@
         <div id="bonus-banner" hidden></div>
       </div>
 
-      <!-- 情報パネル＝リール直下の計器。実機はここに CREDIT と 払出 の7セグ、
-           間に REPLAY / START / BET のランプが並ぶ。以前は液晶の上にヘッダーとして
-           置いていたが、実機に上部の情報帯は無い。 -->
+      <!-- 画面の下の溝（計器の窓）。BET と演出のランプだけを並べる。差枚と払出は
+           リールの左下・右下へ移した（2026-09-23）。 -->
       <div class="header-shell">
         <header id="info-bar">
-          <div class="ip-meter">
-            <span class="ip-label">差枚</span>
-            <span class="ip-value" id="coin-display">0</span>
-          </div>
           <div class="ip-lamps" id="status-stack">
             <span class="ip-lamp" id="bet-text">BET 3</span>
             <div id="effect-status">通常</div>
-          </div>
-          <div class="ip-meter ip-meter-right">
-            <span class="ip-label">払出</span>
-            <span class="ip-value" id="payout-display">0</span>
           </div>
         </header>
       </div>

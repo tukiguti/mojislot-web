@@ -125,7 +125,6 @@ import {
   PAYLINES,
   type Vertical,
 } from './core/Paylines';
-import { PaylineIndicators } from './render/PaylineIndicators';
 import {
   ReelConfigSchema,
   YakuListSchema,
@@ -238,6 +237,16 @@ document.documentElement.style.setProperty(
       String(cx / CANVAS_W),
     );
   }
+  /**
+   * リール左右の余白と、窓の下端。差枚と払出の計器を**リールの左下・右下**へ
+   * 置くのに使う（2026-09-23）。余白は額（REEL_BEZEL_OUT）の外側で測る。
+   */
+  const root = document.documentElement.style;
+  root.setProperty('--reel-gutter', String((startX - REEL_BEZEL_OUT) / CANVAS_W));
+  root.setProperty(
+    '--reel-bottom',
+    String((LIQUID_AREA_H + REEL_BEZEL_OUT * 2 + REEL_BLOCK_H) / CANVAS_H),
+  );
 }
 
 /**
@@ -842,15 +851,9 @@ export async function bootstrap() {
     app.stage.addChild(bezel);
   }
 
-  // ペイラインインジケーター（リール左脇外側に1セットのみ。左右ミラーは冗長なので片側へ）
-  const reelHeight = CELL_HEIGHT * VISIBLE_CELLS;
-  const indicatorOffsetY = reelY + (reelHeight - PaylineIndicators.TOTAL_HEIGHT) / 2;
-  const indicatorPadX = 12;
-
-  const leftIndicators = new PaylineIndicators();
-  leftIndicators.container.x = startX - PaylineIndicators.WIDTH - indicatorPadX;
-  leftIndicators.container.y = indicatorOffsetY;
-  app.stage.addChild(leftIndicators.container);
+  // 成立ラインのインジケーター（リール左脇の5本線）は廃止した（2026-09-23）。
+  // 空いたリール左右の下には差枚と払出の計器を置く（#reel-meters・DOM）。
+  // 揃った場所はセルの役色タイルとハイライトで既に分かるので、線で重ねて言わない。
 
   // フラッシュなどの前景エフェクトはリールの上に重ねる
   app.stage.addChild(effectVisual.fxLayer);
@@ -859,7 +862,6 @@ export async function bootstrap() {
     const now = performance.now();
     for (const engine of engines) engine.tick(now);
     for (const view of views) view.update(now);
-    leftIndicators.update(now);
     lcdBg.update(now);
     effectVisual.update();
   });
@@ -1388,7 +1390,7 @@ export async function bootstrap() {
 
   /**
    * 差枚の表示。0 から下へ進むので符号を付けないと減っているのが読めない。
-   * ラベル（「差枚」）は情報パネルの `.ip-label` が持つので、ここは数字だけ。
+   * ラベル（「差枚」）はリール脇の計器の `.rm-label` が持つので、ここは数字だけ。
    */
   const coinLabel = (n: number): string => `${n > 0 ? '+' : ''}${n}`;
 
@@ -2832,10 +2834,6 @@ export async function bootstrap() {
       });
 
       if (willHit) {
-        // 成立ラインインジケーターを点灯
-        for (const h of hits) {
-          leftIndicators.highlight(h.paylineId);
-        }
         const cls = isPremium || isRegular ? 'premium' : 'win';
         const bonusTag = bonusSession.spinActive ? ' ×BONUS' : '';
         const streakTag = streakMult > 1 ? ` ${streakAfter}連 ×${streakMult}` : '';
