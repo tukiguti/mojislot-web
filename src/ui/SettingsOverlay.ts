@@ -52,7 +52,7 @@ export interface DebugActions {
   /** 筐体ランプを点ける（設定示唆）。素はボーナス終了時にしか出ない。 */
   triggerCabinetLamp(): void;
   /** 看板のランプを光らせる（設定示唆）。素はコンボの節目にしか出ない。 */
-  triggerSignLamp(level: 'weak' | 'strong'): void;
+  triggerSignLamp(level: 'white' | 'blue' | 'yellow' | 'red' | 'rainbow'): void;
   /** ボーナス終了リザルトを出す（終了画面の示唆つき）。 */
   triggerBonusResult(): void;
   /** 払い出し音。枚数ぶんの粒が並ぶのを確かめる。 */
@@ -241,8 +241,11 @@ export class SettingsOverlay {
             <button data-debug="step-red" type="button">次レバー ステップアップ赤</button>
             <button data-debug="step-gold" type="button">次レバー ステップアップ金</button>
             <button data-debug="cabinet-lamp" type="button">筐体ランプ</button>
-            <button data-debug="sign-weak" type="button">看板ランプ 弱</button>
-            <button data-debug="sign-strong" type="button">看板ランプ 強</button>
+            <button data-debug="sign-white" type="button">看板ランプ 白</button>
+            <button data-debug="sign-blue" type="button">看板ランプ 青</button>
+            <button data-debug="sign-yellow" type="button">看板ランプ 黄</button>
+            <button data-debug="sign-red" type="button">看板ランプ 赤</button>
+            <button data-debug="sign-rainbow" type="button">看板ランプ 虹</button>
             <button data-debug="bonus-result" type="button">ボーナス終了画面</button>
             <button data-debug="payout-sound" type="button">払い出し音</button>
             <button data-debug="win" type="button">役成立演出</button>
@@ -405,11 +408,14 @@ export class SettingsOverlay {
           case 'cabinet-lamp':
             this.debugActions.triggerCabinetLamp();
             break;
-          case 'sign-weak':
-            this.debugActions.triggerSignLamp('weak');
-            break;
-          case 'sign-strong':
-            this.debugActions.triggerSignLamp('strong');
+          case 'sign-white':
+          case 'sign-blue':
+          case 'sign-yellow':
+          case 'sign-red':
+          case 'sign-rainbow':
+            this.debugActions.triggerSignLamp(
+              action.slice(5) as 'white' | 'blue' | 'yellow' | 'red' | 'rainbow',
+            );
             break;
           case 'bonus-result':
             this.debugActions.triggerBonusResult();

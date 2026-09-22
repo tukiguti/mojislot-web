@@ -1790,7 +1790,7 @@ export async function bootstrap() {
       // 設定示唆のランプ。素はボーナス終了時にしか点かないので単体で見られるようにする。
       setCabinetLamp(drawCabinetLamp(machineSetting, Math.random).color);
     },
-    triggerSignLamp: (level: 'weak' | 'strong') => {
+    triggerSignLamp: (level: SignLampLevel) => {
       // 看板のランプ。素はコンボが節目（5・10…）に届いた時にしか光らない。
       showSignLamp(level);
     },
@@ -1894,7 +1894,7 @@ export async function bootstrap() {
    */
   /**
    * 看板のランプを光らせる（コンボの節目の設定示唆・productions/SignLamp.ts）。
-   * 示唆弱は金色が左から右へ流れ、示唆強は赤で全点滅する。しばらく光って消える。
+   * 色で意味が決まり、光り方でも見分けられる（cabinet-v3.css）。しばらく光って消える。
    */
   const signLampsEl = document.querySelector<HTMLElement>('.sign-lamps');
   let signLampTimer: number | null = null;

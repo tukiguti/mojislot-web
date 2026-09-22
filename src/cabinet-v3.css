@@ -651,24 +651,60 @@ body[data-skin='retro'] .lower-mark {
     0 0 6px 2px var(--sign-lamp, #ffd24d);
 }
 
-/* 示唆弱：金色が左から右へ流れる（2周）。1つずつ遅らせて点ける。 */
-.sign-lamps[data-level='weak'] .sign-lamp {
+/* === 看板のランプの光り方（productions/SignLamp.ts）===
+ * 色で意味が決まり、光り方でも見分けられる。どれも2.6秒ほどで消える。
+ *   白 … 左から右へ流れる（期待度・弱）
+ *   青 … 両端から中央へ寄る（偶数寄り）
+ *   黄 … 中央から両端へ広がる（奇数寄り）
+ *   赤 … 7つが一斉に点滅（期待度・強）
+ *   虹 … 虹色が流れる（期待度・最強） */
+.sign-lamps[data-level='white'] .sign-lamp {
+  --sign-lamp: #f4f7ff;
+  animation: sign-lamp-sweep 1.2s linear 2;
+}
+.sign-lamps[data-level='blue'] .sign-lamp {
+  --sign-lamp: #4da3ff;
+  animation: sign-lamp-sweep 1.2s linear 2;
+}
+.sign-lamps[data-level='yellow'] .sign-lamp {
   --sign-lamp: #ffd24d;
   animation: sign-lamp-sweep 1.2s linear 2;
 }
-/* 示唆強：赤で全部が一斉に点滅する。流れる弱と光り方で見分けられるようにする。 */
-.sign-lamps[data-level='strong'] .sign-lamp {
+.sign-lamps[data-level='red'] .sign-lamp {
   --sign-lamp: #ff3b3b;
   animation: sign-lamp-blink 0.32s steps(1, end) 8;
 }
-.sign-lamps[data-level='weak'] .sign-lamp:nth-child(1) { animation-delay: 0s; }
-.sign-lamps[data-level='weak'] .sign-lamp:nth-child(2) { animation-delay: 0.1s; }
-.sign-lamps[data-level='weak'] .sign-lamp:nth-child(3) { animation-delay: 0.2s; }
-.sign-lamps[data-level='weak'] .sign-lamp:nth-child(4) { animation-delay: 0.3s; }
-.sign-lamps[data-level='weak'] .sign-lamp:nth-child(5) { animation-delay: 0.4s; }
-.sign-lamps[data-level='weak'] .sign-lamp:nth-child(6) { animation-delay: 0.5s; }
-.sign-lamps[data-level='weak'] .sign-lamp:nth-child(7) { animation-delay: 0.6s; }
+.sign-lamps[data-level='rainbow'] .sign-lamp {
+  animation: sign-lamp-sweep 0.9s linear 3;
+}
+.sign-lamps[data-level='rainbow'] .sign-lamp:nth-child(1) { --sign-lamp: #ff3b3b; }
+.sign-lamps[data-level='rainbow'] .sign-lamp:nth-child(2) { --sign-lamp: #ff9a2e; }
+.sign-lamps[data-level='rainbow'] .sign-lamp:nth-child(3) { --sign-lamp: #ffe14d; }
+.sign-lamps[data-level='rainbow'] .sign-lamp:nth-child(4) { --sign-lamp: #4dff88; }
+.sign-lamps[data-level='rainbow'] .sign-lamp:nth-child(5) { --sign-lamp: #4dc3ff; }
+.sign-lamps[data-level='rainbow'] .sign-lamp:nth-child(6) { --sign-lamp: #6b6bff; }
+.sign-lamps[data-level='rainbow'] .sign-lamp:nth-child(7) { --sign-lamp: #d06bff; }
 
+/* 流れる向き。白と虹は左→右、青は両端→中央、黄は中央→両端。 */
+.sign-lamps[data-level='white'] .sign-lamp:nth-child(n),
+.sign-lamps[data-level='rainbow'] .sign-lamp:nth-child(n) {
+  animation-delay: calc(var(--i) * 0.1s);
+}
+.sign-lamps[data-level='blue'] .sign-lamp {
+  animation-delay: calc(var(--from-edge) * 0.14s);
+}
+.sign-lamps[data-level='yellow'] .sign-lamp {
+  animation-delay: calc((3 - var(--from-edge)) * 0.14s);
+}
+.sign-lamp:nth-child(1) { --i: 0; --from-edge: 0; }
+.sign-lamp:nth-child(2) { --i: 1; --from-edge: 1; }
+.sign-lamp:nth-child(3) { --i: 2; --from-edge: 2; }
+.sign-lamp:nth-child(4) { --i: 3; --from-edge: 3; }
+.sign-lamp:nth-child(5) { --i: 4; --from-edge: 2; }
+.sign-lamp:nth-child(6) { --i: 5; --from-edge: 1; }
+.sign-lamp:nth-child(7) { --i: 6; --from-edge: 0; }
+
+/* 流れる光（1つの球から見た1周）。点いている時間は周期の 10〜25%。 */
 @keyframes sign-lamp-sweep {
   0%,
   40%,
@@ -680,15 +716,16 @@ body[data-skin='retro'] .lower-mark {
   }
   10%,
   25% {
-    background: radial-gradient(circle at 38% 32%, #ffffff 0%, var(--sign-lamp) 40%, #8a5a0c 100%);
+    background: radial-gradient(circle at 38% 32%, #ffffff 0%, var(--sign-lamp) 40%, rgba(0, 0, 0, 0.6) 100%);
     box-shadow:
       0 0 0 1px rgba(0, 0, 0, 0.5),
       0 0 8px 3px var(--sign-lamp);
   }
 }
+/* 一斉の点滅（前半点灯・後半消灯）。 */
 @keyframes sign-lamp-blink {
   0% {
-    background: radial-gradient(circle at 38% 32%, #ffffff 0%, var(--sign-lamp) 40%, #7a0c0c 100%);
+    background: radial-gradient(circle at 38% 32%, #ffffff 0%, var(--sign-lamp) 40%, rgba(0, 0, 0, 0.6) 100%);
     box-shadow:
       0 0 0 1px rgba(0, 0, 0, 0.5),
       0 0 10px 4px var(--sign-lamp);
