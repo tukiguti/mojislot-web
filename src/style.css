@@ -304,6 +304,11 @@ textarea {
   #reel-strip-panel,
   #unit-column {
     align-self: stretch;
+    /* **中身の高さを行の高さに持ち込ませない**（2026-09-23）。stretch は伸ばすだけで
+       縮めないので、21コマの配列やデータの表が筐体より高いと、行ごと伸びてページが
+       115px スクロールしていた。size を封じると行の高さは筐体の柱だけで決まり、
+       脇はそこへ stretch される。溢れた分は中で送る。 */
+    contain: size;
   }
   #unit-panel {
     flex: 1;
@@ -745,7 +750,9 @@ body.has-chapter-bg {
   grid-template-columns: 1fr 1fr 1fr;
   gap: 6px;
   flex: 1;
-  /* 21コマ分の高さ確保。はみ出した場合はスクロール（保険） */
+  /* 21コマが柱に収まらない分はここで送る。min-height:0 が無いと flex の既定
+     （中身の高さ）より縮まず、送らずにパネルごと溢れる。 */
+  min-height: 0;
   overflow-y: auto;
 }
 #reel-strip-panel .strip-column {
