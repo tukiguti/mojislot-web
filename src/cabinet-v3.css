@@ -331,7 +331,7 @@ body[data-skin='retro'] #masthead .mark {
 .stop-row {
   --stop-spread: 0.75;
   /* 3つまとめて左へずらす量（筐体の幅に対する比）。 */
-  --stop-shift: -0.03;
+  --stop-shift: 0;
 }
 .stop-row .stop-btn[data-reel='0'] {
   left: calc((0.5 + var(--stop-shift) + (var(--scr-side) + var(--reel-cx-0) * (1 - 2 * var(--scr-side)) - 0.5) * var(--stop-spread)) * 100%);
@@ -385,7 +385,8 @@ body[data-skin='retro'] #masthead .mark {
    クロムの輪（(300, 1552) rx48 ry22）。**文字は無い**。 */
 #bet-btn {
   position: absolute;
-  left: 26cqw;
+  /* 見本は x=300（中心）だが、ストップの間隔を詰めた分と合わせて左へ寄せた。 */
+  left: 23cqw;
   top: 1.7cqw;
   width: 8cqw;
   height: 3.6cqw;
