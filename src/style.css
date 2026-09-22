@@ -160,7 +160,6 @@
    *
    * 上下のクランプは端の保険。**下限が効くのは幅で頭打ちになる画面（スマホ縦）
    * だけ**で、そこは高さが余っているので合計が伸びても収まる。 */
-  --toplamp-h: clamp(4px, calc(var(--game-w) * 0.020), 18px);
   /* タイトルパネル（島名の板）。**絵を置く板**なので筐体の高さの1割を取る
      （2026-09-10）。以前は 3.8% しかなく、絵を入れても帯にしかならなかった。 */
   --masthead-h: clamp(44px, calc(var(--game-w) * 0.200), 150px);
@@ -168,16 +167,17 @@
   --header-h: clamp(14px, calc(var(--game-w) * 0.060), 60px);
   /* 操作部。レバーとストップが1列に並ぶ。 */
   --control-h: clamp(56px, calc(var(--game-w) * 0.240), 230px);
-  /* 下パネル（島を象徴する絵の板）と下皿。下パネルもタイトルと同じく高さの1割。 */
+  /* 下パネル（島を象徴する絵の板）。タイトルと同じく高さの1割。
+     トップランプと下皿は筐体 v3 で外した（2026-09-23）。 */
   --lowerpanel-h: clamp(44px, calc(var(--game-w) * 0.200), 150px);
-  --tray-h: clamp(14px, calc(var(--game-w) * 0.060), 46px);
   /* 段の合計が幅の何倍になるか。上の係数の和。--game-w を解くのに使う。
    *
    * **液晶が筐体の何割を占めるかはこの数で決まる。**
    * `--game-aspect /(--game-aspect + ここ)` が液晶の割合。0.454 の頃は 72.9% で、
    * 絵を置く板が残らず「巨大な画面に細い縁が付いたもの」に見えていた。0.780 に
-   * 上げて 61%、さらに canvas を低くして（1.22→1.07）筐体が 1:2.05→1:1.85 になる。 */
-  --cab-row-ratio: 0.780;
+   * 上げて 61%、さらに canvas を低くして（1.22→1.07）筐体が 1:2.05→1:1.85 になる。
+   * トップランプ（0.020）と下皿（0.060）を外して 0.700（2026-09-23）。 */
+  --cab-row-ratio: 0.700;
   /* ドック（台のメニュー）。筐体の続きとして下皿の直下に貼るので、
      横長でも高さの計算に入れる。縦長では画面下へ固定するが高さは同じ。 */
   --dock-h: 62px;
@@ -192,8 +192,7 @@
   /* 筐体のうち液晶以外が使う高さの合計。--game-w の計算で2箇所から参照する
      （横長と縦長）。**行を足したらここだけ直せば両方が揃う。** */
   --cab-fixed-h: calc(
-    var(--toplamp-h) + var(--masthead-h) + var(--header-h) + var(--control-h) +
-      var(--lowerpanel-h) + var(--tray-h)
+    var(--masthead-h) + var(--header-h) + var(--control-h) + var(--lowerpanel-h)
   );
   /* 演出液晶が cabinet 内に占める高さの比。**Pixi の `LIQUID_AREA_H / CANVAS_H` と同じ値**
      （`src/main.ts`）。DOM演出（カットイン・フラッシュ・BONUSバナー）はこの比で液晶に
@@ -838,8 +837,8 @@ body.has-chapter-bg {
      minmax(0,1fr) で列を筐体内幅に固定し、中身は縮める。 */
   grid-template-columns: minmax(0, 1fr);
   grid-template-rows:
-    var(--toplamp-h) var(--masthead-h) var(--game-h) var(--header-h)
-    var(--control-h) var(--lowerpanel-h) var(--tray-h);
+    var(--masthead-h) var(--game-h) var(--header-h) var(--control-h)
+    var(--lowerpanel-h);
   width: var(--game-w);
   height: var(--cabinet-h);
   background-color: var(--cab-face-lo);
@@ -1167,20 +1166,6 @@ body.has-chapter-bg {
 
 /* === トップランプ＝筐体最上部の光る帯。実機の一番上にある光るライン。
  * 島テーマの色（--isl-top）が来ればそれを使い、無ければ皮の色で光る。 === */
-#toplamp {
-  background: var(--isl-top, linear-gradient(180deg, var(--gold-hi), var(--gold)));
-  border-radius: var(--cab-radius) var(--cab-radius) 0 0;
-  box-shadow:
-    inset 0 -1px 2px rgba(0, 0, 0, 0.45),
-    0 0 10px var(--cab-glow);
-  /* 下のタイトルパネルの台形に合わせて、上辺を狭める。 */
-  clip-path: polygon(
-    var(--cab-shoulder) 0%,
-    calc(100% - var(--cab-shoulder)) 0%,
-    calc(100% - var(--cab-shoulder) + 6px) 100%,
-    calc(var(--cab-shoulder) - 6px) 100%
-  );
-}
 
 /* === タイトルパネル（島名の板）＋控えめマーキー電飾 ===
  * 実機のここは機種名の板。以前は mojislot のワードマークを出していたが、
@@ -2906,17 +2891,6 @@ body.shake {
     0 0 8px var(--mark-glow);
 }
 
-/* 下皿。何も置かない暗い受け皿で、筐体の底を締める。 */
-/* 下皿。**筐体より狭くして腰から下をくびれさせる。** 上から下まで同じ幅だと、
-   輪郭が1本の垂直線になって「積んだ矩形」から抜けない。 */
-#tray {
-  margin: 0 var(--cab-shoulder);
-  background: linear-gradient(180deg, #0a0710 0%, #05030a 100%);
-  border-top: 1px solid var(--cab-edge);
-  box-shadow: inset 0 5px 10px rgba(0, 0, 0, 0.9);
-  /* 手前が広い台形。皿は手前へ向かって開く。 */
-  clip-path: polygon(6px 0%, calc(100% - 6px) 0%, 100% 100%, 0% 100%);
-}
 #overlays {
   position: absolute;
   inset: 0;
