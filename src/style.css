@@ -120,6 +120,21 @@
      ここの値は流し込み前の保険で、`CANVAS_H / CANVAS_W` と揃えておく。
      筐体の高さ＝幅 ×（この比 ＋ 段の係数の和）。 */
   --game-aspect: 1.067;
+  /* **画面の周りの寸法**（筐体 v3・2026-09-23）。どれも筐体の幅に対する比。
+     操作部だけが筐体の全幅を使い、本体はそこから --deck-over ずつ内側に入る
+     （操作部が手前へ張り出して見える）。画面はさらに本体の壁（--scr-wall）と
+     クロム枠（--scr-chrome）のぶん内側。canvas の幅は 1 − 2×--scr-side になる。 */
+  --deck-over: 0.018;
+  --scr-wall: 0.014;
+  --scr-chrome: 0.026;
+  --scr-side: calc(var(--deck-over) + var(--scr-wall) + var(--scr-chrome));
+  --scr-top: 0.042;
+  --scr-bot: 0.026;
+  /* 画面の段の高さ ÷ 筐体の幅。**canvas の縦横比を直に使ってはいけない**——
+     canvas は枠のぶん細いので、そのぶん低い。上下の余白を足す。 */
+  --scr-ratio: calc(
+    var(--game-aspect) * (1 - 2 * var(--scr-side)) + var(--scr-top) + var(--scr-bot)
+  );
   --vh: 100vh;
   /* ホームインジケータやノッチの領域。ここに部品を置くと指が届かない。 */
   --safe-b: env(safe-area-inset-bottom, 0px);
@@ -145,7 +160,6 @@
    *
    * 上下のクランプは端の保険。**下限が効くのは幅で頭打ちになる画面（スマホ縦）
    * だけ**で、そこは高さが余っているので合計が伸びても収まる。 */
-  --toplamp-h: clamp(4px, calc(var(--game-w) * 0.020), 18px);
   /* タイトルパネル（島名の板）。**絵を置く板**なので筐体の高さの1割を取る
      （2026-09-10）。以前は 3.8% しかなく、絵を入れても帯にしかならなかった。 */
   --masthead-h: clamp(44px, calc(var(--game-w) * 0.200), 150px);
@@ -153,16 +167,17 @@
   --header-h: clamp(14px, calc(var(--game-w) * 0.060), 60px);
   /* 操作部。レバーとストップが1列に並ぶ。 */
   --control-h: clamp(56px, calc(var(--game-w) * 0.240), 230px);
-  /* 下パネル（島を象徴する絵の板）と下皿。下パネルもタイトルと同じく高さの1割。 */
+  /* 下パネル（島を象徴する絵の板）。タイトルと同じく高さの1割。
+     トップランプと下皿は筐体 v3 で外した（2026-09-23）。 */
   --lowerpanel-h: clamp(44px, calc(var(--game-w) * 0.200), 150px);
-  --tray-h: clamp(14px, calc(var(--game-w) * 0.060), 46px);
   /* 段の合計が幅の何倍になるか。上の係数の和。--game-w を解くのに使う。
    *
    * **液晶が筐体の何割を占めるかはこの数で決まる。**
    * `--game-aspect /(--game-aspect + ここ)` が液晶の割合。0.454 の頃は 72.9% で、
    * 絵を置く板が残らず「巨大な画面に細い縁が付いたもの」に見えていた。0.780 に
-   * 上げて 61%、さらに canvas を低くして（1.22→1.07）筐体が 1:2.05→1:1.85 になる。 */
-  --cab-row-ratio: 0.780;
+   * 上げて 61%、さらに canvas を低くして（1.22→1.07）筐体が 1:2.05→1:1.85 になる。
+   * トップランプ（0.020）と下皿（0.060）を外して 0.700（2026-09-23）。 */
+  --cab-row-ratio: 0.700;
   /* ドック（台のメニュー）。筐体の続きとして下皿の直下に貼るので、
      横長でも高さの計算に入れる。縦長では画面下へ固定するが高さは同じ。 */
   --dock-h: 62px;
@@ -177,8 +192,7 @@
   /* 筐体のうち液晶以外が使う高さの合計。--game-w の計算で2箇所から参照する
      （横長と縦長）。**行を足したらここだけ直せば両方が揃う。** */
   --cab-fixed-h: calc(
-    var(--toplamp-h) + var(--masthead-h) + var(--header-h) + var(--control-h) +
-      var(--lowerpanel-h) + var(--tray-h)
+    var(--masthead-h) + var(--header-h) + var(--control-h) + var(--lowerpanel-h)
   );
   /* 演出液晶が cabinet 内に占める高さの比。**Pixi の `LIQUID_AREA_H / CANVAS_H` と同じ値**
      （`src/main.ts`）。DOM演出（カットイン・フラッシュ・BONUSバナー）はこの比で液晶に
@@ -212,12 +226,13 @@
             var(--vh) - var(--layout-pad) * 2 - var(--dock-h) - var(--datalamp-h) -
               var(--datalamp-gap)
           ) /
-          (var(--game-aspect) + var(--cab-row-ratio))
+          (var(--scr-ratio) + var(--cab-row-ratio))
       ),
       calc(100vw - var(--layout-pad) * 2 - var(--reel-panel-occupy))
     )
   );
-  --game-h: calc(var(--game-w) * var(--game-aspect));
+  /* 画面の段（枠込み）の高さ。canvas そのものの高さではない。 */
+  --game-h: calc(var(--game-w) * var(--scr-ratio));
   --cabinet-h: calc(var(--game-h) + var(--cab-fixed-h));
   /* リールの中心が筐体幅のどこに来るか。**main.ts が Pixi の実寸から流し込む**
      （--lcd-ratio と同じ手口）。ストップボタンをリールの真下へ置くのに使う。
@@ -304,6 +319,11 @@ textarea {
   #reel-strip-panel,
   #unit-column {
     align-self: stretch;
+    /* **中身の高さを行の高さに持ち込ませない**（2026-09-23）。stretch は伸ばすだけで
+       縮めないので、21コマの配列やデータの表が筐体より高いと、行ごと伸びてページが
+       115px スクロールしていた。size を封じると行の高さは筐体の柱だけで決まり、
+       脇はそこへ stretch される。溢れた分は中で送る。 */
+    contain: size;
   }
   #unit-panel {
     flex: 1;
@@ -745,7 +765,9 @@ body.has-chapter-bg {
   grid-template-columns: 1fr 1fr 1fr;
   gap: 6px;
   flex: 1;
-  /* 21コマ分の高さ確保。はみ出した場合はスクロール（保険） */
+  /* 21コマが柱に収まらない分はここで送る。min-height:0 が無いと flex の既定
+     （中身の高さ）より縮まず、送らずにパネルごと溢れる。 */
+  min-height: 0;
   overflow-y: auto;
 }
 #reel-strip-panel .strip-column {
@@ -815,8 +837,8 @@ body.has-chapter-bg {
      minmax(0,1fr) で列を筐体内幅に固定し、中身は縮める。 */
   grid-template-columns: minmax(0, 1fr);
   grid-template-rows:
-    var(--toplamp-h) var(--masthead-h) var(--game-h) var(--header-h)
-    var(--control-h) var(--lowerpanel-h) var(--tray-h);
+    var(--masthead-h) var(--game-h) var(--header-h) var(--control-h)
+    var(--lowerpanel-h);
   width: var(--game-w);
   height: var(--cabinet-h);
   background-color: var(--cab-face-lo);
@@ -1144,20 +1166,6 @@ body.has-chapter-bg {
 
 /* === トップランプ＝筐体最上部の光る帯。実機の一番上にある光るライン。
  * 島テーマの色（--isl-top）が来ればそれを使い、無ければ皮の色で光る。 === */
-#toplamp {
-  background: var(--isl-top, linear-gradient(180deg, var(--gold-hi), var(--gold)));
-  border-radius: var(--cab-radius) var(--cab-radius) 0 0;
-  box-shadow:
-    inset 0 -1px 2px rgba(0, 0, 0, 0.45),
-    0 0 10px var(--cab-glow);
-  /* 下のタイトルパネルの台形に合わせて、上辺を狭める。 */
-  clip-path: polygon(
-    var(--cab-shoulder) 0%,
-    calc(100% - var(--cab-shoulder)) 0%,
-    calc(100% - var(--cab-shoulder) + 6px) 100%,
-    calc(var(--cab-shoulder) - 6px) 100%
-  );
-}
 
 /* === タイトルパネル（島名の板）＋控えめマーキー電飾 ===
  * 実機のここは機種名の板。以前は mojislot のワードマークを出していたが、
@@ -1236,7 +1244,8 @@ body.has-chapter-bg {
 #info-bar {
   position: relative;
   display: grid;
-  grid-template-columns: auto 1fr auto;
+  /* 計器はリール脇へ移したので、ここはランプだけ（2026-09-23）。 */
+  grid-template-columns: 1fr;
   align-items: center;
   height: 100%;
   gap: 8px;
@@ -1253,30 +1262,53 @@ body.has-chapter-bg {
   white-space: nowrap;
 }
 
-/* 計器1つ分。ラベルは小さく添えるだけで、読ませるのは数字。 */
-.ip-meter {
+/* === リール脇の計器（差枚・払出）===
+ * リールの左下に差枚、右下に払出（2026-09-23）。止めた瞬間の払い出しと手持ちの
+ * 増減が、リールと同じ視野で読める。以前は画面下の情報パネルに並べていたが、
+ * リールから目を離さないと読めなかった。空いていた場所は成立ラインの5本線が
+ * 使っていたもので、線は廃止した（揃った場所はセルの役色で分かる）。
+ *
+ * 位置は Pixi の寸法から main.ts が流し込む。幅は額の外側の余白いっぱい、
+ * 下端は窓の下端に揃える。 */
+.reel-meter {
+  position: absolute;
+  z-index: 5;
+  bottom: calc((1 - var(--reel-bottom, 0.98)) * 100% + 1cqw);
+  width: calc(var(--reel-gutter, 0.14) * 100% - 2cqw);
   display: flex;
-  align-items: baseline;
-  gap: 5px;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 0.4cqw;
+  padding: 0.8cqw 0.8cqw 0.9cqw;
+  background: var(--meter-bg);
+  border: 1px solid var(--meter-edge);
+  box-shadow:
+    inset 0 1px 3px rgba(0, 0, 0, 0.8),
+    0 0 0 1px rgba(255, 255, 255, 0.04);
+  pointer-events: none;
 }
-.ip-meter-right {
-  justify-self: end;
+.reel-meter-left {
+  left: 1cqw;
 }
-.ip-label {
-  font-size: 8px;
+.reel-meter-right {
+  right: 1cqw;
+}
+.rm-label {
+  font-size: max(7px, 1.9cqw);
   font-weight: 400;
-  letter-spacing: 1.5px;
+  letter-spacing: 0.15em;
+  text-align: center;
   color: var(--meter-label);
 }
-.ip-value {
+.rm-value {
   font-family: ui-monospace, 'SFMono-Regular', monospace;
-  font-size: calc(var(--header-h) * 0.58);
+  font-size: max(10px, 3.4cqw);
   font-weight: 700;
-  letter-spacing: 1px;
-  min-width: 3ch;
+  line-height: 1;
   text-align: right;
   color: var(--meter-fg);
   text-shadow: 0 0 5px var(--meter-glow);
+  white-space: nowrap;
 }
 /* 中央のランプ列。実機の REPLAY / START / BET と同じ、消えている方が既定の小さな札。 */
 .ip-lamps {
@@ -2214,6 +2246,9 @@ body.shake {
 /* === ゲームエリア（Pixi canvas + 結果トースト） === */
 #game-area {
   position: relative;
+  /* リール脇の計器の文字を画面の幅（cqw）で決める。#cabinet ごと container に
+     すると fixed のオーバーレイが閉じ込められるので、この枠だけにする。 */
+  container-type: inline-size;
   background: #000;
   border-bottom: 1px solid var(--cab-edge);
   /* 液晶とリールを筐体の面より奥に沈める。上下の内影が窓の厚みになる。 */
@@ -2856,17 +2891,6 @@ body.shake {
     0 0 8px var(--mark-glow);
 }
 
-/* 下皿。何も置かない暗い受け皿で、筐体の底を締める。 */
-/* 下皿。**筐体より狭くして腰から下をくびれさせる。** 上から下まで同じ幅だと、
-   輪郭が1本の垂直線になって「積んだ矩形」から抜けない。 */
-#tray {
-  margin: 0 var(--cab-shoulder);
-  background: linear-gradient(180deg, #0a0710 0%, #05030a 100%);
-  border-top: 1px solid var(--cab-edge);
-  box-shadow: inset 0 5px 10px rgba(0, 0, 0, 0.9);
-  /* 手前が広い台形。皿は手前へ向かって開く。 */
-  clip-path: polygon(6px 0%, calc(100% - 6px) 0%, 100% 100%, 0% 100%);
-}
 #overlays {
   position: absolute;
   inset: 0;
@@ -4187,94 +4211,9 @@ to {
 }
 
 /* ===== 連チャンオーラ：cabinet の外周を脈動させる ===== */
-#cabinet.streak-aura {
-  animation: streak-aura-pulse 1.6s ease-in-out infinite;
-}
-#cabinet.streak-aura-hot {
-  animation: streak-aura-pulse-hot 1.2s ease-in-out infinite;
-  border-color: #ff8a00;
-}
-#cabinet.streak-aura-fever {
-  animation: streak-aura-pulse-fever 0.8s ease-in-out infinite;
-  border-color: #ff3366;
-}
-
-@keyframes streak-aura-pulse {0%,
-100% {
-    box-shadow:
-      0 0 40px rgba(255, 215, 0, 0.35),
-      inset 0 0 0 2px #2a2a2a,
-      0 0 24px rgba(255, 215, 0, 0.45);
-  }
-50% {
-    box-shadow:
-      0 0 40px rgba(255, 215, 0, 0.35),
-      inset 0 0 0 2px #2a2a2a,
-      0 0 60px rgba(255, 215, 0, 0.85);
-  }
-}
-
-@keyframes streak-aura-pulse-hot {0%,
-100% {
-    box-shadow:
-      0 0 40px rgba(255, 215, 0, 0.35),
-      inset 0 0 0 2px #2a2a2a,
-      0 0 36px rgba(255, 138, 0, 0.6),
-      0 0 80px rgba(255, 138, 0, 0.35);
-  }
-50% {
-    box-shadow:
-      0 0 40px rgba(255, 215, 0, 0.35),
-      inset 0 0 0 2px #2a2a2a,
-      0 0 72px rgba(255, 138, 0, 1),
-      0 0 120px rgba(255, 138, 0, 0.55);
-  }
-}
-
-@keyframes streak-aura-pulse-fever {0%,
-100% {
-    box-shadow:
-      0 0 40px rgba(255, 215, 0, 0.35),
-      inset 0 0 0 2px #2a2a2a,
-      0 0 48px rgba(255, 51, 102, 0.7),
-      0 0 100px rgba(255, 51, 102, 0.5),
-      0 0 180px rgba(255, 215, 0, 0.4);
-  }
-50% {
-    box-shadow:
-      0 0 40px rgba(255, 215, 0, 0.35),
-      inset 0 0 0 2px #2a2a2a,
-      0 0 90px rgba(255, 51, 102, 1),
-      0 0 160px rgba(255, 215, 0, 0.75),
-      0 0 240px rgba(255, 51, 102, 0.6);
-  }
-}
-
-/* tier4(12連〜): 虹色の最上位オーラ */
-#cabinet.streak-aura-max {
-  animation: streak-aura-pulse-max 0.7s ease-in-out infinite;
-  border-color: #c060ff;
-}
-
-@keyframes streak-aura-pulse-max {0%,
-100% {
-    box-shadow:
-      0 0 40px rgba(255, 215, 0, 0.4),
-      inset 0 0 0 2px #2a2a2a,
-      0 0 60px rgba(192, 96, 255, 0.7),
-      0 0 120px rgba(102, 204, 255, 0.5),
-      0 0 200px rgba(255, 51, 102, 0.4);
-  }
-50% {
-    box-shadow:
-      0 0 40px rgba(255, 215, 0, 0.4),
-      inset 0 0 0 2px #2a2a2a,
-      0 0 110px rgba(192, 96, 255, 1),
-      0 0 190px rgba(102, 204, 255, 0.8),
-      0 0 280px rgba(255, 51, 102, 0.6);
-  }
-}
-
+/* 連チャン中に**筐体の外側を光らせるのはやめた**（2026-09-23）。5連あたりから筐体の
+   周りが明滅して、画面の外まで光が溢れていた。連チャンは液晶の内側の色づけ（下）と
+   左上のバッジで伝える。 */
 /* 連チャン段に応じて演出液晶(LCD)の縁を段階的にトーン付けする＝「背景の昇格」。
    reel は隠さない控えめなインセット・ヴィネット。 */
 #cabinet.streak-aura #game-area {
@@ -4382,9 +4321,6 @@ to {
     padding: 0 5px;
     gap: 4px;
   }
-  .ip-value {
-    font-size: 13px;
-  }
   .ip-lamps {
     gap: 4px;
   }
@@ -4401,12 +4337,6 @@ to {
   #info-bar {
     padding: 0 3px;
     gap: 3px;
-  }
-  .ip-label {
-    display: none;
-  }
-  .ip-value {
-    font-size: 12px;
   }
   #bet-text {
     display: none;
@@ -5071,7 +5001,7 @@ to {
               var(--vh) - var(--layout-pad) * 2 - var(--dock-h) - var(--datalamp-h) -
                 var(--datalamp-gap) - var(--safe-t) - var(--safe-b)
             ) /
-            (var(--game-aspect) + var(--cab-row-ratio))
+            (var(--scr-ratio) + var(--cab-row-ratio))
         )
       )
     );

@@ -115,15 +115,21 @@
       <div id="datalamp" aria-label="データカウンター"></div>
     <div id="cabinet">
       <!-- 筐体の並びは実機に合わせてある（仕様18 §実機の並びへ組み直す）。
-           上から トップランプ／タイトルパネル／液晶＋リール窓／情報パネル／
-           操作部／下パネル／下皿。ホールの台選びで見えている筐体と同じ構造。 -->
-      <div id="toplamp" aria-hidden="true"></div>
+           上から タイトルパネル／液晶＋リール窓／計器の溝／操作部／下パネル。ホールの台選びで見えている筐体と同じ構造。 -->
       <!-- タイトルパネルは**絵の板**。実機の上部パネルは機種名の看板で、操作するものは
            何も付いていない。ボタンは全部ドックへ移した（2026-09-10）。 -->
       <div id="masthead">
+        <!-- 看板のランプ。上辺に7つ。点き方で設定を示唆する（中身は未実装）。 -->
+        <div class="sign-lamps" aria-hidden="true">
+          <span class="sign-lamp"></span><span class="sign-lamp"></span><span class="sign-lamp"></span><span class="sign-lamp"></span><span class="sign-lamp"></span><span class="sign-lamp"></span><span class="sign-lamp"></span>
+        </div>
         <span class="mark" id="machine-title">mojislot</span>
       </div>
 
+      <!-- 画面の段。本体の壁とクロム枠の中に液晶＋リール（#game-area）が沈む。
+           #game-area 自体は canvas と同じ大きさに保つ——中の DOM 演出や計器は
+           canvas の比率で置いてあるので、枠はこの外側で作る。 -->
+      <div id="screen">
       <div id="game-area">
         <canvas id="game"></canvas>
         <!-- 進行ステータスは演出液晶の左上に出す（ヘッダーを溢れさせない） -->
@@ -136,6 +142,18 @@
           <div id="rescue-status" hidden></div>
         </div>
         <div id="result-display"></div>
+        <!-- 差枚と払出はリールの左下・右下に置く（2026-09-23）。リールと同じ視野に
+             入るので、止めた瞬間の払い出しと手持ちの増減が目を動かさずに読める。
+             位置は main.ts が Pixi の寸法から流し込む（--reel-gutter / --reel-bottom）。 -->
+        <div class="reel-meter reel-meter-left">
+          <span class="rm-label">差枚</span>
+          <span class="rm-value" id="coin-display">0</span>
+        </div>
+        <div class="reel-meter reel-meter-right">
+          <span class="rm-label">払出</span>
+          <span class="rm-value" id="payout-display">0</span>
+        </div>
+      </div>
       </div>
 
       <div id="overlays">
@@ -167,22 +185,13 @@
         <div id="bonus-banner" hidden></div>
       </div>
 
-      <!-- 情報パネル＝リール直下の計器。実機はここに CREDIT と 払出 の7セグ、
-           間に REPLAY / START / BET のランプが並ぶ。以前は液晶の上にヘッダーとして
-           置いていたが、実機に上部の情報帯は無い。 -->
+      <!-- 画面の下の溝（計器の窓）。BET と演出のランプだけを並べる。差枚と払出は
+           リールの左下・右下へ移した（2026-09-23）。 -->
       <div class="header-shell">
         <header id="info-bar">
-          <div class="ip-meter">
-            <span class="ip-label">差枚</span>
-            <span class="ip-value" id="coin-display">0</span>
-          </div>
           <div class="ip-lamps" id="status-stack">
             <span class="ip-lamp" id="bet-text">BET 3</span>
             <div id="effect-status">通常</div>
-          </div>
-          <div class="ip-meter ip-meter-right">
-            <span class="ip-label">払出</span>
-            <span class="ip-value" id="payout-display">0</span>
           </div>
         </header>
       </div>
@@ -191,7 +200,7 @@
         <!-- 左のデッキ：MAXBET の上にレバー。実機はレバーが左端で、その内側に
              BET が並ぶ。ストップは下の .stop-row がリールの真下へ絶対配置する。 -->
         <div class="deck-well">
-          <button id="bet-btn" data-key="[Space]">MAX<span>BET</span></button>
+          <button id="bet-btn" data-key="[Space]" aria-label="MAXBET">MAX<span>BET</span></button>
           <button id="lever-btn" data-key="[Space]" aria-label="レバー">
             <span class="lever-ball" aria-hidden="true"></span>
             <span class="lever-rod" aria-hidden="true"></span>
@@ -212,7 +221,6 @@
         <span class="lower-mark">MOJISLOT</span>
         <div class="cabinet-lamp" data-side="right" aria-hidden="true"></div>
       </div>
-      <div id="tray" aria-hidden="true"></div>
     </div>
 
       <nav id="dock" aria-label="メニュー">

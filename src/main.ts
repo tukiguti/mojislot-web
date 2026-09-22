@@ -53,6 +53,7 @@ import { recordEffects } from './productions/EffectStats';
 import { EffectTable } from './ui/EffectTable';
 import { drawEndScreen } from './productions/SettingHint';
 import { drawCabinetLamp } from './productions/CabinetLamp';
+import { drawSignLamp, isSignLampMilestone, type SignLampLevel } from './productions/SignLamp';
 import { EffectEligibility } from './productions/EffectEligibility';
 import { SfxEngine } from './audio/SfxEngine';
 import { BgmEngine } from './audio/BgmEngine';
@@ -125,7 +126,6 @@ import {
   PAYLINES,
   type Vertical,
 } from './core/Paylines';
-import { PaylineIndicators } from './render/PaylineIndicators';
 import {
   ReelConfigSchema,
   YakuListSchema,
@@ -155,9 +155,12 @@ import {
   isRemixMachine,
   isTrialMachine,
   nextRemixStage,
+  REMIX_ISLAND_ID,
 } from './data/machines';
 import './style.css';
 import './skins.css';
+// 筐体 v3 の輪郭と質感。皮の変数（skins.css）より後に読む。
+import './cabinet-v3.css';
 import { applySkin, loadSkin } from './productions/CabinetSkin';
 
 // 保存してある筐体の皮を、筐体が組み上がる前に張る（張り直しで一瞬ちらつくのを防ぐ）。
@@ -238,6 +241,16 @@ document.documentElement.style.setProperty(
       String(cx / CANVAS_W),
     );
   }
+  /**
+   * リール左右の余白と、窓の下端。差枚と払出の計器を**リールの左下・右下**へ
+   * 置くのに使う（2026-09-23）。余白は額（REEL_BEZEL_OUT）の外側で測る。
+   */
+  const root = document.documentElement.style;
+  root.setProperty('--reel-gutter', String((startX - REEL_BEZEL_OUT) / CANVAS_W));
+  root.setProperty(
+    '--reel-bottom',
+    String((LIQUID_AREA_H + REEL_BEZEL_OUT * 2 + REEL_BLOCK_H) / CANVAS_H),
+  );
 }
 
 /**
@@ -318,6 +331,16 @@ export async function bootstrap() {
     const island = islandOfMachine(machine);
     const titleEl = document.getElementById('machine-title');
     if (titleEl) titleEl.textContent = island.trial ? chapter.name : island.name;
+    // 看板の絵は島ごと（cabinet-v3.css が data-island で当てる）。決め方はホールの
+    // ミニ筐体と同じ：リミックス台はリミックス、試打台は章、それ以外は島。
+    const cab = document.getElementById('cabinet');
+    if (cab) {
+      cab.dataset.island = isRemixMachine(machine)
+        ? REMIX_ISLAND_ID
+        : island.trial
+          ? chapterId
+          : island.id;
+    }
   }
   /**
    * リミックス島はボーナスごとに島が入れ替わる（＝配列を覚え直す）。その見返りに
@@ -842,15 +865,9 @@ export async function bootstrap() {
     app.stage.addChild(bezel);
   }
 
-  // ペイラインインジケーター（リール左脇外側に1セットのみ。左右ミラーは冗長なので片側へ）
-  const reelHeight = CELL_HEIGHT * VISIBLE_CELLS;
-  const indicatorOffsetY = reelY + (reelHeight - PaylineIndicators.TOTAL_HEIGHT) / 2;
-  const indicatorPadX = 12;
-
-  const leftIndicators = new PaylineIndicators();
-  leftIndicators.container.x = startX - PaylineIndicators.WIDTH - indicatorPadX;
-  leftIndicators.container.y = indicatorOffsetY;
-  app.stage.addChild(leftIndicators.container);
+  // 成立ラインのインジケーター（リール左脇の5本線）は廃止した（2026-09-23）。
+  // 空いたリール左右の下には差枚と払出の計器を置く（#reel-meters・DOM）。
+  // 揃った場所はセルの役色タイルとハイライトで既に分かるので、線で重ねて言わない。
 
   // フラッシュなどの前景エフェクトはリールの上に重ねる
   app.stage.addChild(effectVisual.fxLayer);
@@ -859,7 +876,6 @@ export async function bootstrap() {
     const now = performance.now();
     for (const engine of engines) engine.tick(now);
     for (const view of views) view.update(now);
-    leftIndicators.update(now);
     lcdBg.update(now);
     effectVisual.update();
   });
@@ -1388,7 +1404,7 @@ export async function bootstrap() {
 
   /**
    * 差枚の表示。0 から下へ進むので符号を付けないと減っているのが読めない。
-   * ラベル（「差枚」）は情報パネルの `.ip-label` が持つので、ここは数字だけ。
+   * ラベル（「差枚」）はリール脇の計器の `.rm-label` が持つので、ここは数字だけ。
    */
   const coinLabel = (n: number): string => `${n > 0 ? '+' : ''}${n}`;
 
@@ -1774,6 +1790,10 @@ export async function bootstrap() {
       // 設定示唆のランプ。素はボーナス終了時にしか点かないので単体で見られるようにする。
       setCabinetLamp(drawCabinetLamp(machineSetting, Math.random).color);
     },
+    triggerSignLamp: (level: SignLampLevel) => {
+      // 看板のランプ。素はコンボが節目（5・10…）に届いた時にしか光らない。
+      showSignLamp(level);
+    },
     triggerBonusResult: () => {
       // 終了画面の示唆はボーナスを抜けないと見られない。中身は本番と同じ抽選を回す。
       showBonusResult(200, 'big');
@@ -1872,6 +1892,24 @@ export async function bootstrap() {
    * 経路を増やした意味がない。台を見れば分かる状態で残す。
    * 次の終了時に引き直すので、点いている色は常に**直近のボーナスのもの**。
    */
+  /**
+   * 看板のランプを光らせる（コンボの節目の設定示唆・productions/SignLamp.ts）。
+   * 色で意味が決まり、光り方でも見分けられる（cabinet-v3.css）。しばらく光って消える。
+   */
+  const signLampsEl = document.querySelector<HTMLElement>('.sign-lamps');
+  let signLampTimer: number | null = null;
+  const showSignLamp = (level: SignLampLevel) => {
+    if (!signLampsEl || level === 'off') return;
+    if (signLampTimer !== null) window.clearTimeout(signLampTimer);
+    // 同じ段が続いた時もアニメーションを頭から流し直す
+    delete signLampsEl.dataset.level;
+    void signLampsEl.offsetWidth;
+    signLampsEl.dataset.level = level;
+    signLampTimer = window.setTimeout(() => {
+      delete signLampsEl.dataset.level;
+      signLampTimer = null;
+    }, 2600);
+  };
   const setCabinetLamp = (color: string | null) => {
     for (const el of cabinetLampEls) {
       if (color === null || color === 'off') delete el.dataset.lamp;
@@ -2643,6 +2681,10 @@ export async function bootstrap() {
       const { hits, willHit, premiumHit, bonusHit, isPremium, isRegular } =
         outcome;
       const { streakAfter, streakMult, win, reachKind } = outcome;
+      // コンボが節目（5・10・15…）に届いた瞬間に、看板のランプで設定を示唆する。
+      if (willHit && isSignLampMilestone(streakAfter)) {
+        showSignLamp(drawSignLamp(machineSetting, Math.random));
+      }
       const quizTargetYakuId =
         currentEffect === 'quiz' ? quizState.targetYakuId() : null;
       // 問題IDは resolve で消えるので、判定の前に控える。
@@ -2832,10 +2874,6 @@ export async function bootstrap() {
       });
 
       if (willHit) {
-        // 成立ラインインジケーターを点灯
-        for (const h of hits) {
-          leftIndicators.highlight(h.paylineId);
-        }
         const cls = isPremium || isRegular ? 'premium' : 'win';
         const bonusTag = bonusSession.spinActive ? ' ×BONUS' : '';
         const streakTag = streakMult > 1 ? ` ${streakAfter}連 ×${streakMult}` : '';
