@@ -1,0 +1,744 @@
+/**
+ * 筐体 v3（2026-09-23）。
+ *
+ * Claude Design で描いた「Cabinet v3」を見本に、筐体の見た目をここへ集める。
+ * 段の並びは 看板 → 画面 → 計器の溝 → 操作部 → 下パネル。トップランプと下皿は
+ * 外した（見本の金の帯は看板とずれて見え、下皿は何を置く場所でもなかったため）。
+ *
+ * - **操作部が手前へ張り出す。** 筐体の全幅を使うのは操作部だけで、本体はそこから
+ *   `--deck-over` ずつ内側に入る。上面は本体の幅から全幅へ広がる台形
+ * - **画面はクロム枠に沈む。** 本体の壁（`--scr-wall`）とクロム（`--scr-chrome`）の
+ *   内側に液晶＋リールがある。寸法の変数と高さの計算は `style.css` の `:root`
+ * - **下パネルに丸いスピーカーが2つ。** 筐体ランプ（設定示唆）はこのスピーカーが光る
+ *
+ * 色は皮ごとに `--v3-*` で持つ（寸法は持たない。`skins.css` と同じ約束）。
+ * 島ごとの色（`--isl-top` / `--isl-lower`）が当たっている時はそちらを優先する。
+ */
+
+/* === 皮ごとの色 === */
+:root {
+  --v3-body: linear-gradient(
+    90deg,
+    #2a123f 0%,
+    #8a55c9 4%,
+    #6a3aa6 12%,
+    #5c2e8e 50%,
+    #4b2277 88%,
+    #6a3aa6 96.5%,
+    #1c0b2b 100%
+  );
+  --v3-chrome: linear-gradient(180deg, #6b737c 0%, #eef1f4 20%, #8d959e 50%, #3b424b 70%, #d9dee4 100%);
+  --v3-chrome-h: linear-gradient(
+    180deg,
+    #ffffff 0%,
+    #d9dee4 18%,
+    #7e8791 42%,
+    #3b424b 50%,
+    #8d959e 58%,
+    #e6eaee 82%,
+    #6b737c 100%
+  );
+  --v3-sign: linear-gradient(180deg, #9a68d8 0%, #6a3aa6 50%, #3f1a6b 100%);
+  --v3-accent: #f2b33c;
+  --v3-gold: linear-gradient(180deg, #fff0c0 0%, #f2b33c 50%, #9a6a12 100%);
+  /* 操作部。上面（〜33%）→ アクセントの帯 → 前面。1本のグラデーションで描く。 */
+  --v3-deck: linear-gradient(
+    180deg,
+    #f4f6f8 0%,
+    #b9c0c8 10%,
+    #6c747e 31%,
+    var(--v3-accent) 31%,
+    var(--v3-accent) 33.5%,
+    #9aa2ab 33.5%,
+    #3a4049 44%,
+    #14171c 100%
+  );
+  --v3-lower: linear-gradient(180deg, #7a48b8 0%, #3a1866 100%);
+  --v3-cup-rim: #c9d0d8;
+  --v3-stop: radial-gradient(circle at 40% 30%, #ffd7e0 0%, #ff4d6a 32%, #a3102c 78%, #54020f 100%);
+  --v3-btn: radial-gradient(ellipse at 40% 30%, #ffd7e0 0%, #ff4d6a 30%, #a3102c 75%, #54020f 100%);
+  --v3-ball: radial-gradient(circle at 34% 26%, #ffffff 0%, #ffe9a8 16%, #e8a028 45%, #8a5a0c 78%, #43290a 100%);
+  --v3-ring: linear-gradient(180deg, #f6f8fa 0%, #9aa3ad 50%, #3b424b 100%);
+  --v3-stop-text: #fff;
+}
+
+body[data-skin='midnight'] {
+  --v3-body: linear-gradient(
+    90deg,
+    #05060a 0%,
+    #3a404d 4%,
+    #242833 12%,
+    #171a22 50%,
+    #111319 88%,
+    #242833 96.5%,
+    #03040a 100%
+  );
+  --v3-chrome: linear-gradient(180deg, #22262d 0%, #7b8490 20%, #3a414b 50%, #15181e 70%, #5c646f 100%);
+  --v3-chrome-h: linear-gradient(
+    180deg,
+    #8e97a3 0%,
+    #5c646f 18%,
+    #2d323b 42%,
+    #15181e 50%,
+    #3a414b 58%,
+    #6c7580 82%,
+    #22262d 100%
+  );
+  --v3-sign: linear-gradient(180deg, #2e3440 0%, #242833 50%, #0b0d12 100%);
+  --v3-accent: #6fdcff;
+  --v3-gold: linear-gradient(180deg, #e6fbff 0%, #6fdcff 50%, #1e7f99 100%);
+  --v3-deck: linear-gradient(
+    180deg,
+    #7d8692 0%,
+    #454c56 10%,
+    #20242b 31%,
+    var(--v3-accent) 31%,
+    var(--v3-accent) 33.5%,
+    #4a515c 33.5%,
+    #07080b 44%,
+    #07080b 100%
+  );
+  --v3-lower: linear-gradient(180deg, #262b35 0%, #0d0f14 100%);
+  --v3-cup-rim: #8e97a3;
+  --v3-stop: radial-gradient(circle at 40% 30%, #eafdff 0%, #6fdcff 32%, #0f6a86 78%, #03222e 100%);
+  --v3-btn: radial-gradient(ellipse at 40% 30%, #eafdff 0%, #6fdcff 30%, #0f6a86 75%, #03222e 100%);
+  --v3-ball: radial-gradient(circle at 34% 26%, #eafdff 0%, #9fe9ff 16%, #2fa8cc 45%, #0d4c63 78%, #04161f 100%);
+  --v3-ring: linear-gradient(180deg, #8e97a3 0%, #4c535d 50%, #15181e 100%);
+}
+
+body[data-skin='retro'] {
+  --v3-body: linear-gradient(
+    90deg,
+    #3a2212 0%,
+    #a8734b 4%,
+    #7a5233 12%,
+    #6b4529 50%,
+    #5a3820 88%,
+    #7a5233 96.5%,
+    #2a170b 100%
+  );
+  --v3-chrome: linear-gradient(180deg, #8a641a 0%, #fbe9b8 20%, #c9962e 50%, #6e4f12 70%, #f0d38a 100%);
+  --v3-chrome-h: linear-gradient(
+    180deg,
+    #fff4d0 0%,
+    #f0d38a 18%,
+    #b8862a 42%,
+    #6e4f12 50%,
+    #c9962e 58%,
+    #f6e2a4 82%,
+    #8a641a 100%
+  );
+  --v3-sign: linear-gradient(180deg, #fbf3e0 0%, #efe1c0 50%, #d8c396 100%);
+  --v3-accent: #f0c063;
+  --v3-gold: linear-gradient(180deg, #fff6d8 0%, #f0c063 50%, #8a5f10 100%);
+  --v3-deck: linear-gradient(
+    180deg,
+    #fbeec6 0%,
+    #dcb562 10%,
+    #9a7224 31%,
+    var(--v3-accent) 31%,
+    var(--v3-accent) 33.5%,
+    #d3a84a 33.5%,
+    #5d4212 44%,
+    #2e2008 100%
+  );
+  --v3-lower: linear-gradient(180deg, #f4e9cf 0%, #cdb684 100%);
+  --v3-cup-rim: #f6e2a4;
+  --v3-stop: radial-gradient(circle at 40% 30%, #fff2cf 0%, #f0a63c 32%, #96520c 78%, #3a1d04 100%);
+  --v3-btn: radial-gradient(ellipse at 40% 30%, #fff2cf 0%, #f0a63c 30%, #96520c 75%, #3a1d04 100%);
+  --v3-ball: radial-gradient(circle at 34% 26%, #fff6e4 0%, #f6c9b4 16%, #c4523a 45%, #6d2417 78%, #2b0d07 100%);
+  --v3-ring: linear-gradient(180deg, #fbeec6 0%, #d1a542 50%, #6e4f12 100%);
+  --v3-stop-text: #fff8e8;
+}
+
+/* 本体の縦の照り。上が明るく、下へ沈む。どの皮でも同じ。 */
+:root {
+  --v3-body-sheen: linear-gradient(
+    180deg,
+    rgba(255, 255, 255, 0.18) 0%,
+    rgba(255, 255, 255, 0) 40%,
+    rgba(0, 0, 0, 0.45) 100%
+  );
+}
+
+/* === 筐体の器 ===
+ * 背景は持たない。本体は各段が自分の幅で描く——操作部だけが全幅なので、
+ * 1枚の背景で塗ると張り出しが出せない。 */
+#cabinet {
+  background: none;
+  border: none;
+  border-radius: 0;
+  box-shadow: none;
+}
+
+/* === 看板：クロムの台形の縁 ＋ 色の板 ===
+ * 板は無地のまま置き、島ごとの絵をはめる場所にする。 */
+#masthead {
+  margin: 0 calc(var(--deck-over) * 100%);
+  background: var(--v3-chrome-h);
+  box-shadow: none;
+}
+#masthead::before {
+  top: 7%;
+  left: 2.2%;
+  right: 2.2%;
+  bottom: 0;
+  height: auto;
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.35) 0%, rgba(255, 255, 255, 0.05) 50%, transparent 50%),
+    var(--v3-sign);
+  background-size: auto;
+  background-repeat: no-repeat;
+  opacity: 1;
+  filter: none;
+  clip-path: polygon(
+    calc(var(--cab-shoulder) - 1.5%) 0%,
+    calc(100% - var(--cab-shoulder) + 1.5%) 0%,
+    100% 100%,
+    0% 100%
+  );
+}
+#masthead .mark {
+  position: relative;
+  z-index: 1;
+}
+/* 皮ごとに板の文字色を合わせる。レトロの板はクリーム地なので濃い字にする。 */
+body[data-skin='retro'] #masthead .mark {
+  color: #5a3820;
+  text-shadow: 0 1px 0 rgba(255, 255, 255, 0.6);
+}
+
+/* === 画面：本体の壁 ＋ クロム枠 ＋ 沈んだ液晶 === */
+#screen {
+  position: relative;
+  margin: 0 calc(var(--deck-over) * 100%);
+  padding: calc(var(--game-w) * var(--scr-top)) calc(var(--game-w) * (var(--scr-wall) + var(--scr-chrome)))
+    calc(var(--game-w) * var(--scr-bot));
+  /* 縦の照りは載せない。画面の段だけで上から下へ暗くすると、枠の横の壁が
+     下へ行くほど沈んで見える（見本の壁は同じ色のまま）。 */
+  background: var(--v3-body);
+  min-height: 0;
+}
+/* クロム枠。液晶の外周に --scr-chrome の厚みで回す。 */
+#screen::before {
+  content: '';
+  position: absolute;
+  top: calc(var(--game-w) * (var(--scr-top) - var(--scr-chrome)));
+  bottom: calc(var(--game-w) * (var(--scr-bot) - var(--scr-chrome)));
+  left: calc(var(--game-w) * var(--scr-wall));
+  right: calc(var(--game-w) * var(--scr-wall));
+  background: var(--v3-chrome);
+  box-shadow:
+    inset 0 0 0 1px rgba(255, 255, 255, 0.35),
+    inset 0 0 0 3px rgba(0, 0, 0, 0.35),
+    0 6px 14px rgba(0, 0, 0, 0.55);
+  pointer-events: none;
+}
+#game-area {
+  z-index: 1;
+  width: 100%;
+  aspect-ratio: 1 / var(--game-aspect);
+  border-bottom: none;
+  outline: 2px solid #0d0a14;
+}
+
+/* === 計器の溝：画面の下の細い窓に BET と演出のランプ === */
+.header-shell {
+  margin: 0 calc(var(--deck-over) * 100%);
+  background: var(--v3-body);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+#info-bar {
+  width: 76%;
+  height: 72%;
+  background: #040305;
+  border: 1px solid rgba(0, 0, 0, 0.8);
+  border-bottom: 2px solid rgba(255, 255, 255, 0.55);
+  box-shadow:
+    inset 0 2px 6px rgba(0, 0, 0, 0.9),
+    0 0 0 3px rgba(0, 0, 0, 0.25);
+}
+#info-bar::before {
+  display: none;
+}
+
+/* === 操作部：全幅の台。上面は本体の幅から広がる台形 === */
+#control-panel {
+  background: var(--v3-deck);
+  box-shadow: 0 -4px 10px rgba(0, 0, 0, 0.45);
+  clip-path: polygon(
+    calc(var(--deck-over) * 100%) 0%,
+    calc(100% - var(--deck-over) * 100%) 0%,
+    100% 31%,
+    100% 100%,
+    0% 100%,
+    0% 31%
+  );
+}
+/* 上面の縁の照り（v3 の白い一線）。段の境目のモールは使わない。 */
+#control-panel::before {
+  left: calc(var(--deck-over) * 100%);
+  right: calc(var(--deck-over) * 100%);
+  height: 2px;
+  background: rgba(255, 255, 255, 0.9);
+  box-shadow: none;
+}
+/* 前面の光の筋。台に丸みがあるように見せる。 */
+#control-panel::after {
+  content: '';
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 33.5%;
+  bottom: 0;
+  background: linear-gradient(90deg, transparent 0%, rgba(255, 255, 255, 0.14) 50%, transparent 100%);
+  pointer-events: none;
+}
+
+/* === 操作部の部品：デザインの座標をそのまま写す ===
+ * 見本の操作部は幅 1000・高さ 238 で、いまの操作部（幅の 0.24）とほぼ同じ比。
+ * **見本の1単位 = 0.1cqw**（cqw は操作部の幅）、縦は操作部の上端（見本の y=1508）から
+ * 測る。部品の位置と大きさはここに書いた数字がそのまま見本の座標に対応する。 */
+
+/* 見本に無いものは出さない。BET と演出のランプ、キーヒント。 */
+#info-bar .ip-lamps,
+#key-hint {
+  display: none;
+}
+
+/* ストップ：見本の (x, 1661) に rx46 ry42 の楕円、受け皿 rx55 ry51、縁 rx64 ry60
+   （受け皿と縁は 5 単位下）。x だけは**リールの真下**へ写す（見本は中央寄せ）。 */
+.stop-row {
+  top: 0;
+  bottom: 0;
+}
+.stop-row .stop-btn {
+  top: 15.3cqw;
+}
+/* リールの中心は canvas に対する比なので、画面の枠（--scr-side）のぶん内側へ写す。
+   **これを消すとストップがリールより外へ広がる**（style.css の既定は枠を知らない）。
+   そのうえで中央からの距離を --stop-spread 倍に詰める（2026-09-23 に 0.75）。
+   リールの間隔そのままだと台の前面で間延びするという判断で、真ん中は動かない。 */
+.stop-row {
+  --stop-spread: 0.75;
+  /* 3つまとめて左へずらす量（筐体の幅に対する比）。 */
+  --stop-shift: 0;
+}
+.stop-row .stop-btn[data-reel='0'] {
+  left: calc((0.5 + var(--stop-shift) + (var(--scr-side) + var(--reel-cx-0) * (1 - 2 * var(--scr-side)) - 0.5) * var(--stop-spread)) * 100%);
+}
+.stop-row .stop-btn[data-reel='1'] {
+  left: calc((0.5 + var(--stop-shift) + (var(--scr-side) + var(--reel-cx-1) * (1 - 2 * var(--scr-side)) - 0.5) * var(--stop-spread)) * 100%);
+}
+.stop-row .stop-btn[data-reel='2'] {
+  left: calc((0.5 + var(--stop-shift) + (var(--scr-side) + var(--reel-cx-2) * (1 - 2 * var(--scr-side)) - 0.5) * var(--stop-spread)) * 100%);
+}
+.stop-btn {
+  width: 9.2cqw;
+  height: 8.4cqw;
+  aspect-ratio: auto;
+  border: none;
+  border-radius: 50%;
+  color: var(--v3-stop-text);
+  font-size: 1.7cqw;
+  background:
+    radial-gradient(ellipse 24% 12% at 35% 24%, rgba(255, 255, 255, 0.42), transparent 100%),
+    var(--v3-stop);
+  box-shadow:
+    0 0.5cqw 0 0.9cqw #05060a,
+    0 0.5cqw 0 1.8cqw var(--v3-cup-rim),
+    0 1.2cqw 1.4cqw 1.8cqw rgba(0, 0, 0, 0.45);
+}
+.stop-btn::after {
+  font-size: 1.3cqw;
+}
+.stop-btn:hover {
+  background:
+    radial-gradient(ellipse 24% 12% at 35% 24%, rgba(255, 255, 255, 0.42), transparent 100%),
+    var(--v3-stop);
+  filter: brightness(1.12);
+}
+.stop-row .stop-btn:active {
+  translate: 0 1.1cqw;
+}
+
+/* 左の台。レバーと MAXBET の当たり判定の受け皿（main.ts の委譲）なので、
+   レバーの周りだけを覆う。MAXBET は見本どおり上面の x=300 に置く。 */
+.deck-well {
+  left: 0;
+  top: 0;
+  bottom: 0;
+  width: 22cqw;
+  display: block;
+}
+
+/* MAXBET：見本の (300, 1543) に rx40 ry18 の赤い楕円。下に黒い影と
+   クロムの輪（(300, 1552) rx48 ry22）。**文字は無い**。 */
+#bet-btn {
+  position: absolute;
+  /* 見本は x=300（中心）だが、ストップの間隔を詰めた分と合わせて左へ寄せた。 */
+  left: 20cqw;
+  top: 0.6cqw;
+  width: 8cqw;
+  height: 3.6cqw;
+  padding: 0;
+  font-size: 0;
+  color: transparent;
+  text-shadow: none;
+  border: none;
+  border-radius: 50%;
+  background: var(--v3-btn);
+  box-shadow:
+    0 0.9cqw 0 0 rgba(0, 0, 0, 0.55),
+    0 0.9cqw 0 0.8cqw var(--v3-ring-mid),
+    0 1.9cqw 1cqw 0.6cqw rgba(0, 0, 0, 0.45);
+}
+#bet-btn span {
+  display: none;
+}
+#bet-btn::after {
+  content: '';
+  position: absolute;
+  left: 0.8cqw;
+  top: 0.3cqw;
+  width: 3.6cqw;
+  height: 1.4cqw;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.45);
+  transform: rotate(-8deg);
+  pointer-events: none;
+}
+#bet-btn:hover {
+  background: var(--v3-btn);
+  filter: brightness(1.12);
+}
+#bet-btn:active {
+  translate: 0 0.7cqw;
+  box-shadow: 0 0.2cqw 0 0.8cqw var(--v3-ring-mid);
+}
+
+/* レバー：見本の (150, 1668) に台座 rx60 ry56、黒い溝 rx47 ry44、内側の台座
+   rx41 ry38、その上に r38 の玉。押すと玉が 44 単位沈み、隠れていた軸が伸びる。 */
+#lever-btn {
+  position: absolute;
+  left: 9cqw;
+  top: 10.4cqw;
+  width: 12cqw;
+  height: 11.2cqw;
+  padding: 0;
+  display: block;
+  border: none;
+  border-radius: 50%;
+  background: var(--v3-lever-base);
+  box-shadow: 0 0.6cqw 1.2cqw rgba(0, 0, 0, 0.5);
+}
+/* 黒い溝 */
+#lever-btn::after {
+  content: '';
+  position: absolute;
+  left: 1.3cqw;
+  top: 1.2cqw;
+  width: 9.4cqw;
+  height: 8.8cqw;
+  bottom: auto;
+  transform: none;
+  border-radius: 50%;
+  background: rgba(0, 0, 0, 0.6);
+  box-shadow: 0 0 0 0 transparent;
+  pointer-events: none;
+}
+/* 軸。ふだんは縮めて隠し、押した時だけ伸びる（玉が沈んだ下から覗く）。 */
+.lever-rod {
+  position: absolute;
+  left: 3.6cqw;
+  top: 4.8cqw;
+  width: 4.8cqw;
+  height: 6cqw;
+  border-radius: 0;
+  background: var(--v3-ring);
+  clip-path: polygon(0 0, 100% 0, 87.5% 100%, 12.5% 100%);
+  transform-origin: top center;
+  transform: scaleY(0.16);
+  transition: transform 0.12s ease-out;
+  z-index: 1;
+}
+/* 内側の台座と玉。台座は玉の後ろの輪として、玉のボックスシャドウで描く。 */
+.lever-ball {
+  position: absolute;
+  left: 2.2cqw;
+  top: 1.1cqw;
+  width: 7.6cqw;
+  height: 7.6cqw;
+  border: none;
+  border-radius: 50%;
+  background:
+    radial-gradient(ellipse 16% 10% at 32% 18%, rgba(255, 255, 255, 0.75), transparent 100%),
+    var(--v3-ball);
+  box-shadow:
+    0 0.4cqw 0 0.3cqw var(--v3-lever-inner),
+    0 2.7cqw 1cqw -2cqw var(--v3-accent);
+  z-index: 2;
+  transition: transform 0.13s cubic-bezier(0.3, 1.5, 0.5, 1);
+}
+#lever-btn:hover .lever-ball {
+  filter: brightness(1.1);
+}
+#lever-btn:active .lever-ball {
+  transform: translateY(4.4cqw);
+}
+#lever-btn:active .lever-rod {
+  height: 6cqw;
+  transform: scaleY(1);
+}
+
+:root {
+  --v3-lever-base: linear-gradient(90deg, #3b424b 0%, #f6f8fa 22%, #9aa3ad 55%, #3b424b 100%);
+  --v3-lever-inner: #c6ccd3;
+  --v3-ring-mid: #9aa3ad;
+}
+body[data-skin='midnight'] {
+  --v3-lever-base: linear-gradient(90deg, #15181e 0%, #8e97a3 22%, #4c535d 55%, #15181e 100%);
+  --v3-lever-inner: #5c646f;
+  --v3-ring-mid: #4c535d;
+}
+body[data-skin='retro'] {
+  --v3-lever-base: linear-gradient(90deg, #6e4f12 0%, #fbeec6 22%, #d1a542 55%, #6e4f12 100%);
+  --v3-lever-inner: #d1a542;
+  --v3-ring-mid: #d1a542;
+}
+
+/* === 下パネル：色の板に丸いスピーカーが2つ ===
+ * 真ん中は空けてある（島ごとの絵をはめる場所）。 */
+#lowerpanel {
+  margin: 0 calc((var(--deck-over) + 0.012) * 100%);
+  padding: 0;
+  display: block;
+  background: var(--v3-body-sheen), var(--isl-lower, var(--v3-lower));
+  border-top: none;
+  box-shadow: inset 0 6px 10px rgba(0, 0, 0, 0.55);
+}
+/* 操作部との合わせ目のクロム。 */
+#lowerpanel::before {
+  left: 0;
+  right: 0;
+  height: clamp(3px, calc(var(--game-w) * 0.012), 8px);
+  background: var(--v3-chrome-h);
+}
+.lower-mark {
+  position: absolute;
+  inset: 0;
+}
+/* スピーカー。円く、クロムの輪で縁取る。光る時（data-lamp）は輪ごと色で滲む。
+   下パネルは container ではないので、輪の太さは cqw ではなく --game-w から起こす。 */
+.cabinet-lamp {
+  position: absolute;
+  top: 50%;
+  height: 70%;
+  width: auto;
+  aspect-ratio: 1;
+  transform: translate(-50%, -45%);
+  border: none;
+  border-radius: 50%;
+  opacity: 0.85;
+  background-color: #07070a;
+  background-size: 7px 7px;
+  box-shadow:
+    inset 0 0 10px rgba(0, 0, 0, 0.9),
+    0 0 0 max(2px, calc(var(--game-w) * 0.009)) #0b0b0f,
+    0 0 0 max(3px, calc(var(--game-w) * 0.014)) var(--v3-cup-rim),
+    0 3px 8px max(3px, calc(var(--game-w) * 0.014)) rgba(0, 0, 0, 0.5);
+}
+.cabinet-lamp[data-side='left'] {
+  left: 13%;
+}
+.cabinet-lamp[data-side='right'] {
+  left: 87%;
+}
+.cabinet-lamp[data-lamp] {
+  box-shadow:
+    inset 0 0 12px var(--lamp-dim),
+    0 0 0 max(2px, calc(var(--game-w) * 0.009)) #0b0b0f,
+    0 0 0 max(3px, calc(var(--game-w) * 0.014)) var(--lamp),
+    0 0 18px max(3px, calc(var(--game-w) * 0.014)) var(--lamp-dim);
+}
+
+
+/* レトロの下パネルはクリーム地なので、ロゴを濃い字にする（金の光では溶ける）。 */
+body[data-skin='retro'] .lower-mark {
+  color: #6b4529;
+  text-shadow: 0 1px 0 rgba(255, 255, 255, 0.6);
+}
+
+/* ストップに文字は載せない（見本どおり）。キーは設定で確かめられる。 */
+.stop-btn {
+  font-size: 0;
+}
+.stop-btn::after {
+  content: none;
+}
+
+/* **押せない時も色は残す。** 灰色に抜くと見本の琥珀の玉・赤いボタンと別物に見える。
+   少し暗くするだけにして、押せる時との差は明るさで付ける。 */
+#bet-btn:disabled,
+#lever-btn:disabled,
+.stop-btn:disabled {
+  opacity: 1;
+  filter: brightness(0.62) saturate(0.85);
+}
+#lever-btn:disabled .lever-ball {
+  filter: none;
+}
+.stop-btn.checkable {
+  opacity: 1;
+  filter: brightness(0.7) saturate(0.8);
+  /* 止めた後も受け皿と縁は残す（style.css 側はここで影を消している）。 */
+  border: none;
+  box-shadow:
+    0 0.5cqw 0 0.9cqw #05060a,
+    0 0.5cqw 0 1.8cqw var(--v3-cup-rim),
+    0 1.2cqw 1.4cqw 1.8cqw rgba(0, 0, 0, 0.45);
+}
+
+/* === 看板の絵（島ごと）===
+ * ドット絵を板いっぱいに等倍の3倍格子で敷く（tools/gen_sign.py・216×44）。
+ * 島名は絵に焼き込まず、この上に文字で載せる。絵が無い島は色の板のまま。 */
+#cabinet[data-island] #masthead::before {
+  background-size: 100% 100%;
+  background-position: center;
+  image-rendering: pixelated;
+}
+#cabinet[data-island='hiragana_food'] #masthead::before {
+  background-image:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.18) 0%, rgba(255, 255, 255, 0) 45%),
+    url('/art/sign/hiragana_food.png');
+}
+#cabinet[data-island='hiragana_food'] #masthead .mark {
+  color: #fdf4e3;
+  text-shadow:
+    0 2px 0 #5a100c,
+    0 0 6px rgba(90, 16, 12, 0.6);
+}
+
+/* === 看板のランプ ===
+ * 上辺に7つ。**点き方で設定を示唆する**場所（示唆の中身は未実装で、いまは消灯のみ）。
+ * 消灯でも球が見えるようにする——無いものが突然光るのではなく、
+ * いつも見えている球が点く方が「ランプ」として読める。 */
+.sign-lamps {
+  position: absolute;
+  z-index: 2;
+  top: 13%;
+  /* 両脇の小物（握り・湯呑みの湯気）に掛からない幅。 */
+  left: 24%;
+  right: 24%;
+  display: flex;
+  justify-content: space-between;
+  pointer-events: none;
+}
+.sign-lamp {
+  width: calc(var(--masthead-h) * 0.1);
+  aspect-ratio: 1;
+  border-radius: 50%;
+  background: radial-gradient(circle at 38% 32%, #6b5a3a 0%, #2a2014 70%, #120c06 100%);
+  box-shadow:
+    0 0 0 1px rgba(0, 0, 0, 0.6),
+    0 0 0 2px rgba(255, 255, 255, 0.25);
+}
+.sign-lamp.on {
+  background: radial-gradient(circle at 38% 32%, #ffffff 0%, var(--sign-lamp, #ffd24d) 40%, #8a5a0c 100%);
+  box-shadow:
+    0 0 0 1px rgba(0, 0, 0, 0.5),
+    0 0 6px 2px var(--sign-lamp, #ffd24d);
+}
+
+/* === 看板のランプの光り方（productions/SignLamp.ts）===
+ * 色で意味が決まり、光り方でも見分けられる。どれも2.6秒ほどで消える。
+ *   白 … 左から右へ流れる（期待度・弱）
+ *   青 … 両端から中央へ寄る（偶数寄り）
+ *   黄 … 中央から両端へ広がる（奇数寄り）
+ *   赤 … 7つが一斉に点滅（期待度・強）
+ *   虹 … 虹色が流れる（期待度・最強） */
+.sign-lamps[data-level='white'] .sign-lamp {
+  --sign-lamp: #f4f7ff;
+  animation: sign-lamp-sweep 1.2s linear 2;
+}
+.sign-lamps[data-level='blue'] .sign-lamp {
+  --sign-lamp: #4da3ff;
+  animation: sign-lamp-sweep 1.2s linear 2;
+}
+.sign-lamps[data-level='yellow'] .sign-lamp {
+  --sign-lamp: #ffd24d;
+  animation: sign-lamp-sweep 1.2s linear 2;
+}
+.sign-lamps[data-level='red'] .sign-lamp {
+  --sign-lamp: #ff3b3b;
+  animation: sign-lamp-blink 0.32s steps(1, end) 8;
+}
+.sign-lamps[data-level='rainbow'] .sign-lamp {
+  animation: sign-lamp-sweep 0.9s linear 3;
+}
+.sign-lamps[data-level='rainbow'] .sign-lamp:nth-child(1) { --sign-lamp: #ff3b3b; }
+.sign-lamps[data-level='rainbow'] .sign-lamp:nth-child(2) { --sign-lamp: #ff9a2e; }
+.sign-lamps[data-level='rainbow'] .sign-lamp:nth-child(3) { --sign-lamp: #ffe14d; }
+.sign-lamps[data-level='rainbow'] .sign-lamp:nth-child(4) { --sign-lamp: #4dff88; }
+.sign-lamps[data-level='rainbow'] .sign-lamp:nth-child(5) { --sign-lamp: #4dc3ff; }
+.sign-lamps[data-level='rainbow'] .sign-lamp:nth-child(6) { --sign-lamp: #6b6bff; }
+.sign-lamps[data-level='rainbow'] .sign-lamp:nth-child(7) { --sign-lamp: #d06bff; }
+
+/* 流れる向き。白と虹は左→右、青は両端→中央、黄は中央→両端。 */
+.sign-lamps[data-level='white'] .sign-lamp:nth-child(n),
+.sign-lamps[data-level='rainbow'] .sign-lamp:nth-child(n) {
+  animation-delay: calc(var(--i) * 0.1s);
+}
+.sign-lamps[data-level='blue'] .sign-lamp {
+  animation-delay: calc(var(--from-edge) * 0.14s);
+}
+.sign-lamps[data-level='yellow'] .sign-lamp {
+  animation-delay: calc((3 - var(--from-edge)) * 0.14s);
+}
+.sign-lamp:nth-child(1) { --i: 0; --from-edge: 0; }
+.sign-lamp:nth-child(2) { --i: 1; --from-edge: 1; }
+.sign-lamp:nth-child(3) { --i: 2; --from-edge: 2; }
+.sign-lamp:nth-child(4) { --i: 3; --from-edge: 3; }
+.sign-lamp:nth-child(5) { --i: 4; --from-edge: 2; }
+.sign-lamp:nth-child(6) { --i: 5; --from-edge: 1; }
+.sign-lamp:nth-child(7) { --i: 6; --from-edge: 0; }
+
+/* 流れる光（1つの球から見た1周）。点いている時間は周期の 10〜25%。 */
+@keyframes sign-lamp-sweep {
+  0%,
+  40%,
+  100% {
+    background: radial-gradient(circle at 38% 32%, #6b5a3a 0%, #2a2014 70%, #120c06 100%);
+    box-shadow:
+      0 0 0 1px rgba(0, 0, 0, 0.6),
+      0 0 0 2px rgba(255, 255, 255, 0.25);
+  }
+  10%,
+  25% {
+    background: radial-gradient(circle at 38% 32%, #ffffff 0%, var(--sign-lamp) 40%, rgba(0, 0, 0, 0.6) 100%);
+    box-shadow:
+      0 0 0 1px rgba(0, 0, 0, 0.5),
+      0 0 8px 3px var(--sign-lamp);
+  }
+}
+/* 一斉の点滅（前半点灯・後半消灯）。 */
+@keyframes sign-lamp-blink {
+  0% {
+    background: radial-gradient(circle at 38% 32%, #ffffff 0%, var(--sign-lamp) 40%, rgba(0, 0, 0, 0.6) 100%);
+    box-shadow:
+      0 0 0 1px rgba(0, 0, 0, 0.5),
+      0 0 10px 4px var(--sign-lamp);
+  }
+  50% {
+    background: radial-gradient(circle at 38% 32%, #6b5a3a 0%, #2a2014 70%, #120c06 100%);
+    box-shadow:
+      0 0 0 1px rgba(0, 0, 0, 0.6),
+      0 0 0 2px rgba(255, 255, 255, 0.25);
+  }
+}
+/* 動きを減らす設定では流さず、一定時間だけ点けたままにする（段は色で読める）。 */
+.a11y-reduce-motion .sign-lamps[data-level] .sign-lamp {
+  animation: none;
+  background: radial-gradient(circle at 38% 32%, #ffffff 0%, var(--sign-lamp) 40%, #8a5a0c 100%);
+}
