@@ -120,6 +120,21 @@
      ここの値は流し込み前の保険で、`CANVAS_H / CANVAS_W` と揃えておく。
      筐体の高さ＝幅 ×（この比 ＋ 段の係数の和）。 */
   --game-aspect: 1.067;
+  /* **画面の周りの寸法**（筐体 v3・2026-09-23）。どれも筐体の幅に対する比。
+     操作部だけが筐体の全幅を使い、本体はそこから --deck-over ずつ内側に入る
+     （操作部が手前へ張り出して見える）。画面はさらに本体の壁（--scr-wall）と
+     クロム枠（--scr-chrome）のぶん内側。canvas の幅は 1 − 2×--scr-side になる。 */
+  --deck-over: 0.018;
+  --scr-wall: 0.014;
+  --scr-chrome: 0.026;
+  --scr-side: calc(var(--deck-over) + var(--scr-wall) + var(--scr-chrome));
+  --scr-top: 0.042;
+  --scr-bot: 0.026;
+  /* 画面の段の高さ ÷ 筐体の幅。**canvas の縦横比を直に使ってはいけない**——
+     canvas は枠のぶん細いので、そのぶん低い。上下の余白を足す。 */
+  --scr-ratio: calc(
+    var(--game-aspect) * (1 - 2 * var(--scr-side)) + var(--scr-top) + var(--scr-bot)
+  );
   --vh: 100vh;
   /* ホームインジケータやノッチの領域。ここに部品を置くと指が届かない。 */
   --safe-b: env(safe-area-inset-bottom, 0px);
@@ -212,12 +227,13 @@
             var(--vh) - var(--layout-pad) * 2 - var(--dock-h) - var(--datalamp-h) -
               var(--datalamp-gap)
           ) /
-          (var(--game-aspect) + var(--cab-row-ratio))
+          (var(--scr-ratio) + var(--cab-row-ratio))
       ),
       calc(100vw - var(--layout-pad) * 2 - var(--reel-panel-occupy))
     )
   );
-  --game-h: calc(var(--game-w) * var(--game-aspect));
+  /* 画面の段（枠込み）の高さ。canvas そのものの高さではない。 */
+  --game-h: calc(var(--game-w) * var(--scr-ratio));
   --cabinet-h: calc(var(--game-h) + var(--cab-fixed-h));
   /* リールの中心が筐体幅のどこに来るか。**main.ts が Pixi の実寸から流し込む**
      （--lcd-ratio と同じ手口）。ストップボタンをリールの真下へ置くのに使う。
@@ -5096,7 +5112,7 @@ to {
               var(--vh) - var(--layout-pad) * 2 - var(--dock-h) - var(--datalamp-h) -
                 var(--datalamp-gap) - var(--safe-t) - var(--safe-b)
             ) /
-            (var(--game-aspect) + var(--cab-row-ratio))
+            (var(--scr-ratio) + var(--cab-row-ratio))
         )
       )
     );

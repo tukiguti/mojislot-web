@@ -1,0 +1,453 @@
+/**
+ * 筐体 v3（2026-09-23）。
+ *
+ * Claude Design で描いた「Cabinet v3」を見本に、筐体の見た目をここへ集める。
+ * 段の並び（トップランプ → 看板 → 画面 → 計器の溝 → 操作部 → 下パネル → 下皿）は
+ * これまでと同じで、変えたのは輪郭と質感。
+ *
+ * - **操作部が手前へ張り出す。** 筐体の全幅を使うのは操作部だけで、本体はそこから
+ *   `--deck-over` ずつ内側に入る。上面は本体の幅から全幅へ広がる台形
+ * - **画面はクロム枠に沈む。** 本体の壁（`--scr-wall`）とクロム（`--scr-chrome`）の
+ *   内側に液晶＋リールがある。寸法の変数と高さの計算は `style.css` の `:root`
+ * - **下パネルに丸いスピーカーが2つ。** 筐体ランプ（設定示唆）はこのスピーカーが光る
+ *
+ * 色は皮ごとに `--v3-*` で持つ（寸法は持たない。`skins.css` と同じ約束）。
+ * 島ごとの色（`--isl-top` / `--isl-lower`）が当たっている時はそちらを優先する。
+ */
+
+/* === 皮ごとの色 === */
+:root {
+  --v3-body: linear-gradient(
+    90deg,
+    #2a123f 0%,
+    #8a55c9 4%,
+    #6a3aa6 12%,
+    #5c2e8e 50%,
+    #4b2277 88%,
+    #6a3aa6 96.5%,
+    #1c0b2b 100%
+  );
+  --v3-chrome: linear-gradient(180deg, #6b737c 0%, #eef1f4 20%, #8d959e 50%, #3b424b 70%, #d9dee4 100%);
+  --v3-chrome-h: linear-gradient(
+    180deg,
+    #ffffff 0%,
+    #d9dee4 18%,
+    #7e8791 42%,
+    #3b424b 50%,
+    #8d959e 58%,
+    #e6eaee 82%,
+    #6b737c 100%
+  );
+  --v3-sign: linear-gradient(180deg, #9a68d8 0%, #6a3aa6 50%, #3f1a6b 100%);
+  --v3-accent: #f2b33c;
+  --v3-gold: linear-gradient(180deg, #fff0c0 0%, #f2b33c 50%, #9a6a12 100%);
+  /* 操作部。上面（〜33%）→ アクセントの帯 → 前面。1本のグラデーションで描く。 */
+  --v3-deck: linear-gradient(
+    180deg,
+    #f4f6f8 0%,
+    #b9c0c8 10%,
+    #6c747e 31%,
+    var(--v3-accent) 31%,
+    var(--v3-accent) 33.5%,
+    #9aa2ab 33.5%,
+    #3a4049 44%,
+    #14171c 100%
+  );
+  --v3-lower: linear-gradient(180deg, #7a48b8 0%, #3a1866 100%);
+  --v3-cup-rim: #c9d0d8;
+  --v3-stop: radial-gradient(circle at 40% 30%, #ffd7e0 0%, #ff4d6a 32%, #a3102c 78%, #54020f 100%);
+  --v3-btn: radial-gradient(ellipse at 40% 30%, #ffd7e0 0%, #ff4d6a 30%, #a3102c 75%, #54020f 100%);
+  --v3-ball: radial-gradient(circle at 34% 26%, #ffffff 0%, #ffe9a8 16%, #e8a028 45%, #8a5a0c 78%, #43290a 100%);
+  --v3-ring: linear-gradient(180deg, #f6f8fa 0%, #9aa3ad 50%, #3b424b 100%);
+  --v3-stop-text: #fff;
+}
+
+body[data-skin='midnight'] {
+  --v3-body: linear-gradient(
+    90deg,
+    #05060a 0%,
+    #3a404d 4%,
+    #242833 12%,
+    #171a22 50%,
+    #111319 88%,
+    #242833 96.5%,
+    #03040a 100%
+  );
+  --v3-chrome: linear-gradient(180deg, #22262d 0%, #7b8490 20%, #3a414b 50%, #15181e 70%, #5c646f 100%);
+  --v3-chrome-h: linear-gradient(
+    180deg,
+    #8e97a3 0%,
+    #5c646f 18%,
+    #2d323b 42%,
+    #15181e 50%,
+    #3a414b 58%,
+    #6c7580 82%,
+    #22262d 100%
+  );
+  --v3-sign: linear-gradient(180deg, #2e3440 0%, #242833 50%, #0b0d12 100%);
+  --v3-accent: #6fdcff;
+  --v3-gold: linear-gradient(180deg, #e6fbff 0%, #6fdcff 50%, #1e7f99 100%);
+  --v3-deck: linear-gradient(
+    180deg,
+    #7d8692 0%,
+    #454c56 10%,
+    #20242b 31%,
+    var(--v3-accent) 31%,
+    var(--v3-accent) 33.5%,
+    #4a515c 33.5%,
+    #07080b 44%,
+    #07080b 100%
+  );
+  --v3-lower: linear-gradient(180deg, #262b35 0%, #0d0f14 100%);
+  --v3-cup-rim: #8e97a3;
+  --v3-stop: radial-gradient(circle at 40% 30%, #eafdff 0%, #6fdcff 32%, #0f6a86 78%, #03222e 100%);
+  --v3-btn: radial-gradient(ellipse at 40% 30%, #eafdff 0%, #6fdcff 30%, #0f6a86 75%, #03222e 100%);
+  --v3-ball: radial-gradient(circle at 34% 26%, #eafdff 0%, #9fe9ff 16%, #2fa8cc 45%, #0d4c63 78%, #04161f 100%);
+  --v3-ring: linear-gradient(180deg, #8e97a3 0%, #4c535d 50%, #15181e 100%);
+}
+
+body[data-skin='retro'] {
+  --v3-body: linear-gradient(
+    90deg,
+    #3a2212 0%,
+    #a8734b 4%,
+    #7a5233 12%,
+    #6b4529 50%,
+    #5a3820 88%,
+    #7a5233 96.5%,
+    #2a170b 100%
+  );
+  --v3-chrome: linear-gradient(180deg, #8a641a 0%, #fbe9b8 20%, #c9962e 50%, #6e4f12 70%, #f0d38a 100%);
+  --v3-chrome-h: linear-gradient(
+    180deg,
+    #fff4d0 0%,
+    #f0d38a 18%,
+    #b8862a 42%,
+    #6e4f12 50%,
+    #c9962e 58%,
+    #f6e2a4 82%,
+    #8a641a 100%
+  );
+  --v3-sign: linear-gradient(180deg, #fbf3e0 0%, #efe1c0 50%, #d8c396 100%);
+  --v3-accent: #f0c063;
+  --v3-gold: linear-gradient(180deg, #fff6d8 0%, #f0c063 50%, #8a5f10 100%);
+  --v3-deck: linear-gradient(
+    180deg,
+    #fbeec6 0%,
+    #dcb562 10%,
+    #9a7224 31%,
+    var(--v3-accent) 31%,
+    var(--v3-accent) 33.5%,
+    #d3a84a 33.5%,
+    #5d4212 44%,
+    #2e2008 100%
+  );
+  --v3-lower: linear-gradient(180deg, #f4e9cf 0%, #cdb684 100%);
+  --v3-cup-rim: #f6e2a4;
+  --v3-stop: radial-gradient(circle at 40% 30%, #fff2cf 0%, #f0a63c 32%, #96520c 78%, #3a1d04 100%);
+  --v3-btn: radial-gradient(ellipse at 40% 30%, #fff2cf 0%, #f0a63c 30%, #96520c 75%, #3a1d04 100%);
+  --v3-ball: radial-gradient(circle at 34% 26%, #fff6e4 0%, #f6c9b4 16%, #c4523a 45%, #6d2417 78%, #2b0d07 100%);
+  --v3-ring: linear-gradient(180deg, #fbeec6 0%, #d1a542 50%, #6e4f12 100%);
+  --v3-stop-text: #fff8e8;
+}
+
+/* 本体の縦の照り。上が明るく、下へ沈む。どの皮でも同じ。 */
+:root {
+  --v3-body-sheen: linear-gradient(
+    180deg,
+    rgba(255, 255, 255, 0.18) 0%,
+    rgba(255, 255, 255, 0) 40%,
+    rgba(0, 0, 0, 0.45) 100%
+  );
+}
+
+/* === 筐体の器 ===
+ * 背景は持たない。本体は各段が自分の幅で描く——操作部だけが全幅なので、
+ * 1枚の背景で塗ると張り出しが出せない。 */
+#cabinet {
+  background: none;
+  border: none;
+  border-radius: 0;
+  box-shadow: none;
+}
+
+/* === トップランプ：看板の上辺に沿う金の帯 === */
+#toplamp {
+  margin: 0 calc(var(--deck-over) * 100%);
+  background: var(--isl-top, var(--v3-gold));
+  border-radius: 0;
+  box-shadow: 0 0 12px var(--v3-accent);
+}
+
+/* === 看板：クロムの台形の縁 ＋ 色の板 ===
+ * 板は無地のまま置き、島ごとの絵をはめる場所にする。 */
+#masthead {
+  margin: 0 calc(var(--deck-over) * 100%);
+  background: var(--v3-chrome-h);
+  box-shadow: none;
+}
+#masthead::before {
+  top: 7%;
+  left: 2.2%;
+  right: 2.2%;
+  bottom: 0;
+  height: auto;
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.35) 0%, rgba(255, 255, 255, 0.05) 50%, transparent 50%),
+    var(--v3-sign);
+  background-size: auto;
+  background-repeat: no-repeat;
+  opacity: 1;
+  filter: none;
+  clip-path: polygon(
+    calc(var(--cab-shoulder) - 1.5%) 0%,
+    calc(100% - var(--cab-shoulder) + 1.5%) 0%,
+    100% 100%,
+    0% 100%
+  );
+}
+#masthead .mark {
+  position: relative;
+  z-index: 1;
+}
+/* 皮ごとに板の文字色を合わせる。レトロの板はクリーム地なので濃い字にする。 */
+body[data-skin='retro'] #masthead .mark {
+  color: #5a3820;
+  text-shadow: 0 1px 0 rgba(255, 255, 255, 0.6);
+}
+
+/* === 画面：本体の壁 ＋ クロム枠 ＋ 沈んだ液晶 === */
+#screen {
+  position: relative;
+  margin: 0 calc(var(--deck-over) * 100%);
+  padding: calc(var(--game-w) * var(--scr-top)) calc(var(--game-w) * (var(--scr-wall) + var(--scr-chrome)))
+    calc(var(--game-w) * var(--scr-bot));
+  background: var(--v3-body-sheen), var(--v3-body);
+  min-height: 0;
+}
+/* クロム枠。液晶の外周に --scr-chrome の厚みで回す。 */
+#screen::before {
+  content: '';
+  position: absolute;
+  top: calc(var(--game-w) * (var(--scr-top) - var(--scr-chrome)));
+  bottom: calc(var(--game-w) * (var(--scr-bot) - var(--scr-chrome)));
+  left: calc(var(--game-w) * var(--scr-wall));
+  right: calc(var(--game-w) * var(--scr-wall));
+  background: var(--v3-chrome);
+  box-shadow:
+    inset 0 0 0 1px rgba(255, 255, 255, 0.35),
+    inset 0 0 0 3px rgba(0, 0, 0, 0.35),
+    0 6px 14px rgba(0, 0, 0, 0.55);
+  pointer-events: none;
+}
+#game-area {
+  z-index: 1;
+  width: 100%;
+  aspect-ratio: 1 / var(--game-aspect);
+  border-bottom: none;
+  outline: 2px solid #0d0a14;
+}
+
+/* === 計器の溝：画面の下の細い窓に BET と演出のランプ === */
+.header-shell {
+  margin: 0 calc(var(--deck-over) * 100%);
+  background: var(--v3-body-sheen), var(--v3-body);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+#info-bar {
+  width: 76%;
+  height: 72%;
+  background: #040305;
+  border: 1px solid rgba(0, 0, 0, 0.8);
+  border-bottom: 2px solid rgba(255, 255, 255, 0.55);
+  box-shadow:
+    inset 0 2px 6px rgba(0, 0, 0, 0.9),
+    0 0 0 3px rgba(0, 0, 0, 0.25);
+}
+#info-bar::before {
+  display: none;
+}
+
+/* === 操作部：全幅の台。上面は本体の幅から広がる台形 === */
+#control-panel {
+  background: var(--v3-deck);
+  box-shadow: 0 -4px 10px rgba(0, 0, 0, 0.45);
+  clip-path: polygon(
+    calc(var(--deck-over) * 100%) 0%,
+    calc(100% - var(--deck-over) * 100%) 0%,
+    100% 31%,
+    100% 100%,
+    0% 100%,
+    0% 31%
+  );
+}
+/* 上面の縁の照り（v3 の白い一線）。段の境目のモールは使わない。 */
+#control-panel::before {
+  left: calc(var(--deck-over) * 100%);
+  right: calc(var(--deck-over) * 100%);
+  height: 2px;
+  background: rgba(255, 255, 255, 0.9);
+  box-shadow: none;
+}
+/* 前面の光の筋。台に丸みがあるように見せる。 */
+#control-panel::after {
+  content: '';
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 33.5%;
+  bottom: 0;
+  background: linear-gradient(90deg, transparent 0%, rgba(255, 255, 255, 0.14) 50%, transparent 100%);
+  pointer-events: none;
+}
+
+/* ストップは**リールの真下**。リールの中心は canvas に対する比なので、
+   画面の枠（--scr-side）のぶん内側へ写す。縦は前面（金の帯より下）の中央。 */
+.stop-row {
+  top: 33.5%;
+  bottom: 0;
+}
+/* キーヒントは上面へ。前面はボタンで埋まるので、下端に置くとボタンの裏に潜る。 */
+#key-hint {
+  top: 5%;
+  bottom: auto;
+  padding-left: 22%;
+  font-size: max(8px, 1.9cqw);
+  line-height: 1.2;
+  color: rgba(20, 22, 28, 0.72);
+  text-shadow: 0 1px 0 rgba(255, 255, 255, 0.45);
+}
+body[data-skin='midnight'] #key-hint {
+  color: rgba(230, 240, 250, 0.6);
+  text-shadow: none;
+}
+.stop-row .stop-btn[data-reel='0'] {
+  left: calc((var(--scr-side) + var(--reel-cx-0) * (1 - 2 * var(--scr-side))) * 100%);
+}
+.stop-row .stop-btn[data-reel='1'] {
+  left: calc((var(--scr-side) + var(--reel-cx-1) * (1 - 2 * var(--scr-side))) * 100%);
+}
+.stop-row .stop-btn[data-reel='2'] {
+  left: calc((var(--scr-side) + var(--reel-cx-2) * (1 - 2 * var(--scr-side))) * 100%);
+}
+/* ボタンは黒い受け皿（cup）にはまり、縁をクロムが囲む。受け皿と縁のぶん外へ
+   広がるので、本体は前面に収まる大きさにする（v3 の比率で幅の約1割）。 */
+.stop-btn {
+  width: clamp(34px, 10.5cqw, 84px);
+  font-size: clamp(8px, 2.2cqw, 16px);
+  color: var(--v3-stop-text);
+  background: var(--v3-stop);
+  border: none;
+  box-shadow:
+    inset 0 3px 5px rgba(255, 255, 255, 0.35),
+    inset 0 -6px 10px rgba(0, 0, 0, 0.45),
+    0 0 0 max(3px, 1.1cqw) #05060a,
+    0 0 0 max(4px, 1.6cqw) var(--v3-cup-rim),
+    0 5px 9px max(4px, 1.6cqw) rgba(0, 0, 0, 0.5);
+}
+.stop-btn:hover {
+  background: var(--v3-stop);
+  filter: brightness(1.12);
+}
+
+/* 左のデッキ（MAXBET とレバー）。台形の肩に掛からないよう少し内へ。 */
+.deck-well {
+  left: calc(var(--deck-over) * 100% + 1.2cqw);
+  top: 4%;
+  bottom: 4%;
+}
+#bet-btn {
+  color: #fff;
+  background: var(--v3-btn);
+  border: none;
+  border-radius: 999px;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.6);
+  box-shadow:
+    inset 0 2px 3px rgba(255, 255, 255, 0.4),
+    inset 0 -3px 5px rgba(0, 0, 0, 0.45),
+    0 0 0 2px #05060a,
+    0 0 0 3px var(--v3-cup-rim),
+    0 3px 6px 2px rgba(0, 0, 0, 0.45);
+}
+#bet-btn:hover {
+  background: var(--v3-btn);
+  filter: brightness(1.12);
+}
+.lever-ball {
+  background: var(--v3-ball);
+  border-color: rgba(0, 0, 0, 0.55);
+}
+.lever-rod {
+  background: var(--v3-ring);
+}
+#lever-btn::after {
+  background: var(--v3-ring);
+}
+
+/* === 下パネル：色の板に丸いスピーカーが2つ ===
+ * 真ん中は空けてある（島ごとの絵をはめる場所）。 */
+#lowerpanel {
+  margin: 0 calc((var(--deck-over) + 0.012) * 100%);
+  padding: 0;
+  display: block;
+  background: var(--v3-body-sheen), var(--isl-lower, var(--v3-lower));
+  border-top: none;
+  box-shadow: inset 0 6px 10px rgba(0, 0, 0, 0.55);
+}
+/* 操作部との合わせ目のクロム。 */
+#lowerpanel::before {
+  left: 0;
+  right: 0;
+  height: clamp(3px, calc(var(--game-w) * 0.012), 8px);
+  background: var(--v3-chrome-h);
+}
+.lower-mark {
+  position: absolute;
+  inset: 0;
+}
+/* スピーカー。円く、クロムの輪で縁取る。光る時（data-lamp）は輪ごと色で滲む。
+   下パネルは container ではないので、輪の太さは cqw ではなく --game-w から起こす。 */
+.cabinet-lamp {
+  position: absolute;
+  top: 50%;
+  height: 70%;
+  width: auto;
+  aspect-ratio: 1;
+  transform: translate(-50%, -45%);
+  border: none;
+  border-radius: 50%;
+  opacity: 0.85;
+  background-color: #07070a;
+  background-size: 7px 7px;
+  box-shadow:
+    inset 0 0 10px rgba(0, 0, 0, 0.9),
+    0 0 0 max(2px, calc(var(--game-w) * 0.009)) #0b0b0f,
+    0 0 0 max(3px, calc(var(--game-w) * 0.014)) var(--v3-cup-rim),
+    0 3px 8px max(3px, calc(var(--game-w) * 0.014)) rgba(0, 0, 0, 0.5);
+}
+.cabinet-lamp[data-side='left'] {
+  left: 13%;
+}
+.cabinet-lamp[data-side='right'] {
+  left: 87%;
+}
+.cabinet-lamp[data-lamp] {
+  box-shadow:
+    inset 0 0 12px var(--lamp-dim),
+    0 0 0 max(2px, calc(var(--game-w) * 0.009)) #0b0b0f,
+    0 0 0 max(3px, calc(var(--game-w) * 0.014)) var(--lamp),
+    0 0 18px max(3px, calc(var(--game-w) * 0.014)) var(--lamp-dim);
+}
+
+/* === 下皿 === */
+#tray {
+  background: linear-gradient(180deg, #5a616a 0%, #22262c 40%, #0c0e11 100%);
+  border-top: none;
+}
+
+/* レトロの下パネルはクリーム地なので、ロゴを濃い字にする（金の光では溶ける）。 */
+body[data-skin='retro'] .lower-mark {
+  color: #6b4529;
+  text-shadow: 0 1px 0 rgba(255, 255, 255, 0.6);
+}

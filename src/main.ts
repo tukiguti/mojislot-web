@@ -157,6 +157,8 @@ import {
 } from './data/machines';
 import './style.css';
 import './skins.css';
+// 筐体 v3 の輪郭と質感。皮の変数（skins.css）より後に読む。
+import './cabinet-v3.css';
 import { applySkin, loadSkin } from './productions/CabinetSkin';
 
 // 保存してある筐体の皮を、筐体が組み上がる前に張る（張り直しで一瞬ちらつくのを防ぐ）。

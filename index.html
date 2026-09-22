@@ -124,6 +124,10 @@
         <span class="mark" id="machine-title">mojislot</span>
       </div>
 
+      <!-- 画面の段。本体の壁とクロム枠の中に液晶＋リール（#game-area）が沈む。
+           #game-area 自体は canvas と同じ大きさに保つ——中の DOM 演出や計器は
+           canvas の比率で置いてあるので、枠はこの外側で作る。 -->
+      <div id="screen">
       <div id="game-area">
         <canvas id="game"></canvas>
         <!-- 進行ステータスは演出液晶の左上に出す（ヘッダーを溢れさせない） -->
@@ -147,6 +151,7 @@
           <span class="rm-label">払出</span>
           <span class="rm-value" id="payout-display">0</span>
         </div>
+      </div>
       </div>
 
       <div id="overlays">
