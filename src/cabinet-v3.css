@@ -599,3 +599,54 @@ body[data-skin='retro'] .lower-mark {
     0 0.5cqw 0 1.8cqw var(--v3-cup-rim),
     0 1.2cqw 1.4cqw 1.8cqw rgba(0, 0, 0, 0.45);
 }
+
+/* === 看板の絵（島ごと）===
+ * ドット絵を板いっぱいに等倍の3倍格子で敷く（tools/gen_sign.py・216×44）。
+ * 島名は絵に焼き込まず、この上に文字で載せる。絵が無い島は色の板のまま。 */
+#cabinet[data-island] #masthead::before {
+  background-size: 100% 100%;
+  background-position: center;
+  image-rendering: pixelated;
+}
+#cabinet[data-island='hiragana_food'] #masthead::before {
+  background-image:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.18) 0%, rgba(255, 255, 255, 0) 45%),
+    url('/art/sign/hiragana_food.png');
+}
+#cabinet[data-island='hiragana_food'] #masthead .mark {
+  color: #fdf4e3;
+  text-shadow:
+    0 2px 0 #5a100c,
+    0 0 6px rgba(90, 16, 12, 0.6);
+}
+
+/* === 看板のランプ ===
+ * 上辺に7つ。**点き方で設定を示唆する**場所（示唆の中身は未実装で、いまは消灯のみ）。
+ * 消灯でも球が見えるようにする——無いものが突然光るのではなく、
+ * いつも見えている球が点く方が「ランプ」として読める。 */
+.sign-lamps {
+  position: absolute;
+  z-index: 2;
+  top: 13%;
+  /* 両脇の小物（握り・湯呑みの湯気）に掛からない幅。 */
+  left: 24%;
+  right: 24%;
+  display: flex;
+  justify-content: space-between;
+  pointer-events: none;
+}
+.sign-lamp {
+  width: calc(var(--masthead-h) * 0.1);
+  aspect-ratio: 1;
+  border-radius: 50%;
+  background: radial-gradient(circle at 38% 32%, #6b5a3a 0%, #2a2014 70%, #120c06 100%);
+  box-shadow:
+    0 0 0 1px rgba(0, 0, 0, 0.6),
+    0 0 0 2px rgba(255, 255, 255, 0.25);
+}
+.sign-lamp.on {
+  background: radial-gradient(circle at 38% 32%, #ffffff 0%, var(--sign-lamp, #ffd24d) 40%, #8a5a0c 100%);
+  box-shadow:
+    0 0 0 1px rgba(0, 0, 0, 0.5),
+    0 0 6px 2px var(--sign-lamp, #ffd24d);
+}

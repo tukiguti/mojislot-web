@@ -154,6 +154,7 @@ import {
   isRemixMachine,
   isTrialMachine,
   nextRemixStage,
+  REMIX_ISLAND_ID,
 } from './data/machines';
 import './style.css';
 import './skins.css';
@@ -329,6 +330,16 @@ export async function bootstrap() {
     const island = islandOfMachine(machine);
     const titleEl = document.getElementById('machine-title');
     if (titleEl) titleEl.textContent = island.trial ? chapter.name : island.name;
+    // 看板の絵は島ごと（cabinet-v3.css が data-island で当てる）。決め方はホールの
+    // ミニ筐体と同じ：リミックス台はリミックス、試打台は章、それ以外は島。
+    const cab = document.getElementById('cabinet');
+    if (cab) {
+      cab.dataset.island = isRemixMachine(machine)
+        ? REMIX_ISLAND_ID
+        : island.trial
+          ? chapterId
+          : island.id;
+    }
   }
   /**
    * リミックス島はボーナスごとに島が入れ替わる（＝配列を覚え直す）。その見返りに
