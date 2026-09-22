@@ -330,7 +330,12 @@ export async function bootstrap() {
   {
     const island = islandOfMachine(machine);
     const titleEl = document.getElementById('machine-title');
-    if (titleEl) titleEl.textContent = island.trial ? chapter.name : island.name;
+    if (titleEl) {
+      titleEl.textContent = island.trial ? chapter.name : island.name;
+      // 字数で文字の大きさを決める（cabinet-v3.css）。「セキュリティ」のような長い島名が
+      // 両脇の小物に食い込まないよう、空けてある真ん中の幅に収める。
+      titleEl.style.setProperty('--title-len', String(titleEl.textContent.length));
+    }
     // 看板の絵は島ごと（cabinet-v3.css が data-island で当てる）。決め方はホールの
     // ミニ筐体と同じ：リミックス台はリミックス、試打台は章、それ以外は島。
     const cab = document.getElementById('cabinet');

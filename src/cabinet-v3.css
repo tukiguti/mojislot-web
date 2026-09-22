@@ -197,9 +197,21 @@ body[data-skin='retro'] {
     0% 100%
   );
 }
+#masthead {
+  /* 島名の大きさを板の幅（cqw）から決めるため。 */
+  container-type: inline-size;
+}
 #masthead .mark {
   position: relative;
   z-index: 1;
+  /* **真ん中の空きに収める。** 看板の絵は両脇に小物を置き、真ん中（板の幅の
+     約4割）を島名のために空けてある。字数で割って、その幅を超えない大きさにする
+     （上限は従来どおり段の高さから）。字間のぶん 1.15 倍で見積もる。 */
+  font-size: min(
+    clamp(15px, calc(var(--masthead-h) * 0.42), 48px),
+    calc(38cqw / (var(--title-len, 2) * 1.15))
+  );
+  max-width: none;
 }
 /* 皮ごとに板の文字色を合わせる。レトロの板はクリーム地なので濃い字にする。 */
 body[data-skin='retro'] #masthead .mark {
@@ -619,6 +631,51 @@ body[data-skin='retro'] .lower-mark {
     0 2px 0 #5a100c,
     0 0 6px rgba(90, 16, 12, 0.6);
 }
+#cabinet[data-island='katakana_animal'] #masthead::before {
+  background-image:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.18) 0%, rgba(255, 255, 255, 0) 45%),
+    url('/art/sign/katakana_animal.png');
+}
+#cabinet[data-island='katakana_animal'] #masthead .mark {
+  color: #1c2a16;
+  text-shadow: 0 2px 0 rgba(255, 246, 192, 0.7);
+}
+#cabinet[data-island='hiragana_verb'] #masthead::before {
+  background-image:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.1) 0%, rgba(255, 255, 255, 0) 45%),
+    url('/art/sign/hiragana_verb.png');
+}
+#cabinet[data-island='hiragana_verb'] #masthead .mark {
+  color: #2effd0;
+  text-shadow: 0 0 8px rgba(46, 255, 208, 0.6);
+}
+#cabinet[data-island='yasai'] #masthead::before {
+  background-image:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.14) 0%, rgba(255, 255, 255, 0) 45%),
+    url('/art/sign/yasai.png');
+}
+#cabinet[data-island='yasai'] #masthead .mark {
+  color: #e8f0c8;
+  text-shadow: 0 2px 0 #1a3a10;
+}
+#cabinet[data-island='security'] #masthead::before {
+  background-image:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.08) 0%, rgba(255, 255, 255, 0) 45%),
+    url('/art/sign/security.png');
+}
+#cabinet[data-island='security'] #masthead .mark {
+  color: #39ff6a;
+  text-shadow: 0 0 8px rgba(57, 255, 106, 0.6);
+}
+#cabinet[data-island='remix'] #masthead::before {
+  background-image:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.12) 0%, rgba(255, 255, 255, 0) 45%),
+    url('/art/sign/remix.png');
+}
+#cabinet[data-island='remix'] #masthead .mark {
+  color: #e8dcff;
+  text-shadow: 0 2px 0 #141024;
+}
 
 /* === 看板のランプ ===
  * 上辺に7つ。**点き方で設定を示唆する**場所（示唆の中身は未実装で、いまは消灯のみ）。
@@ -627,12 +684,21 @@ body[data-skin='retro'] .lower-mark {
 .sign-lamps {
   position: absolute;
   z-index: 2;
-  top: 13%;
-  /* 両脇の小物（握り・湯呑みの湯気）に掛からない幅。 */
-  left: 24%;
-  right: 24%;
+  top: 11%;
+  /* 両脇の小物（握り・猫の耳・大根の葉）に掛からない幅。 */
+  left: 28%;
+  right: 28%;
   display: flex;
   justify-content: space-between;
+  /* **球の後ろに暗い帯を敷く。** 地が島ごとに違う（朱・黄土・若草・黒）ので、
+     帯が無いと朱の地に赤、黄土の地に黄のように、光った色が地に溶けて読めない。
+     帯の上なら、どの島でもどの色でも球が浮いて見える。 */
+  padding: calc(var(--masthead-h) * 0.025) calc(var(--masthead-h) * 0.06);
+  background: rgba(8, 6, 12, 0.72);
+  border-radius: 999px;
+  box-shadow:
+    inset 0 1px 2px rgba(0, 0, 0, 0.8),
+    0 1px 0 rgba(255, 255, 255, 0.18);
   pointer-events: none;
 }
 .sign-lamp {
@@ -719,7 +785,7 @@ body[data-skin='retro'] .lower-mark {
     background: radial-gradient(circle at 38% 32%, #ffffff 0%, var(--sign-lamp) 40%, rgba(0, 0, 0, 0.6) 100%);
     box-shadow:
       0 0 0 1px rgba(0, 0, 0, 0.5),
-      0 0 8px 3px var(--sign-lamp);
+      0 0 10px 4px var(--sign-lamp);
   }
 }
 /* 一斉の点滅（前半点灯・後半消灯）。 */
