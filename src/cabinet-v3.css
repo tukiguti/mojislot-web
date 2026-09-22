@@ -650,3 +650,58 @@ body[data-skin='retro'] .lower-mark {
     0 0 0 1px rgba(0, 0, 0, 0.5),
     0 0 6px 2px var(--sign-lamp, #ffd24d);
 }
+
+/* 示唆弱：金色が左から右へ流れる（2周）。1つずつ遅らせて点ける。 */
+.sign-lamps[data-level='weak'] .sign-lamp {
+  --sign-lamp: #ffd24d;
+  animation: sign-lamp-sweep 1.2s linear 2;
+}
+/* 示唆強：赤で全部が一斉に点滅する。流れる弱と光り方で見分けられるようにする。 */
+.sign-lamps[data-level='strong'] .sign-lamp {
+  --sign-lamp: #ff3b3b;
+  animation: sign-lamp-blink 0.32s steps(1, end) 8;
+}
+.sign-lamps[data-level='weak'] .sign-lamp:nth-child(1) { animation-delay: 0s; }
+.sign-lamps[data-level='weak'] .sign-lamp:nth-child(2) { animation-delay: 0.1s; }
+.sign-lamps[data-level='weak'] .sign-lamp:nth-child(3) { animation-delay: 0.2s; }
+.sign-lamps[data-level='weak'] .sign-lamp:nth-child(4) { animation-delay: 0.3s; }
+.sign-lamps[data-level='weak'] .sign-lamp:nth-child(5) { animation-delay: 0.4s; }
+.sign-lamps[data-level='weak'] .sign-lamp:nth-child(6) { animation-delay: 0.5s; }
+.sign-lamps[data-level='weak'] .sign-lamp:nth-child(7) { animation-delay: 0.6s; }
+
+@keyframes sign-lamp-sweep {
+  0%,
+  40%,
+  100% {
+    background: radial-gradient(circle at 38% 32%, #6b5a3a 0%, #2a2014 70%, #120c06 100%);
+    box-shadow:
+      0 0 0 1px rgba(0, 0, 0, 0.6),
+      0 0 0 2px rgba(255, 255, 255, 0.25);
+  }
+  10%,
+  25% {
+    background: radial-gradient(circle at 38% 32%, #ffffff 0%, var(--sign-lamp) 40%, #8a5a0c 100%);
+    box-shadow:
+      0 0 0 1px rgba(0, 0, 0, 0.5),
+      0 0 8px 3px var(--sign-lamp);
+  }
+}
+@keyframes sign-lamp-blink {
+  0% {
+    background: radial-gradient(circle at 38% 32%, #ffffff 0%, var(--sign-lamp) 40%, #7a0c0c 100%);
+    box-shadow:
+      0 0 0 1px rgba(0, 0, 0, 0.5),
+      0 0 10px 4px var(--sign-lamp);
+  }
+  50% {
+    background: radial-gradient(circle at 38% 32%, #6b5a3a 0%, #2a2014 70%, #120c06 100%);
+    box-shadow:
+      0 0 0 1px rgba(0, 0, 0, 0.6),
+      0 0 0 2px rgba(255, 255, 255, 0.25);
+  }
+}
+/* 動きを減らす設定では流さず、一定時間だけ点けたままにする（段は色で読める）。 */
+.a11y-reduce-motion .sign-lamps[data-level] .sign-lamp {
+  animation: none;
+  background: radial-gradient(circle at 38% 32%, #ffffff 0%, var(--sign-lamp) 40%, #8a5a0c 100%);
+}

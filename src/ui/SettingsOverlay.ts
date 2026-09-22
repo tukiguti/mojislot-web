@@ -51,6 +51,8 @@ export interface DebugActions {
   triggerNextStepUp(color: 'blue' | 'green' | 'red' | 'gold'): void;
   /** 筐体ランプを点ける（設定示唆）。素はボーナス終了時にしか出ない。 */
   triggerCabinetLamp(): void;
+  /** 看板のランプを光らせる（設定示唆）。素はコンボの節目にしか出ない。 */
+  triggerSignLamp(level: 'weak' | 'strong'): void;
   /** ボーナス終了リザルトを出す（終了画面の示唆つき）。 */
   triggerBonusResult(): void;
   /** 払い出し音。枚数ぶんの粒が並ぶのを確かめる。 */
@@ -239,6 +241,8 @@ export class SettingsOverlay {
             <button data-debug="step-red" type="button">次レバー ステップアップ赤</button>
             <button data-debug="step-gold" type="button">次レバー ステップアップ金</button>
             <button data-debug="cabinet-lamp" type="button">筐体ランプ</button>
+            <button data-debug="sign-weak" type="button">看板ランプ 弱</button>
+            <button data-debug="sign-strong" type="button">看板ランプ 強</button>
             <button data-debug="bonus-result" type="button">ボーナス終了画面</button>
             <button data-debug="payout-sound" type="button">払い出し音</button>
             <button data-debug="win" type="button">役成立演出</button>
@@ -400,6 +404,12 @@ export class SettingsOverlay {
             break;
           case 'cabinet-lamp':
             this.debugActions.triggerCabinetLamp();
+            break;
+          case 'sign-weak':
+            this.debugActions.triggerSignLamp('weak');
+            break;
+          case 'sign-strong':
+            this.debugActions.triggerSignLamp('strong');
             break;
           case 'bonus-result':
             this.debugActions.triggerBonusResult();

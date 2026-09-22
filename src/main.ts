@@ -53,6 +53,7 @@ import { recordEffects } from './productions/EffectStats';
 import { EffectTable } from './ui/EffectTable';
 import { drawEndScreen } from './productions/SettingHint';
 import { drawCabinetLamp } from './productions/CabinetLamp';
+import { drawSignLamp, isSignLampMilestone, type SignLampLevel } from './productions/SignLamp';
 import { EffectEligibility } from './productions/EffectEligibility';
 import { SfxEngine } from './audio/SfxEngine';
 import { BgmEngine } from './audio/BgmEngine';
@@ -1789,6 +1790,10 @@ export async function bootstrap() {
       // 設定示唆のランプ。素はボーナス終了時にしか点かないので単体で見られるようにする。
       setCabinetLamp(drawCabinetLamp(machineSetting, Math.random).color);
     },
+    triggerSignLamp: (level: 'weak' | 'strong') => {
+      // 看板のランプ。素はコンボが節目（5・10…）に届いた時にしか光らない。
+      showSignLamp(level);
+    },
     triggerBonusResult: () => {
       // 終了画面の示唆はボーナスを抜けないと見られない。中身は本番と同じ抽選を回す。
       showBonusResult(200, 'big');
@@ -1887,6 +1892,24 @@ export async function bootstrap() {
    * 経路を増やした意味がない。台を見れば分かる状態で残す。
    * 次の終了時に引き直すので、点いている色は常に**直近のボーナスのもの**。
    */
+  /**
+   * 看板のランプを光らせる（コンボの節目の設定示唆・productions/SignLamp.ts）。
+   * 示唆弱は金色が左から右へ流れ、示唆強は赤で全点滅する。しばらく光って消える。
+   */
+  const signLampsEl = document.querySelector<HTMLElement>('.sign-lamps');
+  let signLampTimer: number | null = null;
+  const showSignLamp = (level: SignLampLevel) => {
+    if (!signLampsEl || level === 'off') return;
+    if (signLampTimer !== null) window.clearTimeout(signLampTimer);
+    // 同じ段が続いた時もアニメーションを頭から流し直す
+    delete signLampsEl.dataset.level;
+    void signLampsEl.offsetWidth;
+    signLampsEl.dataset.level = level;
+    signLampTimer = window.setTimeout(() => {
+      delete signLampsEl.dataset.level;
+      signLampTimer = null;
+    }, 2600);
+  };
   const setCabinetLamp = (color: string | null) => {
     for (const el of cabinetLampEls) {
       if (color === null || color === 'off') delete el.dataset.lamp;
@@ -2658,6 +2681,10 @@ export async function bootstrap() {
       const { hits, willHit, premiumHit, bonusHit, isPremium, isRegular } =
         outcome;
       const { streakAfter, streakMult, win, reachKind } = outcome;
+      // コンボが節目（5・10・15…）に届いた瞬間に、看板のランプで設定を示唆する。
+      if (willHit && isSignLampMilestone(streakAfter)) {
+        showSignLamp(drawSignLamp(machineSetting, Math.random));
+      }
       const quizTargetYakuId =
         currentEffect === 'quiz' ? quizState.targetYakuId() : null;
       // 問題IDは resolve で消えるので、判定の前に控える。
