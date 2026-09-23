@@ -242,11 +242,13 @@ document.documentElement.style.setProperty(
     );
   }
   /**
-   * リール左右の余白と、窓の下端。差枚と払出の計器を**リールの左下・右下**へ
-   * 置くのに使う（2026-09-23）。余白は額（REEL_BEZEL_OUT）の外側で測る。
+   * リール左右の余白と、窓の上端・下端。差枚と払出の計器を**リールの左下・右下**、
+   * 残りゲーム数とコンボを**左上・右上**へ置くのに使う（2026-09-23）。
+   * 余白は額（REEL_BEZEL_OUT）の外側で測る。
    */
   const root = document.documentElement.style;
   root.setProperty('--reel-gutter', String((startX - REEL_BEZEL_OUT) / CANVAS_W));
+  root.setProperty('--reel-top', String(LIQUID_AREA_H / CANVAS_H));
   root.setProperty(
     '--reel-bottom',
     String((LIQUID_AREA_H + REEL_BEZEL_OUT * 2 + REEL_BLOCK_H) / CANVAS_H),
@@ -902,7 +904,8 @@ export async function bootstrap() {
   );
   const resultEl = requireEl('result-display');
   const zukanBtn = requireEl<HTMLButtonElement>('zukan-btn');
-  const bonusStatusEl = requireEl('bonus-status');
+  const sideRemainingEl = requireEl('side-remaining');
+  const sideRemainingValueEl = requireEl('side-remaining-value');
   const cabinetEl = requireEl('cabinet');
   const muteBtn = requireEl<HTMLButtonElement>('mute-btn');
   const autoBtn = requireEl<HTMLButtonElement>('auto-btn');
@@ -919,7 +922,16 @@ export async function bootstrap() {
   })();
   if (!autoAvailable) autoBtn.hidden = true;
   const settingsBtn = requireEl<HTMLButtonElement>('settings-btn');
-  const streakStatusEl = requireEl('streak-status');
+  const sideComboEl = requireEl('side-combo');
+  const sideComboValueEl = requireEl('side-combo-value');
+  const sideComboMultEl = requireEl('side-combo-mult');
+  const sideComboNextEl = requireEl('side-combo-next');
+  /** 数が増えた瞬間に一度だけ弾ませる（上乗せ・コンボ継続が目に入るように）。 */
+  const bump = (el: HTMLElement) => {
+    el.classList.remove('bump');
+    void el.offsetWidth;
+    el.classList.add('bump');
+  };
   const rescueStatusEl = requireEl('rescue-status');
   const stageStatusEl = requireEl('stage-status');
   /**
@@ -1627,16 +1639,26 @@ export async function bootstrap() {
   // 連チャン表示（倍率も併記）＋ cabinet の連チャンオーラ
   // 連チャン昇格演出。段の定義は EffectPresentation.STREAK_TIERS。
   let prevStreakTier = 0;
+  let prevStreak = 0;
+  /**
+   * リール右上の「コンボ」。ボーナス中は常に、通常時は2連から出す。
+   * 倍率と「あと◯で×◯」を添えて、次に何を目指して止めるかが読めるようにする。
+   */
+  const updateComboSide = () => {
+    const streak = playStats.stats.get().streak;
+    const show = bonusZone.active.get() || streak >= 2;
+    sideComboEl.hidden = !show;
+    if (!show) return;
+    sideComboValueEl.textContent = String(streak);
+    const mult = calc.streakMult(streak);
+    sideComboMultEl.textContent = mult > 1 ? `×${mult}` : '';
+    const next = calc.nextStreakTier(streak);
+    sideComboNextEl.textContent = next ? `あと${next.minStreak - streak}で×${next.mult}` : '最大';
+  };
   const updateStreakUI = (streak: number) => {
-    if (streak >= 2) {
-      const mult = calc.streakMult(streak);
-      const multTag = mult > 1 ? ` ×${mult}` : '';
-      streakStatusEl.hidden = false;
-      streakStatusEl.textContent = `${streak} 連${multTag}`;
-    } else {
-      streakStatusEl.hidden = true;
-      streakStatusEl.textContent = '';
-    }
+    updateComboSide();
+    if (streak > prevStreak && !sideComboEl.hidden) bump(sideComboValueEl);
+    prevStreak = streak;
     const tier = streakTierOf(streak);
     cabinetEl.classList.remove(...STREAK_TIER_CLASSES);
     if (tier >= 1) cabinetEl.classList.add(STREAK_TIERS[tier - 1].className);
@@ -1819,23 +1841,27 @@ export async function bootstrap() {
     const active = bonusZone.active.get();
     const remaining = bonusZone.remaining.get();
     if (active) {
-      // 区間中は BIG/REG を区別せず「ボーナス中」に統一（おかわりは同じ残り回数に合算され、
+      // リール左上の「残り」は BIG/REG を区別しない（おかわりは同じ残り回数に合算され、
       // 種別を出すと BIG 中の RB おかわりで表示が揺れて紛らわしいため）。
       // BIG/REG の差は突入カットイン（金/銀）と終了リザルトで出す。
-      bonusStatusEl.hidden = false;
-      bonusStatusEl.textContent = `ボーナス中 残り${remaining}`;
+      // 残りが増えた＝上乗せ。数字を弾ませて、カットインを見逃しても分かるようにする。
+      if (!sideRemainingEl.hidden && remaining > Number(sideRemainingValueEl.textContent)) {
+        bump(sideRemainingValueEl);
+      }
+      sideRemainingEl.hidden = false;
+      sideRemainingValueEl.textContent = String(remaining);
       cabinetEl.classList.add('bonus');
       startBonusSparkle();
       // BGM 起動済みならボーナス曲へ。未起動なら placeBet 時に再生される。
       // **BIG と REG で別の曲**＝鳴った瞬間にどちらを引いたか分かる。
       bgm.play(bonusZone.kind.get() ?? 'big');
     } else {
-      bonusStatusEl.hidden = true;
-      bonusStatusEl.textContent = '';
+      sideRemainingEl.hidden = true;
       cabinetEl.classList.remove('bonus');
       stopBonusSparkle();
       bgm.play('normal');
     }
+    updateComboSide();
   };
   bonusZone.active.subscribe(updateBonusUI);
   bonusZone.remaining.subscribe(updateBonusUI);

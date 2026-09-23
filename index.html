@@ -137,8 +137,6 @@
           <!-- リミックス島だけ出す。いま何の配列を打っているかが常時見えていないと、
                ボーナス終了時の一瞬の告知を見逃した人に手掛かりが残らない -->
           <div id="stage-status" hidden></div>
-          <div id="bonus-status" hidden></div>
-          <div id="streak-status" hidden></div>
           <div id="rescue-status" hidden></div>
         </div>
         <div id="result-display"></div>
@@ -152,6 +150,19 @@
         <div class="reel-meter reel-meter-right">
           <span class="rm-label">払出</span>
           <span class="rm-value" id="payout-display">0</span>
+        </div>
+        <!-- リール左右の上側（2026-09-23）。左はボーナスの残りゲーム数、右はコンボ数と
+             次に倍率が上がるまでの数。目押ししながら手元の視野で読めるようにする。 -->
+        <div class="reel-side reel-side-left" id="side-remaining" hidden>
+          <span class="rm-label">残り</span>
+          <span class="rs-value" id="side-remaining-value">0</span>
+          <span class="rs-unit">G</span>
+        </div>
+        <div class="reel-side reel-side-right" id="side-combo" hidden>
+          <span class="rm-label">コンボ</span>
+          <span class="rs-value" id="side-combo-value">0</span>
+          <span class="rs-mult" id="side-combo-mult"></span>
+          <span class="rs-next" id="side-combo-next"></span>
         </div>
       </div>
       </div>
