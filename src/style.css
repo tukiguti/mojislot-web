@@ -3294,33 +3294,41 @@ body.shake {
   margin-top: 8px;
 }
 
-/* === 出題者の吹き出し === */
+/* === 出題者の吹き出し ===
+ * 出題者（液晶の左下の枠）の**真上**に出す（2026-09-23）。以前は液晶の上から22%に
+ * 固定していて、液晶を低くした後は出題者の頭と枠に被っていた。位置は main.ts が
+ * 出題者の枠から流し込む（--master-top / --master-left / --master-cx）。
+ * 下端を枠の上端に合わせ、長い台詞は上へ伸びて折り返す（液晶の外へ出さない）。 */
 .speech-bubble {
   position: absolute;
-  /* 出題者（左下・144×168）の頭上へ。% 指定で canvas 拡縮に追随させる。
-     液晶は 600×400 で、出題者の頭頂は y≒222/732≒30%、中心 x≒88/600≒15%。
-     中央〜右のクイズ問題文に被らないよう、左カラム内（max-width 40%）に収める。 */
-  top: 22%;
-  left: 4%;
-  max-width: 40%;
+  bottom: calc((1 - var(--master-top, 0.18)) * 100% + 12px);
+  left: calc(var(--master-left, 0.017) * 100%);
+  box-sizing: border-box;
+  width: max-content;
+  max-width: 44%;
   background: rgba(255, 255, 255, 0.96);
   color: #222;
-  padding: 6px 12px;
+  padding: 0.9cqw 2cqw;
   border-radius: 12px;
-  font-size: 13px;
+  font-size: clamp(10px, 2.3cqw, 14px);
   font-weight: bold;
+  line-height: 1.35;
   font-family: 'Hiragino Sans', 'Yu Gothic', sans-serif;
   z-index: 20;
   pointer-events: none;
-  white-space: nowrap;
+  word-break: keep-all;
+  overflow-wrap: anywhere;
   opacity: 0;
   transform: translateY(8px) scale(0.85);
+  transform-origin: var(--bubble-tail-x) 100%;
   transition:
     opacity 0.18s ease-out,
     transform 0.22s cubic-bezier(0.34, 1.56, 0.64, 1);
   box-shadow:
     0 3px 10px rgba(0, 0, 0, 0.45),
     0 0 0 2px var(--gold);
+  /* しっぽは出題者の中心の真上。 */
+  --bubble-tail-x: calc((var(--master-cx, 0.147) - var(--master-left, 0.017)) * 100cqw);
 }
 .speech-bubble.show {
   opacity: 1;
@@ -3329,8 +3337,8 @@ body.shake {
 .speech-bubble::after {
   content: '';
   position: absolute;
-  bottom: -8px;
-  left: 28px;
+  bottom: -10px;
+  left: calc(var(--bubble-tail-x) - 8px);
   width: 0;
   height: 0;
   border-left: 8px solid transparent;
@@ -3340,8 +3348,8 @@ body.shake {
 .speech-bubble::before {
   content: '';
   position: absolute;
-  bottom: -5px;
-  left: 30px;
+  bottom: -6px;
+  left: calc(var(--bubble-tail-x) - 6px);
   width: 0;
   height: 0;
   border-left: 6px solid transparent;

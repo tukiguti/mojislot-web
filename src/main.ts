@@ -625,6 +625,14 @@ export async function bootstrap() {
   const MASTER_H = 56 * QUIZMASTER_SCALE;
   const MASTER_X = 16 + MASTER_W / 2;
   const MASTER_Y = LIQUID_AREA_H - 10 - MASTER_H / 2;
+  // 吹き出しは出題者の**枠の上**に出す（style.css の .speech-bubble）。枠は絵の外に
+  // 6px 張り出すので、その上端と左端・中心を canvas 比で渡す。
+  {
+    const root = document.documentElement.style;
+    root.setProperty('--master-top', String((MASTER_Y - MASTER_H / 2 - 6) / CANVAS_H));
+    root.setProperty('--master-left', String((MASTER_X - MASTER_W / 2 - 6) / CANVAS_W));
+    root.setProperty('--master-cx', String(MASTER_X / CANVAS_W));
+  }
 
   const quizmasterView = new QuizmasterView({
     artBase: ART_BASE,
