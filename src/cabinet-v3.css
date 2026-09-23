@@ -677,8 +677,232 @@ body[data-skin='retro'] .lower-mark {
   text-shadow: 0 2px 0 #141024;
 }
 
+/* === 島ごとの筐体の色（2026-09-23）===
+ * ホールで見えている島の筐体（data/islandThemes.ts）と同じ色に塗る。台に座っても
+ * 「寿司の台」「動物の台」のままに見えるようにするため。クロム（看板の縁・画面枠・
+ * 操作部の上面・レバー）は全島共通——実機もシャーシは共通で、パネルとボタンが違う。
+ *
+ * 島が決めるのは次の色だけで、グラデーションの組み方はここで1回だけ書く
+ * （:root で組んだ変数は :root の値で固まるので、島の色を入れるには組み直しが要る）。
+ *  - `--isl-b0`〜`--isl-b6`：本体の横の面取り（左端の影 → 照り → 地 → 右端の影）
+ *  - `--isl-front-*`：操作部の前面、`--v3-accent`：上面と前面の境の帯
+ *  - `--isl-btn-*`：STOP と MAXBET、`--isl-ball-*`：レバーの玉
+ *  - `--isl-lower-text`：下パネルのロゴ（style.css の .lower-mark が見る）
+ * 皮（設定の3案）より島の色が勝つ。 */
+#cabinet[data-island] {
+  --v3-body: linear-gradient(
+    90deg,
+    var(--isl-b0) 0%,
+    var(--isl-b1) 4%,
+    var(--isl-b2) 12%,
+    var(--isl-b3) 50%,
+    var(--isl-b4) 88%,
+    var(--isl-b5) 96.5%,
+    var(--isl-b6) 100%
+  );
+  --v3-deck: linear-gradient(
+    180deg,
+    #f4f6f8 0%,
+    #b9c0c8 10%,
+    #6c747e 31%,
+    var(--v3-accent) 31%,
+    var(--v3-accent) 33.5%,
+    var(--isl-front-hi) 33.5%,
+    var(--isl-front-mid) 44%,
+    var(--isl-front-lo) 100%
+  );
+  --v3-stop: radial-gradient(
+    circle at 40% 30%,
+    var(--isl-btn-hi) 0%,
+    var(--isl-btn-mid) 32%,
+    var(--isl-btn-lo) 78%,
+    var(--isl-btn-dk) 100%
+  );
+  --v3-btn: radial-gradient(
+    ellipse at 40% 30%,
+    var(--isl-btn-hi) 0%,
+    var(--isl-btn-mid) 30%,
+    var(--isl-btn-lo) 75%,
+    var(--isl-btn-dk) 100%
+  );
+  --v3-ball: radial-gradient(
+    circle at 34% 26%,
+    #ffffff 0%,
+    var(--isl-ball-hi) 16%,
+    var(--isl-ball-mid) 45%,
+    var(--isl-ball-lo) 78%,
+    #120c06 100%
+  );
+  /* 皮の差を消す（レトロの金の縁・ミッドナイトの暗い縁は島の色と喧嘩する）。 */
+  --v3-chrome: linear-gradient(180deg, #6b737c 0%, #eef1f4 20%, #8d959e 50%, #3b424b 70%, #d9dee4 100%);
+  --v3-chrome-h: linear-gradient(
+    180deg,
+    #ffffff 0%,
+    #d9dee4 18%,
+    #7e8791 42%,
+    #3b424b 50%,
+    #8d959e 58%,
+    #e6eaee 82%,
+    #6b737c 100%
+  );
+  --v3-ring: linear-gradient(180deg, #f6f8fa 0%, #9aa3ad 50%, #3b424b 100%);
+  --v3-lever-base: linear-gradient(90deg, #3b424b 0%, #f6f8fa 22%, #9aa3ad 55%, #3b424b 100%);
+  --v3-lever-inner: #c6ccd3;
+  --v3-ring-mid: #9aa3ad;
+  --v3-stop-text: #fff;
+}
+#cabinet[data-island] .lower-mark {
+  color: var(--isl-lower-text);
+  text-shadow: 0 1px 0 rgba(0, 0, 0, 0.35);
+}
+
+/* 寿司：生成りの白木に朱。ボタンは朱塗り。 */
+#cabinet[data-island='hiragana_food'] {
+  --isl-b0: #5a4028;
+  --isl-b1: #f6ead4;
+  --isl-b2: #e4d2b2;
+  --isl-b3: #d8c3a0;
+  --isl-b4: #c2ab8c;
+  --isl-b5: #d8c3a0;
+  --isl-b6: #4a3420;
+  --v3-accent: #c8342a;
+  --isl-front-hi: #dccdb0;
+  --isl-front-mid: #a89070;
+  --isl-front-lo: #4a3420;
+  --isl-btn-hi: #ffe2d8;
+  --isl-btn-mid: #e04a38;
+  --isl-btn-lo: #8a1c16;
+  --isl-btn-dk: #3a0806;
+  --isl-ball-hi: #ffe9a8;
+  --isl-ball-mid: #e0b060;
+  --isl-ball-lo: #8a5a0c;
+  --v3-cup-rim: #e0d0b4;
+  --v3-lower: linear-gradient(180deg, #fdf4e3 0%, #e0d0b4 100%);
+  --isl-lower-text: #c8342a;
+}
+/* 動物：黄土の本体に深緑。ボタンは若葉、玉は橙。 */
+#cabinet[data-island='katakana_animal'] {
+  --isl-b0: #4a3810;
+  --isl-b1: #f4dca0;
+  --isl-b2: #e2c476;
+  --isl-b3: #d4b460;
+  --isl-b4: #b8963c;
+  --isl-b5: #d4b460;
+  --isl-b6: #3e2e0c;
+  --v3-accent: #2e6b30;
+  --isl-front-hi: #dcc18c;
+  --isl-front-mid: #a8873c;
+  --isl-front-lo: #3e2e0c;
+  --isl-btn-hi: #f0ffe0;
+  --isl-btn-mid: #7ab848;
+  --isl-btn-lo: #2e6b30;
+  --isl-btn-dk: #102810;
+  --isl-ball-hi: #ffd9a0;
+  --isl-ball-mid: #e07020;
+  --isl-ball-lo: #8a3a0c;
+  --v3-cup-rim: #f0e6c0;
+  --v3-lower: linear-gradient(180deg, #2e6b30 0%, #1c4a1e 100%);
+  --isl-lower-text: #f0e6c0;
+}
+/* 動詞：白物家電の白に蛍光ミント。 */
+#cabinet[data-island='hiragana_verb'] {
+  --isl-b0: #6a7a7c;
+  --isl-b1: #ffffff;
+  --isl-b2: #eef3f3;
+  --isl-b3: #e2e9e9;
+  --isl-b4: #c4cfd0;
+  --isl-b5: #e2e9e9;
+  --isl-b6: #5a6a6c;
+  --v3-accent: #2effd0;
+  --isl-front-hi: #e4eaea;
+  --isl-front-mid: #b4c0c2;
+  --isl-front-lo: #4a5a5c;
+  --isl-btn-hi: #ffffff;
+  --isl-btn-mid: #7fffe2;
+  --isl-btn-lo: #0fb89a;
+  --isl-btn-dk: #064a3e;
+  --isl-ball-hi: #d8fff4;
+  --isl-ball-mid: #2effd0;
+  --isl-ball-lo: #0a7a66;
+  --v3-cup-rim: #8fa0a2;
+  --v3-lower: linear-gradient(180deg, #e8eef0 0%, #b4c0c2 100%);
+  --isl-lower-text: #0b8a74;
+}
+/* 八百屋：木箱の板に若草。玉はトマト。 */
+#cabinet[data-island='yasai'] {
+  --isl-b0: #3e2e16;
+  --isl-b1: #e6cc98;
+  --isl-b2: #d4b580;
+  --isl-b3: #c0a06a;
+  --isl-b4: #96794a;
+  --isl-b5: #c0a06a;
+  --isl-b6: #33260f;
+  --v3-accent: #7ac142;
+  --isl-front-hi: #bfa274;
+  --isl-front-mid: #8f7346;
+  --isl-front-lo: #33260f;
+  --isl-btn-hi: #f8fbee;
+  --isl-btn-mid: #9acd50;
+  --isl-btn-lo: #4a7a20;
+  --isl-btn-dk: #1a3008;
+  --isl-ball-hi: #ffc4b0;
+  --isl-ball-mid: #e8453a;
+  --isl-ball-lo: #8a1a10;
+  --v3-cup-rim: #e0cba0;
+  --v3-lower: linear-gradient(180deg, #f4f7e4 0%, #d4dcb4 100%);
+  --isl-lower-text: #2f5d1e;
+}
+/* セキュリティ：黒鉄に CRT の緑。 */
+#cabinet[data-island='security'] {
+  --isl-b0: #050805;
+  --isl-b1: #52665a;
+  --isl-b2: #323c34;
+  --isl-b3: #283029;
+  --isl-b4: #1c231e;
+  --isl-b5: #323c34;
+  --isl-b6: #030503;
+  --v3-accent: #39ff6a;
+  --isl-front-hi: #2a322c;
+  --isl-front-mid: #161c18;
+  --isl-front-lo: #050805;
+  --isl-btn-hi: #d8ffe0;
+  --isl-btn-mid: #39ff6a;
+  --isl-btn-lo: #0e7a2a;
+  --isl-btn-dk: #03200a;
+  --isl-ball-hi: #c8ffd4;
+  --isl-ball-mid: #39ff6a;
+  --isl-ball-lo: #0e5a22;
+  --v3-cup-rim: #5a6e5c;
+  --v3-lower: linear-gradient(180deg, #0e120f 0%, #050a04 100%);
+  --isl-lower-text: #39ff6a;
+}
+/* リミックス：夜の紫紺に藤色。 */
+#cabinet[data-island='remix'] {
+  --isl-b0: #08060e;
+  --isl-b1: #4a4270;
+  --isl-b2: #342e54;
+  --isl-b3: #2a2540;
+  --isl-b4: #1e1a34;
+  --isl-b5: #342e54;
+  --isl-b6: #050409;
+  --v3-accent: #b8a0ff;
+  --isl-front-hi: #3a3458;
+  --isl-front-mid: #1e1a34;
+  --isl-front-lo: #08060e;
+  --isl-btn-hi: #ffffff;
+  --isl-btn-mid: #b8a0ff;
+  --isl-btn-lo: #5a48a8;
+  --isl-btn-dk: #1e1a34;
+  --isl-ball-hi: #ffe9a8;
+  --isl-ball-mid: #e8a028;
+  --isl-ball-lo: #8a5a0c;
+  --v3-cup-rim: #8a80b8;
+  --v3-lower: linear-gradient(180deg, #2a2540 0%, #141024 100%);
+  --isl-lower-text: #e8dcff;
+}
+
 /* === 看板のランプ ===
- * 上辺に7つ。**点き方で設定を示唆する**場所（示唆の中身は未実装で、いまは消灯のみ）。
+ * 上辺に7つ。**点き方で設定を示唆する**場所（コンボの節目で抽選・SignLamp.ts）。
  * 消灯でも球が見えるようにする——無いものが突然光るのではなく、
  * いつも見えている球が点く方が「ランプ」として読める。 */
 .sign-lamps {
