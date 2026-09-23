@@ -107,3 +107,18 @@ describe('PayoutCalc.streakMult', () => {
     expect(calc.streakMult(99)).toBe(3.0);
   });
 });
+
+describe('PayoutCalc.nextStreakTier', () => {
+  const calc = new PayoutCalc(PAYOUT);
+
+  it('次に倍率が上がるしきい値を返す', () => {
+    expect(calc.nextStreakTier(0)).toEqual({ minStreak: 2, mult: 1.2 });
+    expect(calc.nextStreakTier(2)).toEqual({ minStreak: 5, mult: 2.0 });
+    expect(calc.nextStreakTier(11)).toEqual({ minStreak: 12, mult: 3.0 });
+  });
+
+  it('上が無ければ null', () => {
+    expect(calc.nextStreakTier(12)).toBeNull();
+    expect(calc.nextStreakTier(99)).toBeNull();
+  });
+});

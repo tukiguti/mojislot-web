@@ -90,5 +90,18 @@ export class PayoutCalc {
     }
     return best;
   }
-}
 
+  /**
+   * 次に倍率が上がるコンボ数と、その倍率。リール右の「コンボ」表示が
+   * 「あと◯で×◯」を出すのに使う。もう上が無ければ null。
+   */
+  nextStreakTier(streak: number): { minStreak: number; mult: number } | null {
+    const current = this.streakMult(streak);
+    let next: { minStreak: number; mult: number } | null = null;
+    for (const tier of this.payout.streakTiers) {
+      if (tier.minStreak <= streak || tier.mult <= current) continue;
+      if (!next || tier.minStreak < next.minStreak) next = { minStreak: tier.minStreak, mult: tier.mult };
+    }
+    return next;
+  }
+}
