@@ -162,7 +162,7 @@ export class RoundResolver {
  * 右リールは何が止まっていてもよい。ビタ押し判定でそこまで要求すると
  * 「関係ないリールを外したせいで付かない」という理不尽になる。
  */
-function requiredReels(hits: readonly PaylineHit[]): Set<number> {
+export function requiredReels(hits: readonly PaylineHit[]): Set<number> {
   const reels = new Set<number>();
   for (const h of hits) {
     const line = PAYLINES.find((p) => p.id === h.paylineId);

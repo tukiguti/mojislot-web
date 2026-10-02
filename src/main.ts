@@ -5,7 +5,7 @@ import { loadGlyphArt } from './render/ReelArt';
 import { RunTimer } from './ui/RunTimer';
 import { SymbolColorResolver } from './render/SymbolStyle';
 import { YakuJudge } from './core/YakuJudge';
-import { RoundResolver } from './core/RoundResolver';
+import { RoundResolver, requiredReels } from './core/RoundResolver';
 import {
   createRoundContext,
   type RoundContext,
@@ -2039,8 +2039,6 @@ export async function bootstrap() {
     // AUTO の狙い状態もクリア
     autoTargetYaku = null;
     aimPending.clear();
-    // 押下精度の記録もクリア
-    lastPressErrorMs.fill(Infinity);
     lastSlipCells.fill(0);
     updateButtons();
   };
@@ -2050,11 +2048,7 @@ export async function bootstrap() {
     window.setTimeout(() => btn.classList.remove('flash'), 100);
   };
 
-  // ビタ押し判定の閾値（ms）。data/tuning の bitaWindowMs で調整（既定12＝1コマ50msの約¼）。
-  const BITA_MS = tuning.bitaWindowMs;
-
-  // 各リールの直近押下の精度＆滑り量（役成立時にビタ集計するため）
-  const lastPressErrorMs: number[] = Array(REEL_COUNT).fill(Infinity);
+  // 各リールの直近の滑り量（役成立時にビタを判定するため。滑り0＝自力で止めた）
   const lastSlipCells: number[] = Array(REEL_COUNT).fill(0);
   /**
    * 確認表示に出す滑り量。`lastSlipCells` とは**寿命が違う**ので別に持つ。
@@ -2562,9 +2556,9 @@ export async function bootstrap() {
     // 押し順役の判定はこの停止を含めて確定させるため、引き込み解決の前に順を記録する。
     stopOrder.push(idx);
 
-    // 滑り（引き込み）を解決：停止済みリールの可視3セルを SlipResolver に渡す
-    const total = engine.strip.cells.length;
-    const basePos = (((Math.round(engine.position) % total) + total) % total);
+    // 滑り（引き込み）を解決：停止済みリールの可視3セルを SlipResolver に渡す。
+    // 押下位置は「今押したら滑り0で止まるコマ」（前へしか進まない）。
+    const basePos = engine.pressPosition();
     const stoppedVisibles: (VisibleColumn | null)[] = engines.map((e) => {
       if (e.state.get() !== 'stopped') return null;
       return {
@@ -2586,18 +2580,14 @@ export async function bootstrap() {
       stoppedPositions,
     );
 
-    const result = engine.stop(timestamp, slipCells);
-    // 押下の精度情報を保存（役成立時の bita 集計で参照）
-    lastPressErrorMs[idx] = result.errorMs;
+    const stopped = engine.stop(timestamp, slipCells, performance.now());
     lastSlipCells[idx] = slipCells;
     checkSlipCells[idx] = slipCells;
-    const bita = result.errorMs <= BITA_MS;
-    if (bita) {
-      sfx.bita();
-      showSoundCue('ビタ', 'bita');
-    } else {
-      sfx.stop();
-    }
+    // 止めた瞬間には「ビタ」を鳴らさない（2026-10-02）。以前は「どれかのコマの中心から
+    // ±12ms 以内か」で鳴らしていたが、1コマは50msなので**でたらめに押しても48%で鳴った**。
+    // 配当の付くビタ（役に必要なリールを滑り0で止めた）とも別物だった。ビタは
+    // 全リールが止まって役が決まってから、配当と一緒に知らせる（下の結果表示）。
+    sfx.stop();
     views[idx].triggerStopBounce();
     // 押したリールの狙えガイドは消す。止めた後も文字と矢印が浮いていると、
     // まだ狙うものが残っているように見える（2026-09-14）。
@@ -2606,13 +2596,7 @@ export async function bootstrap() {
     // 押した位置や出目では変わらない——チェリーを落としても予告は生きる。
     bumpStep(stopOrder.length >= REEL_COUNT ? stepFinalColor : undefined);
     flashButton(stopBtns[idx]);
-    // ビタ押し成功時のみ、強めの金色リップル。それ以外は控えめな赤。
-    // 色だけの差だったので、色に頼らない設定では bita 側を二重の輪にする（CSS）。
-    spawnButtonRipple(
-      stopBtns[idx],
-      bita ? '#ffd700' : '#ff5566',
-      bita ? 'bita' : undefined,
-    );
+    spawnButtonRipple(stopBtns[idx], '#ff5566');
 
     // 1確（いっかく）＝第1停止だけでボーナスが確定する出目。中段にボーナス専用図柄が
     // 止まった形がこれにあたる。実機の用語では「リーチ目」は全リール停止後の出目の総称で、
@@ -2707,7 +2691,16 @@ export async function bootstrap() {
       }
     }
 
+    // 全停止の判定は**最後のリールが滑り切ってから**。出目は押した瞬間に決まっているが、
+    // 払い出しや結果の表示が、まだ滑っているリールより先に出ると順序が逆に見える。
     if (engines.every((e) => e.state.get() === 'stopped')) {
+      window.setTimeout(finishRound, stopped.slideMs);
+    }
+  };
+
+  /** 全リールが止まった後の判定と表示。stopReel から、最後の滑りが終わってから呼ぶ。 */
+  const finishRound = (): void => {
+    {
       // 全停止したので「狙え！」演出は閉じる（レバーオン示唆として出た場合）
       hideAimNotice();
       hideShisaNotice();
@@ -2898,9 +2891,14 @@ export async function bootstrap() {
       }
 
       // ビタ押し：役に必要なリールを1本残らず自力で止めた時だけ1カウント
-      // （判定は RoundResolver）。押下精度 ±BITA_MS は出目に影響しないので、
-      // 押し味のSE・波紋にだけ使い、スコアには関与させない。
-      if (outcome.bitaPerfect) zukanState.recordBita();
+      // （判定は RoundResolver）。**ビタはこの1つの意味だけ**で、音もここで鳴らす。
+      if (outcome.bitaPerfect) {
+        zukanState.recordBita();
+        sfx.bita();
+        showSoundCue('ビタ', 'bita');
+        // 役に使ったリールのストップを金の二重の輪で光らせる（色に頼らない設定でも分かる形）
+        for (const r of requiredReels(hits)) spawnButtonRipple(stopBtns[r], '#ffd700', 'bita');
+      }
 
       // ミッションは達成状況だけを永続化し、結果表示と重ならないよう通知を遅らせる。
       // コインや戦の totalWin には加算しない。

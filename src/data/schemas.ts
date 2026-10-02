@@ -613,8 +613,6 @@ export const TuningSchema = z.object({
    * ブラー強度 = （1フレームの移動px）× この係数。速度に比例して自動で強くなる。
    */
   motionBlurStrength: z.number().min(0).default(0.34),
-  /** ビタ押し成功窓（±ms）。 */
-  bitaWindowMs: z.number().positive().default(12),
   /** 突入直前の「溜め」演出の長さ（ms）。 */
   entryChargeMs: z.number().nonnegative().default(650),
   /**
