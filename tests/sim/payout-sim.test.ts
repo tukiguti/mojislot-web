@@ -353,6 +353,7 @@ function runChapter(
     tenpaiDetector,
     stopTable,
     pullInCells: tuning.assist.pullInCells,
+    reels: reelCfg.reels.map((r) => r.cells),
   });
   const reachEyes = new ReachEyes(
     ReachEyeTableSchema.parse(readJson(`${DATA}/reach/${chapter}.json`)),

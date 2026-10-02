@@ -6,6 +6,7 @@ import { SlipResolver, type VisibleColumn } from '../../src/productions/SlipReso
 import { StopController } from '../../src/core/StopController';
 import { StopTableLookup } from '../../src/core/StopTable';
 import { TenpaiDetector } from '../../src/productions/TenpaiDetector';
+import { PullInGuard } from '../../src/core/PullInGuard';
 import {
   PAYLINES,
   ROW_VERTICAL,
@@ -96,181 +97,9 @@ export function bonusOnlySymbols(yakuList: YakuList, reel: number): Set<string> 
  * 実測で発展68%→38%、中段告知46.5%→14.1%まで落ちた。だから中段が届く限り中段。
  */
 /**
- * 引き込み保証（`feasible` / `robust`）。**[lol-slot] の `ReelControl` と同じ判定**を、
- * 停止テーブルを焼く時に回す。
- *
- * 実機の制御は「成立した役の図柄が4コマ以内にあれば必ず有効ラインへ引き込む」ことを
- * 求められる。各リールで「その時点で成立する最小のスベリ」を選ぶだけだと、
- * **先に止めたリールの位置しだいで、残りをどう止めても成立しなくなる**。
- * 実測で、正しく狙ったのに揃わない組み合わせが69件あり、**その全部が
- * スベリの選び方しだいで揃えられた**（配列の問題ではなかった）。
- *
- *   feasible … 未停止のリールに「どこかの位置」を置けば成立するか
- *   robust   … 未停止のリールを**どこで押されても**成立させ続けられるか
- *
- * robust は再帰。止めた先でも保証が続くかを確かめる。純粋関数なのでキャッシュできる。
+ * 引き込み保証は `src/core/PullInGuard.ts`（停止制御の本体と同じ実装）を使う。
+ * 以前はここにだけ書いてあり、表の無い押し順（順押し以外）では保証が効いていなかった。
  */
-function makeGuard(
-  reels: readonly (readonly string[])[],
-  pullInCells: number,
-) {
-  const n = reels[0].length;
-  /** 狙ったとみなす押下位置の幅（図柄の手前何コマまで）。AUTO は手前2コマで押す。 */
-  const AIM_SPAN = pullInCells;
-  const rowsAt = (reel: number, pos: number): string[] => [
-    visibleAt(reels[reel], pos, 'top'),
-    visibleAt(reels[reel], pos, 'middle'),
-    visibleAt(reels[reel], pos, 'bottom'),
-  ];
-  /** 3リールとも止まった状態で、狙いの役が5ラインのどれかで成立しているか。 */
-  const matches = (targets: readonly Yaku[], stops: readonly number[]): boolean => {
-    const w = [rowsAt(0, stops[0]), rowsAt(1, stops[1]), rowsAt(2, stops[2])];
-    return targets.some((y) =>
-      PAYLINES.some((L) =>
-        y.symbols.every((sym, r) => sym === undefined || w[r][L.cells[r][0]] === sym),
-      ),
-    );
-  };
-  const key = (targets: readonly Yaku[], stops: readonly (number | null)[]) =>
-    `${targets.map((y) => y.id).join('+')}|${stops.join(',')}`;
-  const feasCache = new Map<string, boolean>();
-  const robustCache = new Map<string, boolean>();
-
-  const feasible = (targets: readonly Yaku[], stops: readonly (number | null)[]): boolean => {
-    const k = key(targets, stops);
-    const hit = feasCache.get(k);
-    if (hit !== undefined) return hit;
-    const work = [...stops];
-    const rest = [0, 1, 2].filter((i) => work[i] === null);
-    const search = (idx: number): boolean => {
-      if (idx >= rest.length) return matches(targets, work as number[]);
-      const r = rest[idx];
-      for (let c = 0; c < n; c++) {
-        work[r] = c;
-        if (search(idx + 1)) {
-          work[r] = null;
-          return true;
-        }
-      }
-      work[r] = null;
-      return false;
-    };
-    const ok = search(0);
-    feasCache.set(k, ok);
-    return ok;
-  };
-
-  const robust = (targets: readonly Yaku[], stops: readonly (number | null)[]): boolean => {
-    const k = key(targets, stops);
-    const hit = robustCache.get(k);
-    if (hit !== undefined) return hit;
-    robustCache.set(k, true); // 再訪よけ
-    let ok = true;
-    outer: for (let r = 0; r < 3; r++) {
-      if (stops[r] !== null) continue;
-      for (let press = 0; press < n; press++) {
-        let reachable = false;
-        for (let slip = 0; slip <= pullInCells && !reachable; slip++) {
-          const next = [...stops];
-          next[r] = (press + slip) % n;
-          if (feasible(targets, next) && robust(targets, next)) reachable = true;
-        }
-        if (!reachable) {
-          ok = false;
-          break outer;
-        }
-      }
-    }
-    if (stops.every((v) => v !== null)) ok = matches(targets, stops as number[]);
-    robustCache.set(k, ok);
-    return ok;
-  };
-
-  /**
-   * **狙った押下位置に限った保証**。`robust` は「どこで押されても」を求めるので
-   * 配列によっては成立せず、そこで素の `feasible` へ落ちると貪欲に戻ってしまう。
-   *
-   * プレイヤーは図柄を狙って押すので、**その図柄が引き込める押下位置**だけを
-   * 見れば十分。ここを保証すれば「正しく狙ったのに揃わない」は消える。
-   */
-  const aimedCache = new Map<string, boolean>();
-  const robustAimed = (
-    targets: readonly Yaku[],
-    stops: readonly (number | null)[],
-  ): boolean => {
-    const k = key(targets, stops);
-    const hit = aimedCache.get(k);
-    if (hit !== undefined) return hit;
-    aimedCache.set(k, true);
-    let ok = true;
-    outer: for (let r = 0; r < 3; r++) {
-      if (stops[r] !== null) continue;
-      const syms = new Set(
-        targets.map((y) => y.symbols[r]).filter((s): s is string => s !== undefined),
-      );
-      if (syms.size === 0) continue; // チェリーの第3リールなど、狙う図柄が無い
-      for (let press = 0; press < n; press++) {
-        // **狙った押し方の範囲**だけを見る。図柄に届くだけの端の位置（滑りを使い切って
-        // 1つの段にしか置けない場所）まで保証しようとすると、どの停止位置を選んでも
-        // 成立せず、素の feasible へ落ちて貪欲に戻る。実測でそうなった。
-        // 手前3コマ以内で押した時＝実際の打ち方（ゲーム本体のAUTOは手前2コマ）。
-        const canAim = Array.from({ length: AIM_SPAN + 1 }, (_, s) => (press + s) % n).some(
-          (pos) => rowsAt(r, pos).some((c) => syms.has(c)),
-        );
-        if (!canAim) continue;
-        let good = false;
-        for (let slip = 0; slip <= pullInCells && !good; slip++) {
-          const next = [...stops];
-          next[r] = (press + slip) % n;
-          if (feasible(targets, next) && robustAimed(targets, next)) good = true;
-        }
-        if (!good) {
-          ok = false;
-          break outer;
-        }
-      }
-    }
-    if (stops.every((v) => v !== null)) ok = matches(targets, stops as number[]);
-    aimedCache.set(k, ok);
-    return ok;
-  };
-
-  /**
-   * そのリールを press から止める時のスベリを選ぶ。
-   * ① 引き込み保証（feasible かつ robust）を満たす候補
-   * ② 狙った押下位置に限った保証（robustAimed）を満たす候補
-   * ③ 保証はできないが成立させうる候補
-   * を、`prefer` が返す優先順位（段の振り分けなど）で並べて先頭を採る。
-   */
-  const chooseSlip = (
-    targets: readonly Yaku[],
-    stops: readonly (number | null)[],
-    reel: number,
-    press: number,
-    prefer: (slip: number) => number,
-  ): number | null => {
-    const cands = Array.from({ length: pullInCells + 1 }, (_, s) => s).sort(
-      (a, b) => prefer(a) - prefer(b) || a - b,
-    );
-    for (const pass of [0, 1, 2]) {
-      for (const s of cands) {
-        const next = [...stops];
-        next[reel] = (press + s) % n;
-        if (!feasible(targets, next)) continue;
-        // **狙った押下位置での保証を最優先**にする。robust（どこで押されても
-        // 揃いうる）は5ラインあるぶん通りやすく、選択の縛りとして弱い。先に
-        // 通してしまうと「正しく狙ったのに揃わない」が残る（実測で4役）。
-        if (pass === 0 && !(robustAimed(targets, next) && robust(targets, next))) continue;
-        if (pass === 1 && !robustAimed(targets, next)) continue;
-        return s;
-      }
-    }
-    return null;
-  };
-
-  return { chooseSlip, feasible, robust, robustAimed };
-}
-
 export function computeFirstStopSlip(
   resolver: SlipResolver,
   targets: readonly Yaku[],
@@ -385,7 +214,7 @@ describe.skipIf(!RUN)('停止テーブル生成', () => {
         bonusOnlySymbols(yakuList, reel).has(visibleAt(cells0(reel), pos, 'middle'));
       const cells0 = (reel: number): readonly string[] => reels[reel];
 
-      const guard = makeGuard(reels, tuning.assist.pullInCells);
+      const guard = new PullInGuard(yakuList, reels, tuning.assist.pullInCells);
       /** 段の振り分け順（押下位置ごと）。同じ保証度なら先頭の段を採る。 */
       const ORDERS_G: readonly (readonly Vertical[])[] = [
         ['top', 'bottom', 'middle'],
@@ -502,6 +331,7 @@ describe.skipIf(!RUN)('停止テーブル生成', () => {
         tenpaiDetector: new TenpaiDetector(yakuList),
         stopTable: new StopTableLookup({ mode: chapter, firstStop }),
         pullInCells: tuning.assist.pullInCells,
+        reels,
       });
       const visCol = (cells: readonly string[], pos: number): VisibleColumn => ({
         top: visibleAt(cells, pos, 'top'),
@@ -539,25 +369,22 @@ describe.skipIf(!RUN)('停止テーブル生成', () => {
           const byFirstPos: number[][] = Array.from({ length: n }, () =>
             new Array<number>(n).fill(0),
           );
-          for (let press0 = 0; press0 < n; press0++) {
-            const pos0 = (press0 + firstStop[role.id][0][press0]) % n;
+          // **第1停止の停止位置は全21通りを埋める**。順押しで実際に止まる位置だけを
+          // 計算すると残りの欄が0（滑りなし）のまま残り、別の押し順で同じ状態に
+          // なった時にその空欄を引いてしまう（第3停止で実際に起きた）。
+          for (let pos0 = 0; pos0 < n; pos0++) {
             const left = visCol(reels[0], pos0);
             for (let press1 = 0; press1 < n; press1++) {
-              const tg = flagYakusFor(yakuList, role.id).filter((y) => flagIds.includes(y.id));
-              const g2 =
-                tg.length > 0
-                  ? guard.chooseSlip(tg, [pos0, null, null], 1, press1, () => 0)
-                  : null;
-              byFirstPos[pos0][press1] =
-                g2 ??
-                controller.resolveSlip({
-                  reelIndex: 1,
-                  basePosition: press1,
-                  strip: { id: 'r1', cells: reels[1] },
-                  stoppedVisibles: [left, null, null],
-                  flagYakuIds: flagIds,
-                  flagKey: role.id,
-                });
+              // 制御そのものを通す（引き込み保証も StopController の中で効く）。
+              byFirstPos[pos0][press1] = controller.resolveSlip({
+                reelIndex: 1,
+                basePosition: press1,
+                strip: { id: 'r1', cells: reels[1] },
+                stoppedVisibles: [left, null, null],
+                stoppedPositions: [pos0, null, null],
+                flagYakuIds: flagIds,
+                flagKey: role.id,
+              });
             }
           }
           out[role.id] = byFirstPos;
@@ -569,10 +396,11 @@ describe.skipIf(!RUN)('停止テーブル生成', () => {
 
       // --- 第3停止（順押し）---
       // 左・中を止めた状態から右リールの各押下位置で制御を実行する。
-      // 添字は第1・第2の**停止位置**。到達しない位置の枠は 0 のまま残る（引かれない）。
+      // 添字は第1・第2の**停止位置**。**全 21×21 の組を埋める**——左と中が止まっていれば
+      // 押し順に関係なくこの表を引くので（中→左→右でも引く）、順押しで到達する組だけを
+      // 計算すると空欄の0（滑りなし）を引いて②が出た（2026-10-02）。
       const buildThird = (
         bonus: boolean,
-        second: Record<string, number[][]>,
       ): Record<string, number[][][]> => {
         const out: Record<string, number[][][]> = {};
         for (const role of yakuList.internalRoles) {
@@ -580,28 +408,20 @@ describe.skipIf(!RUN)('停止テーブル生成', () => {
           const table: number[][][] = Array.from({ length: n }, () =>
             Array.from({ length: n }, () => new Array<number>(n).fill(0)),
           );
-          for (let press0 = 0; press0 < n; press0++) {
-            const pos0 = (press0 + firstStop[role.id][0][press0]) % n;
+          for (let pos0 = 0; pos0 < n; pos0++) {
             const left = visCol(reels[0], pos0);
-            for (let press1 = 0; press1 < n; press1++) {
-              const pos1 = (press1 + second[role.id][pos0][press1]) % n;
+            for (let pos1 = 0; pos1 < n; pos1++) {
               const mid = visCol(reels[1], pos1);
               for (let press2 = 0; press2 < n; press2++) {
-                const tg3 = flagYakusFor(yakuList, role.id).filter((y) => flagIds.includes(y.id));
-                const g3 =
-                  tg3.length > 0
-                    ? guard.chooseSlip(tg3, [pos0, pos1, null], 2, press2, () => 0)
-                    : null;
-                table[pos0][pos1][press2] =
-                  g3 ??
-                  controller.resolveSlip({
-                    reelIndex: 2,
-                    basePosition: press2,
-                    strip: { id: 'r2', cells: reels[2] },
-                    stoppedVisibles: [left, mid, null],
-                    flagYakuIds: flagIds,
-                    flagKey: role.id,
-                  });
+                table[pos0][pos1][press2] = controller.resolveSlip({
+                  reelIndex: 2,
+                  basePosition: press2,
+                  strip: { id: 'r2', cells: reels[2] },
+                  stoppedVisibles: [left, mid, null],
+                  stoppedPositions: [pos0, pos1, null],
+                  flagYakuIds: flagIds,
+                  flagKey: role.id,
+                });
               }
             }
           }
@@ -609,8 +429,8 @@ describe.skipIf(!RUN)('停止テーブル生成', () => {
         }
         return out;
       };
-      const thirdStop = buildThird(false, secondStop);
-      const bonusThirdStop = buildThird(true, bonusSecondStop);
+      const thirdStop = buildThird(false);
+      const bonusThirdStop = buildThird(true);
 
       const out = {
         mode: chapter,

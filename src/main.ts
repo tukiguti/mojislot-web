@@ -2406,6 +2406,7 @@ export async function bootstrap() {
     tenpaiDetector,
     stopTable,
     pullInCells: PULL_IN_CELLS,
+    reels: reelConfig.reels.map((r) => r.cells),
   });
 
   /**
@@ -2464,6 +2465,7 @@ export async function bootstrap() {
       tenpaiDetector,
       stopTable,
       pullInCells: PULL_IN_CELLS,
+      reels: reelConfig.reels.map((r) => r.cells),
     });
 
     // --- 図鑑（島ごとの記録なので作り直す。innerHTML で組むので旧DOMとリスナは消える）---

@@ -70,6 +70,7 @@ describe('ボーナス中のこぼし監査', () => {
           StopTableSchema.parse(readJson(`${DATA}/stops/${chapter}.json`)),
         ),
         pullInCells: tuning.assist.pullInCells,
+        reels: cells,
       });
 
       const play = (
@@ -78,16 +79,19 @@ describe('ボーナス中のこぼし監査', () => {
         flagKey: string,
       ): Grid3x3 => {
         const stopped: (VisibleColumn | null)[] = [null, null, null];
+        const stops: (number | null)[] = [null, null, null];
         for (const i of STOP_ORDER) {
           const slip = ctrl.resolveSlip({
             reelIndex: i,
             basePosition: press[i],
             strip: reelCfg.reels[i],
             stoppedVisibles: stopped,
+            stoppedPositions: stops,
             flagYakuIds: flagIds,
             flagKey,
           });
           const pos = (press[i] + slip) % N;
+          stops[i] = pos;
           stopped[i] = {
             top: cells[i][(pos + 1) % N],
             middle: cells[i][pos],

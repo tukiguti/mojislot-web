@@ -95,6 +95,7 @@ describe('引き込み経路の監査：assist先でも出目＝フラグが崩�
         tenpaiDetector: tenpai,
         stopTable,
         pullInCells: 4,
+        reels,
       });
       // フラグ集合ケース: 各表示役（単独）／1枚役グループ。
       const cases: { key: string; ids: string[] }[] = [
@@ -113,16 +114,19 @@ describe('引き込み経路の監査：assist先でも出目＝フラグが崩�
               for (let p2 = 0; p2 < N; p2++) {
                 const press = [p0, p1, p2];
                 const stopped: (VisibleColumn | null)[] = [null, null, null];
+                const pos: (number | null)[] = [null, null, null];
                 for (const idx of order) {
                   const slip = controller.resolveSlip({
                     reelIndex: idx,
                     basePosition: press[idx],
                     strip: { id: `r${idx}`, cells: reels[idx] },
                     stoppedVisibles: stopped,
+                    stoppedPositions: pos,
                     flagYakuIds: c.ids,
                     flagKey: c.key,
                   });
-                  stopped[idx] = visCol(reels[idx], (press[idx] + slip) % N);
+                  pos[idx] = (press[idx] + slip) % N;
+                  stopped[idx] = visCol(reels[idx], pos[idx]);
                 }
                 const grid = buildGrid(stopped as VisibleColumn[]);
                 const bad = judge

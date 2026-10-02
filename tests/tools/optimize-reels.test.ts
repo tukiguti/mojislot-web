@@ -135,6 +135,7 @@ function makeController(
       StopTableSchema.parse(buildStopTable(yakuList, reels, resolver)),
     ),
     pullInCells: PULL_IN,
+    reels,
   });
 }
 

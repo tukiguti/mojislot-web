@@ -7,6 +7,7 @@ import {
 import { TenpaiDetector, type TenpaiLine } from '../productions/TenpaiDetector';
 import { PAYLINES, ROW_VERTICAL } from './Paylines';
 import type { StopTableLookup } from './StopTable';
+import { PullInGuard } from './PullInGuard';
 
 /**
  * 停止制御（実機のリール制御）。1リール停止時のスベリコマ数を決める**唯一の実装**。
@@ -19,8 +20,11 @@ import type { StopTableLookup } from './StopTable';
  *  1. フリーズ中 → 制御を一切かけない（強制セット位置へスナップ）
  *  2. 第1停止（他リール未停止）→ **停止テーブル**を引く。この時点ではどの役も
  *     ロックし得ないので蹴りが効かず、出目（リーチ目・入り目）の設計点になる
- *  3. 当選役があれば引き込む（最終リールは5ラインのテンパイ／それ以外は中段）
- *  4. 引き込めなければ、非当選役が揃わない位置へ決定的に蹴る
+ *  3. 第2・第3停止は、順押しなら停止テーブルを引く。表が無い押し順では
+ *     **引き込み保証**（`PullInGuard`：残りを狙って押せば必ず揃う滑り）で選ぶ。
+ *     表も同じ判定で焼いてあるので、押し順で制御の性質は変わらない
+ *  4. 保証で選べなければ当選役を引き込む（最終リールは5ラインのテンパイ）
+ *  5. 引き込めなければ、非当選役が揃わない位置へ決定的に蹴る
  *
  * 引き込み窓は**内部役だけで決まり演出では変わらない**（実機準拠）。
  * 難易度はリール配列（図柄の間隔）が担う。
@@ -75,6 +79,11 @@ export interface StopControllerDeps {
   stopTable?: StopTableLookup | null;
   /** 引き込み窓（コマ）。実機準拠の4。 */
   pullInCells: number;
+  /**
+   * 3リールの配列。引き込み保証（`PullInGuard`）が残りのリールまで見て滑りを選ぶのに使う。
+   * 停止要求には自分のリールしか載らないので、ここで全リールを持たせる。
+   */
+  reels: readonly (readonly string[])[];
 }
 
 export class StopController {
@@ -83,6 +92,7 @@ export class StopController {
   private readonly tenpai: TenpaiDetector;
   private readonly stopTable: StopTableLookup | null;
   private readonly pullInCells: number;
+  private readonly guard: PullInGuard;
 
   constructor(deps: StopControllerDeps) {
     this.allYakus = [
@@ -96,6 +106,7 @@ export class StopController {
     this.tenpai = deps.tenpaiDetector;
     this.stopTable = deps.stopTable ?? null;
     this.pullInCells = deps.pullInCells;
+    this.guard = new PullInGuard(deps.yakuList, deps.reels, deps.pullInCells);
   }
 
   /** このリールのスベリコマ数（0..4）。 */
@@ -171,6 +182,25 @@ export class StopController {
               : null
             : null;
       if (tabled !== null && tabled !== undefined) return tabled;
+    }
+
+    // 表が無い第2・第3停止（順押し以外の押し順）：引き込み保証で選ぶ。
+    // 表を焼く時と同じ判定なので、**押し順で「狙えば揃う」が変わらない**。
+    // 以前はここで素の引き込み（その時点で揃う最小の滑り）に落ちていて、
+    // 先に止めた位置しだいで残りが詰み、正しく狙っても揃わない押し方が残った。
+    if (!noneStopped && req.stoppedPositions && winTargets.length > 0) {
+      const stops = req.stoppedPositions.map((p, i) => (i === req.reelIndex ? null : p));
+      // 出てよい役は許可リスト全体（ボーナス中のこぼし先の1枚役を含む）。
+      // 狙うのは winTargets だけ。
+      const guarded = this.guard.chooseSlip(
+        winTargets,
+        stops,
+        req.reelIndex,
+        req.basePosition,
+        () => 0,
+        req.flagYakuIds,
+      );
+      if (guarded !== null) return guarded;
     }
 
     let slip = this.pullIn(winTargets, req, ctx);

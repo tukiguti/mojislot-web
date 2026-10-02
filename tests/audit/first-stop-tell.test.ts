@@ -86,6 +86,7 @@ describe('1確の監査：非ボーナスフラグで中段告知が誤爆しな
           StopTableSchema.parse(readJson(`${DATA}/stops/${chapter}.json`)),
         ),
         pullInCells: tuning.assist.pullInCells,
+        reels: cells,
       });
 
       const singleIds = yakuList.singleYaku.map((y) => y.id);
