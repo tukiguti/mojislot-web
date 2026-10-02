@@ -61,6 +61,16 @@ export const DEFAULT_KEYS: KeyMap = {
 
 const STORAGE_KEY = 'mojislot.keyBindings.v1';
 
+/**
+ * 2026-09-09 より前の既定（ベット＝B、レバー＝スペース）。
+ *
+ * 以前は割り当てを**丸ごと**保存していたので、既定をスペース共有へ変えても、
+ * それまでに一度でも保存した人には古い既定が残り続けた（2026-10-02 にユーザーの
+ * 指摘で発覚）。この組のまま残っている人は、変えたのではなく古い既定なので、
+ * ベットを今の既定へ戻す。
+ */
+const LEGACY_BET = 'b';
+
 /** 表示用のキー名。スペースなど、そのままだと読めないものを置き換える。 */
 export function keyLabel(key: string): string {
   if (key === ' ') return 'Space';
@@ -118,17 +128,27 @@ export class KeyBindings {
       const out: Partial<KeyMap> = {};
       for (const { action } of ACTION_LABELS) {
         const v = (parsed as Record<string, unknown>)[action];
-        if (typeof v === 'string' && isAssignable(v)) out[action] = v;
+        // 空文字は「他の操作にキーを譲って空いた」状態。これも保存した選択なので戻す
+        if (typeof v === 'string' && (v === '' || isAssignable(v))) out[action] = v;
       }
+      if (out.bet === LEGACY_BET && out.lever === DEFAULT_KEYS.lever) delete out.bet;
       return out;
     } catch {
       return {};
     }
   }
 
+  /**
+   * **既定から変えたキーだけ**を保存する。丸ごと保存すると、既定を見直しても
+   * 保存したことのある人に届かない（上の LEGACY_BET の件）。
+   */
   private save(): void {
     try {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(this.map));
+      const changed: Partial<KeyMap> = {};
+      for (const { action } of ACTION_LABELS) {
+        if (this.map[action] !== DEFAULT_KEYS[action]) changed[action] = this.map[action];
+      }
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(changed));
     } catch {
       /* 保存できなくても遊べる（プライベートウィンドウ等） */
     }

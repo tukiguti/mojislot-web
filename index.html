@@ -56,6 +56,9 @@
 
     <div id="unit-column">
     <aside id="unit-panel">
+      <!-- 操作方法。キーは設定で変えられるので、中身は main.ts が今の割り当てで書く。 -->
+      <div class="unit-head">操作方法</div>
+      <dl id="controls-guide" class="controls-guide"></dl>
       <div class="unit-head">データ</div>
       <!-- 演出データ（発生回数と期待度）。中身は EffectTable.ts が描く。 -->
       <div id="effect-table"></div>
@@ -222,7 +225,6 @@
           <button class="stop-btn" data-reel="1" data-key="[S]">STOP</button>
           <button class="stop-btn" data-reel="2" data-key="[D]">STOP</button>
         </div>
-        <div id="key-hint">Space:レバー  /  A・S・D:ストップ  /  B:BET  /  1〜4:クイズ</div>
       </footer>
 
       <!-- 下パネル＝ロゴ板。スピーカーグリル（筐体ランプ）はここで左右に付く。

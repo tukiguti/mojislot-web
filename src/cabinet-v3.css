@@ -313,9 +313,8 @@ body[data-skin='retro'] #masthead .mark {
  * **見本の1単位 = 0.1cqw**（cqw は操作部の幅）、縦は操作部の上端（見本の y=1508）から
  * 測る。部品の位置と大きさはここに書いた数字がそのまま見本の座標に対応する。 */
 
-/* 見本に無いものは出さない。BET と演出のランプ、キーヒント。 */
-#info-bar .ip-lamps,
-#key-hint {
+/* 見本に無いものは出さない。BET と演出のランプ。 */
+#info-bar .ip-lamps {
   display: none;
 }
 

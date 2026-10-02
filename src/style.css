@@ -589,6 +589,33 @@ body.has-chapter-bg {
   border-bottom: 1px solid var(--chrome-dk);
   padding-bottom: 6px;
 }
+/* === 操作方法（データの上）===
+ * 筐体の中にあったキーヒントは筐体 v3 で外した（見本に無く、操作部の下端で
+ * 読めない大きさだった）。開けば読める脇のパネルへ移す（2026-10-02）。 */
+.controls-guide {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 3px 8px;
+  margin: 0;
+  font-size: 11px;
+  line-height: 1.5;
+}
+.controls-guide dt {
+  justify-self: end;
+  font-family: ui-monospace, 'SFMono-Regular', monospace;
+  font-weight: 700;
+  color: var(--gold-hi);
+  white-space: nowrap;
+}
+.controls-guide dd {
+  margin: 0;
+  color: var(--chrome);
+}
+.controls-guide .cg-note {
+  grid-column: 1 / -1;
+  font-size: 10px;
+  color: var(--panel-text-dim);
+}
 .unit-readout {
   display: flex;
   flex-direction: column;
@@ -2907,24 +2934,6 @@ body.shake {
   border-color: var(--gold);
 }
 
-/* 操作部の下端に1行。ボタンの絶対配置とぶつからないよう、下に貼り付ける。 */
-#key-hint {
-  position: absolute;
-  left: 0;
-  right: 0;
-  bottom: 3px;
-  padding: 0 8px;
-  text-align: center;
-  font-size: 9px;
-  line-height: 1.4;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  color: var(--panel-text-dim);
-  letter-spacing: 0;
-  pointer-events: none;
-}
-
 /* === 下パネル（ロゴ板）と下皿 ===
  * 実機の腰から下。ロゴ板を左右のスピーカーが挟み、その下に下皿がある。
  * 筐体ランプ（設定示唆）はこのスピーカーが担う——実機でも光るのはここ。 */
@@ -4445,10 +4454,6 @@ to {
   /* 操作部のボタンは cqw で連続的に縮むので、ここで寸法は触らない。
      以前は幅ごとに px を上書きしていたが、**ストップはリール位置に貼り付いて
      いる**ので、段階的に飛ばすと左のデッキとぶつかる幅ができてしまう。 */
-  #key-hint {
-    display: none; /* スマホ・タブレットではキーボード操作しないので */
-  }
-
   /* モーダル: フル幅近くまで広げる */
   .settings-modal,
   .zukan-modal {
