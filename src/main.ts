@@ -802,7 +802,7 @@ export async function bootstrap() {
   // 章ごとのドット文字を読み込む。読めなかった文字だけフォント描画へ落ちる
   // （詳細は render/ReelArt.ts）。ステージ切替（リミックス島）で作り直すので let。
   const reelSymbols = () => reelConfig.reels.map((r) => r.cells);
-  let { textures: glyphTextures, urlFor: glyphUrlFor } = await loadGlyphArt(
+  let { textures: glyphTextures, glosses: glyphGlosses, urlFor: glyphUrlFor } = await loadGlyphArt(
     chapterId,
     reelSymbols(),
     ART_BASE,
@@ -821,6 +821,7 @@ export async function bootstrap() {
       (symbol) => colorResolver.colorFor(reelIdx, symbol),
       (symbol) => colorResolver.tierFor(reelIdx, symbol),
       (symbol) => glyphTextures.get(`${reelIdx}:${symbol}`) ?? null,
+      (symbol) => glyphGlosses.get(`${reelIdx}:${symbol}`) ?? null,
     );
     view.container.x = startX + i * (CELL_WIDTH + REEL_GAP);
     view.container.y = reelY;
@@ -2491,6 +2492,7 @@ export async function bootstrap() {
     loadVoices();
     const art = await loadGlyphArt(chapterId, reelSymbols(), ART_BASE);
     glyphTextures = art.textures;
+    glyphGlosses = art.glosses;
     glyphUrlFor = art.urlFor;
     for (const v of views) {
       app.stage.removeChild(v.container);
@@ -2506,6 +2508,7 @@ export async function bootstrap() {
         (symbol) => colorResolver.colorFor(reelIdx, symbol),
         (symbol) => colorResolver.tierFor(reelIdx, symbol),
         (symbol) => art.textures.get(`${reelIdx}:${symbol}`) ?? null,
+        (symbol) => art.glosses.get(`${reelIdx}:${symbol}`) ?? null,
       );
       view.container.x = startX + i * (CELL_WIDTH + REEL_GAP);
       view.container.y = reelY;

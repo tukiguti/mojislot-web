@@ -14,6 +14,9 @@ import { ReelConfigSchema } from '../../src/data/schemas';
  * 編集できること（ドット絵はテキストのマップと生成器で直せる）と、
  * **気づけること**は別の問題で、両方いる。
  *
+ * 1文字は**地と艶の2枚**（`r0_u3044.png` と `r0_u3044_g.png`）。どちらが欠けても
+ * 見た目が崩れるので、両方を見る。
+ *
  * 生成: python3 tools/gen_glyphs.py
  */
 
@@ -50,15 +53,17 @@ describe('リールのドット文字', () => {
 
     it(`${chapter}: 配列の全${used.length}枚（リール別）にドット文字がある`, () => {
       const missing = used
-        .filter(({ reel, s }) => !existsSync(resolve(GLYPHS, chapter, `${nameOf(reel, s)}.png`)))
-        .map(({ reel, s }) => `${reel}:${s}`);
+        .flatMap(({ reel, s }) => [`${nameOf(reel, s)}.png`, `${nameOf(reel, s)}_g.png`])
+        .filter((f) => !existsSync(resolve(GLYPHS, chapter, f)));
       expect(missing, `不足: ${missing.join(' ')}`).toEqual([]);
     });
 
     // 逆向きも見る。配列から消えた文字の絵が残っていると、次に配列を触った人が
     // 「もう作ってある」と誤解する。図柄画像が腐った時もこれが残っていた
     it(`${chapter}: 配列に無い文字のドット文字が残っていない`, () => {
-      const want = new Set(used.map(({ reel, s }) => nameOf(reel, s)));
+      const want = new Set(
+        used.flatMap(({ reel, s }) => [nameOf(reel, s), `${nameOf(reel, s)}_g`]),
+      );
       const have = readdirSync(resolve(GLYPHS, chapter))
         .filter((f) => f.endsWith('.png'))
         .map((f) => f.replace(/\.png$/, ''));
