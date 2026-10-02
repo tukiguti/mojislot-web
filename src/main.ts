@@ -3628,7 +3628,6 @@ export async function bootstrap() {
   wallet.coins.subscribe(() => updateButtons());
 
   // === キーボードショートカット ===
-  // B = BET, Space = LEVER, A/S/D = STOP 左/中/右
   /** 操作の中身。キーからも画面のボタンからも同じものを呼ぶ。 */
   const runAction = (action: Action, timeStamp: number): void => {
     switch (action) {
@@ -3706,30 +3705,53 @@ export async function bootstrap() {
   });
 
   /**
-   * 画面下のキーヒントを今の割り当てで書き直す。**直書きの案内は嘘になる**——
+   * データの上の「操作方法」を今の割り当てで書き直す。**直書きの案内は嘘になる**——
    * 割り当てを変えられるようにした以上、A・S・D と出したままにはできない。
    */
-  const renderKeyHint = (): void => {
-    const el = document.getElementById('key-hint');
+  const renderControlsGuide = (): void => {
+    const el = document.getElementById('controls-guide');
     if (!el) return;
     const k = (a: Action): string => {
       const key = keyBindings.get(a);
       return key ? keyLabel(key) : '—';
     };
-    // 同じキーなら1つにまとめる。「Space:レバー / … / Space:BET」だと、
-    // 2つ書いてあるぶん別々のキーに見える。
+    const rows: [string, string][] = [];
+    // 同じキーなら1行にまとめる。2行に分けると別々のキーに見える。
     const bet = keyBindings.get('bet');
-    const lever = keyBindings.get('lever');
-    const head =
-      bet && bet === lever
-        ? `${k('bet')}:BET→レバー`
-        : `${k('bet')}:BET / ${k('lever')}:レバー`;
-    el.textContent = `${head} / ${k('stop0')}・${k('stop1')}・${k('stop2')}:ストップ`;
+    if (bet && bet === keyBindings.get('lever')) {
+      rows.push([`${k('bet')}`, '1回目でベット、2回目でレバー']);
+    } else {
+      rows.push([k('bet'), 'ベット'], [k('lever'), 'レバー']);
+    }
+    rows.push(
+      [`${k('stop0')} ${k('stop1')} ${k('stop2')}`, '左・中・右のリールを止める'],
+      ['もう一度', '止めたリールを押すと滑ったコマ数'],
+    );
+    if (autoAvailable) rows.push([k('auto'), 'オート']);
+    rows.push(
+      [k('reelStrip'), 'リール配列'],
+      [k('zukan'), '図鑑'],
+      [k('mute'), '消音'],
+      [k('settings'), '設定（キーの割り当ても変えられる）'],
+    );
+    el.replaceChildren(
+      ...rows.flatMap(([key, what]) => {
+        const dt = document.createElement('dt');
+        dt.textContent = key;
+        const dd = document.createElement('dd');
+        dd.textContent = what;
+        return [dt, dd];
+      }),
+    );
+    const note = document.createElement('dd');
+    note.className = 'cg-note';
+    note.textContent = '画面のボタンをクリック・タップしても同じ操作ができます';
+    el.appendChild(note);
   };
-  renderKeyHint();
+  renderControlsGuide();
   // 割り当てが変わったら呼び直す。**開閉のタイミングに賭けない**——設定を閉じた時に
   // 更新する形にしていたが、閉じ方が複数あって取りこぼした（×ボタン・Esc・背景）。
-  settingsOverlay.setKeyBindingListener(renderKeyHint);
+  settingsOverlay.setKeyBindingListener(renderControlsGuide);
 
   updateButtons();
 }
