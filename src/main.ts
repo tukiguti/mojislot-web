@@ -818,7 +818,9 @@ export async function bootstrap() {
     const reelIdx = i;
     const view = new ReelView(
       engine,
-      (symbol) => colorResolver.colorFor(reelIdx, symbol),
+      // 目印は金の札として焼いてあるので役の色で染めない（白＝そのまま）
+      (symbol) =>
+        symbol === reelConfig.landmark ? 0xffffff : colorResolver.colorFor(reelIdx, symbol),
       (symbol) => colorResolver.tierFor(reelIdx, symbol),
       (symbol) => glyphTextures.get(`${reelIdx}:${symbol}`) ?? null,
       (symbol) => glyphGlosses.get(`${reelIdx}:${symbol}`) ?? null,
@@ -1182,11 +1184,30 @@ export async function bootstrap() {
     return Math.random() < p;
   };
 
+  /**
+   * ビタチャンス（2026-10-02）。ボーナス中のレバーONで抽選し、出たゲームは目印を
+   * ぴったり押したリールが滑らない（StopController の bitaMark）。3つ揃えば上乗せ。
+   * 1回のボーナスで乗る回数には上限がある（腕のいい人ほど揃うので、無いと終わらない）。
+   */
+  let bitaChance = false;
+  let bitaThisBonus = 0;
+  const landmarkNow = (): string | null => reelConfig.landmark ?? null;
+
   const activateRound = (
     role: InternalRoleResult,
     effect: EffectType,
     source: RoundSource,
   ) => {
+    const mark = landmarkNow();
+    bitaChance =
+      bonusSession.spinActive &&
+      mark !== null &&
+      source === 'lottery' &&
+      bitaThisBonus < tuning.bonus.bitaMaxPerBonus &&
+      Math.random() < tuning.bonus.bitaChanceRate;
+    // ビタチャンスのゲームは他の演出を出さない。目印と役の両方は狙えないので、
+    // どちらを狙うかを打ち手に選ばせる（演出が役を教えていると選択にならない）。
+    if (bitaChance) effect = 'none';
     const yaku = internalRoleLottery.yakuFor(role);
     const shisaTier =
       effect === 'shisa' && yaku ? eligibility.pickTier(yaku, Math.random) : null;
@@ -1211,6 +1232,21 @@ export async function bootstrap() {
         ? eligibility.candidatesFor(shisaTier, activeInternalRoleState())
         : undefined,
     });
+    if (bitaChance && mark !== null) {
+      showAimNotice({
+        symbols: [mark, mark, mark],
+        colors: ['#ffd84a', '#ffd84a', '#ffd84a'],
+        yakuName: `ビタチャンス！ 目印「${mark}」`,
+        imageUrl: `${ART_BASE}ui/aim.png`,
+        hasPremium: true,
+        reelCentersXFrac: [0, 1, 2].map(
+          (i) => (startX + i * (CELL_WIDTH + REEL_GAP) + CELL_WIDTH / 2) / CANVAS_W,
+        ),
+        reelTopYFrac: reelY / CANVAS_H,
+        arrowReels: [true, true, true],
+      });
+      sfx.shisa();
+    }
   };
 
   /**
@@ -1873,6 +1909,13 @@ export async function bootstrap() {
     updateComboSide();
   };
   bonusZone.active.subscribe(updateBonusUI);
+  // 新しいボーナスに入ったら、ビタ揃いの回数（上限つき）を数え直す。
+  // Observable は同じ値でも通知する（おかわりで true が再送される）ので、切り替わりだけ見る。
+  let wasBonus = bonusZone.active.get();
+  bonusZone.active.subscribe((on) => {
+    if (on && !wasBonus) bitaThisBonus = 0;
+    wasBonus = on;
+  });
   bonusZone.remaining.subscribe(updateBonusUI);
   bonusZone.kind.subscribe(updateBonusUI);
   updateBonusUI();
@@ -2501,7 +2544,9 @@ export async function bootstrap() {
       const reelIdx = i;
       const view = new ReelView(
         engine,
-        (symbol) => colorResolver.colorFor(reelIdx, symbol),
+        // 目印は金の札として焼いてあるので役の色で染めない（白＝そのまま）
+      (symbol) =>
+        symbol === reelConfig.landmark ? 0xffffff : colorResolver.colorFor(reelIdx, symbol),
         (symbol) => colorResolver.tierFor(reelIdx, symbol),
         (symbol) => art.textures.get(`${reelIdx}:${symbol}`) ?? null,
         (symbol) => art.glosses.get(`${reelIdx}:${symbol}`) ?? null,
@@ -2542,6 +2587,7 @@ export async function bootstrap() {
       flagYakuIds,
       flagKey,
       freeze: freezeActive,
+      bitaMark: bitaChance ? landmarkNow() : null,
     });
   };
 
@@ -3032,6 +3078,24 @@ export async function bootstrap() {
           sfx.miss();
           showResult(win > 0 ? `1枚役 +${win}` : 'ハズレ', 'none');
         }
+      }
+
+      // ビタ揃い：3リールとも目印を中段に、**滑り0で**止めた（チャンス中だけ有効）。
+      // 役の結果より後に出す——上乗せの方がこのゲームの主役なので、表示を上書きしてよい。
+      if (bitaChance) {
+        const mark = landmarkNow();
+        const lined = engines.every(
+          (e, r) => lastSlipCells[r] === 0 && getVisibleCell(e, 'middle') === mark,
+        );
+        if (lined) {
+          bitaThisBonus++;
+          bonusZone.extend(tuning.bonus.bitaAddSpins);
+          showResult(`ビタ揃い！ 上乗せ +${tuning.bonus.bitaAddSpins}G`, 'premium');
+          sfx.winMulti(4);
+          flashScreen({ color: '#ffd84a', alpha: 0.7, durMs: 320 });
+          spawnConfetti(60);
+        }
+        bitaChance = false;
       }
 
       // 残数消費・獲得集計・終了判定はまとめて BonusSession に任せる。
@@ -3570,7 +3634,8 @@ export async function bootstrap() {
         // **background の一括指定は使わない**——インラインで一括指定すると
         // スタイルシート側の background-repeat / size / position まで初期値へ戻り、
         // ドット文字が敷き詰められる（実際に踏んだ）
-        cell.style.backgroundColor = colorResolver.cssFor(idx, symbol);
+        cell.style.backgroundColor =
+          symbol === reelConfig.landmark ? '#2a1a08' : colorResolver.cssFor(idx, symbol);
         const glyphUrl = glyphUrlFor(idx, symbol);
         if (glyphUrl) {
           cell.classList.add('has-art');

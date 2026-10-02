@@ -70,6 +70,12 @@ export interface StopRequest {
   flagKey?: string | null;
   /** フリーズ演出中（制御を無効化して押下位置へスナップ）。 */
   freeze?: boolean;
+  /**
+   * ビタチャンス中の目印の図柄（2026-10-02）。**押した瞬間に中段がこの図柄なら滑らせない**。
+   * それ以外の押し方は普段どおりの制御。目印は滑りで寄ってこないので、
+   * 3つ揃えるには3リールともぴったり押すしかない。
+   */
+  bitaMark?: string | null;
 }
 
 export interface StopControllerDeps {
@@ -121,6 +127,17 @@ export class StopController {
       stoppedVisibles: req.stoppedVisibles,
       exceptYakuIds: req.flagYakuIds,
     };
+
+    // ビタチャンス：目印をぴったり押したら、当選役の引き込みより優先してそのまま止める。
+    // 小役を取りに行くか目印を狙うかは打ち手が選ぶ（両方は取れないことがある）。
+    // ただし**出目＝フラグは崩さない**——止めると許可外の役が揃う位置なら普段の制御に戻す。
+    if (
+      req.bitaMark &&
+      req.strip.cells[req.basePosition] === req.bitaMark &&
+      !this.slip.locksNonFlagAt(ctx, req.basePosition)
+    ) {
+      return 0;
+    }
 
     // 第1停止は停止テーブルを引く（まだどの役もロックし得ない＝出目の設計点）。
     const noneStopped = req.stoppedVisibles.every((v) => v === null);

@@ -180,6 +180,145 @@ export function computeFirstStopSlip(
   return 0;
 }
 
+/**
+ * 第1停止テーブル（内部役 × リール × 押下位置 → 滑り）を作る。
+ * 停止テーブルの生成と配列の探索（optimize-reels）の**両方がこれを使う**——別々に
+ * 書くと、探索が測った制御と実際に焼かれる制御が食い違う（第2・第3停止で実際に起きた）。
+ */
+export function buildFirstStopTable(
+  yakuList: YakuList,
+  reels: readonly (readonly string[])[],
+  resolver: SlipResolver,
+  pullInCells: number,
+): Record<string, number[][]> {
+  /**
+   * **リーチ目にする形**：中段にボーナス専用図柄が来た停止。
+   *
+   * 実機のリーチ目は「フラグ無しでは制御上あり得ない出目」だが、**あり得ない状態は
+   * 制御が作る**。ハズレの第1停止は押した位置で止まるので、放っておけばどの形も
+   * ハズレで出てしまい、1リールで確定する出目は原理的に生まれない（実際に全滅した）。
+   *
+   * そこで実機と同じく **非ボーナス側にこの形を避けさせ（蹴り）、ボーナス側は
+   * 引き込めなかった時にここへ寄せる**。行ではなく「中段の図柄」で定義するので
+   * 主ラインには依存しない。
+   */
+  // REACH_SCOPE=window で「窓のどこかに専用図柄」を確定目とみなす。中段限定だと
+  // ボーナス図柄を中段へ寄せる必要があり、第1リールの中段は5本中1本（中段ライン）
+  // にしか乗らないぶん揃える経路を削ってしまう。
+  const isReachCol = (reel: number, pos: number): boolean =>
+    bonusOnlySymbols(yakuList, reel).has(visibleAt(cells0(reel), pos, 'middle'));
+  const cells0 = (reel: number): readonly string[] => reels[reel];
+
+  const guard = new PullInGuard(yakuList, reels, pullInCells);
+  /** 段の振り分け順（押下位置ごと）。同じ保証度なら先頭の段を採る。 */
+  const ORDERS_G: readonly (readonly Vertical[])[] = [
+    ['top', 'bottom', 'middle'],
+    ['bottom', 'top', 'middle'],
+    ['middle', 'top', 'bottom'],
+    ['bottom', 'top', 'middle'],
+  ];
+  const rowOfSlip = (reel: number, press: number, slip: number, sym: string | undefined): Vertical | null => {
+    if (sym === undefined) return null;
+    const pos = (press + slip) % reels[reel].length;
+    for (const v of ROW_VERTICAL) if (visibleAt(reels[reel], pos, v) === sym) return v;
+    return null;
+  };
+
+  const firstStop: Record<string, number[][]> = {};
+  for (const role of yakuList.internalRoles) {
+    const targets = flagYakusFor(yakuList, role.id);
+    const isBonusFlag = role.kind === 'reg' || role.kind === 'big';
+    firstStop[role.id] = [0, 1, 2].map((reel) => {
+      const cells = reels[reel];
+      const n = cells.length;
+      return Array.from({ length: n }, (_, press) => {
+        // 引き込み保証を最優先し、同じ保証度なら段の振り分け順で選ぶ。
+        const order = ORDERS_G[press % ORDERS_G.length];
+        const sym0 = targets[0]?.symbols[reel];
+        const prefer = (s: number): number => {
+          const r = rowOfSlip(reel, press, s, sym0);
+          const i = r === null ? order.length : order.indexOf(r);
+          return i < 0 ? order.length : i;
+        };
+        const stops0: (number | null)[] = [null, null, null];
+        const guarded =
+          targets.length > 0 ? guard.chooseSlip(targets, stops0, reel, press, prefer) : null;
+        const slip =
+          guarded ??
+          computeFirstStopSlip(
+            resolver, targets, cells, reel, press, pullInCells,
+          );
+        if (!isBonusFlag) {
+          // 非ボーナス：リーチ目の形を**避ける**（蹴り）。これが無いと
+          // 「ボーナスの時にしか出ない」が成立せず、告知が嘘になる。
+          //
+          // ただし**引き込み保証を壊さないこと**。蹴り先を無条件に選ぶと、
+          // 保証で決めた滑りが上書きされて「正しく狙ったのに揃わない」が出る
+          // （実測でウサギの滑り2が4へずれ、図柄が窓から消えていた）。
+          // 保証を満たす候補の中から蹴り先を探し、無ければ保証を優先する。
+          // 蹴り先が**保証で選んだ滑りを壊さない**か。robustAimed まで求めると
+          // 候補が全滅して素の蹴りに落ちるので（実測でそうなった）、ここは
+          // 「その役が成立しうる」＝feasible を守れば十分とする。
+          const guardOk = (cand: number): boolean => {
+            if (guarded === null) return true;
+            if (cand === guarded) return true;
+            const next = [...stops0];
+            next[reel] = (press + cand) % n;
+            return guard.feasible(targets, next);
+          };
+          // **保証を蹴りより優先する。** 両立しない押下位置では蹴りを諦める。
+          // 1確の告知はやめた（停止形は残すが演出として出さない）ので、蹴りの
+          // 役目は「リーチ目の集合を作る」ことだけになった。蹴れなかった形は
+          // 抽出時に非ボーナスでも出る形として除かれるだけで、**嘘の告知には
+          // ならない**（リーチ目の集合が少し減る）。逆に保証を諦めると
+          // 「正しく狙ったのに揃わない」が残る。
+          const order2: ((c: number) => boolean)[] = [
+            (c) => guardOk(c) && !isReachCol(reel, (press + c) % n),
+            (c) => guardOk(c),
+            (c) => !isReachCol(reel, (press + c) % n),
+          ];
+          for (const ok of order2) {
+            for (let d = 0; d <= pullInCells; d++) {
+              const cand = (slip + d) % (pullInCells + 1);
+              if (ok(cand)) return cand;
+            }
+          }
+          return slip;
+        }
+        // ボーナス側の優先順位:
+        //   ① 図柄を**中段**へ引き込む → 揃えに行きつつ、それ自体が確定目になる
+        //   ② 窓のどこかへ引き込む     → 揃えに行く
+        //   ③ 引き込めない            → リーチ目の形へ寄せる（下の分岐）
+        // ①を先に見るのが要。②で済ませると図柄が上下段に散り、確定目が出る機会を
+        // みすみす捨てることになる（実測で告知が5.6%までしか戻らなかった）。
+        const symOf = (y: (typeof targets)[number]) => y.symbols[reel];
+        const at = (p: number, v: 'top' | 'middle' | 'bottom') => visibleAt(cells, p, v);
+        // 図柄を**中段へ寄せる**優先は入れない。第1リールの中段は5本中1本
+        // （中段ライン）にしか乗らないので、揃える経路を削る。実測で持ち越しが
+        // 593G→892G と1.5倍に延び、機械割も 126.8%→125.9% に落ちた。
+        const pos = (press + slip) % n;
+        const pulledIn = targets.some((y) => {
+          const sym = symOf(y);
+          return (
+            sym !== undefined &&
+            (['top', 'middle', 'bottom'] as const).some((v) => at(pos, v) === sym)
+          );
+        });
+        if (pulledIn) return slip;
+        // **引き込めなかった＝取りこぼし。ここでリーチ目を出す。**
+        // 実機のリーチ目は「フラグが立っているのにボーナス図柄を引き込めなかった時」
+        // に出る制御の副産物なので、この局面でだけ非ボーナスに無い停止形へ寄せる。
+        for (let d = 0; d <= pullInCells; d++) {
+          const cand = (slip + d) % (pullInCells + 1);
+          if (isReachCol(reel, (press + cand) % n)) return cand;
+        }
+        return slip; // 窓内にリーチ目の形が無い＝この押下位置では出せない
+      });
+    });
+  }
+  return firstStop;
+}
+
 describe.skipIf(!RUN)('停止テーブル生成', () => {
   it('全章の第1停止テーブルを data/stops へ書き出す', () => {
     const tuning = TuningSchema.parse(readJson(`${DATA}/tuning/default.json`));
@@ -192,135 +331,7 @@ describe.skipIf(!RUN)('停止テーブル生成', () => {
         assistMaxCells: tuning.assist.pullInCells,
       });
 
-      /** その位置で止めたときの窓（上中下）を1つの文字列にしたもの。 */
-      const colKey = (cells: readonly string[], pos: number): string =>
-        `${visibleAt(cells, pos, 'top')}${visibleAt(cells, pos, 'middle')}${visibleAt(cells, pos, 'bottom')}`;
-
-      /**
-       * **リーチ目にする形**：中段にボーナス専用図柄が来た停止。
-       *
-       * 実機のリーチ目は「フラグ無しでは制御上あり得ない出目」だが、**あり得ない状態は
-       * 制御が作る**。ハズレの第1停止は押した位置で止まるので、放っておけばどの形も
-       * ハズレで出てしまい、1リールで確定する出目は原理的に生まれない（実際に全滅した）。
-       *
-       * そこで実機と同じく **非ボーナス側にこの形を避けさせ（蹴り）、ボーナス側は
-       * 引き込めなかった時にここへ寄せる**。行ではなく「中段の図柄」で定義するので
-       * 主ラインには依存しない。
-       */
-      // REACH_SCOPE=window で「窓のどこかに専用図柄」を確定目とみなす。中段限定だと
-      // ボーナス図柄を中段へ寄せる必要があり、第1リールの中段は5本中1本（中段ライン）
-      // にしか乗らないぶん揃える経路を削ってしまう。
-      const isReachCol = (reel: number, pos: number): boolean =>
-        bonusOnlySymbols(yakuList, reel).has(visibleAt(cells0(reel), pos, 'middle'));
-      const cells0 = (reel: number): readonly string[] => reels[reel];
-
-      const guard = new PullInGuard(yakuList, reels, tuning.assist.pullInCells);
-      /** 段の振り分け順（押下位置ごと）。同じ保証度なら先頭の段を採る。 */
-      const ORDERS_G: readonly (readonly Vertical[])[] = [
-        ['top', 'bottom', 'middle'],
-        ['bottom', 'top', 'middle'],
-        ['middle', 'top', 'bottom'],
-        ['bottom', 'top', 'middle'],
-      ];
-      const rowOfSlip = (reel: number, press: number, slip: number, sym: string | undefined): Vertical | null => {
-        if (sym === undefined) return null;
-        const pos = (press + slip) % reels[reel].length;
-        for (const v of ROW_VERTICAL) if (visibleAt(reels[reel], pos, v) === sym) return v;
-        return null;
-      };
-
-      const firstStop: Record<string, number[][]> = {};
-      for (const role of yakuList.internalRoles) {
-        const targets = flagYakusFor(yakuList, role.id);
-        const isBonusFlag = role.kind === 'reg' || role.kind === 'big';
-        firstStop[role.id] = [0, 1, 2].map((reel) => {
-          const cells = reels[reel];
-          const n = cells.length;
-          return Array.from({ length: n }, (_, press) => {
-            // 引き込み保証を最優先し、同じ保証度なら段の振り分け順で選ぶ。
-            const order = ORDERS_G[press % ORDERS_G.length];
-            const sym0 = targets[0]?.symbols[reel];
-            const prefer = (s: number): number => {
-              const r = rowOfSlip(reel, press, s, sym0);
-              const i = r === null ? order.length : order.indexOf(r);
-              return i < 0 ? order.length : i;
-            };
-            const stops0: (number | null)[] = [null, null, null];
-            const guarded =
-              targets.length > 0 ? guard.chooseSlip(targets, stops0, reel, press, prefer) : null;
-            const slip =
-              guarded ??
-              computeFirstStopSlip(
-                resolver, targets, cells, reel, press, tuning.assist.pullInCells,
-              );
-            if (!isBonusFlag) {
-              // 非ボーナス：リーチ目の形を**避ける**（蹴り）。これが無いと
-              // 「ボーナスの時にしか出ない」が成立せず、告知が嘘になる。
-              //
-              // ただし**引き込み保証を壊さないこと**。蹴り先を無条件に選ぶと、
-              // 保証で決めた滑りが上書きされて「正しく狙ったのに揃わない」が出る
-              // （実測でウサギの滑り2が4へずれ、図柄が窓から消えていた）。
-              // 保証を満たす候補の中から蹴り先を探し、無ければ保証を優先する。
-              // 蹴り先が**保証で選んだ滑りを壊さない**か。robustAimed まで求めると
-              // 候補が全滅して素の蹴りに落ちるので（実測でそうなった）、ここは
-              // 「その役が成立しうる」＝feasible を守れば十分とする。
-              const guardOk = (cand: number): boolean => {
-                if (guarded === null) return true;
-                if (cand === guarded) return true;
-                const next = [...stops0];
-                next[reel] = (press + cand) % n;
-                return guard.feasible(targets, next);
-              };
-              // **保証を蹴りより優先する。** 両立しない押下位置では蹴りを諦める。
-              // 1確の告知はやめた（停止形は残すが演出として出さない）ので、蹴りの
-              // 役目は「リーチ目の集合を作る」ことだけになった。蹴れなかった形は
-              // 抽出時に非ボーナスでも出る形として除かれるだけで、**嘘の告知には
-              // ならない**（リーチ目の集合が少し減る）。逆に保証を諦めると
-              // 「正しく狙ったのに揃わない」が残る。
-              const order2: ((c: number) => boolean)[] = [
-                (c) => guardOk(c) && !isReachCol(reel, (press + c) % n),
-                (c) => guardOk(c),
-                (c) => !isReachCol(reel, (press + c) % n),
-              ];
-              for (const ok of order2) {
-                for (let d = 0; d <= tuning.assist.pullInCells; d++) {
-                  const cand = (slip + d) % (tuning.assist.pullInCells + 1);
-                  if (ok(cand)) return cand;
-                }
-              }
-              return slip;
-            }
-            // ボーナス側の優先順位:
-            //   ① 図柄を**中段**へ引き込む → 揃えに行きつつ、それ自体が確定目になる
-            //   ② 窓のどこかへ引き込む     → 揃えに行く
-            //   ③ 引き込めない            → リーチ目の形へ寄せる（下の分岐）
-            // ①を先に見るのが要。②で済ませると図柄が上下段に散り、確定目が出る機会を
-            // みすみす捨てることになる（実測で告知が5.6%までしか戻らなかった）。
-            const symOf = (y: (typeof targets)[number]) => y.symbols[reel];
-            const at = (p: number, v: 'top' | 'middle' | 'bottom') => visibleAt(cells, p, v);
-            // 図柄を**中段へ寄せる**優先は入れない。第1リールの中段は5本中1本
-            // （中段ライン）にしか乗らないので、揃える経路を削る。実測で持ち越しが
-            // 593G→892G と1.5倍に延び、機械割も 126.8%→125.9% に落ちた。
-            const pos = (press + slip) % n;
-            const pulledIn = targets.some((y) => {
-              const sym = symOf(y);
-              return (
-                sym !== undefined &&
-                (['top', 'middle', 'bottom'] as const).some((v) => at(pos, v) === sym)
-              );
-            });
-            if (pulledIn) return slip;
-            // **引き込めなかった＝取りこぼし。ここでリーチ目を出す。**
-            // 実機のリーチ目は「フラグが立っているのにボーナス図柄を引き込めなかった時」
-            // に出る制御の副産物なので、この局面でだけ非ボーナスに無い停止形へ寄せる。
-            for (let d = 0; d <= tuning.assist.pullInCells; d++) {
-              const cand = (slip + d) % (tuning.assist.pullInCells + 1);
-              if (isReachCol(reel, (press + cand) % n)) return cand;
-            }
-            return slip; // 窓内にリーチ目の形が無い＝この押下位置では出せない
-          });
-        });
-      }
+      const firstStop = buildFirstStopTable(yakuList, reels, resolver, tuning.assist.pullInCells);
       // --- 第2停止（順押し）---
       // 第1停止テーブルで左を止めた状態から、中リールの各押下位置で制御を実行して
       // 結果を記録する。**制御そのものを通す**ので、表とアルゴリズムが食い違わない。

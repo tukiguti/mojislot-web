@@ -71,7 +71,9 @@ def pairs_of(chapter: str) -> list[tuple[int, str, str, str]]:
 def units_of(chapter: str) -> list[str]:
     """探索の単位。"リール番号:文字"。"""
     reels = json.loads((G.DATA / "reels" / f"{chapter}.json").read_text())["reels"]
-    return [f"{i}:{c}" for i, r in enumerate(reels) for c in sorted(set(r["cells"]))]
+    # 目印は札ごと描く別物なので、文字どうしの見分けの探索には入れない
+    mark = G.landmark_of(chapter)
+    return [f"{i}:{c}" for i, r in enumerate(reels) for c in sorted(set(r["cells"])) if c != mark]
 
 
 def weighted_pairs(chapter: str) -> list[tuple[str, str, float]]:

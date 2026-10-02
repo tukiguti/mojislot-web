@@ -402,8 +402,83 @@ GOLD_HI, GOLD_MID, GOLD_LO = (255, 236, 150), (232, 176, 52), (176, 116, 20)
 GOLD_EDGE = (70, 40, 6, 255)
 
 
+# ---------------------------------------------------------------- 目印
+
+_LANDMARK_CACHE: dict[str, str | None] = {}
+
+
+def landmark_of(chapter: str) -> str | None:
+    """その島の目印の図柄（data/reels の landmark）。無ければ None。"""
+    if chapter not in _LANDMARK_CACHE:
+        d = json.loads((DATA / "reels" / f"{chapter}.json").read_text())
+        _LANDMARK_CACHE[chapter] = d.get("landmark")
+    return _LANDMARK_CACHE[chapter]
+
+
+PLATE_HI, PLATE_MID, PLATE_LO = (255, 240, 170), (236, 184, 64), (168, 108, 18)
+PLATE_EDGE = (74, 42, 6, 255)
+ENGRAVE = (92, 20, 8, 255)          # 彫った字の色（えんじ）
+ENGRAVE_LIGHT = (255, 246, 210, 255)  # 彫りの下縁に当たる光
+
+
+def landmark_glyph(ch: str, chapter: str) -> tuple[Image.Image, Image.Image]:
+    """目印＝**金の札に漢字を彫ったもの**。役の文字とは別物に見えるよう、札ごと描く。
+
+    役の色で染めない（表示側は tint を白にする）ので、色は地の1枚に焼き込む。
+    回転中も「札の四角」として見えるので、目押しの目安になる（文字が流れても形が残る）。
+    """
+    use_chapter(chapter)
+    base = Image.new("RGBA", (CW, CH), (0, 0, 0, 0))
+    gloss = Image.new("RGBA", (CW, CH), (0, 0, 0, 0))
+    bp = base.load()
+    x0, y0, x1, y1 = 4, 3, CW - 5, CH - 4
+    for y in range(y0, y1 + 1):
+        for x in range(x0, x1 + 1):
+            # 角を1ドット落とす
+            if (x in (x0, x1)) and (y in (y0, y1)):
+                continue
+            if x in (x0, x1) or y in (y0, y1):
+                bp[x, y] = PLATE_EDGE
+                continue
+            gy = (y - y0) / (y1 - y0)
+            c = PLATE_HI if gy < 0.3 else PLATE_MID if gy < 0.72 else PLATE_LO
+            if x == x0 + 1 or y == y0 + 1:
+                c = (255, 252, 226)          # 左上の面取り
+            elif x == x1 - 1 or y == y1 - 1:
+                c = (128, 78, 10)            # 右下の面取り
+            bp[x, y] = c + (255,)
+    # 漢字は画数が多いので**太らせない**（仮名用の BOLD を掛けると潰れて塊になる）。
+    # 札の内側（縁と面取りを除く）に収まる大きさで焼く。
+    img = _raster(ch, 40)
+    k = min((x1 - x0 - 10) / (img.width / SS), (y1 - y0 - 8) / (img.height / SS))
+    m = _trim(_shrink(img, round(img.width / SS * k), round(img.height / SS * k)))
+    h, w = len(m), len(m[0])
+    ox, oy = (CW - w) // 2, (CH - h) // 2
+    for y in range(h):
+        for x in range(w):
+            if not m[y][x]:
+                continue
+            X, Y = ox + x, oy + y
+            # 彫りの下縁：字の1ドット下が字でなければ明るい線を引く
+            if 0 <= Y + 1 < CH and not (y + 1 < h and m[y + 1][x]):
+                bp[X, Y + 1] = ENGRAVE_LIGHT
+    for y in range(h):
+        for x in range(w):
+            if m[y][x]:
+                bp[ox + x, oy + y] = ENGRAVE
+    # 札の上半分に斜めの照り（艶の層）
+    gp = gloss.load()
+    for y in range(y0 + 2, y0 + (y1 - y0) // 2):
+        for x in range(x0 + 2, x1 - 1):
+            if (x + y) % 23 < 4 and base.getpixel((x, y))[:3] != ENGRAVE[:3]:
+                gp[x, y] = (255, 255, 255, 70)
+    return base, gloss
+
+
 def glyph(ch: str, chapter: str = "hiragana_verb", reel: int = 0) -> tuple[Image.Image, Image.Image]:
     """(地, 艶) の2枚を返す。地は tint で役色に、艶はそのまま重ねる。"""
+    if ch == landmark_of(chapter):
+        return landmark_glyph(ch, chapter)
     tier = tier_of(chapter, reel, ch)
     m = _pad(face_of(ch, chapter, reel), PAD)
     o1 = grow(m)

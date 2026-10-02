@@ -9,6 +9,12 @@ export const ReelStripSchema = z.object({
 
 export const ReelConfigSchema = z.object({
   mode: z.string(),
+  /**
+   * 目印の図柄（島の漢字1字・2026-10-02）。各リールの 0・7・14 番に置き、どの役にも
+   * 属さない。狙う時の目安（真下にボーナス図柄）と、ボーナス中のビタ役の図柄を兼ねる。
+   * 無い島は目印なし。
+   */
+  landmark: z.string().optional(),
   reels: z.array(ReelStripSchema).length(3),
 });
 
@@ -498,6 +504,16 @@ export const TuningSchema = z.object({
       okawariSpinsBig: z.number().int().nonnegative().default(5),
       okawariSpinsReg: z.number().int().nonnegative().default(3),
       /**
+       * **ビタチャンス**（2026-10-02）。ボーナス中のレバーONでこの率で発生し、そのゲームは
+       * 目印をぴったり押したリールが滑らない。3つ揃えば上乗せ（bitaAddSpins）。
+       * 揃う確率は腕で大きく違う（試算で初心者1%・中級6%・上級32%・神96%）ので、
+       * 1回のボーナスで乗る回数に上限（bitaMaxPerBonus）を置く——上限が無いと神の
+       * 1ゲームあたりの期待上乗せが1を超え、ボーナスが終わらなくなる。
+       */
+      bitaChanceRate: z.number().min(0).max(1).default(0.15),
+      bitaAddSpins: z.number().int().nonnegative().default(2),
+      bitaMaxPerBonus: z.number().int().nonnegative().default(3),
+      /**
        * ボーナス中の示唆tier（省略時は assist.shisaTiers を流用）。
        * ボーナス中は演出100%なので、通常と同じ赤6%/金2%だと「おかわり」が毎セット当たって
        * 区間が終わらなくなる。ここで赤/金を絞ることでおかわりをレアな契機にする。
@@ -509,6 +525,9 @@ export const TuningSchema = z.object({
       spinsPerReg: 5,
       okawariSpinsBig: 5,
       okawariSpinsReg: 3,
+      bitaChanceRate: 0.15,
+      bitaAddSpins: 2,
+      bitaMaxPerBonus: 3,
     }),
   /**
    * 引き込み（目押し補助）。実機同様、**引き込み窓は内部役だけで決まり演出では変わらない**。

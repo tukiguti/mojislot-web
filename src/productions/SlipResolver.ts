@@ -142,6 +142,16 @@ export class SlipResolver {
   }
 
   /**
+   * このリールを position に止めると、**出目に出てはいけない役**（許可リスト外）が
+   * 揃ってしまうか。ビタチャンスで「押した位置のまま止める」前の確認に使う。
+   */
+  locksNonFlagAt(ctx: SlipContext, position: number): boolean {
+    const exceptIds = new Set(ctx.exceptYakuIds ?? []);
+    const nonFlagged = this.allYakus.filter((y) => !exceptIds.has(y.id));
+    return this.anyCompletes(position, ctx, nonFlagged);
+  }
+
+  /**
    * このリールが position に停止したとして、5ペイラインのいずれかで
    * yakus のいずれかが**確定（ロック）**するかを判定＝蹴りが避けるべき成立。
    * 未停止リール（null）は**不成立扱い**（ワイルドカードにしない）。これにより、

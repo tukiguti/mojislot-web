@@ -24,7 +24,10 @@
     "spinsPerBig": 10,
     "spinsPerReg": 5,
     "okawariSpinsBig": 5,
-    "okawariSpinsReg": 3
+    "okawariSpinsReg": 3,
+    "bitaChanceRate": 0.15,
+    "bitaAddSpins": 2,
+    "bitaMaxPerBonus": 3
   },
   "assist": {
     "pullInCells": 4,

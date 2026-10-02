@@ -281,6 +281,9 @@ interface Result {
   bitaReels: [number, number, number, number];
   /** 貢献リールが全部 slip=0 だったゲーム数（＝完全自力の成立）。 */
   bitaPerfect: number;
+  /** ビタチャンスが出たゲーム数と、目印が3つ揃ったゲーム数（2026-10-02）。 */
+  bitaChances: number;
+  bitaHits: number;
   /**
    * 役ID → [成立数, そのうちビタ押しだった数]。
    * 「どの役も同じくらい狙いやすい」を配列で作るための計測（設計: 28章）。
@@ -320,6 +323,11 @@ function runChapter(
   // おかわりで足すゲーム数。**本番と同じく tuning から読む**（環境変数は上書き用）。
   const okawariBig = OKAWARI_BIG ?? tuning.bonus.okawariSpinsBig;
   const okawariReg = OKAWARI_REG ?? tuning.bonus.okawariSpinsReg;
+  // ビタチャンス（ボーナス中）。環境変数で上書きして量を比べられる。
+  const env = process.env;
+  const bitaRate = env.BITA_RATE !== undefined ? Number(env.BITA_RATE) : tuning.bonus.bitaChanceRate;
+  const bitaAdd = env.BITA_ADD !== undefined ? Number(env.BITA_ADD) : tuning.bonus.bitaAddSpins;
+  const bitaMax = env.BITA_MAX !== undefined ? Number(env.BITA_MAX) : tuning.bonus.bitaMaxPerBonus;
   // 設定差の主役は演出レート（無演出の割合）。本番と同じ関数で適用する。
   const effectRates = NONE_MULT !== undefined
     ? {
@@ -416,6 +424,8 @@ function runChapter(
     bonusByEffect: new Map<string, [number, number]>(),
     bitaReels: [0, 0, 0, 0],
     bitaPerfect: 0,
+    bitaChances: 0,
+    bitaHits: 0,
     perYaku: new Map<string, [number, number]>(),
     shisaSpins: 0, shisaEscalated: 0, lampBonus: 0, cherryBonus: 0,
     carriedSpins: 0, carriedReach: 0, carriedMiddleTell: 0,
@@ -426,6 +436,8 @@ function runChapter(
   let missStreak = 0;
   let streak = 0;
   let bonusRemaining = 0;
+  /** このボーナスでビタ揃いが乗った回数（上限 bitaMax）。 */
+  let bitaThisBonus = 0;
   let curBonusKind: 'big' | 'reg' | null = null;
   let curBonusPayout = 0;
   /** 確定告知ランプ／チェリー重複の持ち越し（次ゲーム以降ボーナス確定）。 */
@@ -575,6 +587,13 @@ function runChapter(
     // SEQ=2,1,0 のように指定すると押し順を変えて比較できる（検証用）。
     const seq = (process.env.SEQ ?? '0,1,2').split(',').map(Number);
 
+    // ビタチャンス：ボーナス中にこの率で出る。出たゲームは**目印をぴったり狙う**
+    // （小役は捨てる。両方は狙えない）。main.ts と同じ規則。
+    const landmark = reelCfg.landmark ?? null;
+    const bitaChance =
+      bonusActive && landmark !== null && bitaThisBonus < bitaMax && rng() < bitaRate;
+    if (bitaChance) res.bitaChances++;
+
     const stopped: (VisibleColumn | null)[] = [null, null, null];
     /** 停止位置。第2停止のテーブルを引くのに要る（可視3セルからは逆引きできない）。 */
     const stoppedPos: (number | null)[] = [null, null, null];
@@ -638,7 +657,14 @@ function runChapter(
         heldYaku !== null;
       if (canAim && aimYaku) aimedThisSpin = true;
       const sym = canAim && aimYaku ? aimYaku.symbols[idx] : undefined;
-      if (sym === undefined) {
+      if (bitaChance && landmark !== null) {
+        // 目印のどれか（3つある）を中段にぴったり狙う。手前マージンは取らない
+        // ——目印は滑りで寄ってこないので、手前を狙うと必ず外れる。
+        const marks = cells.flatMap((c, i) => (c === landmark ? [i] : []));
+        const at = marks[Math.floor(rng() * marks.length)];
+        const err = Math.round(gauss() * sigmaCells);
+        basePos = (((at + err) % N) + N) % N;
+      } else if (sym === undefined) {
         basePos = Math.floor(rng() * N);
       } else {
         // 狙うのは「その図柄が**窓の上端**に来る位置」の少し手前。
@@ -672,6 +698,7 @@ function runChapter(
         stoppedPositions: stoppedPos,
         flagYakuIds: flagIds,
         flagKey: heldYaku ? heldRoleId : role.roleId,
+        bitaMark: bitaChance ? landmark : null,
       });
       const slipCells = slipCellsRaw;
       slipPerReel[idx] = slipCells;
@@ -847,12 +874,24 @@ function runChapter(
         curBonusPayout = 0;
         if (isPremium) res.big++; else res.reg++;
         bonusRemaining += isPremium ? spinsBig : spinsReg;
+        bitaThisBonus = 0;
       } else {
         // おかわり（消化中の再当選）。新規突入とは別のゲーム数を足せる。
         bonusRemaining += isPremium ? okawariBig : okawariReg;
       }
     }
     if (bonusActive) {
+      // ビタ揃い：3リールとも目印を中段に、滑り0で止めた。
+      if (
+        bitaChance &&
+        [0, 1, 2].every(
+          (r) => slipPerReel[r] === 0 && reels[r][stoppedPos[r] as number] === landmark,
+        )
+      ) {
+        res.bitaHits++;
+        bitaThisBonus++;
+        bonusRemaining += bitaAdd;
+      }
       // コンボ上乗せ：STEP 連ごとに ADD ゲーム。消化（--）より先に足す。
       if (COMBO_STEP > 0 && willHit && streakAfter % COMBO_STEP === 0) {
         bonusRemaining += COMBO_ADD;
@@ -882,10 +921,11 @@ describe.skipIf(!RUN)('出玉シミュレーション（新モデル）', () => 
       let bspins = 0, bigPay = 0, regPay = 0;
       let spins = 0;
       let shisaSpins = 0, shisaEsc = 0, lampB = 0, cherryB = 0, carS = 0, carR = 0, carM = 0, fT = 0, fT1 = 0, nb = 0, symF = 0, symFR = 0;
-      let bMiss = 0, bSpill = 0;
+      let bMiss = 0, bSpill = 0, bitaC = 0, bitaH = 0;
       CHAPTERS.forEach((ch, i) => {
         const r = runChapter(ch, skill, SPINS / CHAPTERS.length, 12345 + i * 977, SETTING);
         bMiss += r.bonusMissSpins; bSpill += r.bonusSpillWins;
+        bitaC += r.bitaChances; bitaH += r.bitaHits;
         bet += r.totalBet; win += r.totalWin;
         nbet += r.normalBet; nwin += r.normalWin;
         big += r.big; reg += r.reg;
@@ -917,7 +957,8 @@ describe.skipIf(!RUN)('出玉シミュレーション（新モデル）', () => 
         `${((fT / Math.max(1, nb)) * 100).toFixed(1).padStart(9)}% ` +
         `${fT1.toString().padStart(10)}件 ` +
         `${((bMiss / Math.max(1, bspins)) * 100).toFixed(1).padStart(9)}% ` +
-        `${((bSpill / Math.max(1, bMiss)) * 100).toFixed(1).padStart(5)}%`,
+        `${((bSpill / Math.max(1, bMiss)) * 100).toFixed(1).padStart(5)}%` +
+        `  ビタ ${bitaC}回中${bitaH}揃い(${((bitaH / Math.max(1, bitaC)) * 100).toFixed(0)}%)`,
       );
     }
     console.log('\n===== 出玉シミュレーション（' + (NONE_MULT !== undefined ? 'none×' + NONE_MULT + '・' : '') + (STEP_BONUS_MULT !== 1 ? 'stepB×' + STEP_BONUS_MULT + '・' : '') + (STEP_ENTRY_MULT !== 1 ? 'stepE×' + STEP_ENTRY_MULT + '・' : '') + (BONUS_MULT !== undefined ? 'bonus×' + BONUS_MULT + '・' : '') + (OKAWARI_MULT !== 1 ? 'おかわり×' + OKAWARI_MULT + '・' : '') + (OKAWARI_BIG !== undefined || OKAWARI_REG !== undefined ? 'おかわり+' + (OKAWARI_BIG ?? 10) + 'G/+' + (OKAWARI_REG ?? 5) + 'G・' : '') + (BIG_SPINS !== undefined || REG_SPINS !== undefined ? 'BIG' + (BIG_SPINS ?? 10) + 'G/REG' + (REG_SPINS ?? 5) + 'G・' : '') + (COMBO_STEP > 0 ? COMBO_STEP + '連ごと+' + COMBO_ADD + 'G・' : '') + (ADDON_RATE > 0 ? '上乗せ' + Math.round(ADDON_RATE * 100) + '%(BB+' + ADDON_BIG + 'G/RB+' + ADDON_REG + 'G)・' : '') + (SETTING ? '設定' + SETTING + '・' : '') + SPINS + 'G/腕・全5章）=====\n' + lines.join('\n'));
