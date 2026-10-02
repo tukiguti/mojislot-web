@@ -804,15 +804,16 @@ body.has-chapter-bg {
     0 1px 2px rgba(0, 0, 0, 0.85);
 }
 #reel-strip-panel .strip-cell.has-art {
-  /* ドット文字を等倍(44x34)で置く。高さを34pxにしてあるのは**縮小させないため**——
-     ドット絵は等倍以外に伸縮するとドットの幅が不揃いになる。
+  /* ドット文字（65x50）をセルの高さ34pxへ縮めて置く。v1 の 44x34 は等倍で置けたが、
+     v2 で細かくした文字を等倍で置くと21コマが縦に伸びすぎる。縮小は等倍でないので
+     最近傍だとドットの幅が不揃いになる——ここは滑らかに縮める（読めればよい一覧のため）。
      21コマが画面に収まらない分は .strip-grid の overflow-y:auto でスクロールする。 */
   padding: 0;
   height: 34px;
-  background-size: auto;
+  background-size: contain;
   background-position: center;
   background-repeat: no-repeat;
-  image-rendering: pixelated;
+  image-rendering: auto;
   text-shadow: none;
 }
 #reel-strip-panel .strip-cell.current {

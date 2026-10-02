@@ -126,7 +126,8 @@ export class ReelView {
   /** 各セルの背景タイル Graphics（色タイル時のみ・スプライト時は null） */
   private readonly cellTiles: (Graphics | null)[] = [];
   /** 各セルのドット文字スプライト（フォント描画へ落ちた時は null） */
-  private readonly cellSprites: (Sprite | null)[] = [];
+  /** ドット文字（地＋艶の2枚を束ねた器）。揃った時に器ごと拡大する。 */
+  private readonly cellSprites: (Container | null)[] = [];
   /** 各スプライトの基準スケール（ハイライトのスケール演出から戻す用） */
   private readonly cellSpriteBaseScale: number[] = [];
   /** コマ番号を出すか（既定OFF）。目押しの検証と引き込みコマ数の確認に使う。 */
@@ -166,6 +167,8 @@ export class ReelView {
     private readonly tierForSymbol: SymbolTierFn = () => 'core',
     /** その文字のドット文字テクスチャ（無ければ null＝フォントで描く） */
     private readonly glyphForSymbol: SymbolTextureFn = () => null,
+    /** その文字の艶（白の艶と金の輪）。tint せずに地の上へ重ねる */
+    private readonly glossForSymbol: SymbolTextureFn = () => null,
   ) {
     this.container = new Container();
 
@@ -225,19 +228,28 @@ export class ReelView {
 
       const glyphTexture = this.glyphForSymbol(symbol);
       if (glyphTexture) {
-        // 44x34 のドット文字をセル幅いっぱい（=3倍）に置く。液晶の背景・出題者・
-        // バナーと同じ粒度になる。補間は読み込み側で nearest に落としてある
-        const sprite = new Sprite(glyphTexture);
-        sprite.anchor.set(0.5);
+        // 65x50 のドット文字をセル幅いっぱい（=2倍）に置く。補間は読み込み側で
+        // nearest に落としてある。地と艶を1つの器に束ね、器ごと拡大縮小する
+        const glyph = new Container();
         const scale = CELL_WIDTH / glyphTexture.width;
-        sprite.scale.set(scale);
-        sprite.x = CELL_WIDTH / 2;
-        sprite.y = 0;
-        // 白の字面へ役色を掛ける＝**文字の中だけが色づく**。縁はほぼ黒のままなので
+        glyph.scale.set(scale);
+        glyph.x = CELL_WIDTH / 2;
+        glyph.y = 0;
+        const base = new Sprite(glyphTexture);
+        base.anchor.set(0.5);
+        // 灰の濃淡へ役色を掛ける＝**文字の中だけが色づく**。外の縁と影は黒のままなので
         // 暗いリール地の上でも輪郭が残る
-        sprite.tint = originalColor;
-        cell.addChild(sprite);
-        this.cellSprites.push(sprite);
+        base.tint = originalColor;
+        glyph.addChild(base);
+        // 艶は tint しない。乗算では白の艶も金の輪も役色に化けるため（gen_glyphs.py）
+        const glossTexture = this.glossForSymbol(symbol);
+        if (glossTexture) {
+          const gloss = new Sprite(glossTexture);
+          gloss.anchor.set(0.5);
+          glyph.addChild(gloss);
+        }
+        cell.addChild(glyph);
+        this.cellSprites.push(glyph);
         this.cellSpriteBaseScale.push(scale);
       } else {
         // ドット文字が無い文字はフォントで描く。全章の全文字が揃っていることは

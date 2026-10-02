@@ -11,8 +11,11 @@
     blur = 列被覆の重なり（回っている時の似かた）
 
 を測り、`blur` を下げることを主目的に `gen_glyphs.TUNE` の値を貪欲探索する。素の形から
-離れるほど字が崩れるので、既定値（size=30, stretch=1.0, dx=0）からのずれには軽い罰則を
+離れるほど字が崩れるので、既定値（size=45, stretch=1.0）からのずれには軽い罰則を
 置き、**必要な文字だけ**が動くようにしてある。
+
+探索の単位は**リール別の文字**（"0:い"）。同じ文字でもリールで役の格が変わり、
+焼く大きさが違うため（`gen_glyphs.TIER_SCALE`）。書体は島ごと（`gen_glyphs.FONTS`）。
 
     python3 tools/tune_glyphs.py --measure          # いまの生成物を測るだけ
     python3 tools/tune_glyphs.py --measure --dir X  # 別ディレクトリを測る
@@ -35,13 +38,11 @@ from PIL import Image
 sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent))
 import gen_glyphs as G  # noqa: E402
 
-SIZES = [27, 28, 29, 30, 31, 32]
-STRETCHES = [0.88, 0.94, 1.0, 1.06, 1.12]
-DXS = [-2, -1, 0, 1, 2]
-GAPS = [2, 3, 4, 5]        # 濁点付きだけ。印を字面から離すと横幅が変わる
-RIM_BRIGHT, RIM_DARK = 1.35, 0.72   # 似た組の片方ずつに振る縁の明るさ
+SIZES = [39, 41, 43, 45, 47, 49]
+STRETCHES = [0.84, 0.92, 1.0, 1.08, 1.16]
+GAPS = [3, 4, 6, 8]        # 濁点付きだけ。印を字面から離すと横幅が変わる
 
-DEFAULT = {"size": 30, "stretch": 1.0, "dx": 0, "gap": 3, "rim": 1.0}
+DEFAULT = {"size": G.GLYPH_PX, "stretch": 1.0, "gap": 4}
 
 
 # ------------------------------------------------------------------ 測る
@@ -67,6 +68,12 @@ def pairs_of(chapter: str) -> list[tuple[int, str, str, str]]:
     return out
 
 
+def units_of(chapter: str) -> list[str]:
+    """探索の単位。"リール番号:文字"。"""
+    reels = json.loads((G.DATA / "reels" / f"{chapter}.json").read_text())["reels"]
+    return [f"{i}:{c}" for i, r in enumerate(reels) for c in sorted(set(r["cells"]))]
+
+
 def weighted_pairs(chapter: str) -> list[tuple[str, str, float]]:
     """探索が見る組。同じリールは満点、**同じ島の別リール**も割り引いて入れる。
 
@@ -74,12 +81,11 @@ def weighted_pairs(chapter: str) -> list[tuple[str, str, float]]:
     というだけで見分けを諦めると、配列が動いた次の日に「バとパが同じ形」に戻る。
     島の中では全部の組を見ておく。
     """
-    same = {(a, b) for _, _, a, b in pairs_of(chapter)}
-    out = [(a, b, 1.0) for a, b in same]
-    chars = sorted(set(G.chars_of(chapter)))
-    for a, b in itertools.combinations(chars, 2):
-        if (a, b) not in same:
-            out.append((a, b, 0.3))
+    out = []
+    for a, b in itertools.combinations(units_of(chapter), 2):
+        if a.split(":", 1)[1] == b.split(":", 1)[1]:
+            continue                      # 同じ文字の別リール版は見分ける必要が無い
+        out.append((a, b, 1.0 if a[0] == b[0] else 0.3))
     return out
 
 
@@ -127,7 +133,7 @@ def smear_sheet(chapter: str, scale: int = 4) -> Image.Image:
     for j, row in enumerate(rows):
         for i, ch in enumerate(row):
             cell = Image.new("RGBA", (G.CW, G.CH), (0, 0, 0, 0))
-            cell.alpha_composite(G.glyph(ch, chapter))
+            cell.alpha_composite(G.glyph(ch, chapter, j)[0])
             a = np.array(cell.convert("L"), dtype=float)
             col = a.mean(0)
             blur = np.tile((col / max(1e-6, col.max()) * 255), (G.CH, 1)).astype("uint8")
@@ -142,24 +148,27 @@ def smear_sheet(chapter: str, scale: int = 4) -> Image.Image:
 # ------------------------------------------------------------------ 探索
 
 class Bank:
-    """(文字, size, stretch) ごとの字面を作り置きする。dx は貼る位置なので後から効く。"""
+    """(島, リール別の文字, size, stretch, gap) ごとの字面を作り置きする。"""
 
     def __init__(self) -> None:
         self.masks: dict[tuple, list[list[int]]] = {}
 
-    def mask(self, ch: str, size: int, stretch: float, gap: int = 3):
-        key = (ch, size, stretch, gap)
+    def mask(self, chapter: str, unit: str, size: int, stretch: float, gap: int = 4):
+        key = (chapter, unit, size, stretch, gap)
         if key not in self.masks:
-            self.masks[key] = G._mask(ch, size, stretch, gap)
+            reel, ch = unit.split(":", 1)
+            G.use_chapter(chapter)
+            tier = G.tier_of(chapter, int(reel), ch)
+            scaled = int(round(size * G.TIER_SCALE[tier]))
+            self.masks[key] = G._mask(ch, scaled, stretch, gap, tier)
         return self.masks[key]
 
-    def bitmap(self, ch: str, t: dict) -> np.ndarray:
-        m = self.mask(ch, int(t["size"]), float(t["stretch"]), int(t["gap"]))
+    def bitmap(self, chapter: str, unit: str, t: dict) -> np.ndarray:
+        m = self.mask(chapter, unit, int(t["size"]), float(t["stretch"]), int(t["gap"]))
         a = np.array(m, dtype=bool)
         img = np.zeros((G.CH, G.CW), dtype=bool)
         oy = (G.CH - a.shape[0]) // 2
-        ox = (G.CW - a.shape[1]) // 2 + int(t["dx"])
-        ox = max(2, min(G.CW - 2 - a.shape[1], ox))
+        ox = (G.CW - a.shape[1]) // 2
         # 縁は grow を2回。列で見ると字面の左右へ2ドット広がるのと同じ
         for dy in range(-2, 3):
             for dx in range(-2, 3):
@@ -173,11 +182,11 @@ class Bank:
                     img[y0:y1, x0:x1] |= a[y0 - ys:y1 - ys, x0 - xs:x1 - xs]
         return img
 
-    def height(self, ch: str, size: int, stretch: float, gap: int = 3) -> int:
-        return len(self.mask(ch, size, stretch, gap))
+    def height(self, chapter: str, unit: str, size: int, stretch: float, gap: int = 4) -> int:
+        return len(self.mask(chapter, unit, size, stretch, gap))
 
-    def has_mark(self, ch: str) -> bool:
-        return len(unicodedata.normalize("NFD", ch)) > 1
+    def has_mark(self, unit: str) -> bool:
+        return len(unicodedata.normalize("NFD", unit.split(":", 1)[1])) > 1
 
 
 def pair_cost(iou: float, blur: float) -> float:
@@ -188,7 +197,7 @@ def pair_cost(iou: float, blur: float) -> float:
 
 
 def reg_cost(t: dict) -> float:
-    return 0.045 * abs(t["size"] - 30) + 0.7 * abs(t["stretch"] - 1.0) + 0.12 * abs(t["dx"])
+    return 0.03 * abs(t["size"] - G.GLYPH_PX) + 0.7 * abs(t["stretch"] - 1.0)
 
 
 def total_cost(chars, prs, tune, bmp) -> float:
@@ -201,12 +210,13 @@ def search(chapter: str, bank: Bank, passes: int = 4, starts: int = 8) -> dict[s
     「どちらを大きくしても片方が別の字とぶつかる」組で浅い底に落ちる。
     種は固定しているので、同じ入力からは必ず同じ割り当てが出る。"""
     rng = random.Random(20260829)
+    units = units_of(chapter)
+    prs = weighted_pairs(chapter)
     best_all, best_cost = None, float("inf")
     for k in range(starts):
         t = _descend(chapter, bank, passes, rng, seed_random=k > 0)
-        chars = G.chars_of(chapter)
-        bmp = {c: bank.bitmap(c, t[c]) for c in chars}
-        v = total_cost(chars, weighted_pairs(chapter), t, bmp)
+        bmp = {u: bank.bitmap(chapter, u, t[u]) for u in units}
+        v = total_cost(units, prs, t, bmp)
         if v < best_cost:
             best_all, best_cost = t, v
     return best_all
@@ -214,72 +224,52 @@ def search(chapter: str, bank: Bank, passes: int = 4, starts: int = 8) -> dict[s
 
 def _descend(chapter: str, bank: Bank, passes: int, rng: random.Random,
              seed_random: bool) -> dict[str, dict]:
-    chars = G.chars_of(chapter)
+    units = units_of(chapter)
     prs = weighted_pairs(chapter)
-    tune = {c: dict(DEFAULT) for c in chars}
+    tune = {u: dict(DEFAULT) for u in units}
+    is_bonus = {u: G.tier_of(chapter, int(u.split(":", 1)[0]), u.split(":", 1)[1]) == "bonus"
+                for u in units}
     if seed_random:
-        for c in chars:
-            tune[c].update(size=rng.choice(SIZES), stretch=rng.choice(STRETCHES),
-                           dx=rng.choice(DXS),
-                           gap=rng.choice(GAPS) if bank.has_mark(c) else 3)
-    involved = {c: [(a, b, w) for a, b, w in prs if c in (a, b)] for c in chars}
+        for u in units:
+            size = rng.choice(SIZES)
+            tune[u].update(size=max(size, G.GLYPH_PX) if is_bonus[u] else size,
+                           stretch=rng.choice(STRETCHES),
+                           gap=rng.choice(GAPS) if bank.has_mark(u) else DEFAULT["gap"])
+    involved = {u: [(a, b, w) for a, b, w in prs if u in (a, b)] for u in units}
 
-    def cost_of(c: str, cur: dict[str, dict], bmp: dict[str, np.ndarray]) -> float:
-        s = reg_cost(cur[c])
-        for a, b, w in involved[c]:
+    def cost_of(u: str, cur: dict[str, dict], bmp: dict[str, np.ndarray]) -> float:
+        s = reg_cost(cur[u])
+        for a, b, w in involved[u]:
             s += w * pair_cost(*scores(bmp[a], bmp[b]))
         return s
 
     # 「ェ」「ー」のような小書き・記号は素から背が低い。絶対値で足切りすると
     # 候補が全滅して調整できなくなるので、**その文字の素の背丈**を基準にする
-    floor = {c: max(4, bank.height(c, 30, 1.0, 3) * 0.86) for c in chars}
+    floor = {u: max(5, bank.height(chapter, u, G.GLYPH_PX, 1.0) * 0.86) for u in units}
 
-    bmp = {c: bank.bitmap(c, tune[c]) for c in chars}
+    bmp = {u: bank.bitmap(chapter, u, tune[u]) for u in units}
     for _ in range(passes):
         moved = False
-        for c in chars:
-            best, best_t, best_b = cost_of(c, tune, bmp), dict(tune[c]), bmp[c]
-            gaps = GAPS if bank.has_mark(c) else [3]
-            for size, st, dx, gap in itertools.product(SIZES, STRETCHES, DXS, gaps):
-                if bank.height(c, size, st, gap) < floor[c]:
+        for u in units:
+            best, best_t, best_b = cost_of(u, tune, bmp), dict(tune[u]), bmp[u]
+            gaps = GAPS if bank.has_mark(u) else [DEFAULT["gap"]]
+            # ボーナスの文字は既定より縮めない（大きさで格を見せるため）
+            sizes = [z for z in SIZES if z >= G.GLYPH_PX] if is_bonus[u] else SIZES
+            for size, st, gap in itertools.product(sizes, STRETCHES, gaps):
+                if bank.height(chapter, u, size, st, gap) < floor[u]:
                     continue          # 縮め過ぎない。_fit が効いて別物の大きさになる
-                t = {"size": size, "stretch": st, "dx": dx, "gap": gap,
-                     "rim": tune[c]["rim"]}
-                bmp[c] = bank.bitmap(c, t)
-                v = cost_of(c, {**tune, c: t}, bmp)
+                t = {"size": size, "stretch": st, "gap": gap}
+                bmp[u] = bank.bitmap(chapter, u, t)
+                v = cost_of(u, {**tune, u: t}, bmp)
                 if v < best - 1e-9:
-                    best, best_t, best_b = v, t, bmp[c]
-            bmp[c] = best_b
-            if best_t != tune[c]:
+                    best, best_t, best_b = v, t, bmp[u]
+            bmp[u] = best_b
+            if best_t != tune[u]:
                 moved = True
-            tune[c] = best_t
+            tune[u] = best_t
         if not moved:
             break
     return tune
-
-
-def assign_rims(chapter: str, tune: dict[str, dict], bank: Bank) -> None:
-    """まだ似ている組の片方だけ縁の明るさを動かす。回転中の輪郭の濃さが変わる。
-
-    白と灰の2値構造は保つ（灰の明度だけ動かす）ので、tint で色が乗る仕組みは壊れない。
-    列被覆は変わらないので数字には出ないが、目には効く。
-    """
-    bmp = {c: bank.bitmap(c, tune[c]) for c in G.chars_of(chapter)}
-    worst = sorted(
-        ((scores(bmp[a], bmp[b])[1], scores(bmp[a], bmp[b])[0], a, b)
-         for a, b, w in weighted_pairs(chapter) if w >= 1.0),
-        reverse=True,
-    )
-    used: dict[str, float] = {}
-    for blur, iou, a, b in worst:
-        if blur < 0.88 and iou < 0.55:
-            continue
-        if a in used or b in used:
-            continue
-        used[a] = RIM_BRIGHT      # 片方の縁を明るく
-        used[b] = RIM_DARK       # 片方を暗く
-    for c, v in used.items():
-        tune[c]["rim"] = v
 
 
 def emit(tunes: dict[str, dict[str, dict]]) -> str:
@@ -290,7 +280,7 @@ def emit(tunes: dict[str, dict[str, dict]]) -> str:
             if v == DEFAULT:
                 continue
             body = ", ".join(
-                f'"{k}": {v[k]!r}' for k in ("size", "stretch", "dx", "gap", "rim")
+                f'"{k}": {v[k]!r}' for k in ("size", "stretch", "gap")
                 if v[k] != DEFAULT[k]
             )
             lines.append(f'        "{ch}": {{{body}}},')
@@ -313,7 +303,6 @@ def main() -> int:
         tunes = {}
         for chapter in G.CHAPTERS:
             tunes[chapter] = search(chapter, bank)
-            assign_rims(chapter, tunes[chapter], bank)
             print(f"{chapter}: done", file=sys.stderr)
         print(emit(tunes))
         return 0
