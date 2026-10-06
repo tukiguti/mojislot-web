@@ -415,63 +415,56 @@ def landmark_of(chapter: str) -> str | None:
     return _LANDMARK_CACHE[chapter]
 
 
-PLATE_HI, PLATE_MID, PLATE_LO = (255, 240, 170), (236, 184, 64), (168, 108, 18)
-PLATE_EDGE = (74, 42, 6, 255)
-ENGRAVE = (92, 20, 8, 255)          # 彫った字の色（えんじ）
-ENGRAVE_LIGHT = (255, 246, 210, 255)  # 彫りの下縁に当たる光
+MARK_FACE = (236, 228, 204)      # 目印の字の色（生成り）
+MARK_SHADE = (176, 164, 136)     # 字の下側の陰り
+MARK_EDGE = (34, 30, 40, 255)    # 外の縁（ほかの文字と同じ黒）
+MARK_BAR = (150, 128, 84, 255)   # 字の上下に引く細い線（実機の BAR の帯）
 
 
 def landmark_glyph(ch: str, chapter: str) -> tuple[Image.Image, Image.Image]:
-    """目印＝**金の札に漢字を彫ったもの**。役の文字とは別物に見えるよう、札ごと描く。
+    """目印＝**島の漢字1字を、上下に細い線を引いて置いたもの**（実機の BAR の役回り）。
 
-    役の色で染めない（表示側は tint を白にする）ので、色は地の1枚に焼き込む。
-    回転中も「札の四角」として見えるので、目押しの目安になる（文字が流れても形が残る）。
+    〔2026-10-06〕金の札は目立ちすぎた。狙う場所の主役はボーナス図柄で、目印は
+    そこから届かない役のための脇役なので、**ほかの文字と同じ大きさ・同じ縁**にして、
+    色を役の色から外した生成りにする。上下の線で「役の文字ではない」ことだけ分かる。
+    役の色で染めない（表示側は tint を白）ので、色は地の1枚に焼き込む。艶は付けない。
     """
     use_chapter(chapter)
     base = Image.new("RGBA", (CW, CH), (0, 0, 0, 0))
     gloss = Image.new("RGBA", (CW, CH), (0, 0, 0, 0))
     bp = base.load()
-    x0, y0, x1, y1 = 4, 3, CW - 5, CH - 4
-    for y in range(y0, y1 + 1):
-        for x in range(x0, x1 + 1):
-            # 角を1ドット落とす
-            if (x in (x0, x1)) and (y in (y0, y1)):
-                continue
-            if x in (x0, x1) or y in (y0, y1):
-                bp[x, y] = PLATE_EDGE
-                continue
-            gy = (y - y0) / (y1 - y0)
-            c = PLATE_HI if gy < 0.3 else PLATE_MID if gy < 0.72 else PLATE_LO
-            if x == x0 + 1 or y == y0 + 1:
-                c = (255, 252, 226)          # 左上の面取り
-            elif x == x1 - 1 or y == y1 - 1:
-                c = (128, 78, 10)            # 右下の面取り
-            bp[x, y] = c + (255,)
     # 漢字は画数が多いので**太らせない**（仮名用の BOLD を掛けると潰れて塊になる）。
-    # 札の内側（縁と面取りを除く）に収まる大きさで焼く。
     img = _raster(ch, 40)
-    k = min((x1 - x0 - 10) / (img.width / SS), (y1 - y0 - 8) / (img.height / SS))
+    k = min(34 / (img.width / SS), 30 / (img.height / SS))
     m = _trim(_shrink(img, round(img.width / SS * k), round(img.height / SS * k)))
+    m = _pad(m, 3)
+    o1 = grow(m)
+    o2 = grow(o1)
     h, w = len(m), len(m[0])
     ox, oy = (CW - w) // 2, (CH - h) // 2
+    rows = [y for y in range(h) if any(m[y])]
+    top, bot = rows[0], rows[-1]
+
+    def put(x: int, y: int, c: tuple[int, int, int, int]) -> None:
+        X, Y = ox + x, oy + y
+        if 0 <= X < CW and 0 <= Y < CH:
+            bp[X, Y] = c
+
     for y in range(h):
         for x in range(w):
-            if not m[y][x]:
-                continue
-            X, Y = ox + x, oy + y
-            # 彫りの下縁：字の1ドット下が字でなければ明るい線を引く
-            if 0 <= Y + 1 < CH and not (y + 1 < h and m[y + 1][x]):
-                bp[X, Y + 1] = ENGRAVE_LIGHT
+            if o2[y][x] and not m[y][x]:
+                put(x, y, MARK_EDGE)
     for y in range(h):
         for x in range(w):
             if m[y][x]:
-                bp[ox + x, oy + y] = ENGRAVE
-    # 札の上半分に斜めの照り（艶の層）
-    gp = gloss.load()
-    for y in range(y0 + 2, y0 + (y1 - y0) // 2):
-        for x in range(x0 + 2, x1 - 1):
-            if (x + y) % 23 < 4 and base.getpixel((x, y))[:3] != ENGRAVE[:3]:
-                gp[x, y] = (255, 255, 255, 70)
+                c = MARK_FACE if (y - top) / max(1, bot - top) < 0.6 else MARK_SHADE
+                put(x, y, c + (255,))
+    # 上下の細い線（BAR の帯）。字の外の縁のさらに外側に2ドット
+    for yy in (oy + top - 6, oy + bot + 5):
+        for x in range(8, CW - 8):
+            for d in (0, 1):
+                if 0 <= yy + d < CH and bp[x, yy + d][3] == 0:
+                    bp[x, yy + d] = MARK_BAR
     return base, gloss
 
 
