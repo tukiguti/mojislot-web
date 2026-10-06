@@ -1,5 +1,5 @@
 import { describe, it } from 'vitest';
-import { readFileSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { dirname, resolve } from 'node:path';
 import { SlipResolver, type VisibleColumn } from '../../src/productions/SlipResolver';
@@ -78,6 +78,15 @@ const UNDER_LANDMARK = LANDMARK_AT.map((i) => (i - 1 + N) % N);
  * 来るかどうかが取りこぼしに直結する。そこを配列側で最適化するためのモード。
  */
 const REACH_MODE = process.env.OPT_MODE === 'reach';
+/**
+ * `OPT_MODE=feasible`：**ハード制約の違反の合計だけ**を減らす段階（2026-10-02）。
+ *
+ * reach モードは違反に10万倍の重みを掛けるので、実質「下り坂しか受け入れない」探索になり、
+ * 目印で固定コマが増えた配列では違反が残ったまま動けなくなった（1,500回で一度も
+ * 改善を記録しなかった）。違反の件数そのものを目的にして普通の温度で焼き、
+ * 0 になった配列を書き出す。到達率の磨き込みはその後に reach で行う。
+ */
+const FEASIBLE_MODE = process.env.OPT_MODE === 'feasible';
 /**
  * 到達率を測るときの押下位置の間引き幅。21³ を毎イテレーション回すと重いので、
  * 焼きなまし中は 3 コマおき（7³＝343通り）で方向づけだけする。
@@ -491,6 +500,15 @@ function planCounts(yakuList: YakuList, reel: number, size = N): Map<string, num
     if (!bonusSyms.includes(c)) bonusSyms.push(c);
   }
   for (const y of yakuList.singleYaku) bump(y.symbols[reel], 1);
+  // 目印のある配列（size < N）では、**第3リールのボーナス図柄を3枚ずつ**にする。
+  // 2種×2枚の4枚だと引き込みで届く押下位置が最大20で、21箇所すべてを覆えず
+  // 「BIG も REG も引けない位置」が必ず残る（以前は余った枠を回して3枚ずつだった）。
+  if (size < N && reel === 2) for (const sym of bonusSyms) plan.set(sym, Math.max(plan.get(sym) ?? 0, 3));
+  // さらに REG の図柄を1枚足す（4枚）。目印の3箇所から押した時の覆いに、固定コマの外の
+  // ボーナス図柄が3枚要る（0・7・14番の目印の先にそれぞれ1枚）。3枚ずつだと固定の外に
+  // 2枚しか残らず、BIG も REG も引けない押下位置が必ず1つ残った（5島とも盲点=1）。
+  const regThird = yakuList.bonusYaku[0]?.symbols[2];
+  if (size < N && reel === 2 && regThird !== undefined) plan.set(regThird, (plan.get(regThird) ?? 3) + 1);
   // 目印で枠が減った分は小役から1枚ずつ削る。**3枚役→4枚役→7枚役→5枚役**の順で、
   // 配当の高い役ほど薄く＝狙わないと取れない側へ寄せる（目押しの意味を残す）。
   const cutOrder = [3, 4, 7, 5];
@@ -838,6 +856,13 @@ function fixedCells(yakuList: YakuList, reel: number, landmark: string): Map<num
   UNDER_LANDMARK.forEach((i, k) => {
     if (under[k] !== undefined) m.set(i, under[k]);
   });
+  // 第3リールは、3つ目の目印の真下の BIG 図柄（13番）の**さらに1つ下に REG の図柄**を
+  // 固定する。BIG を狙って押すと滑って REG が止まる＝「BIG か REG か」が第3リールで
+  // 決まる楽しさを、探索任せにせず配列の作りで保証する（2026-10-05 決定）。
+  const regSym = yakuList.bonusYaku[0]?.symbols[2];
+  if (reel === 2 && regSym !== undefined && regSym !== under[2]) {
+    m.set((UNDER_LANDMARK[2] - 1 + N) % N, regSym);
+  }
   return m;
 }
 
@@ -917,8 +942,11 @@ function aimMisses(
   return misses;
 }
 
-/** 焼きなまし中に「狙えば揃う」を見る押し順（重いので2通り）。書き出し前に全6通りで確かめる。 */
-const AIM_ORDERS_FAST: readonly (readonly number[])[] = [[0, 1, 2], [2, 1, 0]];
+/**
+ * 焼きなまし中に「狙えば揃う」を見る押し順。**全6通り**——2通りに絞ると、残りの押し順で
+ * 揃わない配列を最良として掴み、書き出し前の全数検証で落ちた（実測で14通り残った）。
+ */
+const AIM_ORDERS_FAST: readonly (readonly number[])[] = STOP_ORDERS;
 
 function makeRng(seed: number): () => number {
   let s = seed >>> 0;
@@ -957,10 +985,17 @@ describe.skipIf(!RUN)('リール配列の再最適化', () => {
         });
         // 枚数は計画で固定する。現行配列は計画とずれているので、まず寄せてから焼きなます。
         const seedRng = makeRng(20260905);
-        let cur = reelCfg.reels.map((r, i) =>
+        // `OPT_FROM=<dir>` があれば、前回の最良（`OPT_SAVE` で保存したもの）から続ける。
+        const fromFile = process.env.OPT_FROM ? `${process.env.OPT_FROM}/${chapter}.json` : null;
+        // 保存した配列は枚数計画が変わっていることがあるので、今の計画と固定コマへ寄せ直す。
+        const startCells: string[][] =
+          fromFile && existsSync(fromFile)
+            ? (JSON.parse(readFileSync(fromFile, 'utf-8')) as { reels: string[][] }).reels
+            : reelCfg.reels.map((r) => r.cells);
+        let cur = startCells.map((cells, i) =>
           landmark
-            ? layoutWithFixed(r.cells.filter((c) => c !== landmark), fixed[i], plans[i])
-            : toPlan([...r.cells], plans[i], seedRng),
+            ? layoutWithFixed(cells.filter((c) => c !== landmark), fixed[i], plans[i])
+            : toPlan([...cells], plans[i], seedRng),
         );
         const pools = plans.map((pl) => [...pl.keys()]);
         let curCtrl = makeController(yakuList, cur, resolver);
@@ -986,7 +1021,13 @@ describe.skipIf(!RUN)('リール配列の再最適化', () => {
         let curBand = bandPenalty(scoredYakus, curRates);
         let curSpread = spreadPenalty(cur, pools);
         let curRuns = runPenalty(cur);
-        let curBudget = reachBudgetPenalty(yakuList, cur);
+        /**
+         * 引き込みで届かない位置の上限は、**目印のある配列では課さない**（2026-10-05 決定）。
+         * 目押しのゲームなので、適当に押して届かない位置があるのは仕様。偏りの抑えは
+         * 副目的（届かず・偏り）に残す。
+         */
+        const budgetOf = (r: string[][]) => (landmark ? 0 : reachBudgetPenalty(yakuList, r));
+        let curBudget = budgetOf(cur);
         let curBlind = thirdReelBlindSpots(yakuList, cur);
         let curBoth = thirdReelBothCount(yakuList, cur);
         let curPairs = thirdReelAdjacentPairs(yakuList, cur);
@@ -1045,7 +1086,34 @@ describe.skipIf(!RUN)('リール配列の再最適化', () => {
 
         const rng = makeRng(20260727);
         // reach モードは②＝0でも打ち切らない（そこからが本番なので）。
-        for (let iter = 0; iter < MAX_ITER && (REACH_MODE || bestLeaks > 0 || bestAim > 0); iter++) {
+        /** ハード制約の違反の重み付き合計（feasible モードの目的関数）。 */
+        const violation = (v: {
+          aim: number; leaks: number; triples: number; bases: number; golds: number;
+          runs: number; budget: number; blind: number; pairs: number;
+        }) =>
+          v.aim + v.leaks + 3 * (v.triples + v.bases + v.golds + v.runs + v.blind) +
+          v.budget + 3 * Math.max(0, 1 - v.pairs);
+        let curViol = violation({
+          aim: curAim, leaks: curLeaks, triples: curTriples, bases: curBases, golds: curGolds,
+          runs: curRuns, budget: curBudget, blind: curBlind, pairs: curPairs,
+        });
+        let bestViol = curViol;
+        for (let iter = 0; iter < MAX_ITER && (REACH_MODE || bestViol > 0); iter++) {
+          if (iter % 100 === 0) {
+            // 途中でも最良を保存する（時間切れや中断で何時間ぶんも失わないように）
+            if (process.env.OPT_SAVE && iter > 0) {
+              mkdirSync(process.env.OPT_SAVE, { recursive: true });
+              writeFileSync(
+                `${process.env.OPT_SAVE}/${chapter}.json`,
+                JSON.stringify({ reels: best }),
+                'utf-8',
+              );
+            }
+            console.log(
+              `  [${chapter}] iter=${iter} 違反 今=${curViol} 最良=${bestViol} ` +
+                `(狙い漏れ=${curAim} ②=${curLeaks} 配分超過=${curBudget} 盲点=${curBlind} 隣接=${curPairs}) ${((Date.now() - t0) / 1000).toFixed(0)}s`,
+            );
+          }
           const next = cur.map((r) => [...r]);
           const i = Math.floor(rng() * 3);
           // **スワップだけ**。文字の置換を混ぜると枚数が動いてしまう。固定コマ（目印と
@@ -1059,7 +1127,7 @@ describe.skipIf(!RUN)('リール配列の再最適化', () => {
           const T = 6 * Math.pow(0.02 / 6, iter / MAX_ITER);
           const nextCtrl = makeController(yakuList, next, resolver);
           const leaks = countLeaks(
-            yakuList, next, resolver, judge, curLeaks + 40, nextCtrl, SCAN_ORDERS, SCAN_STEP,
+            yakuList, next, resolver, judge, curLeaks + (FEASIBLE_MODE ? 12 : 40), nextCtrl, SCAN_ORDERS, SCAN_STEP,
           );
           const gap = gapPenalty(next, pools);
           const rates = reachableRates(yakuList, next, nextCtrl, judge, REACH_STEP);
@@ -1070,7 +1138,7 @@ describe.skipIf(!RUN)('リール配列の再最適化', () => {
           const band = bandPenalty(scoredYakus, rates);
           const spread = spreadPenalty(next, pools);
           const runs = runPenalty(next);
-          const budget = reachBudgetPenalty(yakuList, next);
+          const budget = budgetOf(next);
           const blind = thirdReelBlindSpots(yakuList, next);
           const both = thirdReelBothCount(yakuList, next);
           const pairs = thirdReelAdjacentPairs(yakuList, next);
@@ -1113,7 +1181,14 @@ describe.skipIf(!RUN)('リール配列の再最適化', () => {
               (band - curBand) * 30 +
               (spread - curSpread) * 2 +
               (gap - curGap);
-          if (d < 0 || rng() < Math.exp(-d / (T * 100))) {
+          const viol = violation({ aim, leaks, triples, bases, golds, runs, budget, blind, pairs });
+          // feasible モードは違反の件数で焼く。温度は件数の単位（3→0.05）。
+          const accept = FEASIBLE_MODE
+            ? viol <= curViol ||
+              rng() < Math.exp(-(viol - curViol) / (3 * Math.pow(0.05 / 3, iter / MAX_ITER)))
+            : d < 0 || rng() < Math.exp(-d / (T * 100));
+          if (accept) {
+            curViol = viol;
             cur = next;
             curLeaks = leaks;
             curGap = gap;
@@ -1134,7 +1209,9 @@ describe.skipIf(!RUN)('リール配列の再最適化', () => {
               aim === 0 &&
               leaks === 0 && triples === 0 && bases === 0 && golds === 0 && runs === 0 &&
               budget === 0 && blind === 0 && pairs >= 1;
-            const improved = REACH_MODE
+            const improved = FEASIBLE_MODE
+              ? viol < bestViol || (viol === bestViol && viol === 0 && band < bestBand - 1e-9)
+              : REACH_MODE
               ? hardOk &&
                 (bestAim > 0 ||
                  bestLeaks > 0 || bestTriples > 0 || bestBases > 0 || bestGolds > 0 ||
@@ -1154,6 +1231,7 @@ describe.skipIf(!RUN)('リール配列の再最適化', () => {
                  (band < bestBand - 1e-9 ||
                   (Math.abs(band - bestBand) < 1e-9 && gap < bestGap)));
             if (improved) {
+              bestViol = viol;
               best = next.map((r) => [...r]);
               bestLeaks = leaks;
               bestGap = gap;
@@ -1180,6 +1258,16 @@ describe.skipIf(!RUN)('リール配列の再最適化', () => {
         console.log(
           `[${chapter}] 結果 狙い漏れ=${bestAim} ②=${bestLeaks} 3本同時=${bestTriples} 金示唆=${bestGolds} 3連続=${bestRuns} 配分超過=${bestBudget} 3リール盲点=${bestBlind} 隣接=${bestPairs} 両取り=${bestBoth} 届かず=${bestUnreach} 間隔=${bestGap} 到達=${bestReach.toFixed(4)} ${((Date.now() - t0) / 1000).toFixed(0)}s`,
         );
+        // 最良は**制約を満たしていなくても保存する**（`OPT_SAVE=<dir>`）。以前は書き出せない
+        // 配列を捨てていたので、35分回した結果が残らず次も最初からやり直しになった。
+        if (process.env.OPT_SAVE) {
+          mkdirSync(process.env.OPT_SAVE, { recursive: true });
+          writeFileSync(
+            `${process.env.OPT_SAVE}/${chapter}.json`,
+            JSON.stringify({ reels: best }),
+            'utf-8',
+          );
+        }
         // 焼きなまし中は間引いて評価しているので、**採用する配列は全数・全押し順で
         // 検証し直す**。間引きで見逃した②がここで出たら書き出さない。
         const verified =
@@ -1241,6 +1329,8 @@ describe.skipIf(!RUN)('リール配列の再最適化', () => {
         }
       }
     },
-    3600_000,
+    // 全数で②を測ると1回5秒かかり、数時間回すことがある。CLI の --testTimeout は
+    // ここに書いた値に負けるので、環境変数で延ばせるようにする。
+    Number(process.env.OPT_TIMEOUT ?? 3600_000),
   );
 });

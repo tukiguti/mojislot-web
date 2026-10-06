@@ -207,15 +207,17 @@ export class StopController {
     // 先に止めた位置しだいで残りが詰み、正しく狙っても揃わない押し方が残った。
     if (!noneStopped && req.stoppedPositions && winTargets.length > 0) {
       const stops = req.stoppedPositions.map((p, i) => (i === req.reelIndex ? null : p));
-      // 出てよい役は許可リスト全体（ボーナス中のこぼし先の1枚役を含む）。
-      // 狙うのは winTargets だけ。
+      // 保証の判定では、ボーナス中のこぼし先（1枚役）を**出てよい役に数えない**。
+      // 数えると通常時と別の止め方を選び、同じ押し方でも当選役を取り逃がすことがあった
+      // （監査 bonus-spill で6通り）。1枚役は当選役を取れなかった時の受け皿で、
+      // 下の最終停止の拾いに任せる。
       const guarded = this.guard.chooseSlip(
         winTargets,
         stops,
         req.reelIndex,
         req.basePosition,
         () => 0,
-        req.flagYakuIds,
+        winTargets.map((y) => y.id),
       );
       if (guarded !== null) return guarded;
     }
