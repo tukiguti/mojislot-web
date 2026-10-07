@@ -110,16 +110,6 @@
       }
     },
     {
-      "id": "single",
-      "kind": "single",
-      "displayYakuId": null,
-      "rate": {
-        "default": 0.0,
-        "rescue": 0.0,
-        "bonus": 0.0
-      }
-    },
-    {
       "id": "iwashi",
       "kind": "core",
       "displayYakuId": "iwashi",
@@ -211,36 +201,5 @@
       }
     }
   ],
-  "singleYaku": [
-    {
-      "id": "single_a",
-      "name": "たつま",
-      "symbols": [
-        "た",
-        "つ",
-        "ま"
-      ],
-      "category": "single"
-    },
-    {
-      "id": "single_b",
-      "name": "さゃろ",
-      "symbols": [
-        "さ",
-        "ゃ",
-        "ろ"
-      ],
-      "category": "single"
-    },
-    {
-      "id": "single_c",
-      "name": "たゃし",
-      "symbols": [
-        "た",
-        "ゃ",
-        "し"
-      ],
-      "category": "single"
-    }
-  ]
+  "singleYaku": []
 }

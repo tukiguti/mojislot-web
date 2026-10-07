@@ -107,16 +107,6 @@
       }
     },
     {
-      "id": "single",
-      "kind": "single",
-      "displayYakuId": null,
-      "rate": {
-        "default": 0.0,
-        "rescue": 0.0,
-        "bonus": 0.0
-      }
-    },
-    {
       "id": "utau",
       "kind": "core",
       "displayYakuId": "utau",
@@ -208,39 +198,5 @@
       }
     }
   ],
-  "singleYaku": [
-    {
-      "id": "single_a",
-      "name": "あすぐ",
-      "symbols": [
-        "あ",
-        "す",
-        "ぐ"
-      ],
-      "category": "single",
-      "noArt": true
-    },
-    {
-      "id": "single_b",
-      "name": "はたぶ",
-      "symbols": [
-        "は",
-        "た",
-        "ぶ"
-      ],
-      "category": "single",
-      "noArt": true
-    },
-    {
-      "id": "single_c",
-      "name": "おたむ",
-      "symbols": [
-        "お",
-        "た",
-        "む"
-      ],
-      "category": "single",
-      "noArt": true
-    }
-  ]
+  "singleYaku": []
 }

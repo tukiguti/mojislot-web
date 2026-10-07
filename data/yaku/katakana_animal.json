@@ -109,16 +109,6 @@
       }
     },
     {
-      "id": "single",
-      "kind": "single",
-      "displayYakuId": null,
-      "rate": {
-        "default": 0.0,
-        "rescue": 0.0,
-        "bonus": 0.0
-      }
-    },
-    {
       "id": "usagi",
       "kind": "core",
       "displayYakuId": "usagi",
@@ -210,36 +200,5 @@
       }
     }
   ],
-  "singleYaku": [
-    {
-      "id": "single_a",
-      "name": "イヌキ",
-      "symbols": [
-        "イ",
-        "ヌ",
-        "キ"
-      ],
-      "category": "single"
-    },
-    {
-      "id": "single_b",
-      "name": "イリン",
-      "symbols": [
-        "イ",
-        "リ",
-        "ン"
-      ],
-      "category": "single"
-    },
-    {
-      "id": "single_c",
-      "name": "ウンズ",
-      "symbols": [
-        "ウ",
-        "ン",
-        "ズ"
-      ],
-      "category": "single"
-    }
-  ]
+  "singleYaku": []
 }

@@ -112,16 +112,6 @@
       }
     },
     {
-      "id": "single",
-      "kind": "single",
-      "displayYakuId": null,
-      "rate": {
-        "default": 0.0,
-        "rescue": 0.0,
-        "bonus": 0.0
-      }
-    },
-    {
       "id": "hack",
       "kind": "core",
       "displayYakuId": "hack",
@@ -213,36 +203,5 @@
       }
     }
   ],
-  "singleYaku": [
-    {
-      "id": "single_a",
-      "name": "ワンプ",
-      "symbols": [
-        "ワ",
-        "ン",
-        "プ"
-      ],
-      "category": "single"
-    },
-    {
-      "id": "single_b",
-      "name": "スーク",
-      "symbols": [
-        "ス",
-        "ー",
-        "ク"
-      ],
-      "category": "single"
-    },
-    {
-      "id": "single_c",
-      "name": "ダェル",
-      "symbols": [
-        "ダ",
-        "ェ",
-        "ル"
-      ],
-      "category": "single"
-    }
-  ]
+  "singleYaku": []
 }

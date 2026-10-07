@@ -110,16 +110,6 @@
       }
     },
     {
-      "id": "single",
-      "kind": "single",
-      "displayYakuId": null,
-      "rate": {
-        "default": 0.0,
-        "rescue": 0.0,
-        "bonus": 0.0
-      }
-    },
-    {
       "id": "okura",
       "kind": "core",
       "displayYakuId": "okura",
@@ -211,36 +201,5 @@
       }
     }
   ],
-  "singleYaku": [
-    {
-      "id": "single_a",
-      "name": "モロシ",
-      "symbols": [
-        "モ",
-        "ロ",
-        "シ"
-      ],
-      "category": "single"
-    },
-    {
-      "id": "single_b",
-      "name": "オイチ",
-      "symbols": [
-        "オ",
-        "イ",
-        "チ"
-      ],
-      "category": "single"
-    },
-    {
-      "id": "single_c",
-      "name": "プクム",
-      "symbols": [
-        "プ",
-        "ク",
-        "ム"
-      ],
-      "category": "single"
-    }
-  ]
+  "singleYaku": []
 }
