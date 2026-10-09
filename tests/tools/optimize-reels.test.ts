@@ -99,7 +99,7 @@ function profReport(label: string): void {
  * BIG と REG の隣接の組を2組（4枚）にし、3組目を作ろうとして他の条件とぶつかって
  * いた分を目印に回す。組が届かない場所は目印を狙う目安になる。
  */
-const barsOn = (reel: number): number => (reel === 2 ? BAR_COUNT + 2 : BAR_COUNT);
+const barsOn = (reel: number): number => (reel === 2 ? BAR_COUNT + 1 : BAR_COUNT);
 
 /**
  * `OPT_MODE=reach` で「②＝0 を保ったまま**狙いやすさ**を上げる」モードになる。
@@ -993,23 +993,21 @@ function aimMisses(
  * 第3リールの決まった形（2026-10-10 決定）。左・中は BIG1・BIG2・目印の3つの狙い所が
  * 別々の図柄だが、第3リールは BIG1 と BIG2 の図柄が同じ「BIG と REG の組」に入って
  * いて、狙い所が実質2つしかなかった（配列が見つかりにくかった原因）。そこで組を
- * **ペア1（BIG1 の担当役）とペア2（BIG2 の担当役）**に分け、目印との位置で見分ける。
+ * **ペア1（BIG1 の担当役）とペア2（BIG2 の担当役）**に分ける。
  *
- *  - 目印：0・5・11・16番（ほぼ等間隔）
- *  - ペア1：0番の目印の**すぐ次**（1番＝BIG1 の図柄・2番＝REG の図柄）
- *  - ペア2：11番と16番の目印の**真ん中**（13番＝REG の図柄・14番＝BIG1 の図柄）
- *
- * 「目印が見えた、すぐ次の組はペア1」と読める。
+ *  - ペア1：3・4番（3番＝BIG1 の図柄・4番＝REG の図柄）
+ *  - ペア2：14・15番（14番＝REG の図柄・15番＝BIG1 の図柄）。並び順が逆なので見分けられる
+ *  - **ペアの上側2コマと下側2コマに、そのペアが担当する役の文字を必ず置く**
+ *    （`thirdReelFlank`）。担当が2役なら上にも下にも2役の文字が並ぶ
+ *  - 目印は3枚。位置は探索に任せ、目印どうしは2コマ以上空ける
  */
-const THIRD_LANDMARK_AT = [0, 5, 11, 16];
-const PAIR1_AT = [1, 2] as const;
-const PAIR2_AT = [13, 14] as const;
+const PAIR1_AT = [3, 4] as const;
+const PAIR2_AT = [14, 15] as const;
 
-function thirdReelFixed(yakuList: YakuList, landmark: string): Map<number, string> {
+function thirdReelFixed(yakuList: YakuList): Map<number, string> {
   const a = pairedBig(yakuList)?.symbols[2];
   const b = yakuList.bonusYaku[0]?.symbols[2];
   const m = new Map<number, string>();
-  THIRD_LANDMARK_AT.forEach((i) => m.set(i, landmark));
   if (a !== undefined && b !== undefined) {
     m.set(PAIR1_AT[0], a);
     m.set(PAIR1_AT[1], b);
@@ -1017,6 +1015,32 @@ function thirdReelFixed(yakuList: YakuList, landmark: string): Map<number, strin
     m.set(PAIR2_AT[1], a);
   }
   return m;
+}
+
+/** ペアが担当する役の第3図柄（ペア1＝3枚・4枚役、ペア2＝5枚役）。 */
+function pairRoleSymbols(yakuList: YakuList): [string[], string[]] {
+  const third = (ys: Yaku[]) =>
+    [...new Set(ys.map((y) => y.symbols[2]).filter((x): x is string => x !== undefined))];
+  return [
+    third(yakuList.coreYaku.filter((y) => (y.payout ?? 7) <= 4)),
+    third(yakuList.coreYaku.filter((y) => (y.payout ?? 7) === 5)),
+  ];
+}
+
+/**
+ * ペアの上下に担当の役の文字が**足りない数**（0 がハード制約）。上側2コマ・下側2コマの
+ * それぞれに、担当の役の文字が1つずつ入っているかを見る。
+ */
+function thirdReelFlank(yakuList: YakuList, reels: string[][]): number {
+  const cells = reels[2];
+  const [r1, r2] = pairRoleSymbols(yakuList);
+  let miss = 0;
+  for (const [pair, syms] of [[PAIR1_AT, r1], [PAIR2_AT, r2]] as const) {
+    const below = [cells[(pair[0] - 1 + N) % N], cells[(pair[0] - 2 + N) % N]];
+    const above = [cells[(pair[1] + 1) % N], cells[(pair[1] + 2) % N]];
+    for (const side of [below, above]) for (const sym of syms) if (!side.includes(sym)) miss++;
+  }
+  return miss;
 }
 
 interface AimGroup {
@@ -1212,11 +1236,19 @@ function groupMisses(
     return n;
   }
   const t = anchorMissTable(yakuList, reels, controller, judge, landmark, orders);
+  const cherries = new Set(yakuList.cherryYaku.map((y) => y.id));
+  const sevens = new Set(yakuList.coreYaku.filter((y) => (y.payout ?? 7) >= 7).map((y) => y.id));
   let n = 0;
   for (const [id, m] of t) {
+    // チェリーは**目印で揃うことが必須**（2026-10-10 決定：目印に必ず役目を持たせる）
+    if (cherries.has(id) && m.has('目印')) {
+      n += m.get('目印') ?? 0;
+      continue;
+    }
     const best = Math.min(...m.values());
     const own = m.get(assigned.get(id) ?? '') ?? best;
-    n += best + 0.01 * (own - best);
+    // 7枚役は目印で揃うのが目標。外れた分は強めに減点（必須ではない）
+    n += best + (sevens.has(id) ? 0.3 : 0.01) * (own - best);
   }
   return n;
 }
@@ -1293,7 +1325,7 @@ describe.skipIf(!RUN)('リール配列の再最適化', () => {
         const plans = [0, 1, 2].map((r) => planCounts(yakuList, r, landmark ? N - barsOn(r) : N));
         // 第3リールだけ目印とペアの位置を固定する（thirdReelFixed）。
         const fixedOf = [0, 1, 2].map((r) =>
-          landmark && r === 2 ? thirdReelFixed(yakuList, landmark) : new Map<number, string>(),
+          landmark && r === 2 ? thirdReelFixed(yakuList) : new Map<number, string>(),
         );
         /** 入れ替えてよい番号（固定コマ以外）。 */
         const free = fixedOf.map((f) => Array.from({ length: N }, (_, i) => i).filter((i) => !f.has(i)));
@@ -1352,6 +1384,7 @@ describe.skipIf(!RUN)('リール配列の再最適化', () => {
         let curGroup = groupMisses(yakuList, cur, curCtrl, judge, landmark, GROUP_ORDERS);
         let curUnpaired = landmark ? thirdReelUnpaired(yakuList, cur) : 0;
         let curCrowd = landmarkCrowd(cur, landmark);
+        let curFlank = landmark ? thirdReelFlank(yakuList, cur) : 0;
         let curRange = landmark
           ? anchorRangeRate(yakuList, cur, curCtrl, judge, landmark, GROUP_ORDERS)
           : 1;
@@ -1417,9 +1450,9 @@ describe.skipIf(!RUN)('リール配列の再最適化', () => {
         const violation = (v: {
           aim: number; leaks: number; triples: number; bases: number; golds: number;
           runs: number; budget: number; blind: number; pairs: number;
-          group: number; unpaired: number; range?: number; crowd?: number;
+          group: number; unpaired: number; range?: number; crowd?: number; flank?: number;
         }) =>
-          v.aim + v.leaks + v.group + 3 * v.unpaired + 3 * (v.crowd ?? 0) +
+          v.aim + v.leaks + v.group + 3 * v.unpaired + 3 * (v.crowd ?? 0) + 3 * (v.flank ?? 0) +
           3 * (v.triples + (landmark ? 0 : v.bases) + v.golds + v.runs + (landmark ? 0 : v.blind)) +
           v.budget + 3 * Math.max(0, 1 - v.pairs) +
           // 目標：押すタイミングの幅で揃う割合。1未満の重みなので必須の違反より常に軽い
@@ -1427,7 +1460,7 @@ describe.skipIf(!RUN)('リール配列の再最適化', () => {
         let curViol = violation({
           aim: curAim, leaks: curLeaks, triples: curTriples, bases: curBases, golds: curGolds,
           runs: curRuns, budget: curBudget, blind: curBlind, pairs: curPairs,
-          group: curGroup, unpaired: curUnpaired, range: curRange, crowd: curCrowd,
+          group: curGroup, unpaired: curUnpaired, range: curRange, crowd: curCrowd, flank: curFlank,
         });
         let bestViol = curViol;
         for (let iter = 0; iter < MAX_ITER && (REACH_MODE || bestViol > 1e-9); iter++) {
@@ -1444,7 +1477,7 @@ describe.skipIf(!RUN)('リール配列の再最適化', () => {
             }
             console.log(
               `  [${chapter}] iter=${iter} 違反 今=${curViol} 最良=${bestViol} ` +
-                `(幅=${(curRange * 100).toFixed(1)}% 目印の固まり=${curCrowd} 狙い漏れ=${curAim} 狙い所漏れ=${curGroup} ②=${curLeaks} 単独ボーナス=${curUnpaired} 盲点=${curBlind}) ${((Date.now() - t0) / 1000).toFixed(0)}s`,
+                `(幅=${(curRange * 100).toFixed(1)}% ペアの両側=${curFlank} 目印の固まり=${curCrowd} 狙い漏れ=${curAim} 狙い所漏れ=${curGroup} ②=${curLeaks} 単独ボーナス=${curUnpaired} 盲点=${curBlind}) ${((Date.now() - t0) / 1000).toFixed(0)}s`,
             );
           }
           const next = cur.map((r) => [...r]);
@@ -1475,6 +1508,7 @@ describe.skipIf(!RUN)('リール配列の再最適化', () => {
               landmark ? thirdReelUnpaired(yakuList, next) : 0,
             ]);
           const crowd = landmarkCrowd(next, landmark);
+          const flank = landmark ? thirdReelFlank(yakuList, next) : 0;
           const aim = prof('狙い漏れ（全押し順）', () =>
             aimMisses(yakuList, next, nextCtrl, judge, AIM_ORDERS_FAST),
           );
@@ -1490,7 +1524,7 @@ describe.skipIf(!RUN)('リール配列の再最適化', () => {
           const tempF = 3 * Math.pow(0.05 / 3, iter / MAX_ITER);
           const slack = FEASIBLE_MODE ? -tempF * Math.log(Math.max(1e-12, rng())) : 0;
           const lightViol = violation({
-            aim, leaks: 0, triples, bases, golds, runs, budget, blind, pairs, group, unpaired, range, crowd,
+            aim, leaks: 0, triples, bases, golds, runs, budget, blind, pairs, group, unpaired, range, crowd, flank,
           });
           const leakCutoff = FEASIBLE_MODE
             ? Math.floor(curViol + slack - lightViol)
@@ -1548,7 +1582,7 @@ describe.skipIf(!RUN)('リール配列の再最適化', () => {
               (spread - curSpread) * 2 +
               (gap - curGap);
           const viol = violation({
-            aim, leaks, triples, bases, golds, runs, budget, blind, pairs, group, unpaired, range, crowd,
+            aim, leaks, triples, bases, golds, runs, budget, blind, pairs, group, unpaired, range, crowd, flank,
           });
           // feasible モードは違反の件数で焼く。温度は件数の単位（3→0.05）。
           // feasible モードはここまで来た時点で受け入れが決まっている（②の打ち切り値が
@@ -1577,9 +1611,10 @@ describe.skipIf(!RUN)('リール配列の再最適化', () => {
             curGroup = group;
             curRange = range;
             curCrowd = crowd;
+            curFlank = flank;
             curUnpaired = unpaired;
             const hardOk =
-              aim === 0 && group < 1 && unpaired === 0 && crowd === 0 &&
+              aim === 0 && group < 1 && unpaired === 0 && crowd === 0 && flank === 0 &&
               leaks === 0 && triples === 0 && (landmark ? true : bases === 0) && golds === 0 && runs === 0 &&
               budget === 0 && (landmark ? true : blind === 0) && pairs >= 1;
             const improved = FEASIBLE_MODE
@@ -1713,6 +1748,7 @@ describe.skipIf(!RUN)('リール配列の再最適化', () => {
         if (
           verified === 0 && aimAll === 0 && groupAll < 1 && unpairedAll === 0 &&
           landmarkCrowd(best, landmark) === 0 &&
+          (landmark ? thirdReelFlank(yakuList, best) === 0 : true) &&
           bestTriples === 0 && bestGolds === 0 && bestRuns === 0 && bestBudget === 0 &&
           (landmark ? true : bestBlind === 0) && bestPairs >= 1
         ) {
