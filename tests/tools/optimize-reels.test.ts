@@ -66,6 +66,34 @@ const LANDMARKS: Record<string, string> = {
   security: '鍵',
 };
 const BAR_COUNT = Number(process.env.OPT_BARS ?? 2);
+
+/**
+ * `OPT_PROFILE=1` で工程ごとの所要時間を合計して出す（計算の改善の当たりを付けるため）。
+ * `prof('名前', () => 計算)` で包むと、その工程の時間と回数が積み上がる。
+ */
+const PROFILE = process.env.OPT_PROFILE === '1';
+const profTotals = new Map<string, { ms: number; n: number }>();
+function prof<T>(name: string, f: () => T): T {
+  if (!PROFILE) return f();
+  const t0 = performance.now();
+  const v = f();
+  const e = profTotals.get(name) ?? { ms: 0, n: 0 };
+  e.ms += performance.now() - t0;
+  e.n += 1;
+  profTotals.set(name, e);
+  return v;
+}
+function profReport(label: string): void {
+  if (!PROFILE) return;
+  const all = [...profTotals.values()].reduce((a, b) => a + b.ms, 0);
+  const rows = [...profTotals]
+    .sort((a, b) => b[1].ms - a[1].ms)
+    .map(([k, v]) =>
+      `${k} ${(v.ms / 1000).toFixed(1)}s ${((v.ms / all) * 100).toFixed(0)}% ` +
+      `(${v.n}回・1回${v.ms / Math.max(1, v.n) < 1 ? (v.ms / Math.max(1, v.n)).toFixed(2) : (v.ms / Math.max(1, v.n)).toFixed(0)}ms)`,
+    );
+  console.log(`  [計測 ${label}] 合計 ${(all / 1000).toFixed(1)}s\n    ` + rows.join('\n    '));
+}
 /**
  * 第3リールの目印は**2枚多く**置く（2026-10-07 決定）。第3リールのボーナス図柄は
  * BIG と REG の隣接の組を2組（4枚）にし、3組目を作ろうとして他の条件とぶつかって
@@ -149,37 +177,95 @@ function makeController(
   });
 }
 
-/** press[] で3リールを順に止めた結果の出目。 */
-function playPress(
+/**
+ * 停止の計算の**覚え書き**（2026-10-10）。あるリールをどこで止めるかは
+ * 「当選役・押したリール・押下位置・他のリールの停止位置」だけで決まるので、
+ * 同じ状態は計算し直さない。②の全数チェック（約60万通り×3停止）で同じ状態が
+ * 何十回も出てくるため、ここを覚えるだけで数十倍速くなる。配列ごと（停止制御ごと）に持つ。
+ */
+const slipMemo = new WeakMap<StopController, Map<string, number>>();
+function memoSlip(
+  controller: StopController,
+  reels: string[][],
+  idx: number,
+  press: number,
+  pos: readonly (number | null)[],
+  flagIds: readonly string[],
+  flagKey: string,
+): number {
+  let m = slipMemo.get(controller);
+  if (!m) {
+    m = new Map();
+    slipMemo.set(controller, m);
+  }
+  const key = `${flagKey}|${flagIds.join(',')}|${idx}|${press}|${pos[0] ?? '-'},${pos[1] ?? '-'},${pos[2] ?? '-'}`;
+  const hit = m.get(key);
+  if (hit !== undefined) return hit;
+  const stopped = pos.map((q, r) => (q === null ? null : visCol(reels[r], q)));
+  const slip = controller.resolveSlip({
+    reelIndex: idx,
+    basePosition: press,
+    strip: { id: `r${idx}`, cells: reels[idx] },
+    stoppedVisibles: stopped,
+    stoppedPositions: pos,
+    flagYakuIds: flagIds,
+    flagKey,
+  });
+  m.set(key, slip);
+  return slip;
+}
+
+/** press[] で3リールを順に止めた**停止位置**（覚え書きつき）。 */
+function stopAll(
   controller: StopController,
   reels: string[][],
   press: readonly number[],
   flagIds: readonly string[],
   flagKey: string,
   order: readonly number[] = [0, 1, 2],
-): Grid3x3 {
-  const stopped: (VisibleColumn | null)[] = [null, null, null];
+): number[] {
   // ゲーム本体と同じく停止位置も渡す（引き込み保証が効く経路を測る）
   const pos: (number | null)[] = [null, null, null];
   for (const idx of order) {
-    const slip = controller.resolveSlip({
-      reelIndex: idx,
-      basePosition: press[idx],
-      strip: { id: `r${idx}`, cells: reels[idx] },
-      stoppedVisibles: stopped,
-      stoppedPositions: pos,
-      flagYakuIds: flagIds,
-      flagKey,
-    });
+    const slip = memoSlip(controller, reels, idx, press[idx], pos, flagIds, flagKey);
     pos[idx] = (press[idx] + slip) % N;
-    stopped[idx] = visCol(reels[idx], pos[idx] as number);
   }
-  const s = stopped as VisibleColumn[];
-  return [
+  return pos as number[];
+}
+
+/** 停止位置 → 揃った役（覚え書きつき。配列ごとに持つ）。 */
+const hitsMemo = new WeakMap<string[][], Map<string, readonly string[]>>();
+function hitsAt(judge: YakuJudge, reels: string[][], q: readonly number[]): readonly string[] {
+  let m = hitsMemo.get(reels);
+  if (!m) {
+    m = new Map();
+    hitsMemo.set(reels, m);
+  }
+  const key = q.join(',');
+  const hit = m.get(key);
+  if (hit) return hit;
+  const s = q.map((p, r) => visCol(reels[r], p));
+  const grid: Grid3x3 = [
     [s[0].top, s[1].top, s[2].top],
     [s[0].middle, s[1].middle, s[2].middle],
     [s[0].bottom, s[1].bottom, s[2].bottom],
   ];
+  const ids = judge.judgeAll(grid).hits.map((h) => h.yaku.id);
+  m.set(key, ids);
+  return ids;
+}
+
+/** press[] で3リールを順に止めた結果、揃った役のID。 */
+function playHits(
+  controller: StopController,
+  judge: YakuJudge,
+  reels: string[][],
+  press: readonly number[],
+  flagIds: readonly string[],
+  flagKey: string,
+  order: readonly number[] = [0, 1, 2],
+): readonly string[] {
+  return hitsAt(judge, reels, stopAll(controller, reels, press, flagIds, flagKey, order));
 }
 
 /**
@@ -221,29 +307,8 @@ function countLeaks(
       for (let p0 = 0; p0 < N; p0 += step) {
         for (let p1 = 0; p1 < N; p1 += step) {
           for (let p2 = 0; p2 < N; p2 += step) {
-            const press = [p0, p1, p2];
-            const stopped: (VisibleColumn | null)[] = [null, null, null];
-            const pos: (number | null)[] = [null, null, null];
-            for (const idx of order) {
-              const slip = controller.resolveSlip({
-                reelIndex: idx,
-                basePosition: press[idx],
-                strip: { id: `r${idx}`, cells: reels[idx] },
-                stoppedVisibles: stopped,
-                stoppedPositions: pos,
-                flagYakuIds: flag.ids,
-                flagKey: flag.label,
-              });
-              pos[idx] = (press[idx] + slip) % N;
-              stopped[idx] = visCol(reels[idx], pos[idx] as number);
-            }
-            const s = stopped as VisibleColumn[];
-            const grid: Grid3x3 = [
-              [s[0].top, s[1].top, s[2].top],
-              [s[0].middle, s[1].middle, s[2].middle],
-              [s[0].bottom, s[1].bottom, s[2].bottom],
-            ];
-            if (judge.judgeAll(grid).hits.some((h) => !idSet.has(h.yaku.id))) {
+            const ids = playHits(controller, judge, reels, [p0, p1, p2], flag.ids, flag.label, order);
+            if (ids.some((id) => !idSet.has(id))) {
               leaks++;
               if (leaks > cutoff) return leaks;
             }
@@ -302,8 +367,8 @@ function reachableRates(
       for (let p1 = 0; p1 < N; p1 += step) {
         for (let p2 = 0; p2 < N; p2 += step) {
           tried++;
-          const grid = playPress(controller, reels, [p0, p1, p2], flagIds, flagKey);
-          if (judge.judgeAll(grid).hits.some((h) => h.yaku.id === y.id)) hit++;
+          const ids = playHits(controller, judge, reels, [p0, p1, p2], flagIds, flagKey);
+          if (ids.includes(y.id)) hit++;
         }
       }
     }
@@ -322,8 +387,8 @@ function reachableRates(
       for (let p1 = 0; p1 < N; p1 += step) {
         for (let p2 = 0; p2 < N; p2 += step) {
           sTried++;
-          const grid = playPress(controller, reels, [p0, p1, p2], ids, 'single');
-          if (judge.judgeAll(grid).hits.some((h) => singleIds.has(h.yaku.id))) sHit++;
+          const got = playHits(controller, judge, reels, [p0, p1, p2], ids, 'single');
+          if (got.some((id) => singleIds.has(id))) sHit++;
         }
       }
     }
@@ -738,6 +803,9 @@ function bonusOnlySymbols(yakuList: YakuList, reel: number): Set<string> {
  * BIG1用とBIG2用の**2箇所**を要求する（どちらを狙ってもよい）。REGはBIG1と
  * 頭2文字を共有するので、BIG1の基準位置でREGも拾える。
  *
+ * 〔2026-10-07〕目印のある配列（狙い所方式）では**課さない**。狙う場所はボーナス図柄と
+ * 目印で、担当の役が揃うことは `groupMisses` が見ている。役目が重なっている。
+ *
  * 返すのは違反数（0が合格）。全部が届く位置が多すぎる場合も罰する——どこを
  * 押しても拾えるなら、打ち方を覚える価値が無くなる。
  */
@@ -900,8 +968,8 @@ function aimMisses(
       for (const p0 of aims[0]) {
         for (const p1 of aims[1]) {
           for (const p2 of aims[2]) {
-            const grid = playPress(controller, reels, [p0, p1, p2], [y.id], flagKey, order);
-            if (!judge.judgeAll(grid).hits.some((h) => h.yaku.id === y.id)) misses++;
+            const ids = playHits(controller, judge, reels, [p0, p1, p2], [y.id], flagKey, order);
+            if (!ids.includes(y.id)) misses++;
           }
         }
       }
@@ -980,6 +1048,8 @@ function anchorMissTable(
   const yakus = groups.flatMap((g) => g.yakus);
   const table = new Map<string, Map<string, number>>();
   for (const g of groups) {
+    // 必須の押し方は**2コマ早く押す**。ピタリ押しまで必須にすると配列が見つからなかった
+    // ので、押すタイミングの幅は目標（`anchorRangeRate`）として別に数える（2026-10-10）。
     const aims = [0, 1, 2].map((r) => {
       const a = g.anchor[r];
       return a === undefined
@@ -996,8 +1066,8 @@ function anchorMissTable(
           for (const p1 of aims[1]) {
             // 2文字役（チェリー）は第3リールが不問なので1通りだけ回す
             for (const p2 of y.symbols[2] === undefined ? [aims[2][0] ?? 0] : aims[2]) {
-              const grid = playPress(controller, reels, [p0, p1, p2], [y.id], flagKey, order);
-              if (!judge.judgeAll(grid).hits.some((h) => h.yaku.id === y.id)) misses++;
+              const ids = playHits(controller, judge, reels, [p0, p1, p2], [y.id], flagKey, order);
+              if (!ids.includes(y.id)) misses++;
             }
           }
         }
@@ -1007,6 +1077,66 @@ function anchorMissTable(
     }
   }
   return table;
+}
+
+/**
+ * 狙い所の**押すタイミングの幅**で揃う割合（目標・2026-10-10 決定）。
+ *
+ * 「4コマくらい早く押しても揃う、狙う図柄が窓に見えているうちに押しても揃う」を
+ * 目指す。押すタイミングは 4〜1コマ早い・ピタリ・図柄が下段に見えている の6段階で、
+ * 3リールとも同じタイミングで押したとして数える（全組み合わせは重すぎるため）。
+ * 担当の役は、決めた割り当てではなく**その役が揃う狙い所のどれか**で見る。
+ */
+const RANGE_OFFSETS = [4, 3, 2, 1, 0, -1];
+function anchorRangeRate(
+  yakuList: YakuList,
+  reels: string[][],
+  controller: StopController,
+  judge: YakuJudge,
+  landmark: string | undefined,
+  orders: readonly (readonly number[])[],
+): number {
+  const groups = aimGroups(yakuList, landmark);
+  const yakus = groups.flatMap((g) => g.yakus);
+  let hit = 0;
+  let tried = 0;
+  for (const y of yakus) {
+    const role = yakuList.internalRoles.find((rr) => rr.displayYakuId === y.id && !rr.freeze);
+    const flagKey = role?.id ?? y.id;
+    // 役ごとに一番よく揃う狙い所で数える
+    let bestHit = -1;
+    let bestTried = 0;
+    for (const g of groups) {
+      const anchors = [0, 1, 2].map((r) => g.anchor[r]);
+      const idx = [0, 1, 2].map((r) => {
+        const a = anchors[r];
+        return a === undefined ? [0] : reels[r].flatMap((c, i) => (c === a ? [i] : []));
+      });
+      let h = 0;
+      let t = 0;
+      for (const off of RANGE_OFFSETS) {
+        for (const order of orders) {
+          for (const i0 of idx[0]) {
+            for (const i1 of idx[1]) {
+              for (const i2 of y.symbols[2] === undefined ? [idx[2][0] ?? 0] : idx[2]) {
+                const press = [i0, i1, i2].map((i) => ((i - off) % N + N) % N);
+                const ids = playHits(controller, judge, reels, press, [y.id], flagKey, order);
+                t++;
+                if (ids.includes(y.id)) h++;
+              }
+            }
+          }
+        }
+      }
+      if (t > 0 && h / t > (bestTried > 0 ? bestHit / bestTried : -1)) {
+        bestHit = h;
+        bestTried = t;
+      }
+    }
+    hit += Math.max(0, bestHit);
+    tried += bestTried;
+  }
+  return tried > 0 ? hit / tried : 1;
 }
 
 /**
@@ -1150,6 +1280,9 @@ describe.skipIf(!RUN)('リール配列の再最適化', () => {
         let curAim = aimMisses(yakuList, cur, curCtrl, judge, AIM_ORDERS_FAST);
         let curGroup = groupMisses(yakuList, cur, curCtrl, judge, landmark, GROUP_ORDERS);
         let curUnpaired = landmark ? thirdReelUnpaired(yakuList, cur) : 0;
+        let curRange = landmark
+          ? anchorRangeRate(yakuList, cur, curCtrl, judge, landmark, GROUP_ORDERS)
+          : 1;
         let best = cur.map((r) => [...r]);
         let bestLeaks = curLeaks;
         let bestGap = curGap;
@@ -1212,19 +1345,22 @@ describe.skipIf(!RUN)('リール配列の再最適化', () => {
         const violation = (v: {
           aim: number; leaks: number; triples: number; bases: number; golds: number;
           runs: number; budget: number; blind: number; pairs: number;
-          group: number; unpaired: number;
+          group: number; unpaired: number; range?: number;
         }) =>
           v.aim + v.leaks + v.group + 3 * v.unpaired +
-          3 * (v.triples + v.bases + v.golds + v.runs + (landmark ? 0 : v.blind)) +
-          v.budget + 3 * Math.max(0, 1 - v.pairs);
+          3 * (v.triples + (landmark ? 0 : v.bases) + v.golds + v.runs + (landmark ? 0 : v.blind)) +
+          v.budget + 3 * Math.max(0, 1 - v.pairs) +
+          // 目標：押すタイミングの幅で揃う割合。1未満の重みなので必須の違反より常に軽い
+          0.9 * (1 - (v.range ?? 1));
         let curViol = violation({
           aim: curAim, leaks: curLeaks, triples: curTriples, bases: curBases, golds: curGolds,
           runs: curRuns, budget: curBudget, blind: curBlind, pairs: curPairs,
-          group: curGroup, unpaired: curUnpaired,
+          group: curGroup, unpaired: curUnpaired, range: curRange,
         });
         let bestViol = curViol;
-        for (let iter = 0; iter < MAX_ITER && (REACH_MODE || bestViol >= 1); iter++) {
+        for (let iter = 0; iter < MAX_ITER && (REACH_MODE || bestViol > 1e-9); iter++) {
           if (iter % 100 === 0) {
+            if (iter > 0) profReport(`${chapter} ${iter}回`);
             // 途中でも最良を保存する（時間切れや中断で何時間ぶんも失わないように）
             if (process.env.OPT_SAVE && iter > 0) {
               mkdirSync(process.env.OPT_SAVE, { recursive: true });
@@ -1236,7 +1372,7 @@ describe.skipIf(!RUN)('リール配列の再最適化', () => {
             }
             console.log(
               `  [${chapter}] iter=${iter} 違反 今=${curViol} 最良=${bestViol} ` +
-                `(狙い漏れ=${curAim} 狙い所漏れ=${curGroup} ②=${curLeaks} 単独ボーナス=${curUnpaired} 盲点=${curBlind}) ${((Date.now() - t0) / 1000).toFixed(0)}s`,
+                `(幅=${(curRange * 100).toFixed(1)}% 狙い漏れ=${curAim} 狙い所漏れ=${curGroup} ②=${curLeaks} 単独ボーナス=${curUnpaired} 盲点=${curBlind}) ${((Date.now() - t0) / 1000).toFixed(0)}s`,
             );
           }
           const next = cur.map((r) => [...r]);
@@ -1288,42 +1424,54 @@ describe.skipIf(!RUN)('リール配列の再最適化', () => {
           if (!matchesPlan(next[i], fullPlans[i])) continue;
 
           const T = 6 * Math.pow(0.02 / 6, iter / MAX_ITER);
-          const nextCtrl = makeController(yakuList, next, resolver);
+          const nextCtrl = prof('停止制御の組み立て', () => makeController(yakuList, next, resolver));
           // **軽い指標から先に測る。** ②の全数チェック（1回数秒）は最後に回し、
           // 軽い指標だけで捨てると決まる案では測らない（feasible モード）。
-          const triples = countTripleTenpai(yakuList, next);
-          const bases = basePositionPenalty(yakuList, next);
-          const golds = goldTellPenalty(yakuList, next);
-          const runs = runPenalty(next);
-          const budget = budgetOf(next);
-          const blind = thirdReelBlindSpots(yakuList, next);
-          const both = thirdReelBothCount(yakuList, next);
-          const pairs = thirdReelAdjacentPairs(yakuList, next);
-          const unreach = unreachableTotal(yakuList, next);
-          const unpaired = landmark ? thirdReelUnpaired(yakuList, next) : 0;
-          const aim = aimMisses(yakuList, next, nextCtrl, judge, AIM_ORDERS_FAST);
-          const group = groupMisses(yakuList, next, nextCtrl, judge, landmark, GROUP_ORDERS);
+          const [triples, bases, golds, runs, budget, blind, both, pairs, unreach, unpaired] =
+            prof('配列だけで決まる軽い指標', () => [
+              countTripleTenpai(yakuList, next),
+              basePositionPenalty(yakuList, next),
+              goldTellPenalty(yakuList, next),
+              runPenalty(next),
+              budgetOf(next),
+              thirdReelBlindSpots(yakuList, next),
+              thirdReelBothCount(yakuList, next),
+              thirdReelAdjacentPairs(yakuList, next),
+              unreachableTotal(yakuList, next),
+              landmark ? thirdReelUnpaired(yakuList, next) : 0,
+            ]);
+          const aim = prof('狙い漏れ（全押し順）', () =>
+            aimMisses(yakuList, next, nextCtrl, judge, AIM_ORDERS_FAST),
+          );
+          const group = prof('狙い所（4押し順）', () =>
+            groupMisses(yakuList, next, nextCtrl, judge, landmark, GROUP_ORDERS),
+          );
+          const range = prof('押すタイミングの幅', () =>
+            landmark ? anchorRangeRate(yakuList, next, nextCtrl, judge, landmark, GROUP_ORDERS) : 1,
+          );
           // 受け入れの判定（メトロポリス法）を先に決める：乱数を先に引けば、
           // 「違反がいくつまでなら受け入れるか」が決まり、②の許容件数が分かる。
           // それを打ち切り値にすれば、②の数え方を変えずに結果だけ早く出る。
           const tempF = 3 * Math.pow(0.05 / 3, iter / MAX_ITER);
           const slack = FEASIBLE_MODE ? -tempF * Math.log(Math.max(1e-12, rng())) : 0;
           const lightViol = violation({
-            aim, leaks: 0, triples, bases, golds, runs, budget, blind, pairs, group, unpaired,
+            aim, leaks: 0, triples, bases, golds, runs, budget, blind, pairs, group, unpaired, range,
           });
           const leakCutoff = FEASIBLE_MODE
             ? Math.floor(curViol + slack - lightViol)
             : curLeaks + 40;
           if (leakCutoff < 0) continue;
-          const leaks = countLeaks(
-            yakuList, next, resolver, judge, leakCutoff, nextCtrl, SCAN_ORDERS, SCAN_STEP,
+          const leaks = prof('②の全数チェック', () =>
+            countLeaks(yakuList, next, resolver, judge, leakCutoff, nextCtrl, SCAN_ORDERS, SCAN_STEP),
           );
           // **打ち切った候補は採用しない。** 打ち切り時の件数は本当の件数より小さいので、
           // それで比べると②の多い配列を「少しだけ悪い」と見誤って受け入れてしまう
           // （実際に②1,267件の配列を最良として保存していた・2026-10-06）。
           if (leaks > leakCutoff) continue;
           const gap = gapPenalty(next, pools);
-          const rates = reachableRates(yakuList, next, nextCtrl, judge, REACH_STEP);
+          const rates = prof('到達率（間引き）', () =>
+            reachableRates(yakuList, next, nextCtrl, judge, REACH_STEP),
+          );
           const reach = reachScore(rates, weights);
           const band = bandPenalty(scoredYakus, rates);
           const spread = spreadPenalty(next, pools);
@@ -1365,7 +1513,7 @@ describe.skipIf(!RUN)('リール配列の再最適化', () => {
               (spread - curSpread) * 2 +
               (gap - curGap);
           const viol = violation({
-            aim, leaks, triples, bases, golds, runs, budget, blind, pairs, group, unpaired,
+            aim, leaks, triples, bases, golds, runs, budget, blind, pairs, group, unpaired, range,
           });
           // feasible モードは違反の件数で焼く。温度は件数の単位（3→0.05）。
           // feasible モードはここまで来た時点で受け入れが決まっている（②の打ち切り値が
@@ -1392,13 +1540,14 @@ describe.skipIf(!RUN)('リール配列の再最適化', () => {
             curUnreach = unreach;
             curAim = aim;
             curGroup = group;
+            curRange = range;
             curUnpaired = unpaired;
             const hardOk =
               aim === 0 && group < 1 && unpaired === 0 &&
-              leaks === 0 && triples === 0 && bases === 0 && golds === 0 && runs === 0 &&
+              leaks === 0 && triples === 0 && (landmark ? true : bases === 0) && golds === 0 && runs === 0 &&
               budget === 0 && (landmark ? true : blind === 0) && pairs >= 1;
             const improved = FEASIBLE_MODE
-              ? viol < bestViol || (viol === bestViol && viol === 0 && band < bestBand - 1e-9)
+              ? viol < bestViol - 1e-12
               : REACH_MODE
               ? hardOk &&
                 (bestAim > 0 ||
@@ -1517,6 +1666,8 @@ describe.skipIf(!RUN)('リール配列の再最適化', () => {
             })
             .join(' ');
           console.log(`[${chapter}] 揃う狙い所：${line}`);
+          const rr = anchorRangeRate(yakuList, best, finalCtrl, judge, landmark, GROUP_ORDERS);
+          console.log(`[${chapter}] 押すタイミングの幅（4コマ早い〜下段に見えている）で揃う割合：${(rr * 100).toFixed(1)}%`);
         }
         console.log(
           `[${chapter}] その他のハード制約：3本同時=${bestTriples} 基準=${bestBases} 金示唆=${bestGolds} 3連続=${bestRuns}`,
