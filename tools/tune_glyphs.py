@@ -235,7 +235,7 @@ def _descend(chapter: str, bank: Bank, passes: int, rng: random.Random,
         for u in units:
             size = rng.choice(SIZES)
             tune[u].update(size=max(size, G.GLYPH_PX) if is_bonus[u] else size,
-                           stretch=rng.choice(STRETCHES),
+                           stretch=rng.choice(STRETCHES if is_bonus[u] else STRETCHES[:4]),
                            gap=rng.choice(GAPS) if bank.has_mark(u) else DEFAULT["gap"])
     involved = {u: [(a, b, w) for a, b, w in prs if u in (a, b)] for u in units}
 
@@ -257,7 +257,9 @@ def _descend(chapter: str, bank: Bank, passes: int, rng: random.Random,
             gaps = GAPS if bank.has_mark(u) else [DEFAULT["gap"]]
             # ボーナスの文字は既定より縮めない（大きさで格を見せるため）
             sizes = [z for z in SIZES if z >= G.GLYPH_PX] if is_bonus[u] else SIZES
-            for size, st, gap in itertools.product(sizes, STRETCHES, gaps):
+            # 小役は横へ広げすぎない（ボーナス図柄と同じ大きさに見えるため・2026-10-10）
+            stretches = STRETCHES if is_bonus[u] else [x for x in STRETCHES if x <= 1.08]
+            for size, st, gap in itertools.product(sizes, stretches, gaps):
                 if bank.height(chapter, u, size, st, gap) < floor[u]:
                     continue          # 縮め過ぎない。_fit が効いて別物の大きさになる
                 t = {"size": size, "stretch": st, "gap": gap}
