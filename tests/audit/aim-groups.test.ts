@@ -83,6 +83,10 @@ describe('狙い所（BIG1・BIG2・目印）', () => {
         [r3[(lo + 2) % N], r3[(lo + 3) % N]],
       ];
       for (const [lo, roles] of [[pair1Big, roles1], [pair2Reg, roles2]] as const) {
+        // ペアのすぐ隣に目印を置かない（くっついて見えるため）
+        for (const next of [r3[(lo - 1 + N) % N], r3[(lo + 2) % N]]) {
+          expect(next, `${chapter}: ペア（${lo}番）のすぐ隣に目印がある`).not.toBe(mark);
+        }
         for (const side of sides(lo)) {
           for (const sym of roles) {
             expect(side, `${chapter}: ペア（${lo}番）の片側に「${sym}」が無い`).toContain(sym);

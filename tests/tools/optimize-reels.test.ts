@@ -1030,8 +1030,10 @@ function pairRoleSymbols(yakuList: YakuList): [string[], string[]] {
 /**
  * ペアの上下に担当の役の文字が**足りない数**（0 がハード制約）。上側2コマ・下側2コマの
  * それぞれに、担当の役の文字が1つずつ入っているかを見る。
+ * ペアの**すぐ隣**に目印があるのも1つと数える。ペア2は担当が1役なので、上の条件だけでは
+ * 残りの1コマに目印が入り、ペアと目印がくっついて見えた（2026-10-11 指摘）。
  */
-function thirdReelFlank(yakuList: YakuList, reels: string[][]): number {
+function thirdReelFlank(yakuList: YakuList, reels: string[][], landmark?: string): number {
   const cells = reels[2];
   const [r1, r2] = pairRoleSymbols(yakuList);
   let miss = 0;
@@ -1039,6 +1041,10 @@ function thirdReelFlank(yakuList: YakuList, reels: string[][]): number {
     const below = [cells[(pair[0] - 1 + N) % N], cells[(pair[0] - 2 + N) % N]];
     const above = [cells[(pair[1] + 1) % N], cells[(pair[1] + 2) % N]];
     for (const side of [below, above]) for (const sym of syms) if (!side.includes(sym)) miss++;
+    if (landmark !== undefined) {
+      if (below[0] === landmark) miss++;
+      if (above[0] === landmark) miss++;
+    }
   }
   return miss;
 }
@@ -1384,7 +1390,7 @@ describe.skipIf(!RUN)('リール配列の再最適化', () => {
         let curGroup = groupMisses(yakuList, cur, curCtrl, judge, landmark, GROUP_ORDERS);
         let curUnpaired = landmark ? thirdReelUnpaired(yakuList, cur) : 0;
         let curCrowd = landmarkCrowd(cur, landmark);
-        let curFlank = landmark ? thirdReelFlank(yakuList, cur) : 0;
+        let curFlank = landmark ? thirdReelFlank(yakuList, cur, landmark) : 0;
         let curRange = landmark
           ? anchorRangeRate(yakuList, cur, curCtrl, judge, landmark, GROUP_ORDERS)
           : 1;
@@ -1508,7 +1514,7 @@ describe.skipIf(!RUN)('リール配列の再最適化', () => {
               landmark ? thirdReelUnpaired(yakuList, next) : 0,
             ]);
           const crowd = landmarkCrowd(next, landmark);
-          const flank = landmark ? thirdReelFlank(yakuList, next) : 0;
+          const flank = landmark ? thirdReelFlank(yakuList, next, landmark) : 0;
           const aim = prof('狙い漏れ（全押し順）', () =>
             aimMisses(yakuList, next, nextCtrl, judge, AIM_ORDERS_FAST),
           );
@@ -1748,7 +1754,7 @@ describe.skipIf(!RUN)('リール配列の再最適化', () => {
         if (
           verified === 0 && aimAll === 0 && groupAll < 1 && unpairedAll === 0 &&
           landmarkCrowd(best, landmark) === 0 &&
-          (landmark ? thirdReelFlank(yakuList, best) === 0 : true) &&
+          (landmark ? thirdReelFlank(yakuList, best, landmark) === 0 : true) &&
           bestTriples === 0 && bestGolds === 0 && bestRuns === 0 && bestBudget === 0 &&
           (landmark ? true : bestBlind === 0) && bestPairs >= 1
         ) {
