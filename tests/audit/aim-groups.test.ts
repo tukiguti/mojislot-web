@@ -25,6 +25,8 @@ import { YakuJudge } from '../../src/core/YakuJudge';
  *    （受け持つ役は島ごとに割り振ってよい、という決定）
  *  - 第3リールの BIG1・BIG2 は図柄ではなく**組**で狙う（2026-10-10 決定）。目印の
  *    すぐ次の組がペア1（BIG1 の担当）、もう一方の組がペア2（BIG2 の担当）
+ *  - 担当は BIG1＝3枚・4枚役、BIG2＝5枚・7枚役、目印＝チェリー（2026-10-12 決定）。
+ *    左・中は狙い所のすぐ前後に担当の役の文字を置く
  *
  * ゲーム本体と同じ停止制御（停止テーブルを引く）で測る。
  */
@@ -74,10 +76,10 @@ describe('狙い所（BIG1・BIG2・目印）', () => {
     it(`${chapter}: 第3リールにペア1とペア2があり、両側に担当の役の文字がある`, () => {
       expect(pair1Big, `${chapter}: ペア1（BIG・REG の順）が無い`).toBeGreaterThanOrEqual(0);
       expect(pair2Reg, `${chapter}: ペア2（REG・BIG の順）が無い`).toBeGreaterThanOrEqual(0);
-      // ペアの上下2コマずつに、担当の役（ペア1＝3枚・4枚役、ペア2＝5枚役）の文字
+      // ペアの上下2コマずつに、担当の役（ペア1＝3枚・4枚役、ペア2＝5枚・7枚役）の文字
       const third = (ys: Yaku[]) => [...new Set(ys.map((y) => y.symbols[2]).filter(Boolean))] as string[];
       const roles1 = third(yakuList.coreYaku.filter((y) => (y.payout ?? 7) <= 4));
-      const roles2 = third(yakuList.coreYaku.filter((y) => (y.payout ?? 7) === 5));
+      const roles2 = third(yakuList.coreYaku.filter((y) => (y.payout ?? 7) >= 5));
       const sides = (lo: number) => [
         [r3[(lo - 1 + N) % N], r3[(lo - 2 + N) % N]],
         [r3[(lo + 2) % N], r3[(lo + 3) % N]],
@@ -105,6 +107,67 @@ describe('狙い所（BIG1・BIG2・目印）', () => {
           expect(roles, `${chapter}: ペア（${lo}番）の3コマ外に担当の文字「${c}」が続いている`).not.toContain(c);
         }
       }
+    });
+    it(`${chapter}: 左・中の狙い所のすぐ前後に担当の役の文字がある`, () => {
+      const groups = [
+        { label: 'BIG1', sym: (r: number) => big1?.symbols[r], roles: yakuList.coreYaku.filter((y) => (y.payout ?? 7) <= 4) },
+        { label: 'BIG2', sym: (r: number) => big2?.symbols[r], roles: yakuList.coreYaku.filter((y) => (y.payout ?? 7) >= 5) },
+        { label: '目印', sym: () => mark, roles: yakuList.cherryYaku },
+      ];
+      for (const r of [0, 1]) {
+        const cells = reels[r];
+        const bonus = new Set([...yakuList.premiumYaku, ...yakuList.bonusYaku].map((y) => y.symbols[r]));
+        for (const g of groups) {
+          const a = g.sym(r);
+          const roles = [...new Set(g.roles.map((y) => y.symbols[r]).filter(Boolean))] as string[];
+          cells.forEach((c, p) => {
+            if (c !== a) return;
+            const nb = [cells[(p - 1 + N) % N], cells[(p + 1) % N]];
+            const where = `${chapter}: リール${r + 1}の${g.label}（${p}番）の前後 ${nb.join('・')}`;
+            if (roles.length >= 2) {
+              for (const sym of roles) expect(nb, `${where} に「${sym}」が無い`).toContain(sym);
+              return;
+            }
+            expect(nb, `${where} に「${roles[0]}」が無い`).toContain(roles[0]);
+            // 目印のもう片方にボーナス図柄を置かない（目印を狙ったハズレでテンパイに見える）
+            if (a === mark) {
+              for (const c2 of nb) {
+                if (c2 !== roles[0]) expect(bonus.has(c2), `${where} にボーナス図柄がある`).toBe(false);
+              }
+            }
+          });
+        }
+      }
+    });
+    it(`${chapter}: 目印どうしが離れている（左・中は差9以上、右は差6以上）`, () => {
+      const minGap = [9, 9, 6];
+      reels.forEach((cells, r) => {
+        const at = cells.flatMap((c, i) => (c === mark ? [i] : []));
+        for (let a = 0; a < at.length; a++) {
+          for (let b = a + 1; b < at.length; b++) {
+            const d = Math.abs(at[a] - at[b]);
+            expect(Math.min(d, N - d), `${chapter}: リール${r + 1}の目印 ${at[a]}番と${at[b]}番が近い`)
+              .toBeGreaterThanOrEqual(minGap[r]);
+          }
+        }
+      });
+    });
+    it(`${chapter}: 同じ文字の並びがくどくない（A・A、A・B・A、同じ2文字の組が3回以上）`, () => {
+      reels.forEach((cells, r) => {
+        const pairs = new Map<string, number>();
+        for (let p = 0; p < N; p++) {
+          const [a, b, c] = [cells[p], cells[(p + 1) % N], cells[(p + 2) % N]];
+          expect(b, `${chapter}: リール${r + 1}の${p}番から「${a}・${b}」と同じ文字が続く`).not.toBe(a);
+          expect(c, `${chapter}: リール${r + 1}の${p}番から「${a}・${b}・${c}」`).not.toBe(a);
+          // 目印を含む組は数えない（右の目印3枚は隣に置ける文字が限られるため）
+          if (a === mark || b === mark) continue;
+          const key = [a, b].sort().join('・');
+          pairs.set(key, (pairs.get(key) ?? 0) + 1);
+        }
+        for (const [k, v] of pairs) {
+          expect(v, `${chapter}: リール${r + 1}で「${k}」の並びが${v}回ある`).toBeLessThanOrEqual(2);
+        }
+      });
     });
     const vis = (r: number, p: number): VisibleColumn => ({
       top: reels[r][(p + 1) % N],
