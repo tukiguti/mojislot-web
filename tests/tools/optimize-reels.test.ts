@@ -1032,19 +1032,32 @@ function pairRoleSymbols(yakuList: YakuList): [string[], string[]] {
  * それぞれに、担当の役の文字が1つずつ入っているかを見る。
  * ペアの**すぐ隣**に目印があるのも1つと数える。ペア2は担当が1役なので、上の条件だけでは
  * 残りの1コマに目印が入り、ペアと目印がくっついて見えた（2026-10-11 指摘）。
+ *
+ * 担当の文字の塊は**前後2コマずつでぴたりと終わる**（2026-10-11 指摘）。「1つ以上ある」
+ * だけだと、外側に同じ文字が続いて片側だけ「しましま」と4つ並んだり、ペア2の側に
+ * ペア1の担当の文字が混ざって「ぐぶぐぶ」になったりした。そこで次も1つずつ数える。
+ *  - 前後2コマに、もう片方のペアの担当の文字がある
+ *  - 担当が1役のペアで、ペアに接するコマがその役の文字でない
+ *  - ペアから3コマ目に、そのペアの担当の文字がある
  */
 function thirdReelFlank(yakuList: YakuList, reels: string[][], landmark?: string): number {
   const cells = reels[2];
   const [r1, r2] = pairRoleSymbols(yakuList);
   let miss = 0;
-  for (const [pair, syms] of [[PAIR1_AT, r1], [PAIR2_AT, r2]] as const) {
+  for (const [pair, syms, other] of [[PAIR1_AT, r1, r2], [PAIR2_AT, r2, r1]] as const) {
     const below = [cells[(pair[0] - 1 + N) % N], cells[(pair[0] - 2 + N) % N]];
     const above = [cells[(pair[1] + 1) % N], cells[(pair[1] + 2) % N]];
-    for (const side of [below, above]) for (const sym of syms) if (!side.includes(sym)) miss++;
+    for (const side of [below, above]) {
+      for (const sym of syms) if (!side.includes(sym)) miss++;
+      for (const c of side) if (other.includes(c) && !syms.includes(c)) miss++;
+      if (syms.length === 1 && side[0] !== syms[0]) miss++;
+    }
     if (landmark !== undefined) {
       if (below[0] === landmark) miss++;
       if (above[0] === landmark) miss++;
     }
+    const outside = [cells[(pair[0] - 3 + N) % N], cells[(pair[1] + 3) % N]];
+    for (const c of outside) if (syms.includes(c)) miss++;
   }
   return miss;
 }

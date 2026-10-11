@@ -82,7 +82,7 @@ describe('狙い所（BIG1・BIG2・目印）', () => {
         [r3[(lo - 1 + N) % N], r3[(lo - 2 + N) % N]],
         [r3[(lo + 2) % N], r3[(lo + 3) % N]],
       ];
-      for (const [lo, roles] of [[pair1Big, roles1], [pair2Reg, roles2]] as const) {
+      for (const [lo, roles, other] of [[pair1Big, roles1, roles2], [pair2Reg, roles2, roles1]] as const) {
         // ペアのすぐ隣に目印を置かない（くっついて見えるため）
         for (const next of [r3[(lo - 1 + N) % N], r3[(lo + 2) % N]]) {
           expect(next, `${chapter}: ペア（${lo}番）のすぐ隣に目印がある`).not.toBe(mark);
@@ -91,6 +91,18 @@ describe('狙い所（BIG1・BIG2・目印）', () => {
           for (const sym of roles) {
             expect(side, `${chapter}: ペア（${lo}番）の片側に「${sym}」が無い`).toContain(sym);
           }
+          // もう片方のペアの担当の文字は混ぜない。担当が1役ならペアに接するコマがその文字
+          for (const c of side) {
+            if (roles.includes(c)) continue;
+            expect(other, `${chapter}: ペア（${lo}番）の前後に別のペアの担当「${c}」がある`).not.toContain(c);
+          }
+          if (roles.length === 1) {
+            expect(side[0], `${chapter}: ペア（${lo}番）に接するコマが担当の文字でない`).toBe(roles[0]);
+          }
+        }
+        // 担当の文字の塊は前後2コマで終わる（3コマ目に同じ担当の文字を続けない）
+        for (const c of [r3[(lo - 3 + N) % N], r3[(lo + 4) % N]]) {
+          expect(roles, `${chapter}: ペア（${lo}番）の3コマ外に担当の文字「${c}」が続いている`).not.toContain(c);
         }
       }
     });
