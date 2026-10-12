@@ -91,7 +91,7 @@ BOLD = {"hiragana_food": 1, "katakana_animal": 0, "hiragana_verb": 0, "yasai": 2
 
 CW, CH = 65, 50      # セルのドット数（130x100 のセルへ2倍）
 GLYPH_PX = 45        # 文字の既定の高さ
-PAD = 5              # 字面の外に取る余白。縁2＋金の輪2＋影1
+PAD = 6              # 字面の外に取る余白。縁2＋金の輪3＋影1
 MASK_W = CW - 2 * PAD - 2
 MASK_H = CH - 2 * PAD
 SS = 4               # ラスタライズの上げ幅。横だけ伸縮するので一度大きく焼いてから縮める
@@ -470,7 +470,9 @@ def glyph(ch: str, chapter: str = "hiragana_verb", reel: int = 0) -> tuple[Image
     m = _pad(face_of(ch, chapter, reel), PAD)
     o1 = grow(m)
     o2 = grow(o1)
-    g1 = grow(o2)
+    # 金の輪は2ドット（2026-10-12：ボーナス図柄をもっと見分けやすく）＋外の焦げ茶1ドット
+    g0 = grow(o2)
+    g1 = grow(g0)
     g2 = grow(g1)
     h, w = len(m), len(m[0])
     rows = [y for y in range(h) if any(m[y])]
