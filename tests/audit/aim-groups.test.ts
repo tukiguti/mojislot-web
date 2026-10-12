@@ -139,8 +139,8 @@ describe('狙い所（BIG1・BIG2・目印）', () => {
         }
       }
     });
-    it(`${chapter}: 目印どうしが離れている（左・中は差9以上、右は差6以上）`, () => {
-      const minGap = [9, 9, 6];
+    it(`${chapter}: 目印どうしが離れている（差9以上）`, () => {
+      const minGap = [9, 9, 9];
       reels.forEach((cells, r) => {
         const at = cells.flatMap((c, i) => (c === mark ? [i] : []));
         for (let a = 0; a < at.length; a++) {
@@ -149,6 +149,27 @@ describe('狙い所（BIG1・BIG2・目印）', () => {
             expect(Math.min(d, N - d), `${chapter}: リール${r + 1}の目印 ${at[a]}番と${at[b]}番が近い`)
               .toBeGreaterThanOrEqual(minGap[r]);
           }
+        }
+      });
+    });
+    it(`${chapter}: 狙い所どうしの間が3文字以上あいている`, () => {
+      // 狙い所のまわりは「担当の文字・狙い所・担当の文字」。隣の狙い所と前後を共有しない
+      const far = (a: number, b: number) => Math.min(Math.abs(a - b), N - Math.abs(a - b)) >= 4;
+      for (const r of [0, 1]) {
+        const syms = new Set([big1?.symbols[r], big2?.symbols[r], mark]);
+        const at = reels[r].flatMap((c, i) => (syms.has(c) ? [i] : []));
+        for (let i = 0; i < at.length; i++) {
+          for (let j = i + 1; j < at.length; j++) {
+            expect(far(at[i], at[j]), `${chapter}: リール${r + 1}の${at[i]}番と${at[j]}番の狙い所が近い`).toBe(true);
+          }
+        }
+      }
+      // 右：目印とペアの間（ペアの前後2コマ＋1文字）
+      const pairCells = [pair1Big, (pair1Big + 1) % N, pair2Reg, (pair2Reg + 1) % N];
+      r3.forEach((c, i) => {
+        if (c !== mark) return;
+        for (const p of pairCells) {
+          expect(far(i, p), `${chapter}: リール3の目印（${i}番）がペア（${p}番）に近い`).toBe(true);
         }
       });
     });
