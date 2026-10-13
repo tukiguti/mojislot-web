@@ -1,0 +1,557 @@
+/**
+ * 島ごとの筐体（2026-10-14）。
+ *
+ * 遊んでいる台の島の題材で筐体を組む。題材の調べと部位への割り当ては
+ * zikken の playground/mojislot-plan/research/cabinet-island-themes.md にある。
+ * 筐体が島を知るのは `#cabinet[data-island]`（main.ts が張る）。
+ *
+ * 部位の割り当ては全島でそろえてある。
+ *  - 看板の縁と画面枠：その場所で手が触れる木や金属の枠（白木・黒板の木枠・丸太・
+ *    ガンメタル・日除けの縞）
+ *  - 本体の面：その場所の壁や什器の地肌。細くしか見えないので、地の色に細かい目を重ねる程度
+ *  - 操作部の上面：品物や道具を置く台の天板（つけ台・教卓・草地・鋼板・人工芝）
+ *  - 操作部の前面：台の前に垂れるものや台の側面（暖簾・幕板・柵・1U の機器・木箱）
+ *  - 下パネル：その場所の掲示物や布（原稿用紙・案内板・メッシュの扉・黒板の値札）
+ *  - STOP・MAXBET・レバーの玉：ホールで見えている島の主色を引き継ぐ
+ *
+ * **リール窓の中と演出液晶には触らない。** 素材の模様は地との明度差が小さい細い線か
+ * 点にとどめる——強いと筐体の面がリールの横で動いて見え、目押しの目が取られる。
+ * 寸法も持たない（v3 と同じ約束）。
+ *
+ * 島が決めるのは次の変数だけで、背景の組み方は下の「組み立て」で1回だけ書く。
+ *  - `--isl-b0`〜`--isl-b6`：本体の横の面取り（左端の影 → 照り → 地 → 右端の影）
+ *  - `--isl-wall-tex`：本体の面に重ねる目（柾目・金網・メッシュ・板の継ぎ目）
+ *  - `--isl-shell`：計器の溝のまわり（既定は本体と同じ）
+ *  - `--isl-sign-edge`：看板の縁、`--isl-frame`：画面枠、`--isl-seam`：下パネルとの合わせ目
+ *  - `--isl-deck-hi/mid/lo` と `--isl-deck-tex`：操作部の上面
+ *  - `--v3-accent`：上面と前面の境の帯
+ *  - `--isl-front-*` と `--isl-front-tex`：操作部の前面
+ *  - `--isl-btn-*`：STOP と MAXBET、`--isl-ball-*`：レバーの玉、`--v3-cup-rim`：受け皿の縁
+ *  - `--v3-lower` と `--isl-lower-tex`、`--isl-lower-text`：下パネルとロゴ
+ * `--isl-deck-tex` と `--isl-front-tex` は1層だけ（範囲をこちらで切るため）。
+ * `--isl-wall-tex` と `--isl-lower-tex` は位置と大きさ付きの複数層を書いてよい。
+ */
+
+/* === 組み立て ===
+ * :root で組んだグラデーションは :root の値で固まるので、島の色を入れるには
+ * ここで組み直す。既定値はクロム（リミックスはこのまま使う）。 */
+#cabinet[data-island] {
+  --isl-wall-tex: none;
+  --isl-deck-tex: none;
+  --isl-front-tex: none;
+  --isl-lower-tex: none;
+  --isl-deck-hi: #f4f6f8;
+  --isl-deck-mid: #b9c0c8;
+  --isl-deck-lo: #6c747e;
+  --isl-chrome: linear-gradient(180deg, #6b737c 0%, #eef1f4 20%, #8d959e 50%, #3b424b 70%, #d9dee4 100%);
+  --isl-chrome-h: linear-gradient(
+    180deg,
+    #ffffff 0%,
+    #d9dee4 18%,
+    #7e8791 42%,
+    #3b424b 50%,
+    #8d959e 58%,
+    #e6eaee 82%,
+    #6b737c 100%
+  );
+  --isl-sign-edge: var(--isl-chrome-h);
+  --isl-frame: var(--isl-chrome);
+  --isl-seam: var(--isl-chrome-h);
+
+  --v3-body: linear-gradient(
+    90deg,
+    var(--isl-b0) 0%,
+    var(--isl-b1) 4%,
+    var(--isl-b2) 12%,
+    var(--isl-b3) 50%,
+    var(--isl-b4) 88%,
+    var(--isl-b5) 96.5%,
+    var(--isl-b6) 100%
+  );
+  --isl-shell: var(--isl-wall-tex), var(--v3-body);
+  --v3-deck: linear-gradient(
+    180deg,
+    var(--isl-deck-hi) 0%,
+    var(--isl-deck-mid) 10%,
+    var(--isl-deck-lo) 31%,
+    var(--v3-accent) 31%,
+    var(--v3-accent) 33.5%,
+    var(--isl-front-hi) 33.5%,
+    var(--isl-front-mid) 44%,
+    var(--isl-front-lo) 100%
+  );
+  --v3-stop: radial-gradient(
+    circle at 40% 30%,
+    var(--isl-btn-hi) 0%,
+    var(--isl-btn-mid) 32%,
+    var(--isl-btn-lo) 78%,
+    var(--isl-btn-dk) 100%
+  );
+  --v3-btn: radial-gradient(
+    ellipse at 40% 30%,
+    var(--isl-btn-hi) 0%,
+    var(--isl-btn-mid) 30%,
+    var(--isl-btn-lo) 75%,
+    var(--isl-btn-dk) 100%
+  );
+  --v3-ball: radial-gradient(
+    circle at 34% 26%,
+    #ffffff 0%,
+    var(--isl-ball-hi) 16%,
+    var(--isl-ball-mid) 45%,
+    var(--isl-ball-lo) 78%,
+    #120c06 100%
+  );
+  --v3-chrome: var(--isl-chrome);
+  --v3-chrome-h: var(--isl-chrome-h);
+  --v3-ring: linear-gradient(180deg, #f6f8fa 0%, #9aa3ad 50%, #3b424b 100%);
+  --v3-lever-base: linear-gradient(90deg, #3b424b 0%, #f6f8fa 22%, #9aa3ad 55%, #3b424b 100%);
+  --v3-lever-inner: #c6ccd3;
+  --v3-ring-mid: #9aa3ad;
+  --v3-stop-text: #fff;
+}
+
+#cabinet[data-island] #masthead {
+  background: var(--isl-sign-edge);
+}
+#cabinet[data-island] #screen {
+  background: var(--isl-wall-tex), var(--v3-body);
+}
+#cabinet[data-island] #screen::before {
+  background: var(--isl-frame);
+}
+#cabinet[data-island] .header-shell {
+  background: var(--isl-shell);
+}
+/* 上面と前面の素材の目は、それぞれの範囲（上面 0〜31%・前面 33.5%〜）に切って重ねる。 */
+#cabinet[data-island] #control-panel {
+  background:
+    var(--isl-deck-tex) 0 0 / 100% 31% no-repeat,
+    var(--isl-front-tex) 0 100% / 100% 66.5% no-repeat,
+    var(--v3-deck);
+}
+#cabinet[data-island] #lowerpanel {
+  background: var(--v3-body-sheen), var(--isl-lower-tex), var(--v3-lower);
+}
+#cabinet[data-island] #lowerpanel::before {
+  background: var(--isl-seam);
+}
+#cabinet[data-island] .lower-mark {
+  color: var(--isl-lower-text);
+  text-shadow: 0 1px 0 rgba(0, 0, 0, 0.35);
+}
+
+/* === 看板の絵 ===
+ * ドット絵を板いっぱいに等倍の3倍格子で敷く（tools/gen_sign.py・216×44）。
+ * 島名は絵に焼き込まず、この上に文字で載せる。絵が無い島は色の板のまま。 */
+#cabinet[data-island] #masthead::before {
+  background-size: 100% 100%;
+  background-position: center;
+  image-rendering: pixelated;
+}
+#cabinet[data-island='hiragana_food'] #masthead::before {
+  background-image:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.18) 0%, rgba(255, 255, 255, 0) 45%),
+    url('/art/sign/hiragana_food.png');
+}
+#cabinet[data-island='hiragana_food'] #masthead .mark {
+  color: #fdf4e3;
+  text-shadow:
+    0 2px 0 #5a100c,
+    0 0 6px rgba(90, 16, 12, 0.6);
+}
+#cabinet[data-island='katakana_animal'] #masthead::before {
+  background-image:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.18) 0%, rgba(255, 255, 255, 0) 45%),
+    url('/art/sign/katakana_animal.png');
+}
+#cabinet[data-island='katakana_animal'] #masthead .mark {
+  color: #1c2a16;
+  text-shadow: 0 2px 0 rgba(255, 246, 192, 0.7);
+}
+#cabinet[data-island='hiragana_verb'] #masthead::before {
+  background-image:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.1) 0%, rgba(255, 255, 255, 0) 45%),
+    url('/art/sign/hiragana_verb.png');
+}
+#cabinet[data-island='hiragana_verb'] #masthead .mark {
+  color: #2effd0;
+  text-shadow: 0 0 8px rgba(46, 255, 208, 0.6);
+}
+#cabinet[data-island='yasai'] #masthead::before {
+  background-image:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.14) 0%, rgba(255, 255, 255, 0) 45%),
+    url('/art/sign/yasai.png');
+}
+#cabinet[data-island='yasai'] #masthead .mark {
+  color: #e8f0c8;
+  text-shadow: 0 2px 0 #1a3a10;
+}
+#cabinet[data-island='security'] #masthead::before {
+  background-image:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.08) 0%, rgba(255, 255, 255, 0) 45%),
+    url('/art/sign/security.png');
+}
+#cabinet[data-island='security'] #masthead .mark {
+  color: #39ff6a;
+  text-shadow: 0 0 8px rgba(57, 255, 106, 0.6);
+}
+#cabinet[data-island='remix'] #masthead::before {
+  background-image:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.12) 0%, rgba(255, 255, 255, 0) 45%),
+    url('/art/sign/remix.png');
+}
+#cabinet[data-island='remix'] #masthead .mark {
+  color: #e8dcff;
+  text-shadow: 0 2px 0 #141024;
+}
+
+/* === 寿司：寿司屋のカウンター ===
+ * 檜の白木のつけ台、藍染めの暖簾、朱塗りの器。看板と画面は白木の額に収め、
+ * 操作部の上面がつけ台の一枚板、前面が暖簾。STOP の朱は藍の上でよく浮く。 */
+#cabinet[data-island='hiragana_food'] {
+  --isl-b0: #6a4a2c;
+  --isl-b1: #fbf2e0;
+  --isl-b2: #ecdcbe;
+  --isl-b3: #e2cfab;
+  --isl-b4: #ccb48e;
+  --isl-b5: #e2cfab;
+  --isl-b6: #5a3e22;
+  /* 檜の柾目。縦に細く、間隔をわずかに揺らす。 */
+  --isl-wall-tex: repeating-linear-gradient(
+    90deg,
+    rgba(122, 82, 40, 0.1) 0 1px,
+    transparent 1px 5px,
+    rgba(122, 82, 40, 0.06) 5px 6px,
+    transparent 6px 11px
+  );
+  --isl-sign-edge: linear-gradient(180deg, #fff8ea 0%, #ecd8b4 22%, #c9a878 60%, #8a6440 100%);
+  /* 白木の額。外へ向かって面取りの影が落ちる。 */
+  --isl-frame: linear-gradient(180deg, #fff6e4 0%, #ead6b2 28%, #d2b48a 62%, #8a6440 100%);
+  --isl-seam: linear-gradient(180deg, #e8d4ae 0%, #a8845a 100%);
+  /* つけ台：檜の一枚板。横に長い木目。 */
+  --isl-deck-hi: #fdf5e4;
+  --isl-deck-mid: #eedcb8;
+  --isl-deck-lo: #cfb184;
+  --isl-deck-tex: repeating-linear-gradient(
+    178deg,
+    rgba(150, 104, 56, 0.12) 0 1px,
+    transparent 1px 4px,
+    rgba(150, 104, 56, 0.07) 4px 5px,
+    transparent 5px 9px
+  );
+  --v3-accent: #c8342a;
+  /* 暖簾：藍の地に、割れ（縦の切れ目）を4つ。 */
+  --isl-front-hi: #2c3f74;
+  --isl-front-mid: #1e2d58;
+  --isl-front-lo: #0e1630;
+  --isl-front-tex: repeating-linear-gradient(
+    90deg,
+    rgba(0, 0, 0, 0.5) 0 2px,
+    rgba(255, 255, 255, 0.06) 2px 3px,
+    transparent 3px 20%
+  );
+  --isl-btn-hi: #ffe2d8;
+  --isl-btn-mid: #e04a38;
+  --isl-btn-lo: #8a1c16;
+  --isl-btn-dk: #3a0806;
+  --isl-ball-hi: #ffe9a8;
+  --isl-ball-mid: #e0b060;
+  --isl-ball-lo: #8a5a0c;
+  --v3-cup-rim: #e8d4ae;
+  --v3-lower: linear-gradient(180deg, #fdf4e3 0%, #e4d2b2 100%);
+  --isl-lower-tex: repeating-linear-gradient(
+    90deg,
+    rgba(122, 82, 40, 0.08) 0 1px,
+    transparent 1px 6px,
+    rgba(122, 82, 40, 0.05) 6px 7px,
+    transparent 7px 12px
+  );
+  --isl-lower-text: #c8342a;
+}
+#cabinet[data-island='hiragana_food'] .lower-mark {
+  text-shadow: 0 1px 0 rgba(255, 255, 255, 0.6);
+}
+
+/* === 動詞：国語の教室 ===
+ * 黒板の濃緑、黒板の木枠、チョーク受け、木の教卓、原稿用紙。ミントは島の主色で、
+ * ここではチョークの色として読む。 */
+#cabinet[data-island='hiragana_verb'] {
+  --isl-b0: #07120c;
+  --isl-b1: #3e6652;
+  --isl-b2: #2a4a3a;
+  --isl-b3: #234032;
+  --isl-b4: #1b3428;
+  --isl-b5: #2a4a3a;
+  --isl-b6: #06100a;
+  /* 消した跡のかすれ。白い靄を大きく薄く置く。 */
+  --isl-wall-tex:
+    radial-gradient(ellipse 60% 18% at 30% 22%, rgba(255, 255, 255, 0.07), transparent 70%),
+    radial-gradient(ellipse 50% 14% at 72% 64%, rgba(255, 255, 255, 0.05), transparent 70%);
+  /* 黒板の木枠（樫）。 */
+  --isl-sign-edge: linear-gradient(180deg, #f0d4a4 0%, #d0a468 25%, #a0703a 60%, #6a4420 100%);
+  --isl-frame: linear-gradient(180deg, #ecca94 0%, #c8965a 30%, #9a6a36 65%, #5e3c1c 100%);
+  --isl-seam: linear-gradient(180deg, #c8965a 0%, #6a4420 100%);
+  /* チョーク受け：アルミの受け皿に、白と黄と赤のチョークの粉。 */
+  --isl-shell:
+    radial-gradient(ellipse 6% 10% at 8% 70%, rgba(255, 255, 255, 0.5), transparent 80%),
+    radial-gradient(ellipse 5% 9% at 92% 68%, rgba(255, 226, 120, 0.45), transparent 80%),
+    linear-gradient(180deg, #e2e6e8 0%, #b6bcc0 30%, #8a9094 70%, #5a6064 100%);
+  /* 教卓の天板。 */
+  --isl-deck-hi: #f2d8a8;
+  --isl-deck-mid: #d6ac6e;
+  --isl-deck-lo: #a87640;
+  --isl-deck-tex: repeating-linear-gradient(
+    179deg,
+    rgba(90, 52, 20, 0.14) 0 1px,
+    transparent 1px 5px,
+    rgba(90, 52, 20, 0.08) 5px 6px,
+    transparent 6px 10px
+  );
+  --v3-accent: #2effd0;
+  /* 教卓の幕板。縦の板目。 */
+  --isl-front-hi: #9a6a38;
+  --isl-front-mid: #7a5028;
+  --isl-front-lo: #3a2410;
+  --isl-front-tex: repeating-linear-gradient(
+    90deg,
+    rgba(0, 0, 0, 0.3) 0 2px,
+    transparent 2px 25%
+  );
+  --isl-btn-hi: #ffffff;
+  --isl-btn-mid: #7fffe2;
+  --isl-btn-lo: #0fb89a;
+  --isl-btn-dk: #064a3e;
+  --isl-ball-hi: #d8fff4;
+  --isl-ball-mid: #2effd0;
+  --isl-ball-lo: #0a7a66;
+  --v3-cup-rim: #d0a468;
+  /* 原稿用紙：生成りの地に赤茶の升目。 */
+  --v3-lower: linear-gradient(180deg, #faf5e6 0%, #ece2c6 100%);
+  --isl-lower-tex:
+    repeating-linear-gradient(90deg, rgba(176, 80, 52, 0.32) 0 1px, transparent 1px 18px),
+    repeating-linear-gradient(0deg, rgba(176, 80, 52, 0.32) 0 1px, transparent 1px 18px);
+  --isl-lower-text: #a8402a;
+}
+#cabinet[data-island='hiragana_verb'] .lower-mark {
+  text-shadow: 0 1px 0 rgba(255, 255, 255, 0.7);
+}
+
+/* === 動物：動物園の獣舎 ===
+ * 丸太の枠、獣舎の金網、放飼場の草地、木の柵、深緑の案内板に足跡。 */
+#cabinet[data-island='katakana_animal'] {
+  --isl-b0: #4a3810;
+  --isl-b1: #f4dca0;
+  --isl-b2: #e2c476;
+  --isl-b3: #d4b460;
+  --isl-b4: #b8963c;
+  --isl-b5: #d4b460;
+  --isl-b6: #3e2e0c;
+  /* 金網の菱目。 */
+  --isl-wall-tex:
+    repeating-linear-gradient(45deg, rgba(60, 44, 10, 0.16) 0 1px, transparent 1px 9px),
+    repeating-linear-gradient(-45deg, rgba(60, 44, 10, 0.16) 0 1px, transparent 1px 9px);
+  /* 丸太：真ん中が明るく、上下が影に沈む。 */
+  --isl-sign-edge: linear-gradient(180deg, #5a3416 0%, #a8703e 22%, #d09a60 45%, #94602e 72%, #4a2a10 100%);
+  --isl-frame: linear-gradient(180deg, #4a2a10 0%, #9a6634 25%, #c8915a 48%, #8a5628 75%, #42240c 100%);
+  --isl-seam: linear-gradient(180deg, #a8703e 0%, #4a2a10 100%);
+  /* 放飼場の草地。八百屋の人工芝と分けるため、土の混じった黄緑に寄せる。 */
+  --isl-deck-hi: #d2dc8a;
+  --isl-deck-mid: #a4b052;
+  --isl-deck-lo: #6c7a30;
+  --isl-deck-tex: repeating-linear-gradient(
+    100deg,
+    rgba(255, 255, 255, 0.1) 0 1px,
+    transparent 1px 4px,
+    rgba(20, 60, 10, 0.14) 4px 5px,
+    transparent 5px 7px
+  );
+  --v3-accent: #2e6b30;
+  /* 木の柵：縦板を等間隔に。 */
+  --isl-front-hi: #c09058;
+  --isl-front-mid: #94683a;
+  --isl-front-lo: #3e2a12;
+  --isl-front-tex: repeating-linear-gradient(
+    90deg,
+    rgba(0, 0, 0, 0.42) 0 3px,
+    rgba(255, 230, 180, 0.12) 3px 4px,
+    transparent 4px 12.5%
+  );
+  --isl-btn-hi: #f0ffe0;
+  --isl-btn-mid: #7ab848;
+  --isl-btn-lo: #2e6b30;
+  --isl-btn-dk: #102810;
+  --isl-ball-hi: #ffd9a0;
+  --isl-ball-mid: #e07020;
+  --isl-ball-lo: #8a3a0c;
+  --v3-cup-rim: #e8d29a;
+  --v3-lower: linear-gradient(180deg, #2e6b30 0%, #1c4a1e 100%);
+  /* 案内板に散らした足跡（肉球1つ＋指3つ）。1区画に1つ、段を互い違いに。 */
+  --isl-lower-tex:
+    radial-gradient(ellipse 7px 6px at 18px 26px, rgba(240, 230, 192, 0.16) 98%, transparent) 0 0 / 72px 44px,
+    radial-gradient(circle 2.6px at 11px 17px, rgba(240, 230, 192, 0.16) 98%, transparent) 0 0 / 72px 44px,
+    radial-gradient(circle 2.6px at 18px 14px, rgba(240, 230, 192, 0.16) 98%, transparent) 0 0 / 72px 44px,
+    radial-gradient(circle 2.6px at 25px 17px, rgba(240, 230, 192, 0.16) 98%, transparent) 0 0 / 72px 44px,
+    radial-gradient(ellipse 7px 6px at 18px 26px, rgba(240, 230, 192, 0.16) 98%, transparent) 36px 22px / 72px 44px,
+    radial-gradient(circle 2.6px at 11px 17px, rgba(240, 230, 192, 0.16) 98%, transparent) 36px 22px / 72px 44px,
+    radial-gradient(circle 2.6px at 18px 14px, rgba(240, 230, 192, 0.16) 98%, transparent) 36px 22px / 72px 44px,
+    radial-gradient(circle 2.6px at 25px 17px, rgba(240, 230, 192, 0.16) 98%, transparent) 36px 22px / 72px 44px;
+  --isl-lower-text: #f0e6c0;
+}
+
+/* === セキュリティ：サーバールーム ===
+ * 19インチラックの黒い鋼板、全面メッシュの扉、1U ずつ積んだ機器、緑の端末の字。
+ * 枠は光るクロムをやめ、つや消しのガンメタルにする。 */
+#cabinet[data-island='security'] {
+  --isl-b0: #040604;
+  --isl-b1: #48564c;
+  --isl-b2: #2c3430;
+  --isl-b3: #222a25;
+  --isl-b4: #181e1a;
+  --isl-b5: #2c3430;
+  --isl-b6: #030403;
+  /* ラック扉のメッシュ。縦横の暗い格子の間が明るい穴に見える。 */
+  --isl-wall-tex:
+    repeating-linear-gradient(90deg, rgba(0, 0, 0, 0.5) 0 2px, transparent 2px 5px),
+    repeating-linear-gradient(0deg, rgba(0, 0, 0, 0.5) 0 2px, transparent 2px 5px);
+  --isl-sign-edge: linear-gradient(180deg, #8a948c 0%, #5a645c 20%, #3a423c 55%, #20261f 100%);
+  --isl-frame: linear-gradient(180deg, #6a746c 0%, #4a524c 25%, #2e3530 60%, #161a17 100%);
+  --isl-seam: linear-gradient(180deg, #4a524c 0%, #161a17 100%);
+  /* ヘアラインの黒い鋼板。 */
+  --isl-deck-hi: #6a746c;
+  --isl-deck-mid: #3e4640;
+  --isl-deck-lo: #1e2420;
+  --isl-deck-tex: repeating-linear-gradient(
+    90deg,
+    rgba(255, 255, 255, 0.05) 0 1px,
+    transparent 1px 3px
+  );
+  --v3-accent: #39ff6a;
+  /* 1U の機器を積んだ面：横の継ぎ目を等間隔に。 */
+  --isl-front-hi: #2a322c;
+  --isl-front-mid: #181e1a;
+  --isl-front-lo: #060906;
+  --isl-front-tex: repeating-linear-gradient(
+    180deg,
+    transparent 0 calc(25% - 2px),
+    rgba(0, 0, 0, 0.6) calc(25% - 2px) calc(25% - 1px),
+    rgba(255, 255, 255, 0.08) calc(25% - 1px) 25%
+  );
+  --isl-btn-hi: #d8ffe0;
+  --isl-btn-mid: #39ff6a;
+  --isl-btn-lo: #0e7a2a;
+  --isl-btn-dk: #03200a;
+  --isl-ball-hi: #c8ffd4;
+  --isl-ball-mid: #39ff6a;
+  --isl-ball-lo: #0e5a22;
+  --v3-cup-rim: #5a6e5c;
+  --v3-ring: linear-gradient(180deg, #8a948c 0%, #4a524c 50%, #161a17 100%);
+  --v3-lever-base: linear-gradient(90deg, #161a17 0%, #8a948c 22%, #4a524c 55%, #161a17 100%);
+  --v3-lever-inner: #5a645c;
+  --v3-ring-mid: #4a524c;
+  --v3-lower: linear-gradient(180deg, #121814 0%, #050a06 100%);
+  --isl-lower-tex:
+    repeating-linear-gradient(90deg, rgba(0, 0, 0, 0.55) 0 2px, rgba(120, 140, 124, 0.06) 2px 5px),
+    repeating-linear-gradient(0deg, rgba(0, 0, 0, 0.55) 0 2px, transparent 2px 5px);
+  --isl-lower-text: #39ff6a;
+}
+#cabinet[data-island='security'] .lower-mark {
+  text-shadow:
+    0 0 6px rgba(57, 255, 106, 0.6),
+    0 0 1px #000;
+}
+
+/* === 八百屋：町の八百屋の店先 ===
+ * 杉の木箱、軒の縞の日除け、陳列台の人工芝、黄色い値札、黒板の値段の札。 */
+#cabinet[data-island='yasai'] {
+  --isl-b0: #3e2e16;
+  --isl-b1: #e6cc98;
+  --isl-b2: #d4b580;
+  --isl-b3: #c0a06a;
+  --isl-b4: #96794a;
+  --isl-b5: #c0a06a;
+  --isl-b6: #33260f;
+  /* 木箱の横板：板の継ぎ目と、荒い木目。 */
+  --isl-wall-tex:
+    repeating-linear-gradient(180deg, transparent 0 22px, rgba(40, 24, 8, 0.32) 22px 24px),
+    repeating-linear-gradient(
+      92deg,
+      rgba(70, 44, 16, 0.12) 0 1px,
+      transparent 1px 6px,
+      rgba(255, 236, 196, 0.06) 6px 8px,
+      transparent 8px 13px
+    );
+  /* 軒の日除け：緑と生成りの縦縞。 */
+  --isl-sign-edge:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.25) 0%, transparent 40%, rgba(0, 0, 0, 0.3) 100%),
+    repeating-linear-gradient(90deg, #2f7a2a 0 6%, #f4f0dc 6% 12%);
+  /* 木箱の枠：本体より一段濃い板。 */
+  --isl-frame: linear-gradient(180deg, #b8935c 0%, #94703e 30%, #6e5028 65%, #3e2a12 100%);
+  --isl-seam: linear-gradient(180deg, #94703e 0%, #3e2a12 100%);
+  /* 陳列台の人工芝。 */
+  --isl-deck-hi: #7cc456;
+  --isl-deck-mid: #4e9a32;
+  --isl-deck-lo: #2e6e1c;
+  --isl-deck-tex: repeating-linear-gradient(
+    95deg,
+    rgba(255, 255, 255, 0.12) 0 1px,
+    transparent 1px 3px,
+    rgba(10, 40, 4, 0.18) 3px 4px,
+    transparent 4px 6px
+  );
+  --v3-accent: #e8d44c;
+  /* 木箱の側板：横板3枚。 */
+  --isl-front-hi: #bfa274;
+  --isl-front-mid: #8f7346;
+  --isl-front-lo: #33260f;
+  --isl-front-tex: repeating-linear-gradient(
+    180deg,
+    transparent 0 calc(33.3% - 2px),
+    rgba(30, 18, 6, 0.5) calc(33.3% - 2px) 33.3%
+  );
+  --isl-btn-hi: #f8fbee;
+  --isl-btn-mid: #9acd50;
+  --isl-btn-lo: #4a7a20;
+  --isl-btn-dk: #1a3008;
+  --isl-ball-hi: #ffc4b0;
+  --isl-ball-mid: #e8453a;
+  --isl-ball-lo: #8a1a10;
+  --v3-cup-rim: #e0cba0;
+  /* 黒板の値札。チョークの消し跡を薄く。 */
+  --v3-lower: linear-gradient(180deg, #2a3a2e 0%, #18241c 100%);
+  --isl-lower-tex:
+    radial-gradient(ellipse 40% 30% at 50% 50%, rgba(255, 255, 255, 0.06), transparent 70%),
+    radial-gradient(ellipse 20% 40% at 20% 40%, rgba(255, 255, 255, 0.04), transparent 70%);
+  --isl-lower-text: #f4f1e0;
+}
+#cabinet[data-island='yasai'] .lower-mark {
+  text-shadow:
+    0 0 1px rgba(244, 241, 224, 0.8),
+    0 1px 0 rgba(0, 0, 0, 0.5);
+}
+
+/* === リミックス：5島が入れ替わる ===
+ * 題材を1つに決められないので、素材は共通のクロムのまま。色だけ夜の紫紺に藤色。 */
+#cabinet[data-island='remix'] {
+  --isl-b0: #08060e;
+  --isl-b1: #4a4270;
+  --isl-b2: #342e54;
+  --isl-b3: #2a2540;
+  --isl-b4: #1e1a34;
+  --isl-b5: #342e54;
+  --isl-b6: #050409;
+  --v3-accent: #b8a0ff;
+  --isl-front-hi: #3a3458;
+  --isl-front-mid: #1e1a34;
+  --isl-front-lo: #08060e;
+  --isl-btn-hi: #ffffff;
+  --isl-btn-mid: #b8a0ff;
+  --isl-btn-lo: #5a48a8;
+  --isl-btn-dk: #1e1a34;
+  --isl-ball-hi: #ffe9a8;
+  --isl-ball-mid: #e8a028;
+  --isl-ball-lo: #8a5a0c;
+  --v3-cup-rim: #8a80b8;
+  --v3-lower: linear-gradient(180deg, #2a2540 0%, #141024 100%);
+  --isl-lower-text: #e8dcff;
+}
