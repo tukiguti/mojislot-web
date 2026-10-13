@@ -54,6 +54,7 @@
   "premiumYaku": [
     {
       "id": "ikiru",
+      "cutinArt": "cutin/hiragana_verb_ikiru.png",
       "name": "いきる",
       "symbols": [
         "い",
@@ -64,6 +65,7 @@
     },
     {
       "id": "yasumu",
+      "cutinArt": "cutin/hiragana_verb_yasumu.png",
       "name": "やすむ",
       "symbols": [
         "や",
@@ -76,6 +78,7 @@
   "bonusYaku": [
     {
       "id": "reg",
+      "cutinArt": "cutin/hiragana_verb_reg.png",
       "name": "いきむ",
       "symbols": [
         "い",

@@ -3798,6 +3798,8 @@ body.shake {
   background-size: cover;
   background-position: center center;
   background-repeat: no-repeat;
+  /* 一枚絵はドット絵（200×144 を3倍で焼いたもの）。液晶が 600px より大きいと補間でにじむ */
+  image-rendering: pixelated;
   transform: scale(1.08);
   opacity: 0;
   transition:

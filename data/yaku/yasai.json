@@ -54,6 +54,7 @@
   "premiumYaku": [
     {
       "id": "raichi",
+      "cutinArt": "cutin/yasai_raichi.png",
       "name": "ライチ",
       "symbols": [
         "ラ",
@@ -65,6 +66,7 @@
     },
     {
       "id": "puramu",
+      "cutinArt": "cutin/yasai_puramu.png",
       "name": "プラム",
       "symbols": [
         "プ",
@@ -78,6 +80,7 @@
   "bonusYaku": [
     {
       "id": "reg",
+      "cutinArt": "cutin/yasai_reg.png",
       "name": "ライム",
       "symbols": [
         "ラ",

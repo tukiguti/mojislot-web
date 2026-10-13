@@ -54,6 +54,7 @@
   "premiumYaku": [
     {
       "id": "shake",
+      "cutinArt": "cutin/hiragana_food_shake.png",
       "name": "しゃけ",
       "symbols": [
         "し",
@@ -65,6 +66,7 @@
     },
     {
       "id": "tarako",
+      "cutinArt": "cutin/hiragana_food_tarako.png",
       "name": "たらこ",
       "symbols": [
         "た",
@@ -78,6 +80,7 @@
   "bonusYaku": [
     {
       "id": "reg",
+      "cutinArt": "cutin/hiragana_food_reg.png",
       "name": "しゃこ",
       "symbols": [
         "し",
