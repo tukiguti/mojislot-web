@@ -162,13 +162,10 @@ import {
   REMIX_ISLAND_ID,
 } from './data/machines';
 import './style.css';
-import './skins.css';
-// 筐体 v3 の輪郭と質感。皮の変数（skins.css）より後に読む。
+// 筐体 v3 の輪郭と質感。
 import './cabinet-v3.css';
-import { applySkin, loadSkin } from './productions/CabinetSkin';
-
-// 保存してある筐体の皮を、筐体が組み上がる前に張る（張り直しで一瞬ちらつくのを防ぐ）。
-applySkin(loadSkin());
+// 島の題材の素材（看板の絵・本体・枠・操作部・下パネル）。v3 の既定より後に読む。
+import './cabinet-islands.css';
 
 /**
  * リール3本の間隔。**額（クローム）が左右に 9px ずつ張り出す**ので、16px だと
@@ -350,7 +347,7 @@ export async function bootstrap() {
       // 両脇の小物に食い込まないよう、空けてある真ん中の幅に収める。
       titleEl.style.setProperty('--title-len', String(titleEl.textContent.length));
     }
-    // 看板の絵は島ごと（cabinet-v3.css が data-island で当てる）。決め方はホールの
+    // 看板の絵と筐体の素材は島ごと（cabinet-islands.css が data-island で当てる）。決め方はホールの
     // ミニ筐体と同じ：リミックス台はリミックス、試打台は章、それ以外は島。
     const cab = document.getElementById('cabinet');
     if (cab) {
