@@ -565,9 +565,9 @@ export async function bootstrap() {
   // 演出のため共通プレフィックスの [0] 役に固定（例: BIG=すしや / REG=すしず は左中「す・し」共通）。
   let announcedRole: Yaku | null = null;
   /**
-   * こぼしたボーナスフラグの持ち越し（実機Aタイプ）。演出も告知も出ないので、
-   * プレイヤーは**出目（リーチ目）**で察知して自力で揃えに行く。
-   * 確定告知ランプ（announcedBonus）は「告知あり」の持ち越しで、こちらは無告知。
+   * こぼしたボーナスフラグの持ち越し（実機Aタイプ）。こぼした時点で確定ランプが点く
+   * （演出の出ていたゲームは抽選）。目印揃いの内部役のボーナスもここへ入る。
+   * 確定告知ランプ（announcedBonus）が点いた後はそちらで揃えに行く。
    */
   let heldBonusYaku: Yaku | null = null;
   /**
@@ -575,7 +575,7 @@ export async function bootstrap() {
    * 持ち越し中は普段は演出を出さない（none）が、チャンス目から進んだ時だけ出す。
    */
   let chanceFollow: 'aim' | 'quiz' | null = null;
-  /** 持ち越しが始まってからのゲーム数（リーチ目の演出判定に使う）。 */
+  /** 持ち越しが始まってからのゲーム数。 */
   let heldBonusSpins = 0;
 
   // 液晶エリアの土台。単色の黒板だと「空っぽの余白」に見えるので、
@@ -2290,7 +2290,6 @@ export async function bootstrap() {
       );
     } else if (heldBonusYaku) {
       // 持ち越し中：フラグは生きているが**演出は出ない**（実機Aタイプ）。
-      // 小役は全部蹴られるので出目が普段と変わる＝それがリーチ目になる。
       heldBonusSpins++;
       // チャンス目から進んだ次ゲームだけは狙え・クイズを出す（2026-10-12）
       const follow = chanceFollow;
@@ -2831,7 +2830,7 @@ export async function bootstrap() {
         }
       }
       // ボーナスフラグの持ち越し（実機Aタイプ）。
-      // 揃えば解除、こぼせば次ゲーム以降も保持し続ける（無告知＝リーチ目で察知する）。
+      // 揃えば解除、こぼせば次ゲーム以降も保持し続ける。
       // 確定告知ランプは告知ありの別経路なので、そちらが点灯中は二重に持たない。
       if (isPremium || isRegular) {
         heldBonusYaku = null;
@@ -2854,8 +2853,7 @@ export async function bootstrap() {
           // （初心者の持ち越しが1900ゲーム続いていた）。
           //
           // ただし**演出が出ていたゲームは抽選**（既定50%）。「何を狙えばいいか」は
-          // もう教えてあるので、そこへランプを重ねると告知が二重になる。点かなかった
-          // 側は、リーチ目や出目の違和感から自分で気づく余地が残る。
+          // もう教えてあるので、そこへランプを重ねると告知が二重になる。
           const announce =
             currentEffect === 'none' ||
             Math.random() < tuning.announceLamp.missAnnounceWithEffect;
