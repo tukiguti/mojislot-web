@@ -3621,6 +3621,36 @@ body.shake {
   opacity: calc(var(--step-a, 0.4) * 0.45);
 }
 
+/* 連続演出の「つづく」。段の色の上に重ねる文字。段の要素とは別なので薄くならない */
+.step-next {
+  position: absolute;
+  top: 6%;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 9991;
+  pointer-events: none;
+  padding: 0.3em 1.1em;
+  border-radius: 999px;
+  background: rgba(10, 8, 16, 0.82);
+  border: 2px solid #ffe08a;
+  color: #ffe08a;
+  font-weight: 900;
+  font-size: clamp(14px, 4.2cqmin, 30px);
+  letter-spacing: 0.3em;
+  animation: step-next-pulse 900ms ease-in-out infinite alternate;
+}
+@keyframes step-next-pulse {
+  from {
+    opacity: 0.75;
+  }
+  to {
+    opacity: 1;
+  }
+}
+.a11y-reduce-motion .step-next {
+  animation: none;
+}
+
 /* ブラックアウト（フリーズ専用）。筐体まるごと落とす——液晶だけ暗くしても
    リールと操作部が光ったままで「電源が落ちた」に見えない。
    落ちるのはゆっくり、明けるのは一瞬。明けた瞬間に爆発させたいので。 */

@@ -72,6 +72,8 @@ const PAYLINE_Y = CELL_HEIGHT * 1.5;
  * リール領域の確保は main.ts 側（LIQUID_AREA_H）で行う。
  */
 export const REEL_PEEK = CELL_HEIGHT * 0.1;
+/** バックライト消灯の暗さ（暗幕の不透明度）。図柄が読める範囲に留める。 */
+const BACKLIGHT_OFF_ALPHA = 0.62;
 /**
  * 図柄（チラ見せ含む）と金枠の線の間に挟む黒余白（px）。枠(bg)を図柄表示範囲より FRAME_PAD
  * 分だけ外側に描くことで、図柄が枠線に接触して色が混じるのを防ぐ。
@@ -158,6 +160,8 @@ export class ReelView {
   /** 滑りコマ数の表示（停止済みリールのSTOPをもう一度押した時だけ出す） */
   private readonly slipBadge: Container;
   private readonly slipBadgeText: Text;
+  /** バックライト消灯（予兆）の暗幕。図柄の上に重ねて窓ごと暗くする。 */
+  private readonly backlightShade: Graphics;
   /** 停止バウンス用：振動オフセット（px） */
   private bounceOffsetY = 0;
   private bounceStart = 0;
@@ -309,6 +313,15 @@ export class ReelView {
       this.cellContainers.push(cell);
     }
     this.container.addChild(maskWrapper);
+
+    // バックライト消灯の暗幕。**図柄は読める暗さに留める**——予兆は気配であって、
+    // 出目を読ませない理由にはならない。
+    this.backlightShade = new Graphics();
+    this.backlightShade
+      .rect(0, -REEL_PEEK, CELL_WIDTH, VIEW_HEIGHT + REEL_PEEK * 2)
+      .fill({ color: 0x000000, alpha: BACKLIGHT_OFF_ALPHA });
+    this.backlightShade.visible = false;
+    this.container.addChild(this.backlightShade);
 
     // 滑りコマ数のバッジ。**枠の下端に跨がせる**。枠の外はチラ見せと枠余白で16pxしか
     // 無いので、そこへ収まる高さにして4pxだけ窓へ食い込ませる。窓の中央へ置くと
@@ -470,6 +483,15 @@ export class ReelView {
   /** 滑りコマ数が出ているか（トグルの判定用） */
   isSlipBadgeVisible(): boolean {
     return this.slipBadge.visible;
+  }
+
+  /** リールのバックライトを点ける／消す（予兆）。 */
+  setBacklight(on: boolean): void {
+    this.backlightShade.visible = !on;
+  }
+
+  isBacklightOn(): boolean {
+    return !this.backlightShade.visible;
   }
 
   /** STOP 押下後の停止バウンス（軽い縦振動） */

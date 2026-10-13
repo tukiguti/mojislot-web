@@ -498,6 +498,49 @@ const DEFAULT_DELAY = {
   rate: { core: 0.0, cherry: 0.02, reg: 0.45, big: 0.6 },
 };
 
+/**
+ * ステップアップの1色ぶん。
+ *  - rate: 終了色の振り分け（4色の合計1）
+ *  - bonusRate: 予告したゲームがボーナスになる率（設定の倍率はここへ掛かる）
+ *  - bigRate: そのボーナスが BIG の率（残りは REG）
+ *  - chain: 連続演出。2ゲーム目へ続く率と、2ゲーム目から3ゲーム目へ続く率。
+ *    **強い色ほど続きやすくしてある**ので、続いたこと自体が本当に期待度を上げる
+ */
+const StepColorTuningSchema = z.object({
+  rate: z.number().min(0).max(1),
+  bonusRate: z.number().min(0).max(1),
+  bigRate: z.number().min(0).max(1),
+  chain: z.object({
+    second: z.number().min(0).max(1),
+    third: z.number().min(0).max(1),
+  }),
+});
+
+/**
+ * ステップアップの既定。data/tuning が正、ここはフォールバック。値の根拠は
+ * `productions/StepUp.ts` の冒頭。1回のステップアップから出るボーナスは 0.3855。
+ */
+const DEFAULT_STEP_UP = {
+  entryRate: 0.055,
+  triggerMinPayout: 5,
+  colors: {
+    blue: { rate: 0.45, bonusRate: 0.12, bigRate: 0.15, chain: { second: 0, third: 0 } },
+    green: { rate: 0.35, bonusRate: 0.53, bigRate: 0.24, chain: { second: 0.1, third: 0.1 } },
+    red: { rate: 0.18, bonusRate: 0.7, bigRate: 0.35, chain: { second: 0.35, third: 0.4 } },
+    gold: { rate: 0.02, bonusRate: 1.0, bigRate: 0.92, chain: { second: 0.6, third: 0.8 } },
+  },
+};
+
+/**
+ * 予兆（無音・バックライト消灯）の既定。data/tuning が正、ここはフォールバック。
+ * **ボーナスのフラグがある無演出のゲームでしか出さない**（2026-07-29 の方針）。
+ */
+const DEFAULT_OMEN = {
+  rate: { reg: 0.08, big: 0.12, chance: 0.25 },
+  kinds: { silence: 1, backlight: 1 },
+  backlightAt: { lever: 1, stop1: 1, stop2: 1 },
+};
+
 export const TuningSchema = z.object({
   /** ベット毎の演出抽選レート（通常／ハマり救済／ボーナス中）。各合計は1.0必須。 */
   effectRates: z.object({
@@ -746,6 +789,53 @@ export const TuningSchema = z.object({
       }),
     })
     .default(DEFAULT_DELAY),
+  /**
+   * ステップアップ（段階演出）と、それを複数ゲームへ延ばす連続演出。
+   *
+   * 契機はチェリーと払い出し `triggerMinPayout` 枚以上の小役で、そのうち `entryRate`
+   * だけが入る。BIG/REG は通常抽選から落としてあり、ここ経由でしか出ない——
+   * **色の率を動かすとボーナス確率がそのまま動く。**
+   */
+  stepUp: z
+    .object({
+      entryRate: z.number().min(0).max(1),
+      triggerMinPayout: z.number().int().nonnegative(),
+      colors: z.object({
+        blue: StepColorTuningSchema,
+        green: StepColorTuningSchema,
+        red: StepColorTuningSchema,
+        gold: StepColorTuningSchema,
+      }),
+    })
+    .default(DEFAULT_STEP_UP),
+  /**
+   * 予兆。レバーで無音になる・リールのバックライトが消える。
+   *
+   * **ボーナスのフラグがある無演出のゲームでしか出ない**＝出たらボーナスは本当にある。
+   * 強レア役とボーナス専用に取っておく方針（2026-07-29）で、無演出の穴埋めには使わない。
+   * ボーナス中・持ち越し中・確定ランプ点灯中・フリーズでは出さない。
+   *  - rate: フラグの種類ごとの発生率（chance はボーナスを持ち越すチャンス目の内部役）
+   *  - kinds: 出た時の種類の重み
+   *  - backlightAt: バックライトが消える場面の重み（レバー／第1停止／第2停止）
+   */
+  omen: z
+    .object({
+      rate: z.object({
+        reg: z.number().min(0).max(1),
+        big: z.number().min(0).max(1),
+        chance: z.number().min(0).max(1),
+      }),
+      kinds: z.object({
+        silence: z.number().nonnegative(),
+        backlight: z.number().nonnegative(),
+      }),
+      backlightAt: z.object({
+        lever: z.number().nonnegative(),
+        stop1: z.number().nonnegative(),
+        stop2: z.number().nonnegative(),
+      }),
+    })
+    .default(DEFAULT_OMEN),
 });
 
 export type Tuning = z.infer<typeof TuningSchema>;

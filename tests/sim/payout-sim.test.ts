@@ -13,6 +13,12 @@ import { PayoutCalc } from '../../src/core/PayoutCalc';
 import { RoundResolver } from '../../src/core/RoundResolver';
 import { EffectEligibility } from '../../src/productions/EffectEligibility';
 import {
+  isStepTrigger,
+  pickChainLength,
+  pickStepBonus,
+  pickStepColor,
+} from '../../src/productions/StepUp';
+import {
   applySetting,
   applySettingToEffects,
   scaleNone,
@@ -56,6 +62,8 @@ import {
  */
 
 const RUN = process.env.SIM === '1';
+/** 連続演出（ステップアップが複数ゲームへ続く）を入れて測るか。`CHAIN=0` で切る。 */
+const CHAIN_ON = process.env.CHAIN !== '0';
 /** リミックス島の上乗せを乗せて測る（覚え直しの取りこぼしは再現できないので上限値）。 */
 const REMIX_MODE = process.env.REMIX === '1';
 /**
@@ -435,20 +443,15 @@ function runChapter(
    * ステップアップ（前兆）が次ゲームへ渡すもの。main.ts と同じ設計。
    * ボーナスはステップアップ経由でしか出さないので、通常抽選からは落とす。
    */
-  const STEP_ENTRY_RATE = 0.055 * STEP_ENTRY_MULT;
-  // **main.ts と同じ値を持つ。片方だけ直すと、測っているモデルが実物とずれる。**
-  // 青を終了色に足した時（2026-09-09）もここを揃えてから測り直した。
-  const STEP_COLOR_RATE: readonly (readonly [
-    'blue' | 'green' | 'red' | 'gold',
-    number,
-  ])[] = [
-    ['blue', 0.45], ['green', 0.35], ['red', 0.18], ['gold', 0.02],
-  ];
-  const STEP_BONUS_RATE = { blue: 0.12, green: 0.53, red: 0.7, gold: 1.0 } as const;
-  const STEP_BIG_RATE = { blue: 0.15, green: 0.24, red: 0.35, gold: 0.92 } as const;
-  const STEP_TRIGGER_MIN_PAYOUT = 5;
-  /** 次ゲームの予約。`bonus` があればそれ、無ければ「必ず演出」の小役ゲーム。 */
-  let stepNext: { bonus: 'big' | 'reg' | null } | null = null;
+  // 率と手続きは main.ts と同じ tuning.stepUp / productions/StepUp.ts を読む
+  // （以前は値を写していて、片方だけ直すと測っているモデルが実物とずれた）。
+  const stepCfg = tuning.stepUp;
+  const STEP_ENTRY_RATE = stepCfg.entryRate * STEP_ENTRY_MULT;
+  /**
+   * 次ゲームの予約。`bonus` があればそれ、無ければ「必ず演出」の小役ゲーム。
+   * `wait` は連続演出の残りのゲーム数（その間は無演出の普通のゲームで、予約は先へ送る）。
+   */
+  let stepNext: { bonus: 'big' | 'reg' | null; wait: number } | null = null;
   /** ボーナスの無いチャンス目のあと、次ゲームで外れの狙え（BIG）を出すか（main.ts の fakeFollow）。 */
   let fakeNext = false;
   let stepCount = 0;
@@ -488,8 +491,12 @@ function runChapter(
         : null;
     const carried = !heldYaku && !bonusActive ? heldBonusYaku : null;
     // ステップアップの予約を消費する（通常抽選のブランチに来た時だけ）。
-    const step = !heldYaku && !carried && !bonusActive ? stepNext : null;
-    if (!bonusActive) stepNext = null;
+    // 連続演出の途中なら予約は先へ送り、このゲームは無演出の普通のゲーム（main.ts と同じ）。
+    const normalBranch = !heldYaku && !carried && !bonusActive;
+    const stepWaiting = normalBranch && stepNext !== null && stepNext.wait > 0;
+    const step = normalBranch && stepNext !== null && stepNext.wait === 0 ? stepNext : null;
+    if (stepWaiting && stepNext) stepNext.wait--;
+    else if (!bonusActive) stepNext = null;
     /**
      * ボーナスはステップアップ経由でしか出さないので通常抽選からは落とす（miss へ）。
      * **ボーナス中は落とさない**——おかわり（ボーナス中の再当選）が消えると
@@ -519,6 +526,8 @@ function runChapter(
                   r.kind !== 'big' && r.kind !== 'reg' && !r.freeze && y !== null,
               })
             : dropBonus(lottery.draw(state));
+    // 連続演出の途中でフリーズを引いたら走りごと捨てる（main.ts と同じ）
+    if (stepWaiting && role.freeze) stepNext = null;
     const yaku = role.yakuId ? (yakuById.get(role.yakuId) ?? null) : null;
     const rates =
       state === 'bonus'
@@ -530,6 +539,8 @@ function runChapter(
     let effect: 'none' | 'shisa' | 'quiz' | 'aim';
     if (heldYaku || carried) {
       effect = 'none'; // 持ち越し中は無告知（出目＝リーチ目で察知する）
+    } else if (stepWaiting) {
+      effect = 'none'; // 連続演出の途中はステップアップだけを出す（単独で出す）
     } else if (step && !stepBonusYaku && yaku) {
       // 先告知：緑や赤が出たのに何も起きずに終わる拍子抜けを防ぐ（none を外す）
       const cands = eligibility.eligibleEffects(yaku).filter((e) => e !== 'none');
@@ -552,7 +563,7 @@ function runChapter(
     let decoyAim: Yaku | null = null;
     const fakeNow = fakeNext;
     fakeNext = false;
-    if (fakeNow && !heldYaku && !carried && !step && !bonusActive) {
+    if (fakeNow && !heldYaku && !carried && !step && !stepWaiting && !bonusActive) {
       effect = 'aim';
       decoyAim = yakuList.premiumYaku[0] ?? null;
     } else if (
@@ -823,27 +834,21 @@ function runChapter(
     // ステップアップ（前兆）へ入るか。契機役の一部だけが入り、色で次ゲームが決まる。
     // ボーナス中と、すでに予約がある時は出さない。
     if (!bonusActive && !stepNext && !heldYaku && !carried && !role.freeze) {
-      const trig =
-        role.kind === 'cherry' ||
-        (role.kind === 'core' && (yaku?.payout ?? 0) >= STEP_TRIGGER_MIN_PAYOUT);
+      const trig = isStepTrigger(role.kind, yaku?.payout ?? 0, stepCfg);
       if (trig && rng() < STEP_ENTRY_RATE) {
-        let r = rng();
-        let color: 'green' | 'red' | 'gold' = 'green';
-        for (const [c, rate] of STEP_COLOR_RATE) {
-          if ((r -= rate) < 0) { color = c; break; }
-        }
+        const color = pickStepColor(stepCfg, rng);
         stepCount++;
         if (color === 'red') stepRed++;
         if (color === 'gold') stepGold++;
-        const isBonus =
-        rng() <
-        Math.min(
-          1,
-          STEP_BONUS_RATE[color] * stepBonusMultiplier(setting) * STEP_BONUS_MULT,
+        const bonus = pickStepBonus(
+          stepCfg,
+          color,
+          stepBonusMultiplier(setting) * STEP_BONUS_MULT,
+          rng,
         );
-        stepNext = {
-          bonus: isBonus ? (rng() < STEP_BIG_RATE[color] ? 'big' : 'reg') : null,
-        };
+        // CHAIN=0 で連続演出を切って測る（乱数の消費も止めるので、切れば以前と同じ列になる）
+        const length = CHAIN_ON ? pickChainLength(stepCfg, color, rng) : 1;
+        stepNext = { bonus, wait: length - 1 };
       }
     }
 

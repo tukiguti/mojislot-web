@@ -118,5 +118,20 @@
       "quiz": 1400,
       "bonusEnd": 1200
     }
+  },
+  "stepUp": {
+    "entryRate": 0.055,
+    "triggerMinPayout": 5,
+    "colors": {
+      "blue": { "rate": 0.45, "bonusRate": 0.12, "bigRate": 0.15, "chain": { "second": 0, "third": 0 } },
+      "green": { "rate": 0.35, "bonusRate": 0.53, "bigRate": 0.24, "chain": { "second": 0.1, "third": 0.1 } },
+      "red": { "rate": 0.18, "bonusRate": 0.7, "bigRate": 0.35, "chain": { "second": 0.35, "third": 0.4 } },
+      "gold": { "rate": 0.02, "bonusRate": 1.0, "bigRate": 0.92, "chain": { "second": 0.6, "third": 0.8 } }
+    }
+  },
+  "omen": {
+    "rate": { "reg": 0.08, "big": 0.12, "chance": 0.25 },
+    "kinds": { "silence": 1, "backlight": 1 },
+    "backlightAt": { "lever": 1, "stop1": 1, "stop2": 1 }
   }
 }
