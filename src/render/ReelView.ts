@@ -126,7 +126,8 @@ export class ReelView {
   /** 各セルの背景タイル Graphics（色タイル時のみ・スプライト時は null） */
   private readonly cellTiles: (Graphics | null)[] = [];
   /** 各セルのドット文字スプライト（フォント描画へ落ちた時は null） */
-  private readonly cellSprites: (Sprite | null)[] = [];
+  /** ドット文字（地＋艶の2枚を束ねた器）。揃った時に器ごと拡大する。 */
+  private readonly cellSprites: (Container | null)[] = [];
   /** 各スプライトの基準スケール（ハイライトのスケール演出から戻す用） */
   private readonly cellSpriteBaseScale: number[] = [];
   /** コマ番号を出すか（既定OFF）。目押しの検証と引き込みコマ数の確認に使う。 */
@@ -152,6 +153,8 @@ export class ReelView {
   private centerGlowDuration = 0;
   private tenpaiAnimMs = 0;
   private tenpaiPremium = false;
+  /** リーチ目の白いフラッシュ（テンパイ枠の点滅を白く太くしたもの）。 */
+  private tenpaiReach = false;
   /** 滑りコマ数の表示（停止済みリールのSTOPをもう一度押した時だけ出す） */
   private readonly slipBadge: Container;
   private readonly slipBadgeText: Text;
@@ -166,6 +169,8 @@ export class ReelView {
     private readonly tierForSymbol: SymbolTierFn = () => 'core',
     /** その文字のドット文字テクスチャ（無ければ null＝フォントで描く） */
     private readonly glyphForSymbol: SymbolTextureFn = () => null,
+    /** その文字の艶（白の艶と金の輪）。tint せずに地の上へ重ねる */
+    private readonly glossForSymbol: SymbolTextureFn = () => null,
   ) {
     this.container = new Container();
 
@@ -225,19 +230,28 @@ export class ReelView {
 
       const glyphTexture = this.glyphForSymbol(symbol);
       if (glyphTexture) {
-        // 44x34 のドット文字をセル幅いっぱい（=3倍）に置く。液晶の背景・出題者・
-        // バナーと同じ粒度になる。補間は読み込み側で nearest に落としてある
-        const sprite = new Sprite(glyphTexture);
-        sprite.anchor.set(0.5);
+        // 65x50 のドット文字をセル幅いっぱい（=2倍）に置く。補間は読み込み側で
+        // nearest に落としてある。地と艶を1つの器に束ね、器ごと拡大縮小する
+        const glyph = new Container();
         const scale = CELL_WIDTH / glyphTexture.width;
-        sprite.scale.set(scale);
-        sprite.x = CELL_WIDTH / 2;
-        sprite.y = 0;
-        // 白の字面へ役色を掛ける＝**文字の中だけが色づく**。縁はほぼ黒のままなので
+        glyph.scale.set(scale);
+        glyph.x = CELL_WIDTH / 2;
+        glyph.y = 0;
+        const base = new Sprite(glyphTexture);
+        base.anchor.set(0.5);
+        // 灰の濃淡へ役色を掛ける＝**文字の中だけが色づく**。外の縁と影は黒のままなので
         // 暗いリール地の上でも輪郭が残る
-        sprite.tint = originalColor;
-        cell.addChild(sprite);
-        this.cellSprites.push(sprite);
+        base.tint = originalColor;
+        glyph.addChild(base);
+        // 艶は tint しない。乗算では白の艶も金の輪も役色に化けるため（gen_glyphs.py）
+        const glossTexture = this.glossForSymbol(symbol);
+        if (glossTexture) {
+          const gloss = new Sprite(glossTexture);
+          gloss.anchor.set(0.5);
+          glyph.addChild(gloss);
+        }
+        cell.addChild(glyph);
+        this.cellSprites.push(glyph);
         this.cellSpriteBaseScale.push(scale);
       } else {
         // ドット文字が無い文字はフォントで描く。全章の全文字が揃っていることは
@@ -328,7 +342,9 @@ export class ReelView {
   }
 
   update(nowMs?: number): void {
-    const pos = this.engine.position;
+    const now = nowMs ?? performance.now();
+    // 止めた直後は滑りの途中を描く（ReelEngine.displayPosition）
+    const pos = this.engine.displayPosition(now);
     const total = this.engine.strip.cells.length;
     const totalHeight = total * CELL_HEIGHT;
 
@@ -341,7 +357,9 @@ export class ReelView {
       const t = nowMs ?? performance.now();
       const elapsed = t - this.bounceStart;
       const durMs = 220;
-      if (elapsed >= durMs) {
+      if (elapsed < 0) {
+        this.bounceOffsetY = 0; // まだ滑っている（止まり切ってから揺らす）
+      } else if (elapsed >= durMs) {
         this.bounceActive = false;
         this.bounceOffsetY = 0;
       } else {
@@ -359,7 +377,8 @@ export class ReelView {
 
     // モーションブラー：回転中だけ、速度（1フレームの移動px）に比例して縦に滲ませる。
     // 停止した瞬間に 0 へ戻るので、出目はくっきり読める（目押しの答え合わせを妨げない）。
-    const spinning = this.engine.state.get() === 'spinning';
+    const spinning =
+      this.engine.state.get() === 'spinning' || this.engine.slideRemainingMs(now) > 0;
     const speed = spinning ? this.engine.currentSpeed : 0;
     const strengthY =
       speed >= MOTION_BLUR_MIN_SPEED
@@ -375,8 +394,8 @@ export class ReelView {
     if (this.tenpaiAnimMs > 0) {
       const t = nowMs ?? performance.now();
       const pulse = (Math.sin(t / 120) + 1) / 2; // 0..1
-      const baseColor = this.tenpaiPremium ? 0xff3366 : 0xffff00;
-      const width = 3 + pulse * 3;
+      const baseColor = this.tenpaiReach ? 0xffffff : this.tenpaiPremium ? 0xff3366 : 0xffff00;
+      const width = this.tenpaiReach ? 4 + pulse * 5 : 3 + pulse * 3;
       this.redrawBg(baseColor, width);
     }
 
@@ -454,8 +473,10 @@ export class ReelView {
   }
 
   /** STOP 押下後の停止バウンス（軽い縦振動） */
+  /** 止まった時の揺れ。滑りが残っていれば、止まり切った瞬間から揺らす。 */
   triggerStopBounce(): void {
-    this.bounceStart = performance.now();
+    const now = performance.now();
+    this.bounceStart = now + this.engine.slideRemainingMs(now);
     this.bounceActive = true;
   }
 
@@ -463,11 +484,20 @@ export class ReelView {
   startTenpaiFlash(premium: boolean): void {
     this.tenpaiAnimMs = 1; // フラグ立て
     this.tenpaiPremium = premium;
+    this.tenpaiReach = false;
+  }
+
+  /** リーチ目の白いフラッシュを開始する。止めるのはテンパイ枠と同じ stopTenpaiFlash。 */
+  startReachFlash(): void {
+    this.tenpaiAnimMs = 1;
+    this.tenpaiPremium = false;
+    this.tenpaiReach = true;
   }
 
   /** テンパイ枠フラッシュを終了して通常枠に戻す */
   stopTenpaiFlash(): void {
     this.tenpaiAnimMs = 0;
+    this.tenpaiReach = false;
     this.redrawBg(0xffd700, 3);
   }
 

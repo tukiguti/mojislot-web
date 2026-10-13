@@ -78,6 +78,7 @@ describe('リール配列監査：出目＝フラグの保証（②が残らな�
         tenpaiDetector: new TenpaiDetector(yakuList),
         stopTable,
         pullInCells: 4,
+        reels,
       });
       // フラグ集合ケース: miss（空）／各表示役（単独）／1枚役グループ（全部で1フラグ）。
       const flags: { label: string; ids: string[] }[] = [
@@ -89,11 +90,17 @@ describe('リール配列監査：出目＝フラグの保証（②が残らな�
           ...yakuList.premiumYaku,
         ].map((y) => ({ label: y.id, ids: [y.id] })),
         { label: 'single', ids: yakuList.singleYaku.map((y) => y.id) },
+        // 目印揃いの内部役（2026-10-12）。チャンス目のフラグで他の役が揃わないこと
+        ...yakuList.internalRoles
+          .filter((r) => r.kind === 'chance' && r.id === 'chance')
+          .map((r) => ({ label: r.id, ids: [r.displayYakuId as string] })),
       ];
 
       let games = 0;
       let leakGames = 0;
       const leakByFlag = new Map<string, number>();
+      /** 押し順ごとの件数。順押しは停止テーブル、他は引き込み保証と蹴りで決まるので、出どころが分かる。 */
+      const leakByOrder = new Map<string, number>();
 
       for (const flag of flags) {
         const flagKey = flag.label;
@@ -112,6 +119,8 @@ describe('リール配列監査：出目＝フラグの保証（②が残らな�
                     basePosition: base,
                     strip: { id: `r${idx}`, cells: reels[idx] },
                     stoppedVisibles: stopped,
+                    // ゲーム本体と同じく停止位置も渡す（第2・第3停止の表と引き込み保証が効く）
+                    stoppedPositions: stopped.map((v, i) => (v ? finalPos[i] : null)),
                     flagYakuIds: flag.ids,
                     flagKey: flag.label,
                   });
@@ -126,6 +135,8 @@ describe('リール配列監査：出目＝フラグの保証（②が残らな�
                 if (bad.length > 0) {
                   leakGames++;
                   leakByFlag.set(flagKey, (leakByFlag.get(flagKey) ?? 0) + 1);
+                  const ok = order.join('');
+                  leakByOrder.set(ok, (leakByOrder.get(ok) ?? 0) + 1);
                   if (leaks.length < 40) {
                     leaks.push({
                       chapter,
@@ -147,8 +158,10 @@ describe('リール配列監査：出目＝フラグの保証（②が残らな�
       const byFlag = [...leakByFlag.entries()]
         .map(([f, n]) => `${f}:${n}`)
         .join(' ');
+      const byOrder = [...leakByOrder.entries()].map(([o, n]) => `${o}:${n}`).join(' ');
       summary.push(
-        `${chapter}: ${leakGames}/${games} 漏れ (${rate}%)${byFlag ? ` [${byFlag}]` : ''}`,
+        `${chapter}: ${leakGames}/${games} 漏れ (${rate}%)${byFlag ? ` [${byFlag}]` : ''}` +
+          (byOrder ? ` 押し順 ${byOrder}` : ''),
       );
     }
 

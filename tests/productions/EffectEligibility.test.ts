@@ -32,6 +32,7 @@ const YAKU: YakuList = {
   premiumYaku: [yaku('sushiya', 'premium', ['す', 'し', 'や'])],
   bonusYaku: [yaku('sushida', 'bonus', ['す', 'し', 'だ'])],
   cherryYaku: [yaku('momo', 'cherry', ['も', 'も'])],
+  chanceYaku: [],
   singleYaku: [yaku('one', 'single', ['と', 'ふ', 'ん'])],
   internalRoles: [
     role('r_grape', 'grape', { default: 1, bonus: 1, rescue: 1 }),

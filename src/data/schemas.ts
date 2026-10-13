@@ -9,6 +9,12 @@ export const ReelStripSchema = z.object({
 
 export const ReelConfigSchema = z.object({
   mode: z.string(),
+  /**
+   * 目印の図柄（島の漢字1字・2026-10-02）。各リールの 0・7・14 番に置き、どの役にも
+   * 属さない。狙う時の目安（真下にボーナス図柄）と、ボーナス中のビタ役の図柄を兼ねる。
+   * 無い島は目印なし。
+   */
+  landmark: z.string().optional(),
   reels: z.array(ReelStripSchema).length(3),
 });
 
@@ -17,13 +23,18 @@ export type ReelConfig = z.infer<typeof ReelConfigSchema>;
 
 // core=小役 / premium=BIG(7・バー揃い) / bonus=RB / cherry=チェリー(2文字役)
 // single=1枚役（実機の制御用1枚役。既存文字の無意味な並び＝「単語にならなかった」出目）
+// chance=目印揃い（リーチ目＝中段・チャンス目＝中段以外。2026-10-12・drafts/reach-eye-redesign）
 export const YakuCategorySchema = z.enum([
   'core',
   'premium',
   'bonus',
   'cherry',
   'single',
+  'chance',
 ]);
+
+/** ペイラインのID（core/Paylines.ts の PaylineId と同じ並び）。 */
+export const PaylineIdSchema = z.enum(['top', 'middle', 'bottom', 'diag_tlbr', 'diag_bltr']);
 
 /**
  * レバーONで抽選する内部役の種別（実機のフラグに相当）。
@@ -31,6 +42,9 @@ export const YakuCategorySchema = z.enum([
  * - single : 1枚役。singleYaku のどれかを自動引き込みで揃える＝1枚。
  *            押し順を外した時のこぼし先もこのグループ（実機の押し順ベルこぼし）
  * - core/cherry/reg/big : 表示役に対応するフラグ
+ * - chance : 目印揃い（リーチ目・チャンス目）。`carry` があれば同時にそのボーナスが成立する。
+ *            ボーナスを伴っても big/reg にしないのは、通常時の big/reg は前兆の経路でしか
+ *            成立させない（抽選で引いた big/reg はハズレに置き換える）ため
  */
 export const InternalRoleKindSchema = z.enum([
   'miss',
@@ -39,6 +53,7 @@ export const InternalRoleKindSchema = z.enum([
   'cherry',
   'reg',
   'big',
+  'chance',
 ]);
 export const InternalRoleStateSchema = z.enum(['default', 'rescue', 'bonus']);
 export const InternalRoleRateSchema = z.object({
@@ -65,6 +80,11 @@ export const InternalRoleSchema = z.object({
    * 強レア役になり、確率も他の役と同じ場所で管理できる。
    */
   freeze: z.boolean().default(false),
+  /**
+   * 同時に成立させるボーナス（premiumYaku / bonusYaku の役ID）。chance の内部役だけが持つ。
+   * 目印が揃ったあと、このボーナスを揃えるまで持ち越す。
+   */
+  carry: z.string().nullable().default(null),
 });
 
 export const YakuSchema = z.object({
@@ -109,6 +129,11 @@ export const YakuSchema = z.object({
    * いなり成立で握り寿司の絵が出る、という食い違いが残った。
    */
   cutinArt: z.string().optional(),
+  /**
+   * この役が成立するライン。書かなければ有効ライン全部。目印揃いは同じ3文字で、
+   * 中段ならリーチ目・それ以外ならチャンス目と、ラインで役が分かれる。
+   */
+  lines: z.array(PaylineIdSchema).optional(),
 });
 
 export const YakuListSchema = z
@@ -125,6 +150,8 @@ export const YakuListSchema = z
      * 押し順ミスのこぼし先・停止制御の受け皿を兼ねる。複数種で引き込みカバー率を稼ぐ。
      */
     singleYaku: z.array(YakuSchema).default([]),
+    /** 目印揃い（リーチ目・チャンス目）。払い出し1枚・倍率なし・コンボはつながる。 */
+    chanceYaku: z.array(YakuSchema).default([]),
     /** 内部役テーブル（表示役と分離。押し順役・1枚役を含む）。 */
     internalRoles: z.array(InternalRoleSchema).min(1),
   })
@@ -147,8 +174,27 @@ export const YakuListSchema = z
         ...list.cherryYaku,
         ...list.bonusYaku,
         ...list.premiumYaku,
+        ...list.chanceYaku,
       ].map((y) => y.id),
     );
+    const bonusIds = new Set([...list.bonusYaku, ...list.premiumYaku].map((y) => y.id));
+    const chanceIds = new Set(list.chanceYaku.map((y) => y.id));
+    list.internalRoles.forEach((role, i) => {
+      if (role.carry !== null && (role.kind !== 'chance' || !bonusIds.has(role.carry))) {
+        ctx.addIssue({
+          code: 'custom',
+          path: ['internalRoles', i, 'carry'],
+          message: `内部役 ${role.id} の carry はチャンスの内部役だけが持ち、ボーナスの役IDにしてください`,
+        });
+      }
+      if (role.kind === 'chance' && !chanceIds.has(role.displayYakuId ?? '')) {
+        ctx.addIssue({
+          code: 'custom',
+          path: ['internalRoles', i, 'displayYakuId'],
+          message: `内部役 ${role.id}（chance）の displayYakuId は chanceYaku の役にしてください`,
+        });
+      }
+    });
     list.singleYaku.forEach((y, i) => {
       if (y.category !== 'single') {
         ctx.addIssue({
@@ -354,30 +400,6 @@ export const StopTableSchema = z.object({
 });
 export type StopTable = z.infer<typeof StopTableSchema>;
 
-/**
- * リーチ目表。出目キー（`左上中下|中…|右…`）→ 確定するボーナス種別。
- * 停止制御を全数実行して「ボーナスフラグでしか出ない出目」を抽出したもので、
- * 手で描いた絵ではなく制御の副産物。生成は tests/tools/find-reach-eyes.test.ts。
- */
-export const ReachEyeTableSchema = z.object({
-  mode: z.string(),
-  /** 3リール停止後の出目（3×3グリッド）→ 確定するボーナス種別。 */
-  eyes: z.record(z.string(), z.enum(['reg', 'big', 'both'])),
-  /**
-   * **第1停止1リールぶんの出目**（窓の3文字）→ 確定するボーナス種別。
-   *
-   * 「ボーナス専用図柄が特定の行に来たか」ではなく、`eyes` と同じく
-   * **到達可能性**で定義する。非ボーナスフラグでは制御上あり得ない停止形だけが
-   * ここに入るので、出れば確定＝嘘をつかない。
-   *
-   * 添字はリール番号（0=左）。省略時は第1停止の告知を出さない。
-   */
-  firstEyes: z
-    .array(z.record(z.string(), z.enum(['reg', 'big', 'both'])))
-    .optional(),
-});
-export type ReachEyeTable = z.infer<typeof ReachEyeTableSchema>;
-
 export type Quiz = z.infer<typeof QuizSchema>;
 export type QuizList = z.infer<typeof QuizListSchema>;
 
@@ -498,6 +520,16 @@ export const TuningSchema = z.object({
       okawariSpinsBig: z.number().int().nonnegative().default(5),
       okawariSpinsReg: z.number().int().nonnegative().default(3),
       /**
+       * **ビタチャンス**（2026-10-02）。ボーナス中のレバーONでこの率で発生し、そのゲームは
+       * 目印をぴったり押したリールが滑らない。3つ揃えば上乗せ（bitaAddSpins）。
+       * 揃う確率は腕で大きく違う（試算で初心者1%・中級6%・上級32%・神96%）ので、
+       * 1回のボーナスで乗る回数に上限（bitaMaxPerBonus）を置く——上限が無いと神の
+       * 1ゲームあたりの期待上乗せが1を超え、ボーナスが終わらなくなる。
+       */
+      bitaChanceRate: z.number().min(0).max(1).default(0.15),
+      bitaAddSpins: z.number().int().nonnegative().default(2),
+      bitaMaxPerBonus: z.number().int().nonnegative().default(3),
+      /**
        * ボーナス中の示唆tier（省略時は assist.shisaTiers を流用）。
        * ボーナス中は演出100%なので、通常と同じ赤6%/金2%だと「おかわり」が毎セット当たって
        * 区間が終わらなくなる。ここで赤/金を絞ることでおかわりをレアな契機にする。
@@ -509,6 +541,9 @@ export const TuningSchema = z.object({
       spinsPerReg: 5,
       okawariSpinsBig: 5,
       okawariSpinsReg: 3,
+      bitaChanceRate: 0.15,
+      bitaAddSpins: 2,
+      bitaMaxPerBonus: 3,
     }),
   /**
    * 引き込み（目押し補助）。実機同様、**引き込み窓は内部役だけで決まり演出では変わらない**。
@@ -602,6 +637,40 @@ export const TuningSchema = z.object({
     })
     .default({ rate: 0.05, bigRatio: 0.3, delayMs: 900 }),
   /**
+   * 目印揃いのあと（2026-10-12・drafts/reach-eye-redesign）。リーチ目は必ずその場で確定ランプ。
+   * ボーナスを伴うチャンス目は、確定ランプ・次ゲームの狙え・次ゲームのクイズへ振り分ける
+   * （重みの比。狙え・クイズが出せない役なら残りで振り分け直す）。
+   */
+  chanceEye: z
+    .object({
+      follow: z
+        .object({
+          lamp: z.number().nonnegative(),
+          aim: z.number().nonnegative(),
+          quiz: z.number().nonnegative(),
+        })
+        .default({ lamp: 0.4, aim: 0.3, quiz: 0.3 }),
+      /**
+       * ボーナスの無いチャンス目のあと、次ゲームで BIG の狙え（出せればクイズ）を出して
+       * **外れる**割合（2026-10-13）。これが無いと、チャンス目のあとに狙え・クイズが出た
+       * 時点でボーナス確定と読めてしまう。
+       */
+      fakeFollowRate: z.number().min(0).max(1).default(0.3),
+    })
+    .default({ follow: { lamp: 0.4, aim: 0.3, quiz: 0.3 }, fakeFollowRate: 0.3 }),
+  /**
+   * 矛盾（2026-10-12・drafts/reach-eye-redesign §5）。正しく押したのに揃わない、を
+   * ボーナスの時だけ起こす。
+   *  - decoyRate：通常時のボーナスのゲームで出す演出（狙え・示唆・クイズ）のうち、
+   *    **小役を指す**割合。小役のフラグは無いので揃わない（コンボも切れない）＝矛盾。
+   *    小役がテンパイしていれば、最後のリールでずれて止まりリーチ目になる。ボーナスは持ち越す
+   */
+  contradiction: z
+    .object({
+      decoyRate: z.number().min(0).max(1).default(0.2),
+    })
+    .default({ decoyRate: 0.2 }),
+  /**
    * リール速度（コマ/秒）。実機（ジャグラー等）は約28コマ/秒＝0.75秒/周。
    * モーションブラー（ReelView）実装前は残像が無く、実機速度だと図柄が追えずカクついて見えたため
    * 20（1.05秒/周）に落としていた。ブラー実装後は実機速度が使える。
@@ -613,15 +682,14 @@ export const TuningSchema = z.object({
    * ブラー強度 = （1フレームの移動px）× この係数。速度に比例して自動で強くなる。
    */
   motionBlurStrength: z.number().min(0).default(0.34),
-  /** ビタ押し成功窓（±ms）。 */
-  bitaWindowMs: z.number().positive().default(12),
   /** 突入直前の「溜め」演出の長さ（ms）。 */
   entryChargeMs: z.number().nonnegative().default(650),
   /**
    * 1ゲームの間合い。
    *
-   * `resultMs` は**全停止から次のBETを受け付けるまで**の間で、結果を読ませるための時間。
-   * 以前は一律1200msで、何も起きていないゲームでも必ず1.2秒待たされていた。
+   * `resultMs` は**結果の表示を片付けるまで**の時間（テンパイの点滅・狙え・クイズの答え）。
+   * 2026-10-13 から BET は全停止の直後に受け付け、その前に BET されたら BET の時点で片付ける。
+   * ボーナス終了（bonusEnd）だけは、リザルトへ繋ぐ間として BET もこの時間待つ。
    * 読むものの量で分ける——クイズは答えと的中を読む必要があり、ハズレは何もない。
    *
    * `spinUpMs` は**リールごとの加速時間**（見た目）。3本を少しずつ変えてあり、

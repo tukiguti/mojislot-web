@@ -75,21 +75,25 @@ describe('役の到達性監査：当選した役が狙って揃うか', () => {
         tenpaiDetector: new TenpaiDetector(yakuList),
         stopTable: new StopTableLookup(stopTable),
         pullInCells: 4,
+        reels: cells,
       });
 
       /** press で3リール止めた結果の出目。 */
       const play = (press: readonly number[], flagIds: string[], flagKey: string): Grid3x3 => {
         const stopped: (VisibleColumn | null)[] = [null, null, null];
+        const stops: (number | null)[] = [null, null, null];
         for (let i = 0; i < 3; i++) {
           const slip = ctrl.resolveSlip({
             reelIndex: i,
             basePosition: press[i],
             strip: reelCfg.reels[i],
             stoppedVisibles: stopped,
+            stoppedPositions: stops,
             flagYakuIds: flagIds,
             flagKey,
           });
           const pos = (press[i] + slip) % N;
+          stops[i] = pos;
           stopped[i] = {
             top: cells[i][(pos + 1) % N],
             middle: cells[i][pos],
@@ -128,6 +132,8 @@ describe('役の到達性監査：当選した役が狙って揃うか', () => {
       }
 
       // 1枚役：single フラグでは「どれか」が揃えばよい。全押下位置で測る。
+      // 〔2026-10-07〕1枚役は廃止した（結果は小役かハズレの2つ）。無い島は測らない。
+      if (yakuList.singleYaku.length === 0) continue;
       const singleIds = yakuList.singleYaku.map((y) => y.id);
       const singleSet = new Set(singleIds);
       let sHit = 0;

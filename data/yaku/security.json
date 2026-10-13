@@ -106,18 +106,8 @@
       "kind": "miss",
       "displayYakuId": null,
       "rate": {
-        "default": 0.4314154681,
-        "rescue": 0.3317921271,
-        "bonus": 0.0
-      }
-    },
-    {
-      "id": "single",
-      "kind": "single",
-      "displayYakuId": null,
-      "rate": {
-        "default": 0.0,
-        "rescue": 0.0,
+        "default": 0.4279506244,
+        "rescue": 0.3283272834,
         "bonus": 0.0
       }
     },
@@ -211,38 +201,64 @@
         "rescue": 0.00156,
         "bonus": 0.029225
       }
+    },
+    {
+      "id": "chance_spy",
+      "kind": "chance",
+      "displayYakuId": "chance_eye",
+      "carry": "spy",
+      "rate": {
+        "default": 0.0003662109375,
+        "rescue": 0.0003662109375,
+        "bonus": 0.0
+      }
+    },
+    {
+      "id": "chance_worm",
+      "kind": "chance",
+      "displayYakuId": "chance_eye",
+      "carry": "worm",
+      "rate": {
+        "default": 0.0003662109375,
+        "rescue": 0.0003662109375,
+        "bonus": 0.0
+      }
+    },
+    {
+      "id": "chance_reg",
+      "kind": "chance",
+      "displayYakuId": "chance_eye",
+      "carry": "reg",
+      "rate": {
+        "default": 0.000732421875,
+        "rescue": 0.000732421875,
+        "bonus": 0.0
+      }
+    },
+    {
+      "id": "chance",
+      "kind": "chance",
+      "displayYakuId": "chance_eye",
+      "carry": null,
+      "rate": {
+        "default": 0.002,
+        "rescue": 0.002,
+        "bonus": 0.0
+      }
     }
   ],
-  "singleYaku": [
+  "singleYaku": [],
+  "chanceYaku": [
     {
-      "id": "single_a",
-      "name": "ワンプ",
+      "id": "chance_eye",
+      "name": "チャンス目",
       "symbols": [
-        "ワ",
-        "ン",
-        "プ"
+        "鍵",
+        "鍵",
+        "鍵"
       ],
-      "category": "single"
-    },
-    {
-      "id": "single_b",
-      "name": "スーク",
-      "symbols": [
-        "ス",
-        "ー",
-        "ク"
-      ],
-      "category": "single"
-    },
-    {
-      "id": "single_c",
-      "name": "ダェル",
-      "symbols": [
-        "ダ",
-        "ェ",
-        "ル"
-      ],
-      "category": "single"
+      "category": "chance",
+      "payout": 1
     }
   ]
 }

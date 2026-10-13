@@ -1,0 +1,272 @@
+import { describe, it, expect } from 'vitest';
+import { readFileSync } from 'node:fs';
+import { fileURLToPath } from 'node:url';
+import { dirname, resolve } from 'node:path';
+import {
+  YakuListSchema,
+  ReelConfigSchema,
+  StopTableSchema,
+  TuningSchema,
+  type Yaku,
+} from '../../src/data/schemas';
+import { SlipResolver, type VisibleColumn } from '../../src/productions/SlipResolver';
+import { StopController } from '../../src/core/StopController';
+import { StopTableLookup } from '../../src/core/StopTable';
+import { TenpaiDetector } from '../../src/productions/TenpaiDetector';
+import { YakuJudge } from '../../src/core/YakuJudge';
+
+/**
+ * **狙い所の監査**（2026-10-10）。目印のある配列は「BIG1・BIG2・目印のどれかを
+ * 狙って押せば、その役が揃う」を約束している（tests/tools/optimize-reels の aimGroups）。
+ *
+ *  - 押し方：狙う図柄が中段に来る**2コマ手前**で押す（少し早めに押しても引き込みで取れる）
+ *  - 押し順：順押し・逆押し・中押し2通りの**4通り**
+ *  - 判定：役ごとに、3つの狙い所の**どれか1つ**で取りこぼしが0であること
+ *    （受け持つ役は島ごとに割り振ってよい、という決定）
+ *  - 第3リールの BIG1・BIG2 は図柄ではなく**組**で狙う（2026-10-10 決定）。目印の
+ *    すぐ次の組がペア1（BIG1 の担当）、もう一方の組がペア2（BIG2 の担当）
+ *  - 担当は BIG1＝3枚・4枚役、BIG2＝5枚・7枚役、目印＝チェリー（2026-10-12 決定）。
+ *    左・中は狙い所のすぐ前後に担当の役の文字を置く
+ *
+ * ゲーム本体と同じ停止制御（停止テーブルを引く）で測る。
+ */
+
+const DIR = dirname(fileURLToPath(import.meta.url));
+const DATA = resolve(DIR, '../../data');
+const readJson = (p: string) => JSON.parse(readFileSync(p, 'utf-8'));
+const CHAPTERS = ['hiragana_food', 'hiragana_verb', 'katakana_animal', 'security', 'yasai'] as const;
+const ORDERS = [[0, 1, 2], [2, 1, 0], [1, 0, 2], [1, 2, 0]] as const;
+const LINES = [[0, 0, 0], [1, 1, 1], [2, 2, 2], [0, 1, 2], [2, 1, 0]] as const;
+
+describe('狙い所（BIG1・BIG2・目印）', () => {
+  const tuning = TuningSchema.parse(readJson(`${DATA}/tuning/default.json`));
+  for (const chapter of CHAPTERS) {
+    const yakuList = YakuListSchema.parse(readJson(`${DATA}/yaku/${chapter}.json`));
+    const reelCfg = ReelConfigSchema.parse(readJson(`${DATA}/reels/${chapter}.json`));
+    const mark = reelCfg.landmark;
+    if (!mark) continue;
+    const reels = reelCfg.reels.map((r) => r.cells);
+    const N = reels[0].length;
+    const ctrl = new StopController({
+      yakuList,
+      slipResolver: new SlipResolver(yakuList, { assistMaxCells: tuning.assist.pullInCells }),
+      tenpaiDetector: new TenpaiDetector(yakuList),
+      stopTable: new StopTableLookup(StopTableSchema.parse(readJson(`${DATA}/stops/${chapter}.json`))),
+      pullInCells: tuning.assist.pullInCells,
+      reels,
+    });
+    const judge = new YakuJudge(yakuList);
+    const big1 = yakuList.premiumYaku[0];
+    const big2 = yakuList.premiumYaku[1] ?? big1;
+    // 第3リールの組：BIG1 の図柄と REG の図柄が隣り合う2コマ。**並び順で見分ける**
+    // （番号の小さい側に BIG＝ペア1、番号の小さい側に REG＝ペア2）。
+    const r3 = reels[2];
+    const regSym = yakuList.bonusYaku[0]?.symbols[2];
+    const bigSym = big1?.symbols[2];
+    const pair1Big = r3.findIndex((c, i) => c === bigSym && r3[(i + 1) % N] === regSym);
+    const pair2Reg = r3.findIndex((c, i) => c === regSym && r3[(i + 1) % N] === bigSym);
+    const pair2Pos = big2?.symbols[2] === regSym ? pair2Reg : (pair2Reg + 1) % N;
+    const symAt = (r: number, sym: string | undefined) =>
+      sym === undefined ? [] : reels[r].flatMap((c, i) => (c === sym ? [i] : []));
+    const anchors: { label: string; at: number[][] }[] = [
+      { label: 'BIG1', at: [symAt(0, big1?.symbols[0]), symAt(1, big1?.symbols[1]), [pair1Big]] },
+      { label: 'BIG2', at: [symAt(0, big2?.symbols[0]), symAt(1, big2?.symbols[1]), [pair2Pos]] },
+      { label: '目印', at: [symAt(0, mark), symAt(1, mark), symAt(2, mark)] },
+    ];
+    it(`${chapter}: 第3リールにペア1とペア2があり、両側に担当の役の文字がある`, () => {
+      expect(pair1Big, `${chapter}: ペア1（BIG・REG の順）が無い`).toBeGreaterThanOrEqual(0);
+      expect(pair2Reg, `${chapter}: ペア2（REG・BIG の順）が無い`).toBeGreaterThanOrEqual(0);
+      // ペアの上下3コマずつ（間に1文字まで・2026-10-12）に、担当の役（ペア1＝3枚・4枚役、
+      // ペア2＝5枚・7枚役）の文字
+      const third = (ys: Yaku[]) => [...new Set(ys.map((y) => y.symbols[2]).filter(Boolean))] as string[];
+      const roles1 = third(yakuList.coreYaku.filter((y) => (y.payout ?? 7) <= 4));
+      const roles2 = third(yakuList.coreYaku.filter((y) => (y.payout ?? 7) >= 5));
+      const sides = (lo: number) => [
+        [1, 2, 3].map((d) => r3[(lo - d + N) % N]),
+        [2, 3, 4].map((d) => r3[(lo + d) % N]),
+      ];
+      for (const [lo, roles, other] of [[pair1Big, roles1, roles2], [pair2Reg, roles2, roles1]] as const) {
+        // ペアのすぐ隣に目印を置かない（くっついて見えるため）
+        for (const next of [r3[(lo - 1 + N) % N], r3[(lo + 2) % N]]) {
+          expect(next, `${chapter}: ペア（${lo}番）のすぐ隣に目印がある`).not.toBe(mark);
+        }
+        for (const side of sides(lo)) {
+          for (const sym of roles) {
+            expect(side, `${chapter}: ペア（${lo}番）の片側に「${sym}」が無い`).toContain(sym);
+          }
+          // もう片方のペアの担当の文字は、ペアに近い2コマに混ぜない
+          for (const c of side.slice(0, 2)) {
+            if (roles.includes(c)) continue;
+            expect(other, `${chapter}: ペア（${lo}番）の前後に別のペアの担当「${c}」がある`).not.toContain(c);
+          }
+        }
+      }
+    });
+    /**
+     * 左・中の狙い所の上側・下側2コマずつ（間に1文字まで・2026-10-12）で見つかる担当の文字。
+     * 別の狙い所の方が近い（同じ近さを含む）コマは数えない＝担当の文字を共有しない。
+     */
+    const anchorGroups = [
+      { label: 'BIG1', sym: (r: number) => big1?.symbols[r], roles: yakuList.coreYaku.filter((y) => (y.payout ?? 7) <= 4) },
+      { label: 'BIG2', sym: (r: number) => big2?.symbols[r], roles: yakuList.coreYaku.filter((y) => (y.payout ?? 7) >= 5) },
+      { label: '目印', sym: () => mark, roles: yakuList.cherryYaku },
+    ];
+    const dist = (a: number, b: number) => Math.min(Math.abs(a - b), N - Math.abs(a - b));
+    const zones = (r: number, p: number, roles: string[]) => {
+      const cells = reels[r];
+      const anchorSyms = new Set(anchorGroups.map((g) => g.sym(r)));
+      const anchorsAt = cells.flatMap((c, i) => (anchorSyms.has(c) ? [i] : []));
+      const own = (q: number) => anchorsAt.every((o) => o === p || dist(q, o) > dist(q, p));
+      const find = (qs: number[]) => qs.filter(own).map((q) => cells[q]).find((x) => roles.includes(x));
+      return { up: find([(p + 1) % N, (p + 2) % N]), down: find([(p - 1 + N) % N, (p - 2 + N) % N]) };
+    };
+    it(`${chapter}: 左・中の狙い所の前後（2コマ以内）に担当の役の文字がある`, () => {
+      for (const r of [0, 1]) {
+        const cells = reels[r];
+        const bonus = new Set([...yakuList.premiumYaku, ...yakuList.bonusYaku].map((y) => y.symbols[r]));
+        for (const g of anchorGroups) {
+          const a = g.sym(r);
+          const roles = [...new Set(g.roles.map((y) => y.symbols[r]).filter(Boolean))] as string[];
+          cells.forEach((c, p) => {
+            if (c !== a) return;
+            const { up, down } = zones(r, p, roles);
+            const where = `${chapter}: リール${r + 1}の${g.label}（${p}番）`;
+            if (roles.length >= 2) {
+              expect(up, `${where} の上側2コマに担当の文字が無い`).toBeDefined();
+              expect(down, `${where} の下側2コマに担当の文字が無い`).toBeDefined();
+              expect(up, `${where} の上と下が同じ役の文字`).not.toBe(down);
+              return;
+            }
+            expect(up ?? down, `${where} の前後2コマに「${roles[0]}」が無い`).toBeDefined();
+            // 目印のすぐ隣にボーナス図柄を置かない（目印を狙ったハズレでテンパイに見える）
+            if (a === mark) {
+              for (const q of [(p + 1) % N, (p - 1 + N) % N]) {
+                expect(bonus.has(cells[q]), `${where} のすぐ隣にボーナス図柄がある`).toBe(false);
+              }
+            }
+          });
+        }
+      }
+    });
+    it(`${chapter}: 目印どうしが離れている（差9以上）`, () => {
+      const minGap = [9, 9, 9];
+      reels.forEach((cells, r) => {
+        const at = cells.flatMap((c, i) => (c === mark ? [i] : []));
+        for (let a = 0; a < at.length; a++) {
+          for (let b = a + 1; b < at.length; b++) {
+            const d = Math.abs(at[a] - at[b]);
+            expect(Math.min(d, N - d), `${chapter}: リール${r + 1}の目印 ${at[a]}番と${at[b]}番が近い`)
+              .toBeGreaterThanOrEqual(minGap[r]);
+          }
+        }
+      });
+    });
+    it(`${chapter}: 狙い所どうしの間が3文字以上あいている`, () => {
+      // 狙い所のまわりは「担当の文字・狙い所・担当の文字」。隣の狙い所と前後を共有しない
+      const far = (a: number, b: number) => Math.min(Math.abs(a - b), N - Math.abs(a - b)) >= 4;
+      for (const r of [0, 1]) {
+        const syms = new Set([big1?.symbols[r], big2?.symbols[r], mark]);
+        const at = reels[r].flatMap((c, i) => (syms.has(c) ? [i] : []));
+        for (let i = 0; i < at.length; i++) {
+          for (let j = i + 1; j < at.length; j++) {
+            expect(far(at[i], at[j]), `${chapter}: リール${r + 1}の${at[i]}番と${at[j]}番の狙い所が近い`).toBe(true);
+          }
+        }
+      }
+      // 右：目印とペアの間（ペアの前後2コマ＋1文字）
+      const pairCells = [pair1Big, (pair1Big + 1) % N, pair2Reg, (pair2Reg + 1) % N];
+      r3.forEach((c, i) => {
+        if (c !== mark) return;
+        for (const p of pairCells) {
+          expect(far(i, p), `${chapter}: リール3の目印（${i}番）がペア（${p}番）に近い`).toBe(true);
+        }
+      });
+    });
+    it(`${chapter}: 同じ文字の並びがくどくない（A・A、A・B・A、同じ2文字の組が3回以上）`, () => {
+      reels.forEach((cells, r) => {
+        const pairs = new Map<string, number>();
+        for (let p = 0; p < N; p++) {
+          const [a, b, c] = [cells[p], cells[(p + 1) % N], cells[(p + 2) % N]];
+          expect(b, `${chapter}: リール${r + 1}の${p}番から「${a}・${b}」と同じ文字が続く`).not.toBe(a);
+          expect(c, `${chapter}: リール${r + 1}の${p}番から「${a}・${b}・${c}」`).not.toBe(a);
+          // 目印を含む組は数えない（右の目印3枚は隣に置ける文字が限られるため）
+          if (a === mark || b === mark) continue;
+          const key = [a, b].sort().join('・');
+          pairs.set(key, (pairs.get(key) ?? 0) + 1);
+        }
+        for (const [k, v] of pairs) {
+          expect(v, `${chapter}: リール${r + 1}で「${k}」の並びが${v}回ある`).toBeLessThanOrEqual(2);
+        }
+      });
+    });
+    const vis = (r: number, p: number): VisibleColumn => ({
+      top: reels[r][(p + 1) % N],
+      middle: reels[r][p],
+      bottom: reels[r][(p - 1 + N) % N],
+    });
+    const misses = (y: Yaku, at: number[][]): number => {
+      const role = yakuList.internalRoles.find((rr) => rr.displayYakuId === y.id && !rr.freeze);
+      const aims = at.map((list) => (list.length === 0 ? [0] : list.map((i) => (i - 2 + N) % N)));
+      let n = 0;
+      for (const order of ORDERS) {
+        for (const p0 of aims[0]) for (const p1 of aims[1]) {
+          for (const p2 of y.symbols[2] === undefined ? [aims[2][0] ?? 0] : aims[2]) {
+            const press = [p0, p1, p2];
+            const st: (VisibleColumn | null)[] = [null, null, null];
+            const pos: (number | null)[] = [null, null, null];
+            for (const r of order) {
+              const slip = ctrl.resolveSlip({
+                reelIndex: r,
+                basePosition: press[r],
+                strip: reelCfg.reels[r],
+                stoppedVisibles: st,
+                stoppedPositions: pos,
+                flagYakuIds: [y.id],
+                flagKey: role?.id ?? y.id,
+              });
+              pos[r] = (press[r] + slip) % N;
+              st[r] = vis(r, pos[r] as number);
+            }
+            const cols = st.map((v) => [v!.top, v!.middle, v!.bottom]);
+            const ok = LINES.some((l) => y.symbols.every((s, r) => cols[r][l[r]] === s));
+            if (!ok) n++;
+          }
+        }
+      }
+      return n;
+    };
+    // 目印揃い（チャンス目）は目印を狙えば必ず揃う（2026-10-12）
+    for (const y of yakuList.chanceYaku) {
+      it(`${chapter}: ${y.name} は目印を狙えば必ず揃う`, () => {
+        const m = misses(y, anchors[2].at);
+        expect(m, `${chapter} ${y.name}: 目印を狙って揃わない押し方 ${m}通り`).toBe(0);
+      });
+    }
+    it(`${chapter}: 左と中でチェリー・BIG1・BIG2 の担当の向き（どれが上側か）が逆`, () => {
+      // 同じ向きだと、片方の役を上段に揃えた時にもう片方が下段に揃い（目印を横に揃えた時の
+      // 隣の段のチェリーも同じ）、フラグの無い役が揃うので制御がその止め方を拒む。
+      // 比べるのは文字ではなく、どの役の文字か（同じ役でも左と中で文字は違う）
+      for (const g of anchorGroups) {
+        const keys = [0, 1].map((r) => {
+          const roles = [...new Set(g.roles.map((y) => y.symbols[r]).filter(Boolean))] as string[];
+          return [...new Set(reels[r].flatMap((c, p) => {
+            if (c !== g.sym(r)) return [];
+            const { up } = zones(r, p, roles);
+            if (roles.length === 1) return [up !== undefined ? '上' : '下'];
+            return [g.roles.find((y) => y.symbols[r] === up)?.name ?? 'なし'];
+          }))];
+        });
+        expect(keys[0].length, `${chapter}: ${g.label} 左の向きがそろっていない ${keys[0].join('・')}`).toBe(1);
+        expect(keys[1].length, `${chapter}: ${g.label} 中の向きがそろっていない ${keys[1].join('・')}`).toBe(1);
+        expect(keys[0][0], `${chapter}: ${g.label} 左と中で同じ向き（${keys[0][0]}）`).not.toBe(keys[1][0]);
+      }
+    });
+    for (const y of [...yakuList.coreYaku, ...yakuList.cherryYaku]) {
+      it(`${chapter}: ${y.name} はどれかの狙い所で必ず揃う`, () => {
+        const byAnchor = anchors.map((a) => `${a.label}=${misses(y, a.at)}`);
+        const ok = anchors.some((a) => misses(y, a.at) === 0);
+        expect(ok, `${chapter} ${y.name}: 狙い所ごとの取りこぼし ${byAnchor.join(' ')}`).toBe(true);
+      });
+    }
+  }
+});

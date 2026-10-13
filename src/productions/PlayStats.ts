@@ -55,9 +55,14 @@ export class PlayStats {
     hit: boolean;
     premium: boolean;
     bonusTriggered: boolean;
+    /**
+     * このゲームを含めたコンボ数（RoundResolver.streakAfter）。2026-10-12 から、ハズレでは
+     * 切れず、揃え損ねた時だけ切れる。渡さなければ従来どおり「揃えば+1・外せば0」。
+     */
+    streak?: number;
   }): void {
     const prev = this.stats.get();
-    const newStreak = params.hit ? prev.streak + 1 : 0;
+    const newStreak = params.streak ?? (params.hit ? prev.streak + 1 : 0);
     const next: Stats = {
       ...prev,
       spinCount: prev.spinCount + 1,

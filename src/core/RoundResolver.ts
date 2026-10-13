@@ -1,6 +1,5 @@
 import { PAYLINES, type Grid3x3 } from './Paylines';
 import type { PayoutCalc } from './PayoutCalc';
-import type { ReachEyes, ReachKind } from './ReachEyes';
 import { resolveInternalRoleHits } from './RoleResolver';
 import type { PaylineHit, YakuJudge } from './YakuJudge';
 
@@ -52,9 +51,12 @@ export interface RoundOutcome {
   isRegular: boolean;
   /** チェリー成立（昇格抽選の契機）。 */
   cherryHit: boolean;
-  /** リーチ目の種別。何か揃った時は判定しない（null）。 */
-  reachKind: ReachKind | null;
-  /** このゲームを含めた連チャン数（ハズレなら0）。 */
+  /** 目印の3つ揃い（チャンス目）が成立した。ラインは問わない。 */
+  chanceEye: boolean;
+  /**
+   * このゲームを含めた連チャン数。揃えば1つ増え、**小役・チェリー・目印揃いのフラグが
+   * あったのに揃えられなかった時だけ0に戻る**。ハズレやボーナスだけのフラグではそのまま。
+   */
   streakAfter: number;
   streakMult: number;
   /** 払い出し合計（= base + singleWin + bitaBonus）。 */
@@ -76,7 +78,12 @@ export interface RoundOutcome {
 export interface RoundResolverDeps {
   judge: YakuJudge;
   calc: PayoutCalc;
-  reachEyes: ReachEyes;
+  /**
+   * 揃え損ねるとコンボが切れる役のID（小役・チェリー・目印揃い）。2026-10-12 決定：
+   * コンボが切れる＝目押しの失敗、にする。ハズレで切れていた頃は、正しく押しても
+   * 切れるので、切れたことから何も読めなかった。
+   */
+  comboYakuIds: ReadonlySet<string>;
   /** 1枚役の払い出し枚数（payout.baseMultiplier.single）。 */
   singlePayout: number;
   /** ビタ押し（完全自力）成立時の配当倍率（payout.bitaMultiplier）。 */
@@ -87,7 +94,7 @@ export class RoundResolver {
   constructor(private readonly deps: RoundResolverDeps) {}
 
   resolve(input: RoundInput): RoundOutcome {
-    const { judge, calc, reachEyes, singlePayout } = this.deps;
+    const { judge, calc, comboYakuIds, singlePayout } = this.deps;
 
     // 物理表示を5ラインで検出し、内部役と一致するラインだけを成立扱いにする。
     const allowedHits = resolveInternalRoleHits(
@@ -104,11 +111,15 @@ export class RoundResolver {
     const bonusHit = hits.find((h) => h.yaku.category === 'bonus') ?? null;
     const isRegular = !isPremium && bonusHit !== null;
 
-    // リーチ目はハズレ出目の読み。何か揃っているなら見る必要がない。
-    const reachKind = willHit ? null : reachEyes.detect(input.grid);
-
     // 連チャン倍率は「成立後の数」で評価する＝達成スピンから恩恵が乗る。
-    const streakAfter = willHit ? input.streakBefore + 1 : 0;
+    // 揃えられる役のフラグを取りこぼした時だけ切る。何も揃わなくても、そもそも
+    // 揃える役が無かった（ハズレ・ボーナスだけ）ならそのまま。
+    const missedCombo = !willHit && input.flagYakuIds.some((id) => comboYakuIds.has(id));
+    const streakAfter = willHit
+      ? input.streakBefore + 1
+      : missedCombo
+        ? 0
+        : input.streakBefore;
     const streakMult = calc.streakMult(streakAfter);
 
     const base = calc.calcMulti(hits, input.bonusActive, streakMult);
@@ -121,7 +132,8 @@ export class RoundResolver {
     //
     // ビタ押し：役に必要なリールを1本残らず自力で止めた時だけ。
     // チェリー（2文字役）は右リールが不問なので、その本数は要求しない。
-    const required = requiredReels(hits);
+    // 目印揃い（1枚）は対象にしない。切り上げで1枚上乗せすると配当が倍になる。
+    const required = requiredReels(hits.filter((h) => h.yaku.category !== 'chance'));
     const selfStopped = [...required].filter(
       (r) => (input.slipCells[r] ?? 0) === 0,
     ).length;
@@ -142,7 +154,7 @@ export class RoundResolver {
       isPremium,
       isRegular,
       cherryHit: hits.some((h) => h.yaku.category === 'cherry'),
-      reachKind,
+      chanceEye: hits.some((h) => h.yaku.category === 'chance'),
       streakAfter,
       streakMult,
       win: base + singleWin + bitaBonus,
@@ -162,7 +174,7 @@ export class RoundResolver {
  * 右リールは何が止まっていてもよい。ビタ押し判定でそこまで要求すると
  * 「関係ないリールを外したせいで付かない」という理不尽になる。
  */
-function requiredReels(hits: readonly PaylineHit[]): Set<number> {
+export function requiredReels(hits: readonly PaylineHit[]): Set<number> {
   const reels = new Set<number>();
   for (const h of hits) {
     const line = PAYLINES.find((p) => p.id === h.paylineId);

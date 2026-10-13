@@ -67,6 +67,14 @@ export const PAYLINES: readonly Payline[] = PAYLINE_SET
 export const ROW_VERTICAL: readonly Vertical[] = ['top', 'middle', 'bottom'];
 
 /**
+ * この役がこのラインで成立するか。役に `lines` が無ければ全ライン。目印揃いは同じ3文字で
+ * 中段＝リーチ目・それ以外＝チャンス目と役が分かれる（2026-10-12）。
+ */
+export function yakuOnLine(yaku: { lines?: readonly string[] }, lineId: PaylineId): boolean {
+  return !yaku.lines || yaku.lines.includes(lineId);
+}
+
+/**
  * **主ライン**＝制御が狙う唯一のライン。判定（`PAYLINES`）とは役割が違う。
  *
  * 引き込みも停止テーブル生成も告知も、すべてこの1本だけを見る。他のラインへ
