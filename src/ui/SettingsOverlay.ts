@@ -39,6 +39,11 @@ export interface DebugActions {
    */
   triggerNextBonusFlag(kind: 'big' | 'reg'): void;
   /**
+   * 次のレバーで目印揃いの内部役を強制する（2026-10-12）。リーチ目は合わせて約1/4096、
+   * チャンス目のみは1/1000 で、素の抽選では演出の流れを確かめられない。
+   */
+  triggerNextChanceRole(kind: 'reach' | 'chance-bonus' | 'chance'): void;
+  /**
    * 次のレバーで遅れを強制する。素の出現率は 1/214 かつ無演出のゲーム限定なので、
    * 見た目と長さの確認には引くのを待っていられない。
    */
@@ -230,6 +235,9 @@ export class SettingsOverlay {
             <button data-debug="lamp" type="button">確定ランプ</button>
             <button data-debug="flag-big" type="button">次レバーBIGフラグ</button>
             <button data-debug="flag-reg" type="button">次レバーREGフラグ</button>
+            <button data-debug="eye-reach" type="button">次レバーリーチ目</button>
+            <button data-debug="eye-chance-bonus" type="button">次レバーチャンス目＋ボーナス</button>
+            <button data-debug="eye-chance" type="button">次レバーチャンス目のみ</button>
             <button data-debug="delay" type="button">次レバー遅れ</button>
             <button data-debug="cutin" type="button">カットイン</button>
             <button data-debug="aim" type="button">狙え！予告</button>
@@ -383,6 +391,15 @@ export class SettingsOverlay {
             break;
           case 'flag-reg':
             this.debugActions.triggerNextBonusFlag('reg');
+            break;
+          case 'eye-reach':
+            this.debugActions.triggerNextChanceRole('reach');
+            break;
+          case 'eye-chance-bonus':
+            this.debugActions.triggerNextChanceRole('chance-bonus');
+            break;
+          case 'eye-chance':
+            this.debugActions.triggerNextChanceRole('chance');
             break;
           case 'delay':
             this.debugActions.triggerNextDelay();

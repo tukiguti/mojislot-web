@@ -1835,6 +1835,15 @@ export async function bootstrap() {
       pendingForcedRole = internalRoleLottery.forYaku(yaku);
       showResult(`${yaku.name}フラグを次のレバーに予約`, 'win');
     },
+    triggerNextChanceRole: (kind: 'reach' | 'chance-bonus' | 'chance') => {
+      // 次のレバーで目印揃いの内部役を強制する。BIG1 を伴う形で確かめる
+      const big = yakuList.premiumYaku[0]?.id;
+      const roleId = kind === 'chance' ? 'chance' : `${kind === 'reach' ? 'reach' : 'chance'}_${big}`;
+      const role = internalRoleLottery.forRoleId(roleId);
+      if (!role) return;
+      pendingForcedRole = role;
+      showResult(`${role.yakuName ?? roleId}（${roleId}）を次のレバーに予約`, 'win');
+    },
     triggerNextDelay: () => {
       // 次のレバーで遅れを強制する。素の出現率は 1/214 かつ無演出のゲーム限定なので、
       // 見た目と長さの確認には引くのを待っていられない。
