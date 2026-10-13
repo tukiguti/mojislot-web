@@ -1,0 +1,146 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>カットイン一枚絵 v2</title>
+<style>
+  :root {
+    --bg: #14111c;
+    --panel: #1f1a2b;
+    --ink: #ece8f4;
+    --muted: #a49cb8;
+    --gold: #f0b43a;
+    --silver: #a8b1c0;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    padding: 24px 16px 48px;
+    background: var(--bg);
+    color: var(--ink);
+    font-family: 'Hiragino Sans', 'Yu Gothic', system-ui, sans-serif;
+    line-height: 1.6;
+  }
+  main { max-width: 1280px; margin: 0 auto; }
+  h1 { font-size: 22px; margin: 0 0 4px; }
+  p.lead { color: var(--muted); margin: 0 0 16px; font-size: 14px; }
+  .controls {
+    display: flex; flex-wrap: wrap; gap: 16px; align-items: center;
+    padding: 10px 14px; background: var(--panel); border-radius: 8px; margin-bottom: 24px;
+    font-size: 14px;
+  }
+  .controls label { display: inline-flex; gap: 6px; align-items: center; cursor: pointer; }
+  section { margin-bottom: 32px; }
+  h2 { font-size: 17px; margin: 0 0 10px; }
+  h2 small { color: var(--muted); font-weight: normal; margin-left: 8px; }
+  .row { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 14px; }
+  @media (max-width: 860px) { .row { grid-template-columns: 1fr; } }
+  figure { margin: 0; }
+  figcaption { font-size: 13px; margin-top: 6px; display: flex; justify-content: space-between; gap: 8px; }
+  figcaption code { color: var(--muted); font-size: 12px; word-break: break-all; }
+  .tier { font-weight: 700; }
+  .tier.big { color: var(--gold); }
+  .tier.reg { color: var(--silver); }
+
+  /* 演出液晶と同じ 600:432。文字の大きさは液晶幅（cqw）基準でゲームの CSS に合わせる */
+  .lcd {
+    position: relative;
+    aspect-ratio: 600 / 432;
+    container-type: size;
+    overflow: hidden;
+    border-radius: 4px;
+    background: #000;
+  }
+  .lcd img {
+    position: absolute; inset: 0; width: 100%; height: 100%;
+    image-rendering: pixelated;
+  }
+  .overlay {
+    position: absolute; inset: 0;
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    gap: 3.3cqh;
+  }
+  body:not(.show-text) .overlay { display: none; }
+  .label {
+    font-size: min(10cqw, 56px);
+    font-weight: 900;
+    letter-spacing: 0.1em;
+    color: #ffd75a;
+    -webkit-text-stroke: 0.6cqw #14111c;
+    paint-order: stroke fill;
+  }
+  .reg .label { color: #dce2ec; }
+  .syms { position: relative; display: flex; gap: min(4cqw, 24px); }
+  .syms::before {
+    content: ''; position: absolute; inset: -14% -10%; z-index: 0;
+    background: radial-gradient(ellipse 58% 62% at 50% 50%,
+      rgba(0,0,0,.88) 0%, rgba(0,0,0,.6) 52%, transparent 78%);
+  }
+  .syms span {
+    position: relative;
+    width: min(27cqw, 168px);
+    aspect-ratio: 44 / 34;
+    display: grid; place-items: center;
+    font-size: min(19cqw, 110px);
+    font-weight: 900;
+    color: #fff;
+    -webkit-text-stroke: 0.9cqw #14111c;
+    paint-order: stroke fill;
+    line-height: 1;
+  }
+  .note { color: var(--muted); font-size: 13px; }
+</style>
+</head>
+<body class="show-text">
+<main>
+  <h1>ボーナス・カットインの一枚絵 v2</h1>
+  <p class="lead">5島×3役＝15枚。論理 200×144 のドット絵を3倍（600×432）で書き出し。生成は <code>tools/gen_cutin_art.py</code>。
+    文字はゲームの位置に仮に重ねたもの（本番はリールのドット文字）。</p>
+  <div class="controls">
+    <label><input type="checkbox" id="toggle-text" checked> 見出しと3文字を重ねる</label>
+    <span class="note">文字の下（中央）は暗めにして、主役は上下の帯に置いています</span>
+  </div>
+  <div id="list"></div>
+</main>
+<script>
+  const ISLANDS = [
+    ['hiragana_food', '寿司', [['shake', 'しゃけ', 'big'], ['tarako', 'たらこ', 'big'], ['reg', 'しゃこ', 'reg']]],
+    ['hiragana_verb', '動詞', [['ikiru', 'いきる', 'big'], ['yasumu', 'やすむ', 'big'], ['reg', 'いきむ', 'reg']]],
+    ['katakana_animal', '動物', [['namazu', 'ナマズ', 'big'], ['inko', 'インコ', 'big'], ['reg', 'ナマコ', 'reg']]],
+    ['security', 'セキュリティ', [['spy', 'スパイ', 'big'], ['worm', 'ワーム', 'big'], ['reg', 'スパム', 'reg']]],
+    ['yasai', '八百屋', [['raichi', 'ライチ', 'big'], ['puramu', 'プラム', 'big'], ['reg', 'ライム', 'reg']]],
+  ];
+  const BASE = '../../../public/art/cutin-v2/';
+  const list = document.getElementById('list');
+  for (const [chapter, title, roles] of ISLANDS) {
+    const sec = document.createElement('section');
+    sec.innerHTML = `<h2>${title}<small>${chapter}</small></h2>`;
+    const row = document.createElement('div');
+    row.className = 'row';
+    for (const [id, word, tier] of roles) {
+      const file = `${chapter}_${id}.png`;
+      const fig = document.createElement('figure');
+      fig.innerHTML = `
+        <div class="lcd ${tier}">
+          <img src="${BASE}${file}" alt="${word}のカットイン">
+          <div class="overlay" aria-hidden="true">
+            <div class="label">${tier === 'reg' ? 'REGULAR!' : 'PREMIUM!'}</div>
+            <div class="syms">${[...word].map((ch) => `<span>${ch}</span>`).join('')}</div>
+          </div>
+        </div>
+        <figcaption>
+          <span><span class="tier ${tier}">${tier === 'reg' ? 'REG' : 'BIG'}</span>　${word}</span>
+          <code>cutin-v2/${file}</code>
+        </figcaption>`;
+      row.appendChild(fig);
+    }
+    sec.appendChild(row);
+    list.appendChild(sec);
+  }
+  document.getElementById('toggle-text').addEventListener('change', (e) => {
+    document.body.classList.toggle('show-text', e.target.checked);
+  });
+</script>
+</body>
+</html>
