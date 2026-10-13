@@ -1,6 +1,6 @@
 """八百屋の店主（48×56）を素体から組み立て、表情差分を作って3枚のマップに書き出す。
 
-    python3 tools/pixel/v2/build_greengrocer.py
+    python3 tools/pixel/build_greengrocer.py
 
 素体（出題）を部位ごとに塗ってから外周の輪郭と陰影を足し、正解・不正解は
 素体のコピーに「顔の外の記号・口・眉」だけを上書きして作る（PIXEL_SPEC の表情差）。

@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """動物園の飼育員（katakana_animal の出題者）のマップを作る。
 
-    python3 tools/pixel/v2/zookeeper_gen.py
+    python3 tools/pixel/zookeeper_gen.py
 
 素体（出題）を描き、正解・不正解は素体からの差分で作る。顔の作りを3枚で揃えるため、
 表情の差は口・眉・顔の外の記号だけに入れ、目は触らない（PIXEL_SPEC の知見）。

@@ -54,6 +54,7 @@
   "premiumYaku": [
     {
       "id": "namazu",
+      "cutinArt": "cutin/katakana_animal_namazu.png",
       "name": "ナマズ",
       "symbols": [
         "ナ",
@@ -65,6 +66,7 @@
     },
     {
       "id": "inko",
+      "cutinArt": "cutin/katakana_animal_inko.png",
       "name": "インコ",
       "symbols": [
         "イ",
@@ -77,6 +79,7 @@
   "bonusYaku": [
     {
       "id": "reg",
+      "cutinArt": "cutin/katakana_animal_reg.png",
       "name": "ナマコ",
       "symbols": [
         "ナ",

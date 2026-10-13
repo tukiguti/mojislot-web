@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """セキュリティエンジニア（章 security の出題者）のドット絵を組み立てる。
 
-    python3 tools/pixel/v2/build_engineer.py
+    python3 tools/pixel/build_engineer.py
 
 素体（出題の顔）を描き、正解・不正解は素体からの**差分**で作る。
 書き出すのは engineer.txt / engineer_correct.txt / engineer_wrong.txt（48×56）。

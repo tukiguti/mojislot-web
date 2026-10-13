@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """国語の教師：素体（出題）から正解・不正解の顔を差分で作る。
 
-    python3 tools/pixel/v2/teacher_faces.py
+    python3 tools/pixel/teacher_faces.py
 
 素体 teacher.txt を読み、teacher_correct.txt / teacher_wrong.txt を書き出す。
 目と眼鏡は触らない。差は「顔の外の記号」「口」「眉の傾き」で付ける（PIXEL_SPEC）。

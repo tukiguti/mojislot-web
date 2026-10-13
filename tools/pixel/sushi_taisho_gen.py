@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """寿司屋の大将（48×56）の素体と表情差分を書き出す。
 
-    python3 tools/pixel/v2/sushi_taisho_gen.py
+    python3 tools/pixel/sushi_taisho_gen.py
 
 素体（出題）を組み立て、正解・不正解は素体のコピーに口・眉・顔の外の記号だけを
 上書きして作る。素体を複製して手で直すと顔の作りがずれるため（PIXEL_SPEC）。
@@ -285,7 +285,7 @@ def base() -> list[list[str]]:
 
 def save(g, name: str, note: str):
     path = OUT / f"{name}.txt"
-    lines = [f"# 寿司屋の大将 {note}（tools/pixel/v2/sushi_taisho_gen.py が書き出す）"]
+    lines = [f"# 寿司屋の大将 {note}（tools/pixel/sushi_taisho_gen.py が書き出す）"]
     lines += ["".join(r) for r in g]
     path.write_text("\n".join(lines) + "\n", encoding="utf-8")
 

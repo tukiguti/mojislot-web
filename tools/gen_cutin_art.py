@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """ボーナス・カットインの一枚絵（5島×3役＝15枚）をドット絵で作る。
 
-    python3 tools/gen_cutin_art.py              # 15枚を public/art/cutin-v2/ へ
+    python3 tools/gen_cutin_art.py              # 15枚を public/art/cutin/ へ
     python3 tools/gen_cutin_art.py --only yasai # 島を絞る
     python3 tools/gen_cutin_art.py --sheet /tmp/sheet.png
 
@@ -39,7 +39,7 @@ from PIL import Image, ImageDraw
 
 W, H, SCALE = 200, 144, 3
 ROOT = pathlib.Path(__file__).resolve().parent.parent
-OUT_DIR = ROOT / "public" / "art" / "cutin-v2"
+OUT_DIR = ROOT / "public" / "art" / "cutin"
 
 # 文字の下になる範囲（論理座標）。描画の目安とプレビューの確認に使う。
 TEXT_BOX = (11, 38, 189, 106)
