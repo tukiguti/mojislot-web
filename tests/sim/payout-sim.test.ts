@@ -548,7 +548,7 @@ function runChapter(
     // 狙えの対象の差し替え（main.ts と同じ）。打ち手は差し替えた役を狙うので、本当の
     // フラグの役を取りこぼすことがある。
     //  - チャンス目（ボーナスなし）のあとの外れの狙え：対象は BIG（クイズも狙え扱い）
-    //  - 矛盾 5.1：通常時のボーナスのゲームの狙えの一部は、小役を狙わせる
+    //  - 矛盾 5.1：通常時のボーナスのゲームの演出（狙え・示唆・クイズ）の一部は、小役を指す
     let decoyAim: Yaku | null = null;
     const fakeNow = fakeNext;
     fakeNext = false;
@@ -556,15 +556,18 @@ function runChapter(
       effect = 'aim';
       decoyAim = yakuList.premiumYaku[0] ?? null;
     } else if (
-      effect === 'aim' && yaku && !bonusActive &&
+      effect !== 'none' && yaku && !bonusActive &&
       (yaku.category === 'premium' || yaku.category === 'bonus') &&
-      rng() < tuning.contradiction.aimDecoyRate
+      rng() < tuning.contradiction.decoyRate
     ) {
-      decoyAim = yakuList.coreYaku[Math.floor(rng() * yakuList.coreYaku.length)] ?? null;
+      const pool = yakuList.coreYaku.filter((y) => eligibility.canRepresent(effect, y));
+      decoyAim = pool[Math.floor(rng() * pool.length)] ?? null;
     }
+    /** 演出が指す役（main.ts の effectTargetYaku）。示唆の色・発展・クイズの答えもこれ。 */
+    const shownYaku = decoyAim ?? yaku;
     const shisaTier =
-      effect === 'shisa' && yaku
-        ? eligibility.pickTier(yaku, rng)
+      effect === 'shisa' && shownYaku
+        ? eligibility.pickTier(shownYaku, rng)
         : null;
 
     // 遅れ：ハズレ・1枚役では出ない＝出たら必ず何かが当たっている。
@@ -651,7 +654,9 @@ function runChapter(
           ? (yakuList.premiumYaku[0] ?? null)
           : null;
       const aimYaku =
-        effect === 'aim' && decoyAim
+        (effect === 'aim' || effect === 'quiz') && decoyAim
+          ? decoyAim
+          : effect === 'shisa' && escalated && decoyAim
           ? decoyAim
           : effect === 'shisa' && !escalated
           ? shisaGuess
@@ -715,8 +720,8 @@ function runChapter(
       stopN++;
       // 示唆→「狙え！」への発展：最終停止より前に内部役の図柄が**窓のどこかへ**来たか。
       // main.ts と同じ条件。中段限定だと発展しない時に腕と無関係にほぼ落とすため緩めてある。
-      if (effect === 'shisa' && !escalated && stopN < 3 && yaku) {
-        const sy = yaku.symbols[idx];
+      if (effect === 'shisa' && !escalated && stopN < 3 && shownYaku) {
+        const sy = shownYaku.symbols[idx];
         const v = stopped[idx]!;
         if (sy !== undefined && (v.top === sy || v.middle === sy || v.bottom === sy)) {
           escalated = true;

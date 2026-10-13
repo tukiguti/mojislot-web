@@ -235,7 +235,7 @@ describe('狙い所（BIG1・BIG2・目印）', () => {
       }
       return n;
     };
-    // 目印揃い（リーチ目・チャンス目）は目印を狙えば必ず揃う（2026-10-12）
+    // 目印揃い（チャンス目）は目印を狙えば必ず揃う（2026-10-12）
     for (const y of yakuList.chanceYaku) {
       it(`${chapter}: ${y.name} は目印を狙えば必ず揃う`, () => {
         const m = misses(y, anchors[2].at);

@@ -153,6 +153,8 @@ export class ReelView {
   private centerGlowDuration = 0;
   private tenpaiAnimMs = 0;
   private tenpaiPremium = false;
+  /** リーチ目の白いフラッシュ（テンパイ枠の点滅を白く太くしたもの）。 */
+  private tenpaiReach = false;
   /** 滑りコマ数の表示（停止済みリールのSTOPをもう一度押した時だけ出す） */
   private readonly slipBadge: Container;
   private readonly slipBadgeText: Text;
@@ -392,8 +394,8 @@ export class ReelView {
     if (this.tenpaiAnimMs > 0) {
       const t = nowMs ?? performance.now();
       const pulse = (Math.sin(t / 120) + 1) / 2; // 0..1
-      const baseColor = this.tenpaiPremium ? 0xff3366 : 0xffff00;
-      const width = 3 + pulse * 3;
+      const baseColor = this.tenpaiReach ? 0xffffff : this.tenpaiPremium ? 0xff3366 : 0xffff00;
+      const width = this.tenpaiReach ? 4 + pulse * 5 : 3 + pulse * 3;
       this.redrawBg(baseColor, width);
     }
 
@@ -482,11 +484,20 @@ export class ReelView {
   startTenpaiFlash(premium: boolean): void {
     this.tenpaiAnimMs = 1; // フラグ立て
     this.tenpaiPremium = premium;
+    this.tenpaiReach = false;
+  }
+
+  /** リーチ目の白いフラッシュを開始する。止めるのはテンパイ枠と同じ stopTenpaiFlash。 */
+  startReachFlash(): void {
+    this.tenpaiAnimMs = 1;
+    this.tenpaiPremium = false;
+    this.tenpaiReach = true;
   }
 
   /** テンパイ枠フラッシュを終了して通常枠に戻す */
   stopTenpaiFlash(): void {
     this.tenpaiAnimMs = 0;
+    this.tenpaiReach = false;
     this.redrawBg(0xffd700, 3);
   }
 

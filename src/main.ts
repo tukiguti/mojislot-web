@@ -1045,6 +1045,12 @@ export async function bootstrap() {
 
   let internalRoleLottery = new InternalRoleLottery(yakuList, Math.random);
 
+  /**
+   * 演出が指している役。普段は内部役の表示役だが、矛盾（小役を指す）とチャンス目のあとの
+   * 外れの狙え・クイズでは差し替わる。AUTO と示唆の発展はこれを狙う（打ち手と同じものを見る）。
+   */
+  let effectTargetYaku: Yaku | null = null;
+
   interface EffectOptions {
     targetYaku?: Yaku | null;
     shisaTier?: ShisaTier | null;
@@ -1080,6 +1086,7 @@ export async function bootstrap() {
 
   const applyEffect = (effect: EffectType, options: EffectOptions = {}) => {
     currentEffect = effect;
+    if (effect === 'none') effectTargetYaku = null;
     for (const engine of engines) engine.setSpeed(reelSpeed());
 
     // 示唆tierも内部役に対応する候補からactivateRoundで確定済み。
@@ -1233,8 +1240,6 @@ export async function bootstrap() {
     // どちらを狙うかを打ち手に選ばせる（演出が役を教えていると選択にならない）。
     if (bitaChance) effect = 'none';
     const yaku = internalRoleLottery.yakuFor(role);
-    const shisaTier =
-      effect === 'shisa' && yaku ? eligibility.pickTier(yaku, Math.random) : null;
     // 回転中の差し替えを廃したので、レバーONごとに必ず新しい番号になる
     // （以前はデバッグの即時差し替えだけが同じ番号を使い回していた）。
     currentRound = createRoundContext({
@@ -1249,18 +1254,24 @@ export async function bootstrap() {
     }
     shisaEscalated = false;
     shisaMissShown = false;
-    // 矛盾 5.1：通常時のボーナスのゲームで出す狙えの一部は、小役を狙わせる。
-    // 小役のフラグは無いので、言われたとおりに押しても揃わない
-    const aimDecoy =
-      effect === 'aim' &&
+    // 矛盾 5.1：通常時のボーナスのゲームで出す演出（狙え・示唆・クイズ）の一部は、
+    // 小役を指す。小役のフラグは無いので、言われたとおりに押しても揃わない。
+    // テンパイさせれば最後のリールでずれて止まる＝リーチ目（StopController.reachEye）
+    const decoyPool =
+      effect !== 'none' &&
       yaku !== null &&
       (yaku.category === 'premium' || yaku.category === 'bonus') &&
       !bonusSession.spinActive &&
-      Math.random() < tuning.contradiction.aimDecoyRate
-        ? (yakuList.coreYaku[Math.floor(Math.random() * yakuList.coreYaku.length)] ?? null)
-        : null;
+      Math.random() < tuning.contradiction.decoyRate
+        ? yakuList.coreYaku.filter((y) => eligibility.canRepresent(effect, y))
+        : [];
+    const decoy = decoyPool[Math.floor(Math.random() * decoyPool.length)] ?? null;
+    const shown = decoy ?? targetOverride ?? yaku;
+    effectTargetYaku = effect === 'none' ? null : shown;
+    const shisaTier =
+      effect === 'shisa' && shown ? eligibility.pickTier(shown, Math.random) : null;
     applyEffect(effect, {
-      targetYaku: aimDecoy ?? targetOverride ?? yaku,
+      targetYaku: shown,
       shisaTier,
       shisaCandidates: shisaTier
         ? eligibility.candidatesFor(shisaTier, activeInternalRoleState())
@@ -1851,10 +1862,10 @@ export async function bootstrap() {
       pendingForcedRole = internalRoleLottery.forYaku(yaku);
       showResult(`${yaku.name}フラグを次のレバーに予約`, 'win');
     },
-    triggerNextChanceRole: (kind: 'reach' | 'chance-bonus' | 'chance') => {
+    triggerNextChanceRole: (kind: 'chance-bonus' | 'chance') => {
       // 次のレバーで目印揃いの内部役を強制する。BIG1 を伴う形で確かめる
       const big = yakuList.premiumYaku[0]?.id;
-      const roleId = kind === 'chance' ? 'chance' : `${kind === 'reach' ? 'reach' : 'chance'}_${big}`;
+      const roleId = kind === 'chance' ? 'chance' : `chance_${big}`;
       const role = internalRoleLottery.forRoleId(roleId);
       if (!role) return;
       pendingForcedRole = role;
@@ -2632,6 +2643,9 @@ export async function bootstrap() {
     effectStatusEl.title = `${chapter.name}：${chapter.description}`;
   };
 
+  /** このゲームの最後の停止の直前の出目（リーチ目の判定用）。最後の停止のたびに上書きする。 */
+  let reachCheck: { before: (VisibleColumn | null)[]; reelIndex: number } | null = null;
+
   const resolveStopSlip = (
     idx: number,
     engine: ReelEngine,
@@ -2687,6 +2701,10 @@ export async function bootstrap() {
     const stoppedPositions: (number | null)[] = engines.map((e) =>
       e.state.get() === 'stopped' ? Math.round(e.position) : null,
     );
+    // 最後のリールを止める前の2リール。全停止後にリーチ目の形かを見るのに要る
+    if (stoppedVisibles.filter((v) => v !== null).length === 2) {
+      reachCheck = { before: stoppedVisibles, reelIndex: idx };
+    }
     // 引き込み/蹴りの決定は resolveStopSlip に集約（設計: 17_assist-and-slip.md）。
     const slipCells = resolveStopSlip(
       idx,
@@ -2744,7 +2762,7 @@ export async function bootstrap() {
       !shisaEscalated &&
       engines.some((e) => e.state.get() === 'spinning')
     ) {
-      const target = currentInternalYaku();
+      const target = effectTargetYaku ?? currentInternalYaku();
       const sym = target?.symbols[idx];
       const shown =
         sym !== undefined &&
@@ -2887,18 +2905,50 @@ export async function bootstrap() {
           if (announce) fireMissLamp(flagged.category === 'premium');
         }
       }
-      // 目印揃い（2026-10-12・drafts/reach-eye-redesign）。目印揃いの内部役でボーナスを
+      // 目印揃い（チャンス目・2026-10-12）。目印揃いの内部役でボーナスを
       // 伴っていれば、目印を揃えられたかどうかによらず、そのボーナスを持ち越す。
-      //  - リーチ目（中段）＝その場で確定ランプ
-      //  - チャンス目（中段以外）＝確定ランプ・次ゲームの狙え・次ゲームのクイズのどれか
+      //  - チャンス目（5ラインのどれか）＝確定ランプ・次ゲームの狙え・次ゲームのクイズのどれか
       //  - 揃えられなかった＝取りこぼしと同じく確定ランプで知らせる
+      //
+      // リーチ目（小役のずれ・2026-10-13）。形は停止制御が作る（StopController.reachEye）。
+      //  - ボーナスのフラグがあって形が出た＝リーチ目。リール枠を白く光らせる
+      //  - ボーナスが無いのに形が出た＝目押しのずれでたまたま同じ形になった。演出が出ていた
+      //    ゲームでは、リーチ目と見分けられるよう「失敗」と出す。演出の無いゲームでは何も言わない
+      const reachShape =
+        hits.length === 0 &&
+        reachCheck !== null &&
+        stopController.isReachShape(
+          reachCheck.before,
+          reachCheck.reelIndex,
+          {
+            top: getVisibleCell(engines[reachCheck.reelIndex], 'top'),
+            middle: getVisibleCell(engines[reachCheck.reelIndex], 'middle'),
+            bottom: getVisibleCell(engines[reachCheck.reelIndex], 'bottom'),
+          },
+          activeFlagYakuIds(),
+        );
+      const bonusFlagged =
+        Boolean(announcedBonus) ||
+        heldBonusYaku !== null ||
+        Boolean(currentRound?.internalRole.carryYakuId) ||
+        (() => {
+          const y = currentInternalYaku();
+          return y !== null && (y.category === 'premium' || y.category === 'bonus');
+        })();
+      const reachEyeHit = reachShape && bonusFlagged;
+      const reachMiss = reachShape && !bonusFlagged && currentEffect !== 'none';
+      if (reachEyeHit) {
+        for (const v of views) v.startReachFlash();
+        flashScreen({ color: '#ffffff', alpha: 0.5, durMs: 220 });
+        sfx.tenpaiPremium();
+      }
       const carryId = currentRound?.internalRole.carryYakuId ?? null;
       const carryYaku = carryId
         ? ([...yakuList.premiumYaku, ...yakuList.bonusYaku].find((y) => y.id === carryId) ?? null)
         : null;
-      if (outcome.reachEye || outcome.chanceEye) {
+      if (outcome.chanceEye) {
         // 目印が揃った手触り。ボーナスの有無はここでは言わない
-        for (const v of views) v.startTenpaiFlash(outcome.reachEye);
+        for (const v of views) v.startTenpaiFlash(false);
         sfx.tenpaiPremium();
       }
       if (
@@ -2917,9 +2967,7 @@ export async function bootstrap() {
       if (carryYaku && !announcedBonus && !bonusZone.isActive()) {
         heldBonusYaku = carryYaku;
         const isBig = carryYaku.category === 'premium';
-        if (outcome.reachEye) {
-          lightHeldLamp();
-        } else if (outcome.chanceEye) {
+        if (outcome.chanceEye) {
           const follow = pickChanceFollow(carryYaku);
           if (follow === 'lamp') fireMissLamp(isBig);
           else chanceFollow = follow;
@@ -3175,7 +3223,10 @@ export async function bootstrap() {
         //
         // クイズの時は不正解の台詞が出題者から出るので、そちらに任せる（二重に
         // 言わない）。1枚役は払い出しがあるので枚数を添える。
-        if (!quizTargetYakuId) {
+        if (reachMiss) {
+          sfx.miss();
+          showResult('失敗', 'none');
+        } else if (!quizTargetYakuId) {
           sfx.miss();
           showResult(win > 0 ? `1枚役 +${win}` : 'ハズレ', 'none');
         }
@@ -3329,7 +3380,7 @@ export async function bootstrap() {
     flashScreen({ color: '#fff3a0', alpha: 0.8, durMs: 280 });
   };
   /**
-   * **持ち越し中のボーナスで確定告知ランプを点ける**（取りこぼし・リーチ目・チャンス目）。
+   * **持ち越し中のボーナスで確定告知ランプを点ける**（取りこぼし・チャンス目）。
    * **種別は抽選し直さない**——すでに立っているフラグをそのまま確定させる
    * （抽選し直すと、点いた種別と持ち越し中の役が食い違う）。
    */
@@ -3500,7 +3551,7 @@ export async function bootstrap() {
       // 確定告知ランプ点灯中（演出は none 固定）：固定した確定役を AUTO でも全リール狙う。
       autoTargetYaku = announcedRole;
     } else if (currentEffect !== 'none') {
-      autoTargetYaku = currentInternalYaku();
+      autoTargetYaku = effectTargetYaku ?? currentInternalYaku();
     } else {
       autoTargetYaku = null;
     }

@@ -5,7 +5,7 @@ import {
   type VisibleColumn,
 } from '../productions/SlipResolver';
 import { TenpaiDetector, type TenpaiLine } from '../productions/TenpaiDetector';
-import { PAYLINES, ROW_VERTICAL, yakuOnLine } from './Paylines';
+import { PAYLINES, ROW_VERTICAL, visibleAt, yakuOnLine, type Vertical } from './Paylines';
 import type { StopTableLookup } from './StopTable';
 import { PullInGuard } from './PullInGuard';
 
@@ -108,6 +108,10 @@ export class StopController {
   private readonly guard: PullInGuard;
   /** 目印揃いの役ID（ビタの判定で出てよい役に数える）。 */
   private readonly chanceIds: string[];
+  /** ボーナスを持つ内部役ID（BIG・REG と、ボーナスを `carry` に持つチャンス目）。リーチ目を出す。 */
+  private readonly bonusRoleIds: Set<string>;
+  /** ボーナスの役ID。許可リストにこれがあればボーナスのフラグがある。 */
+  private readonly bonusYakuIds: Set<string>;
 
   constructor(deps: StopControllerDeps) {
     this.allYakus = [
@@ -124,12 +128,28 @@ export class StopController {
     this.pullInCells = deps.pullInCells;
     this.guard = new PullInGuard(deps.yakuList, deps.reels, deps.pullInCells);
     this.chanceIds = deps.yakuList.chanceYaku.map((y) => y.id);
+    this.bonusRoleIds = new Set(
+      deps.yakuList.internalRoles
+        .filter((r) => r.kind === 'big' || r.kind === 'reg' || r.carry)
+        .map((r) => r.id),
+    );
+    this.bonusYakuIds = new Set(
+      [...deps.yakuList.premiumYaku, ...deps.yakuList.bonusYaku].map((y) => y.id),
+    );
   }
 
   /** このリールのスベリコマ数（0..4）。 */
   resolveSlip(req: StopRequest): number {
     // フリーズ中は制御しない（強制セット位置へそのまま止める）。
     if (req.freeze) return 0;
+    // ビタチャンスで目印をぴったり押した時は、ビタの判定をそのまま返す（リーチ目の寄せをかけない）
+    if (req.bitaMark && req.strip.cells[req.basePosition] === req.bitaMark) {
+      return this.bitaSlip(req);
+    }
+    return this.reachEye(req, this.baseSlip(req));
+  }
+
+  private bitaSlip(req: StopRequest): number {
     // ビタの拒否（矛盾 5.3）：ぴったり押されても滑らせる。普段の制御が0を選ぶなら、
     // 許可外の役が揃わない一番近い滑りへずらす
     if (req.bitaMark && req.bitaRefuse && req.strip.cells[req.basePosition] === req.bitaMark) {
@@ -277,6 +297,73 @@ export class StopController {
     return slip ?? this.slip.resolveKick(ctx);
   }
 
+  /**
+   * **リーチ目**（2026-10-13）：小役がテンパイしたのに、最後のリールでその図柄が
+   * 1段ずれて止まり揃わない形。**ボーナスのフラグがある時だけ**出す。
+   *
+   * ずれる段は、テンパイしたラインで最後のリールが要る段が中段なら下段、
+   * それ以外（斜め・上段・下段のライン）なら中段。どちらも枠の中に見える。
+   * 斜めで揃うと思ったら中段に止まった、という見え方になる。
+   *
+   * ボーナスのフラグが無い時は、同じ形を出さない（ずれる段にその図柄を止めない）。
+   * 出れば必ずボーナス、を崩さないため。
+   *
+   * 何かが揃う止め方（当選役の引き込み・こぼしの1枚役）は変えない。
+   * 停止テーブルもこの関数を通して焼くので、表を引いた結果に重ねても同じ値が返る。
+   */
+  private reachEye(req: StopRequest, slip: number): number {
+    if (!this.isFinalStop(req)) return slip;
+    const tp = this.tenpai.detect(req.stoppedVisibles);
+    if (!tp || tp.missingReelIndex !== req.reelIndex) return slip;
+    const lines = tp.lines.filter(
+      (l) => l.yaku.category === 'core' && !req.flagYakuIds.includes(l.yaku.id),
+    );
+    if (lines.length === 0) return slip;
+
+    const ctx = this.ctxOf(req);
+    const n = req.strip.cells.length;
+    const posOf = (s: number) => (req.basePosition + s) % n;
+    const anyWin = (pos: number) =>
+      this.slip.locksNonFlagAt({ ...ctx, exceptYakuIds: [] }, pos);
+    if (anyWin(posOf(slip))) return slip;
+
+    const shifted = (pos: number) =>
+      shownShifted(lines, req.reelIndex, (v) => visibleAt(req.strip.cells, pos, v));
+    const bonus = this.hasBonusFlag(req);
+    const ok = (pos: number) => (bonus ? shifted(pos) : !shifted(pos));
+    if (ok(posOf(slip))) return slip;
+    for (let s = 0; s <= this.pullInCells; s++) {
+      const pos = posOf(s);
+      if (this.slip.locksNonFlagAt(ctx, pos)) continue;
+      if (ok(pos)) return s;
+    }
+    return slip;
+  }
+
+  /**
+   * 止まった出目がリーチ目の形か（ボーナスの有無は見ない）。最後のリールを止める前の
+   * 2リールでテンパイしていた小役（フラグの無いもの）の図柄が、ずれた段に見えているか。
+   * 何かが揃ったゲームでは呼び出し側で除く。画面の白いフラッシュと「失敗」の判定に使う。
+   */
+  isReachShape(
+    stoppedBefore: readonly (VisibleColumn | null)[],
+    reelIndex: number,
+    finalColumn: VisibleColumn,
+    flagYakuIds: readonly string[],
+  ): boolean {
+    const tp = this.tenpai.detect(stoppedBefore);
+    if (!tp || tp.missingReelIndex !== reelIndex) return false;
+    const lines = tp.lines.filter(
+      (l) => l.yaku.category === 'core' && !flagYakuIds.includes(l.yaku.id),
+    );
+    return shownShifted(lines, reelIndex, (v) => finalColumn[v]);
+  }
+
+  private hasBonusFlag(req: StopRequest): boolean {
+    if (req.flagKey && this.bonusRoleIds.has(req.flagKey)) return true;
+    return req.flagYakuIds.some((id) => this.bonusYakuIds.has(id));
+  }
+
   /** 他の2リールが停止済み＝このリールで出目が決まる。 */
   private isFinalStop(req: StopRequest): boolean {
     return req.stoppedVisibles.filter((v) => v !== null).length === 2;
@@ -392,4 +479,24 @@ export class StopController {
     }
     return bestSlip;
   }
+}
+
+/**
+ * リーチ目で図柄をずらす段。テンパイのラインが要る段が中段なら下段（1コマ滑りすぎた形）、
+ * それ以外は中段。中段のテンパイで上段も数えると、右リールのように小役の図柄が3コマおきに
+ * 並ぶ配列ではボーナスが無い時に隠しきれない（どの滑りでも上か下に見える）。
+ */
+function reachRows(lineRow: Vertical): readonly Vertical[] {
+  return lineRow === 'middle' ? ['bottom'] : ['middle'];
+}
+
+/** テンパイしていた小役の図柄が、どれか1本でもずれた段に見えているか。 */
+function shownShifted(
+  lines: readonly TenpaiLine[],
+  reelIndex: number,
+  cellAt: (v: Vertical) => string,
+): boolean {
+  return lines.some((l) =>
+    reachRows(l.vertical).some((v) => cellAt(v) === l.yaku.symbols[reelIndex]),
+  );
 }

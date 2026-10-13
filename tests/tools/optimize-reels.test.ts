@@ -297,9 +297,9 @@ function countLeaks(
       ...yakuList.premiumYaku,
     ].map((y) => ({ label: y.id, ids: [y.id] })),
     { label: 'single', ids: yakuList.singleYaku.map((y) => y.id) },
-    // 目印揃いの内部役（2026-10-12）。ボーナスなしのチャンス目で中段に揃うと「確定」の嘘になる
+    // 目印揃いの内部役（2026-10-12）。チャンス目のフラグで他の役が揃わないこと
     ...yakuList.internalRoles
-      .filter((r) => r.kind === 'chance' && (r.id === 'chance' || r.id === 'reach_reg'))
+      .filter((r) => r.kind === 'chance' && r.id === 'chance')
       .map((r) => ({ label: r.id, ids: [r.displayYakuId as string] })),
   ];
 
