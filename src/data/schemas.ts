@@ -1,5 +1,18 @@
 import { z } from 'zod';
 
+/**
+ * data/ の JSON が持つデータ版（`dataVersion`）。形式を変えたらその種類の版を上げ、
+ * 古い形式のファイルを読み込んだ時点で分かるようにする（黙って別の意味に読まない）。
+ */
+export function dataVersion(expected: number, label: string) {
+  return z.literal(expected, {
+    error: (iss) =>
+      iss.input === undefined
+        ? `${label}に dataVersion がありません（期待する版は ${expected}）`
+        : `${label}の dataVersion が ${String(iss.input)} です。この版のコードは ${expected} を読みます`,
+  });
+}
+
 export const ReelStripSchema = z.object({
   id: z.string(),
   // 1リール = 21コマ。既定24コマ/秒＝1周0.88秒で、設定から20〜28コマ/秒に変更できる。
@@ -335,69 +348,100 @@ export const QuizListSchema = z.object({
 });
 
 /**
- * 停止テーブル（第1停止）。実機のリール制御表に相当する。
- * `firstStop[内部役ID][リールindex][押下位置] = スベリコマ数(0〜4)`。
+ * 停止テーブル。実機のリール制御表に相当する。
  *
- * 第1停止は**まだどの役もロックし得ない**（3文字役は3リール、チェリーは2リール必要）ので
- * 蹴りが発火せず、停止位置は完全に自由＝ここが出目（リーチ目・入り目）の設計点になる。
- *
- * 第2停止も表を持つ（2026-08-14〜）。制御の狙い先を主ライン1本に固定したので
- * 「主ラインへ何コマ寄せたか」だけが値の意味になり、表として書けるようになった。
- * 第3停止は 21³ × 役数で膨らむため当面アルゴリズムのまま。
- *
- * このファイルは生成できるが**手で書き換えてよい**。書き換えても②ゼロ保証は
+ * **第1停止** `firstStop[内部役ID][リールindex][押下位置] = スベリコマ数(0〜4)`。
+ * まだどの役もロックし得ない（3文字役は3リール、チェリーは2リール必要）ので
+ * 蹴りが発火せず、停止位置は完全に自由＝ここが出目の設計点になる。
+ * ここは生成できるが**手で書き換えてよい**。書き換えても②ゼロ保証は
  * 蹴りが守るので崩れない（監査テストが全押下位置で検証する）。
+ *
+ * **第2・第3停止は全押し順ぶん持つ**（2026-10-14〜。それまでは順押しだけで、
+ * ほかの押し順は実行時の探索へ落ちていた）。`StopController` を通して焼くので
+ * 探索と同じ値になり、`tests/data/stop-table-equivalence` が全押し順で突き合わせる。
+ * 手で書き換えるものではない。
+ *
+ * 押し順を含めると6倍に膨らむので、1内部役ぶんを**数字の文字列**に詰め
+ * （1文字＝スベリ0〜4。数値の配列で持つと1要素に `,` が付いて倍になる）、
+ * 同じ文字列は `slipPool` に1つだけ置いて表からは番号で指す。同じ図柄を揃える
+ * 内部役（BIG とそのフリーズ版など）や、通常時とボーナス中で表が同じになることが多い。
+ *  - 第2停止 `secondStop[押し順][内部役ID]` は 21×21 文字。押し順のキーは
+ *    「第1停止のリール」「第2停止のリール」を並べた2桁（`"01"`＝左→中）。
+ *    添字は `第1停止の停止位置 × 21 + 押下位置`
+ *  - 第3停止 `thirdStop[最後のリール][内部役ID]` は 21×21×21 文字。止まっている
+ *    2リールの停止位置だけで決まり、どちらを先に止めたかは効かない（左→中→右も
+ *    中→左→右も同じ表）。添字は `(若い番号のリールの停止位置 × 21 + もう一方) × 21 + 押下位置`
+ * 添字はどれも**停止位置**であって押下位置ではない。混同すると静かにずれる。
+ *
+ * ボーナス中用の `bonusSecondStop` / `bonusThirdStop` は構造が同じ。ボーナス中だけ
+ * 許可リストに1枚役（こぼし先）が加わり、当選役を引き込めなかった最終停止で拾いに行く。
+ * 表は内部役IDでしか引けずこの違いを区別できないので別に持つ（通常時の表を使うと
+ * 受け皿が消え、実測で「→1枚」8.6%→0.0%・機械割-2pt）。第1停止は許可リストの影響を
+ * 受けないので共用する。
  */
 /** スベリコマ数（0〜4）。 */
 const SlipSchema = z.number().int().min(0).max(4);
 
+/** 停止テーブルのデータ版。形式を変えたら上げる。 */
+export const STOP_TABLE_VERSION = 2;
+
+/** 第2停止の押し順キー（第1停止のリール＋第2停止のリール）。 */
+export const SECOND_STOP_ORDERS = ['01', '02', '10', '12', '20', '21'] as const;
+/** 第3停止のキー（最後に止めるリール）。 */
+export const THIRD_STOP_FINALS = ['0', '1', '2'] as const;
+
+/** 第2停止・第3停止の1内部役ぶんの文字数。 */
+export const SECOND_STOP_LENGTH = 21 * 21;
+export const THIRD_STOP_LENGTH = 21 * 21 * 21;
+
+/** `slipPool` の番号。 */
+const PoolIndexSchema = z.number().int().nonnegative();
+const SecondStopSchema = z.record(
+  z.enum(SECOND_STOP_ORDERS),
+  z.record(z.string(), PoolIndexSchema),
+);
+const ThirdStopSchema = z.record(
+  z.enum(THIRD_STOP_FINALS),
+  z.record(z.string(), PoolIndexSchema),
+);
+
 export const StopTableSchema = z.object({
+  dataVersion: dataVersion(STOP_TABLE_VERSION, '停止テーブル'),
   mode: z.string(),
-  /** 第1停止。[内部役][リール][押下位置] → スベリ。 */
   firstStop: z.record(
     z.string(),
     z.array(z.array(SlipSchema).length(21)).length(3),
   ),
-  /**
-   * 第2停止（**順押し限定**）。[内部役][第1停止位置][第2リールの押下位置] → スベリ。
-   *
-   * 押し順を含めると6倍に膨らむ。本作は順押し前提（押し順役は 2026-07-25 に廃止・
-   * ナビも無い）なので、逆押しは実行時の探索へフォールバックする。結果は同じで、
-   * 速度と追跡可能性が落ちるだけ。
-   */
-  secondStop: z
-    .record(z.string(), z.array(z.array(SlipSchema).length(21)).length(21))
-    .optional(),
-  /**
-   * 第3停止（**順押し限定**）。[内部役][第1停止位置][第2停止位置][押下位置] → スベリ。
-   * 添字は停止位置であって押下位置ではない。到達しない位置の枠は 0 のまま残る。
-   */
-  thirdStop: z
-    .record(
-      z.string(),
-      z.array(z.array(z.array(SlipSchema).length(21)).length(21)).length(21),
-    )
-    .optional(),
-  /**
-   * **ボーナス中用**の第2・第3停止。構造は上と同じ。
-   *
-   * ボーナス中だけ許可リストに1枚役（こぼし先）が加わる——当選役を引き込めなかった
-   * 最終停止で1枚役を拾い、外した距離が枚数に出る（設計: 31章）。表は内部役IDでしか
-   * 引けずこの違いを区別できないので、通常時の表をそのまま使うと受け皿が消える
-   * （実測で「→1枚」8.6%→0.0%・機械割-2pt）。だから別に持つ。
-   *
-   * 第1停止は許可リストの影響を受けない（まだどの役もロックし得ない）ので共用する。
-   */
-  bonusSecondStop: z
-    .record(z.string(), z.array(z.array(SlipSchema).length(21)).length(21))
-    .optional(),
-  bonusThirdStop: z
-    .record(
-      z.string(),
-      z.array(z.array(z.array(SlipSchema).length(21)).length(21)).length(21),
-    )
-    .optional(),
+  /** 第2・第3停止の表の中身（詰めた文字列）。表からは番号で指す。 */
+  slipPool: z
+    .array(z.string().regex(/^[0-4]+$/, 'スベリは 0〜4 の数字で詰めてください'))
+    .default([]),
+  secondStop: SecondStopSchema.optional(),
+  thirdStop: ThirdStopSchema.optional(),
+  bonusSecondStop: SecondStopSchema.optional(),
+  bonusThirdStop: ThirdStopSchema.optional(),
+}).superRefine((t, ctx) => {
+  // 表が指す番号がプールにあり、長さがその停止の表の大きさに合うこと
+  const check = (name: string, table: Record<string, Record<string, number>> | undefined, len: number) => {
+    for (const [key, byRole] of Object.entries(table ?? {})) {
+      for (const [role, idx] of Object.entries(byRole)) {
+        const packed = t.slipPool[idx];
+        if (packed === undefined || packed.length !== len) {
+          ctx.addIssue({
+            code: 'custom',
+            path: [name, key, role],
+            message: `${name}.${key}.${role} の番号 ${idx} が指す表が無いか、長さが ${len} でありません`,
+          });
+        }
+      }
+    }
+  };
+  check('secondStop', t.secondStop, SECOND_STOP_LENGTH);
+  check('bonusSecondStop', t.bonusSecondStop, SECOND_STOP_LENGTH);
+  check('thirdStop', t.thirdStop, THIRD_STOP_LENGTH);
+  check('bonusThirdStop', t.bonusThirdStop, THIRD_STOP_LENGTH);
 });
+
 export type StopTable = z.infer<typeof StopTableSchema>;
 
 export type Quiz = z.infer<typeof QuizSchema>;

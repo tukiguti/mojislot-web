@@ -12,6 +12,7 @@ import {
   ReelConfigSchema,
   TuningSchema,
   StopTableSchema,
+  STOP_TABLE_VERSION,
   type YakuList,
 } from '../../src/data/schemas';
 import {
@@ -155,7 +156,7 @@ function visCol(cells: readonly string[], pos: number): VisibleColumn {
 
 /** 配列から第1停止テーブルを組む（gen-stop-table と**同じ関数**）。 */
 function buildStopTable(yakuList: YakuList, reels: string[][], resolver: SlipResolver) {
-  return { mode: 'opt', firstStop: buildFirstStopTable(yakuList, reels, resolver, PULL_IN) };
+  return { dataVersion: STOP_TABLE_VERSION, mode: 'opt', firstStop: buildFirstStopTable(yakuList, reels, resolver, PULL_IN) };
 }
 
 /** その配列に対する停止制御一式（②の計測と到達率の計測で共有する）。 */
