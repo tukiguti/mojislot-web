@@ -1,7 +1,10 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import {
   appendRunRecord,
+  clearRunDraft,
   loadRunHistory,
+  saveRunDraft,
+  settleRunDraft,
   RUN_RULESET_VERSION,
   type RunRecord,
 } from '../../src/productions/RunHistory';
@@ -67,5 +70,51 @@ describe('RunHistory', () => {
   it('比較条件がない旧履歴も引き続き読み込む', () => {
     localStorage.setItem('mojislot.runHistory.v1', JSON.stringify([BASE_RECORD]));
     expect(loadRunHistory()).toEqual([BASE_RECORD]);
+  });
+
+  it('同じ runId は二重に積まない', () => {
+    expect(appendRunRecord(BASE_RECORD)).toBe(true);
+    expect(appendRunRecord({ ...BASE_RECORD, sahmai: 999 })).toBe(false);
+    expect(loadRunHistory()).toEqual([BASE_RECORD]);
+  });
+
+  describe('計数せず閉じた戦の自動確定', () => {
+    it('控えが残っていれば記録に確定し、控えは消える', () => {
+      saveRunDraft({ ...BASE_RECORD, settledAt: 50 });
+      const settled = settleRunDraft();
+      expect(settled?.runId).toBe('run-1');
+      expect(loadRunHistory()).toEqual([{ ...BASE_RECORD, settledAt: 50 }]);
+      expect(localStorage.getItem('mojislot.runDraft.v1')).toBeNull();
+    });
+
+    it('確定フックは1度だけ走る（2回目は何も積まない）', () => {
+      saveRunDraft(BASE_RECORD);
+      expect(settleRunDraft()).not.toBeNull();
+      expect(settleRunDraft()).toBeNull();
+      expect(loadRunHistory()).toHaveLength(1);
+    });
+
+    it('計数で確定済みの戦の控えが残っていても二重に積まない', () => {
+      appendRunRecord(BASE_RECORD);
+      saveRunDraft(BASE_RECORD);
+      expect(settleRunDraft()).toBeNull();
+      expect(loadRunHistory()).toHaveLength(1);
+      expect(localStorage.getItem('mojislot.runDraft.v1')).toBeNull();
+    });
+
+    it('控えが無い・0回転・壊れている場合は何も積まない', () => {
+      expect(settleRunDraft()).toBeNull();
+      saveRunDraft({ ...BASE_RECORD, spinCount: 0 });
+      expect(settleRunDraft()).toBeNull();
+      localStorage.setItem('mojislot.runDraft.v1', '{broken');
+      expect(settleRunDraft()).toBeNull();
+      expect(loadRunHistory()).toEqual([]);
+    });
+
+    it('計数後に控えを消せば確定されない', () => {
+      saveRunDraft(BASE_RECORD);
+      clearRunDraft();
+      expect(settleRunDraft()).toBeNull();
+    });
   });
 });

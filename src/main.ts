@@ -59,7 +59,13 @@ import { SfxEngine } from './audio/SfxEngine';
 import { BgmEngine } from './audio/BgmEngine';
 import { TenpaiDetector } from './productions/TenpaiDetector';
 import { PlayStats } from './productions/PlayStats';
-import { appendRunRecord, RUN_RULESET_VERSION } from './productions/RunHistory';
+import {
+  appendRunRecord,
+  clearRunDraft,
+  RUN_RULESET_VERSION,
+  saveRunDraft,
+  type RunRecord,
+} from './productions/RunHistory';
 import { getMemberId, getMemberName } from './productions/Member';
 import { NearMissDetector } from './productions/NearMissDetector';
 import {
@@ -1592,6 +1598,48 @@ export async function bootstrap() {
     runReelSpeedMax = Math.max(runReelSpeedMax, speed);
   };
 
+  // 戦の記録を組む。計数と、計数せず閉じた戦の控え（RunDraft）で同じ形にする。
+  // runId は戦の開始時に振る。控えから自動確定された戦と計数が重なっても二重に積まれない。
+  let runId = crypto.randomUUID();
+  const buildRunRecord = (settledAt: number): RunRecord => {
+    const investment = wallet.investmentTotal.get();
+    const payback = wallet.paybackTotal.get();
+    return {
+      runId,
+      memberId: getMemberId(),
+      memberName: getMemberName(),
+      chapterId,
+      machineId: machine.id,
+      startedAt: runStartedAt,
+      settledAt,
+      investment,
+      payback,
+      sahmai: payback - investment,
+      spinCount: runSpinCount,
+      totalBet: runTotalBet,
+      totalWin: runTotalWin,
+      premiumCount: runPremiumCount,
+      bonusCount: runBonusCount,
+      normalSpins: runNormalSpins,
+      effectSpins: runEffectSpins,
+      appVersion: packageMeta.version,
+      buildId: __BUILD_ID__,
+      rulesetVersion: RUN_RULESET_VERSION,
+      reelSpeedMin: Number.isFinite(runReelSpeedMin) ? runReelSpeedMin : reelSpeed(),
+      reelSpeedMax: Number.isFinite(runReelSpeedMax) ? runReelSpeedMax : reelSpeed(),
+      autoUsed: runAutoUsed,
+      missionsEnabled: challengeTracker.enabled.get(),
+      debugEnabled: debugVisible,
+      trialPlay: isTrialMachine(machine),
+    };
+  };
+  // 計数せずタブを閉じても戦を失わないよう、変わるたびに控えを書く（次の起動で確定する）。
+  const persistRunDraft = (): void => {
+    if (runSpinCount > 0) saveRunDraft(buildRunRecord(Date.now()));
+  };
+  wallet.investmentTotal.subscribe(persistRunDraft);
+  wallet.paybackTotal.subscribe(persistRunDraft);
+
   // 計数＝この戦を締める：spinCount>0 なら1戦を RunHistory に確定記録し、差枚と戦カウンタをリセット。
   //
   // 呼び口は**操作部の右端の1つだけ**。以前はドックにも同じ動作のボタンがあり、
@@ -1606,41 +1654,9 @@ export async function bootstrap() {
     // 次に通常へ戻る時から別の曲になる。今かかっている音は変えない——
     // 締めた直後に切り替わると、計数の余韻が途切れる。
     bgm.reshuffle();
-    // 借りないので、投資＝ベット総額・回収＝払い出し総額。機械割は payback / investment。
-    const investment = wallet.investmentTotal.get();
-    const payback = wallet.paybackTotal.get();
     // 空打ち（1回も回さず計数）は機械割が算出不能なので記録しない＝離脱は破棄に準ずる
-    if (runSpinCount > 0) {
-      appendRunRecord({
-        runId: crypto.randomUUID(),
-        memberId: getMemberId(),
-        memberName: getMemberName(),
-        chapterId,
-        machineId: machine.id,
-        startedAt: runStartedAt,
-        settledAt: Date.now(),
-        investment,
-        payback,
-        sahmai: payback - investment,
-        spinCount: runSpinCount,
-        totalBet: runTotalBet,
-        totalWin: runTotalWin,
-        premiumCount: runPremiumCount,
-        bonusCount: runBonusCount,
-        normalSpins: runNormalSpins,
-        effectSpins: runEffectSpins,
-        appVersion: packageMeta.version,
-        buildId: __BUILD_ID__,
-        rulesetVersion: RUN_RULESET_VERSION,
-        reelSpeedMin: Number.isFinite(runReelSpeedMin) ? runReelSpeedMin : reelSpeed(),
-        reelSpeedMax: Number.isFinite(runReelSpeedMax) ? runReelSpeedMax : reelSpeed(),
-        autoUsed: runAutoUsed,
-        missionsEnabled: challengeTracker.enabled.get(),
-        debugEnabled: debugVisible,
-        trialPlay: isTrialMachine(machine),
-      });
-    }
-    wallet.reset(0);
+    if (runSpinCount > 0) appendRunRecord(buildRunRecord(Date.now()));
+    runId = crypto.randomUUID();
     runStartedAt = Date.now();
     runSpinCount = 0;
     runTotalBet = 0;
@@ -1652,6 +1668,9 @@ export async function bootstrap() {
     runAutoUsed = false;
     runReelSpeedMin = Infinity;
     runReelSpeedMax = -Infinity;
+    // 戦カウンタを0へ戻してから財布を戻す（戻す通知で控えを書き直さない）
+    clearRunDraft();
+    wallet.reset(0);
   };
   /**
    * メニュー（ドックの「メニュー」）。**遊技中に触らないもの**をまとめる。
