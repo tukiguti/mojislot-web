@@ -449,6 +449,8 @@ function runChapter(
   const STEP_TRIGGER_MIN_PAYOUT = 5;
   /** 次ゲームの予約。`bonus` があればそれ、無ければ「必ず演出」の小役ゲーム。 */
   let stepNext: { bonus: 'big' | 'reg' | null } | null = null;
+  /** ボーナスの無いチャンス目のあと、次ゲームで外れの狙え（BIG）を出すか（main.ts の fakeFollow）。 */
+  let fakeNext = false;
   let stepCount = 0;
   let stepRed = 0;
   let stepGold = 0;
@@ -543,6 +545,23 @@ function runChapter(
     } else {
       effect = 'none';
     }
+    // 狙えの対象の差し替え（main.ts と同じ）。打ち手は差し替えた役を狙うので、本当の
+    // フラグの役を取りこぼすことがある。
+    //  - チャンス目（ボーナスなし）のあとの外れの狙え：対象は BIG（クイズも狙え扱い）
+    //  - 矛盾 5.1：通常時のボーナスのゲームの狙えの一部は、小役を狙わせる
+    let decoyAim: Yaku | null = null;
+    const fakeNow = fakeNext;
+    fakeNext = false;
+    if (fakeNow && !heldYaku && !carried && !step && !bonusActive) {
+      effect = 'aim';
+      decoyAim = yakuList.premiumYaku[0] ?? null;
+    } else if (
+      effect === 'aim' && yaku && !bonusActive &&
+      (yaku.category === 'premium' || yaku.category === 'bonus') &&
+      rng() < tuning.contradiction.aimDecoyRate
+    ) {
+      decoyAim = yakuList.coreYaku[Math.floor(rng() * yakuList.coreYaku.length)] ?? null;
+    }
     const shisaTier =
       effect === 'shisa' && yaku
         ? eligibility.pickTier(yaku, rng)
@@ -632,7 +651,9 @@ function runChapter(
           ? (yakuList.premiumYaku[0] ?? null)
           : null;
       const aimYaku =
-        effect === 'shisa' && !escalated
+        effect === 'aim' && decoyAim
+          ? decoyAim
+          : effect === 'shisa' && !escalated
           ? shisaGuess
           : effect === 'none' && delayGuess && !carriedNoticed
             ? delayGuess
@@ -761,6 +782,13 @@ function runChapter(
       if (carryYaku && !pendingBonus && !bonusActive && !heldBonusYaku) {
         heldBonusYaku = carryYaku;
         res.eyeBonus++;
+      }
+      if (
+        !carryYaku && !pendingBonus && !bonusActive && !heldBonusYaku &&
+        hits.some((h) => h.yaku.category === 'chance') &&
+        rng() < tuning.chanceEye.fakeFollowRate
+      ) {
+        fakeNext = true;
       }
     }
     const isPremiumNow = hits.some((h) => h.yaku.category === 'premium');

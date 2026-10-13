@@ -650,8 +650,14 @@ export const TuningSchema = z.object({
           quiz: z.number().nonnegative(),
         })
         .default({ lamp: 0.4, aim: 0.3, quiz: 0.3 }),
+      /**
+       * ボーナスの無いチャンス目のあと、次ゲームで BIG の狙え（出せればクイズ）を出して
+       * **外れる**割合（2026-10-13）。これが無いと、チャンス目のあとに狙え・クイズが出た
+       * 時点でボーナス確定と読めてしまう。
+       */
+      fakeFollowRate: z.number().min(0).max(1).default(0.3),
     })
-    .default({ follow: { lamp: 0.4, aim: 0.3, quiz: 0.3 } }),
+    .default({ follow: { lamp: 0.4, aim: 0.3, quiz: 0.3 }, fakeFollowRate: 0.3 }),
   /**
    * 矛盾（2026-10-12・drafts/reach-eye-redesign §5）。正しく押したのに揃わない、を
    * ボーナスの時だけ起こす。

@@ -575,6 +575,11 @@ export async function bootstrap() {
    * 持ち越し中は普段は演出を出さない（none）が、チャンス目から進んだ時だけ出す。
    */
   let chanceFollow: 'aim' | 'quiz' | null = null;
+  /**
+   * ボーナスの無いチャンス目のあと、次ゲームで出す**外れの**狙え・クイズ（2026-10-13）。
+   * 内部役は普段どおり引き、狙え・クイズの対象だけを BIG にする。BIG のフラグは無いので揃わない。
+   */
+  let fakeFollow: 'aim' | 'quiz' | null = null;
   /** 持ち越しが始まってからのゲーム数。 */
   let heldBonusSpins = 0;
 
@@ -1030,6 +1035,8 @@ export async function bootstrap() {
   let pendingDebugEffect: ForcedEffect | null = null;
   /** デバッグ：次のレバーで強制する内部役（ボーナスのおかわり確認用）。 */
   let pendingForcedRole: InternalRoleResult | null = null;
+  /** デバッグ：予約した内部役で出す演出（目印揃いの予約では狙えを出して AUTO に目印を狙わせる）。 */
+  let pendingForcedEffect: EffectType | null = null;
   /** デバッグ：次のレバーで遅れを強制する。抽選と条件を飛ばして見た目だけ確認する。 */
   let pendingForcedDelay = false;
   let autoMode = false;
@@ -1205,6 +1212,8 @@ export async function bootstrap() {
     role: InternalRoleResult,
     effect: EffectType,
     source: RoundSource,
+    /** 狙え・クイズの対象を内部役の表示役から差し替える（チャンス目のあとの外れの形）。 */
+    targetOverride: Yaku | null = null,
   ) => {
     const mark = landmarkNow();
     bitaChance =
@@ -1244,7 +1253,7 @@ export async function bootstrap() {
         ? (yakuList.coreYaku[Math.floor(Math.random() * yakuList.coreYaku.length)] ?? null)
         : null;
     applyEffect(effect, {
-      targetYaku: aimDecoy ?? yaku,
+      targetYaku: aimDecoy ?? targetOverride ?? yaku,
       shisaTier,
       shisaCandidates: shisaTier
         ? eligibility.candidatesFor(shisaTier, activeInternalRoleState())
@@ -1842,7 +1851,9 @@ export async function bootstrap() {
       const role = internalRoleLottery.forRoleId(roleId);
       if (!role) return;
       pendingForcedRole = role;
-      showResult(`${role.yakuName ?? roleId}（${roleId}）を次のレバーに予約`, 'win');
+      // 狙えも出す。AUTO は演出の出たゲームでしか狙わないので、これで目印を狙って揃える
+      pendingForcedEffect = 'aim';
+      showResult(`${role.yakuName ?? roleId}（${roleId}）を狙え付きで次のレバーに予約`, 'win');
     },
     triggerNextDelay: () => {
       // 次のレバーで遅れを強制する。素の出現率は 1/214 かつ無演出のゲーム限定なので、
@@ -2249,6 +2260,9 @@ export async function bootstrap() {
     // 予告した内容と実際の内部役が食い違う。
     const pre = preRoll;
     preRoll = null;
+    // 外れの狙え・クイズは直後の1ゲームだけ（通常抽選のブランチで使う）。ここで取り出して消す
+    const fakeFollowNow = fakeFollow;
+    fakeFollow = null;
 
     if (forcedFreezeRole) {
       activateRound(forcedFreezeRole, 'none', 'freeze');
@@ -2278,14 +2292,17 @@ export async function bootstrap() {
     } else if (pendingForcedRole) {
       // デバッグ：内部役を直接指定する。演出は通常どおり抽選する（おかわりの見え方も確認したいため）。
       const forced = pendingForcedRole;
+      const forcedEffect = pendingForcedEffect;
       pendingForcedRole = null;
+      pendingForcedEffect = null;
       spinDebugForced = true;
       const forcedYaku = internalRoleLottery.yakuFor(forced);
       activateRound(
         forced,
-        forcedYaku
-          ? scheduler.rollAvailable(eligibility.eligibleEffects(forcedYaku))
-          : 'none',
+        forcedEffect ??
+          (forcedYaku
+            ? scheduler.rollAvailable(eligibility.eligibleEffects(forcedYaku))
+            : 'none'),
         'debug',
       );
     } else if (heldBonusYaku) {
@@ -2343,8 +2360,11 @@ export async function bootstrap() {
         (forcedStep !== null ||
           (isStepTrigger(role) && Math.random() < STEP_ENTRY_RATE));
 
-      const effect: EffectType = doFreeze || startStep ? 'none' : rolled.effect;
-      activateRound(role, effect, doFreeze ? 'freeze' : 'lottery');
+      // チャンス目（ボーナスなし）のあとの外れの狙え・クイズ。対象は BIG に差し替える
+      const fake = !doFreeze && !startStep && !bonusSession.spinActive ? fakeFollowNow : null;
+      const fakeTarget = fake ? (yakuList.premiumYaku[0] ?? null) : null;
+      const effect: EffectType = doFreeze || startStep ? 'none' : (fake ?? rolled.effect);
+      activateRound(role, effect, doFreeze ? 'freeze' : 'lottery', fakeTarget);
 
       if (startStep) {
         const color = forcedStep ?? pickStepColor();
@@ -2873,6 +2893,19 @@ export async function bootstrap() {
         // 目印が揃った手触り。ボーナスの有無はここでは言わない
         for (const v of views) v.startTenpaiFlash(outcome.reachEye);
         sfx.tenpaiPremium();
+      }
+      if (
+        outcome.chanceEye &&
+        !carryYaku &&
+        !announcedBonus &&
+        !heldBonusYaku &&
+        !bonusZone.isActive() &&
+        Math.random() < tuning.chanceEye.fakeFollowRate
+      ) {
+        // ボーナスの無いチャンス目でも、一部は次ゲームで狙え・クイズへ進んで外れる
+        const big = yakuList.premiumYaku[0];
+        const canQuiz = big ? eligibility.eligibleEffects(big).includes('quiz') : false;
+        fakeFollow = canQuiz && Math.random() < 0.5 ? 'quiz' : 'aim';
       }
       if (carryYaku && !announcedBonus && !bonusZone.isActive()) {
         heldBonusYaku = carryYaku;
@@ -3467,8 +3500,11 @@ export async function bootstrap() {
   };
 
   /** AUTO が予告役を狙うとき、target を中段の手前何コマで止めて残りを引き込みに
-   *  委ねるかのマージン（引き込み上限 PULL_IN_CELLS に合わせる）。 */
-  const AUTO_AIM_MARGIN = PULL_IN_CELLS;
+   *  委ねるかのマージン。 */
+  // 〔2026-10-13〕4（引き込みの上限ちょうど）から2へ。上限ちょうどだと押すタイミングが
+  // 少し遅れただけで届かず、目印揃いなどを取りこぼしていた。配列が「狙えば必ず揃う」と
+  // 保証しているのは2コマ手前（tests/audit/aim-guarantee・aim-groups）なので、それに合わせる
+  const AUTO_AIM_MARGIN = Math.min(2, PULL_IN_CELLS);
 
   /**
    * AUTO の狙い停止：target symbol が中段付近に来たら stopReel を呼ぶ。

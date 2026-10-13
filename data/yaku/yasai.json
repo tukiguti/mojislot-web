@@ -104,8 +104,8 @@
       "kind": "miss",
       "displayYakuId": null,
       "rate": {
-        "default": 0.4296830462,
-        "rescue": 0.3300597052,
+        "default": 0.4279506244,
+        "rescue": 0.3283272834,
         "bonus": 0.0
       }
     },
@@ -206,8 +206,8 @@
       "displayYakuId": "reach_eye",
       "carry": "raichi",
       "rate": {
-        "default": 6.103515625e-05,
-        "rescue": 6.103515625e-05,
+        "default": 0.0001220703125,
+        "rescue": 0.0001220703125,
         "bonus": 0.0
       }
     },
@@ -217,8 +217,8 @@
       "displayYakuId": "reach_eye",
       "carry": "puramu",
       "rate": {
-        "default": 6.103515625e-05,
-        "rescue": 6.103515625e-05,
+        "default": 0.0001220703125,
+        "rescue": 0.0001220703125,
         "bonus": 0.0
       }
     },
@@ -228,8 +228,8 @@
       "displayYakuId": "reach_eye",
       "carry": "reg",
       "rate": {
-        "default": 0.0001220703125,
-        "rescue": 0.0001220703125,
+        "default": 0.000244140625,
+        "rescue": 0.000244140625,
         "bonus": 0.0
       }
     },
@@ -239,8 +239,8 @@
       "displayYakuId": "chance_eye",
       "carry": "raichi",
       "rate": {
-        "default": 0.0001220703125,
-        "rescue": 0.0001220703125,
+        "default": 0.000244140625,
+        "rescue": 0.000244140625,
         "bonus": 0.0
       }
     },
@@ -250,8 +250,8 @@
       "displayYakuId": "chance_eye",
       "carry": "puramu",
       "rate": {
-        "default": 0.0001220703125,
-        "rescue": 0.0001220703125,
+        "default": 0.000244140625,
+        "rescue": 0.000244140625,
         "bonus": 0.0
       }
     },
@@ -261,8 +261,8 @@
       "displayYakuId": "chance_eye",
       "carry": "reg",
       "rate": {
-        "default": 0.000244140625,
-        "rescue": 0.000244140625,
+        "default": 0.00048828125,
+        "rescue": 0.00048828125,
         "bonus": 0.0
       }
     },
@@ -272,8 +272,8 @@
       "displayYakuId": "chance_eye",
       "carry": null,
       "rate": {
-        "default": 0.001,
-        "rescue": 0.001,
+        "default": 0.002,
+        "rescue": 0.002,
         "bonus": 0.0
       }
     }
