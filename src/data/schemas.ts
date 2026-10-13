@@ -661,14 +661,15 @@ export const TuningSchema = z.object({
   /**
    * 矛盾（2026-10-12・drafts/reach-eye-redesign §5）。正しく押したのに揃わない、を
    * ボーナスの時だけ起こす。
-   *  - aimDecoyRate：通常時のボーナスのゲームで出す狙えのうち、**小役を狙わせる**割合。
-   *    小役のフラグは無いので揃わない（コンボも切れない）＝矛盾。ボーナスは持ち越す
+   *  - decoyRate：通常時のボーナスのゲームで出す演出（狙え・示唆・クイズ）のうち、
+   *    **小役を指す**割合。小役のフラグは無いので揃わない（コンボも切れない）＝矛盾。
+   *    小役がテンパイしていれば、最後のリールでずれて止まりリーチ目になる。ボーナスは持ち越す
    */
   contradiction: z
     .object({
-      aimDecoyRate: z.number().min(0).max(1).default(0.2),
+      decoyRate: z.number().min(0).max(1).default(0.2),
     })
-    .default({ aimDecoyRate: 0.2 }),
+    .default({ decoyRate: 0.2 }),
   /**
    * リール速度（コマ/秒）。実機（ジャグラー等）は約28コマ/秒＝0.75秒/周。
    * モーションブラー（ReelView）実装前は残像が無く、実機速度だと図柄が追えずカクついて見えたため

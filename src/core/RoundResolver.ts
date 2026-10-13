@@ -51,9 +51,7 @@ export interface RoundOutcome {
   isRegular: boolean;
   /** チェリー成立（昇格抽選の契機）。 */
   cherryHit: boolean;
-  /** 目印の中段揃い（リーチ目）が成立した。 */
-  reachEye: boolean;
-  /** 目印の中段以外の揃い（チャンス目）が成立した。 */
+  /** 目印の3つ揃い（チャンス目）が成立した。ラインは問わない。 */
   chanceEye: boolean;
   /**
    * このゲームを含めた連チャン数。揃えば1つ増え、**小役・チェリー・目印揃いのフラグが
@@ -156,8 +154,7 @@ export class RoundResolver {
       isPremium,
       isRegular,
       cherryHit: hits.some((h) => h.yaku.category === 'cherry'),
-      reachEye: hits.some((h) => h.yaku.category === 'chance' && h.paylineId === 'middle'),
-      chanceEye: hits.some((h) => h.yaku.category === 'chance' && h.paylineId !== 'middle'),
+      chanceEye: hits.some((h) => h.yaku.category === 'chance'),
       streakAfter,
       streakMult,
       win: base + singleWin + bitaBonus,

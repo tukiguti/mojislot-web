@@ -31,11 +31,7 @@ const YAKU: YakuList = {
     { id: 'cherry', name: 'もも', symbols: ['も', 'も'], category: 'cherry' },
   ],
   chanceYaku: [
-    { id: 'reach_eye', name: 'リーチ目', symbols: ['目', '目', '目'], category: 'chance', payout: 1, lines: ['middle'] },
-    {
-      id: 'chance_eye', name: 'チャンス目', symbols: ['目', '目', '目'], category: 'chance', payout: 1,
-      lines: ['top', 'bottom', 'diag_tlbr', 'diag_bltr'],
-    },
+    { id: 'chance_eye', name: 'チャンス目', symbols: ['目', '目', '目'], category: 'chance', payout: 1 },
   ],
   singleYaku: [
     { id: 'one', name: 'とふん', symbols: ['と', 'ふ', 'ん'], category: 'single' },
@@ -59,7 +55,7 @@ const PAYOUT: Payout = {
 const resolver = new RoundResolver({
   judge: new YakuJudge(YAKU),
   calc: new PayoutCalc(PAYOUT),
-  comboYakuIds: new Set(['core_a', 'core_b', 'cherry', 'reach_eye', 'chance_eye']),
+  comboYakuIds: new Set(['core_a', 'core_b', 'cherry', 'chance_eye']),
   singlePayout: PAYOUT.baseMultiplier.single,
   bitaMultiplier: PAYOUT.bitaMultiplier,
 });
@@ -177,29 +173,29 @@ describe('RoundResolver', () => {
     expect(r.win).toBe(4);
   });
 
-  describe('目印揃い（リーチ目・チャンス目）', () => {
-    it('中段ならリーチ目。1枚で倍率は乗らず、コンボはつながる', () => {
-      const r = resolve(middleOnly('目', '目', '目'), ['reach_eye'], { streakBefore: 2 });
-      expect(r).toMatchObject({ reachEye: true, chanceEye: false, win: 1, streakAfter: 3 });
+  describe('目印揃い（チャンス目）', () => {
+    it('中段でもチャンス目。1枚で倍率は乗らず、コンボはつながる', () => {
+      const r = resolve(middleOnly('目', '目', '目'), ['chance_eye'], { streakBefore: 2 });
+      expect(r).toMatchObject({ chanceEye: true, win: 1, streakAfter: 3 });
     });
 
-    it('中段以外ならチャンス目', () => {
+    it('中段以外もチャンス目', () => {
       const grid: Grid3x3 = [
         ['目', '目', '目'],
         ['ぬ', 'ぬ', 'ぬ'],
         ['ぬ', 'ぬ', 'ぬ'],
       ];
       const r = resolve(grid, ['chance_eye'], { streakBefore: 2 });
-      expect(r).toMatchObject({ reachEye: false, chanceEye: true, win: 1, streakAfter: 3 });
+      expect(r).toMatchObject({ chanceEye: true, win: 1, streakAfter: 3 });
     });
 
-    it('チャンス目のフラグで中段に揃っても成立させない（出目＝フラグ）', () => {
-      const r = resolve(middleOnly('目', '目', '目'), ['chance_eye']);
-      expect(r).toMatchObject({ reachEye: false, chanceEye: false, win: 0 });
+    it('フラグが無ければ揃っても成立させない（出目＝フラグ）', () => {
+      const r = resolve(middleOnly('目', '目', '目'), []);
+      expect(r).toMatchObject({ chanceEye: false, win: 0 });
     });
 
     it('ビタ押しの上乗せは付けない（1枚が2枚に化けるので）', () => {
-      const r = resolve(middleOnly('目', '目', '目'), ['reach_eye'], { slipCells: [0, 0, 0] });
+      const r = resolve(middleOnly('目', '目', '目'), ['chance_eye'], { slipCells: [0, 0, 0] });
       expect(r).toMatchObject({ bitaBonus: 0, win: 1 });
     });
   });

@@ -200,46 +200,13 @@
       }
     },
     {
-      "id": "reach_namazu",
-      "kind": "chance",
-      "displayYakuId": "reach_eye",
-      "carry": "namazu",
-      "rate": {
-        "default": 0.0001220703125,
-        "rescue": 0.0001220703125,
-        "bonus": 0.0
-      }
-    },
-    {
-      "id": "reach_inko",
-      "kind": "chance",
-      "displayYakuId": "reach_eye",
-      "carry": "inko",
-      "rate": {
-        "default": 0.0001220703125,
-        "rescue": 0.0001220703125,
-        "bonus": 0.0
-      }
-    },
-    {
-      "id": "reach_reg",
-      "kind": "chance",
-      "displayYakuId": "reach_eye",
-      "carry": "reg",
-      "rate": {
-        "default": 0.000244140625,
-        "rescue": 0.000244140625,
-        "bonus": 0.0
-      }
-    },
-    {
       "id": "chance_namazu",
       "kind": "chance",
       "displayYakuId": "chance_eye",
       "carry": "namazu",
       "rate": {
-        "default": 0.000244140625,
-        "rescue": 0.000244140625,
+        "default": 0.0003662109375,
+        "rescue": 0.0003662109375,
         "bonus": 0.0
       }
     },
@@ -249,8 +216,8 @@
       "displayYakuId": "chance_eye",
       "carry": "inko",
       "rate": {
-        "default": 0.000244140625,
-        "rescue": 0.000244140625,
+        "default": 0.0003662109375,
+        "rescue": 0.0003662109375,
         "bonus": 0.0
       }
     },
@@ -260,8 +227,8 @@
       "displayYakuId": "chance_eye",
       "carry": "reg",
       "rate": {
-        "default": 0.00048828125,
-        "rescue": 0.00048828125,
+        "default": 0.000732421875,
+        "rescue": 0.000732421875,
         "bonus": 0.0
       }
     },
@@ -280,20 +247,6 @@
   "singleYaku": [],
   "chanceYaku": [
     {
-      "id": "reach_eye",
-      "name": "リーチ目",
-      "symbols": [
-        "獣",
-        "獣",
-        "獣"
-      ],
-      "category": "chance",
-      "payout": 1,
-      "lines": [
-        "middle"
-      ]
-    },
-    {
       "id": "chance_eye",
       "name": "チャンス目",
       "symbols": [
@@ -302,13 +255,7 @@
         "獣"
       ],
       "category": "chance",
-      "payout": 1,
-      "lines": [
-        "top",
-        "bottom",
-        "diag_tlbr",
-        "diag_bltr"
-      ]
+      "payout": 1
     }
   ]
 }
