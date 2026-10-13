@@ -13,7 +13,6 @@ import {
 import { CoinWallet } from '../../src/core/CoinWallet';
 import { PayoutCalc } from '../../src/core/PayoutCalc';
 import { YakuJudge } from '../../src/core/YakuJudge';
-import { ReachEyes } from '../../src/core/ReachEyes';
 import { RoundResolver } from '../../src/core/RoundResolver';
 import { StopController } from '../../src/core/StopController';
 import { StopTableLookup } from '../../src/core/StopTable';
@@ -51,7 +50,6 @@ const stopTable = StopTableSchema.parse(readJson(`${DATA}/stops/${CHAPTER}.json`
 function newGame() {
   const calc = new PayoutCalc(payout);
   const judge = new YakuJudge(yakuList);
-  const reachEyes = new ReachEyes(null, yakuList);
   const stopController = new StopController({
     yakuList,
     slipResolver: new SlipResolver(yakuList, {
@@ -65,7 +63,7 @@ function newGame() {
   const roundResolver = new RoundResolver({
     judge,
     calc,
-    reachEyes,
+    comboYakuIds: new Set([...yakuList.coreYaku, ...yakuList.cherryYaku, ...yakuList.chanceYaku].map((y) => y.id)),
     singlePayout: payout.baseMultiplier.single,
     bitaMultiplier: payout.bitaMultiplier,
   });

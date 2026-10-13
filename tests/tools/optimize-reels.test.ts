@@ -297,6 +297,10 @@ function countLeaks(
       ...yakuList.premiumYaku,
     ].map((y) => ({ label: y.id, ids: [y.id] })),
     { label: 'single', ids: yakuList.singleYaku.map((y) => y.id) },
+    // 目印揃いの内部役（2026-10-12）。ボーナスなしのチャンス目で中段に揃うと「確定」の嘘になる
+    ...yakuList.internalRoles
+      .filter((r) => r.kind === 'chance' && (r.id === 'chance' || r.id === 'reach_reg'))
+      .map((r) => ({ label: r.id, ids: [r.displayYakuId as string] })),
   ];
 
   let leaks = 0;
@@ -1042,36 +1046,31 @@ function pairRoleSymbols(yakuList: YakuList): [string[], string[]] {
 }
 
 /**
- * ペアの上下に担当の役の文字が**足りない数**（0 がハード制約）。上側2コマ・下側2コマの
- * それぞれに、担当の役の文字が1つずつ入っているかを見る。
- * ペアの**すぐ隣**に目印があるのも1つと数える。ペア2は担当が1役なので、上の条件だけでは
- * 残りの1コマに目印が入り、ペアと目印がくっついて見えた（2026-10-11 指摘）。
+ * ペアの上下に担当の役の文字が**足りない数**（0 がハード制約）。上側3コマ・下側3コマの
+ * それぞれに、担当の役の文字が全部入っているかを見る（2026-10-12 に2コマぴったりから
+ * 3コマ＝間に1文字までにゆるめた。左・中の狙い所と同じ理由）。
+ * ペアの**すぐ隣**に目印があるのも1つと数える（2026-10-11 指摘）。
  *
- * 担当の文字の塊は**前後2コマずつでぴたりと終わる**（2026-10-11 指摘）。「1つ以上ある」
- * だけだと、外側に同じ文字が続いて片側だけ「しましま」と4つ並んだり、ペア2の側に
- * ペア1の担当の文字が混ざって「ぐぶぐぶ」になったりした。そこで次も1つずつ数える。
- *  - 前後2コマに、もう片方のペアの担当の文字がある
- *  - 担当が1役のペアで、ペアに接するコマがその役の文字でない
- *  - ペアから3コマ目に、そのペアの担当の文字がある
+ * ペアに近い2コマには、もう片方のペアの担当の文字を混ぜない（2026-10-11 指摘の「ぐぶぐぶ」）。
+ * 「しましま」のような塊は、同じ字の2連・1つおいて同じ字の禁止（patternPenalty）で防ぐ。
  */
 function thirdReelFlank(yakuList: YakuList, reels: string[][], landmark?: string): number {
   const cells = reels[2];
   const [r1, r2] = pairRoleSymbols(yakuList);
   let miss = 0;
   for (const [pair, syms, other] of [[PAIR1_AT, r1, r2], [PAIR2_AT, r2, r1]] as const) {
-    const below = [cells[(pair[0] - 1 + N) % N], cells[(pair[0] - 2 + N) % N]];
-    const above = [cells[(pair[1] + 1) % N], cells[(pair[1] + 2) % N]];
+    // 前後3コマずつ（2026-10-12 に2コマぴったりからゆるめた。間に1文字まで）
+    const below = [1, 2, 3].map((d) => cells[(pair[0] - d + N) % N]);
+    const above = [1, 2, 3].map((d) => cells[(pair[1] + d) % N]);
     for (const side of [below, above]) {
       for (const sym of syms) if (!side.includes(sym)) miss++;
-      for (const c of side) if (other.includes(c) && !syms.includes(c)) miss++;
-      if (syms.length === 1 && side[0] !== syms[0]) miss++;
+      // もう片方のペアの担当を混ぜないのは、ペアに近い2コマだけ（前の決まりと同じ範囲）
+      for (const c of side.slice(0, 2)) if (other.includes(c) && !syms.includes(c)) miss++;
     }
     if (landmark !== undefined) {
       if (below[0] === landmark) miss++;
       if (above[0] === landmark) miss++;
     }
-    const outside = [cells[(pair[0] - 3 + N) % N], cells[(pair[1] + 3) % N]];
-    for (const c of outside) if (syms.includes(c)) miss++;
   }
   return miss;
 }
@@ -1110,7 +1109,8 @@ function aimGroups(yakuList: YakuList, landmark: string | undefined): AimGroup[]
     groups.push({
       label: '目印',
       anchor: [landmark, landmark, landmark],
-      yakus: [...yakuList.cherryYaku],
+      // 目印揃い（リーチ目・チャンス目）も目印を狙えば揃う（2026-10-12）
+      yakus: [...yakuList.cherryYaku, ...yakuList.chanceYaku],
     });
   }
   return groups;
@@ -1267,7 +1267,8 @@ function groupMisses(
     return n;
   }
   const t = anchorMissTable(yakuList, reels, controller, judge, landmark, orders);
-  const cherries = new Set(yakuList.cherryYaku.map((y) => y.id));
+  // チェリーと目印揃い（リーチ目・チャンス目）は目印で揃うことが必須
+  const cherries = new Set([...yakuList.cherryYaku, ...yakuList.chanceYaku].map((y) => y.id));
   let n = 0;
   for (const [id, m] of t) {
     // チェリーは**目印で揃うことが必須**（2026-10-10 決定：目印に必ず役目を持たせる）
@@ -1373,15 +1374,20 @@ function anchorSpacing(yakuList: YakuList, reels: string[][], landmark: string |
 }
 
 /**
- * 左・中リールの狙い所の**すぐ前後に担当の役の文字が無い**数（0 がハード制約・2026-10-12 決定）。
+ * 左・中リールの狙い所の**前後に担当の役の文字が無い**数（0 がハード制約・2026-10-12 決定）。
  * 右リールのペアと同じく、狙い所を見れば何が取れるかが読める形にする。
  *
- *  - BIG1 の図柄：前後の1コマずつに、3枚役と4枚役の文字が1つずつ
- *  - BIG2 の図柄：前後の1コマずつに、5枚役と7枚役の文字が1つずつ
- *  - 目印：前後のどちらかがチェリーの文字。もう片方はボーナス図柄にしない
+ *  - BIG1 の図柄：上側に1つ・下側に1つ、3枚役と4枚役の文字
+ *  - BIG2 の図柄：上側に1つ・下側に1つ、5枚役と7枚役の文字
+ *  - 目印：上側か下側にチェリーの文字。すぐ隣にはボーナス図柄を置かない
  *    （目印を狙ったハズレでボーナス図柄が見え、テンパイに見えるため）
  *
- * 担当の文字がそのリールで1種類しかない時（2役の文字が同じ）は、前後のどちらかにあればよい。
+ * 上側・下側は**2コマずつ（間に1文字まで）**。最初は「すぐ隣」だったが、担当の2役が
+ * 3リールとも隣り合うので、片方を揃えるともう片方が隣の段に揃う局面が残り、探索が
+ * 先へ進まなかった（2026-10-12 にゆるめた。狙い所を狙えば引き込める範囲に入る）。
+ * 担当の文字は**別の狙い所と共有しない**（その文字が別の狙い所に近い・同じ近さなら数えない）。
+ *
+ * **向き**：チェリー・BIG1・BIG2 とも、上側に来る担当を左と中で逆にしてそろえる（関数の中）。
  */
 function anchorNeighborMiss(yakuList: YakuList, reels: string[][], landmark: string | undefined): number {
   if (!landmark) return 0;
@@ -1392,27 +1398,53 @@ function anchorNeighborMiss(yakuList: YakuList, reels: string[][], landmark: str
     { sym: (r: number) => big2?.symbols[r], roles: yakuList.coreYaku.filter((y) => (y.payout ?? 7) >= 5) },
     { sym: () => landmark, roles: yakuList.cherryYaku },
   ];
+  const dist = (a: number, b: number) => Math.min(Math.abs(a - b), N - Math.abs(a - b));
   let miss = 0;
+  /** groups ごと・リールごとの「上側の担当」の向き（左と中で逆にする） */
+  const orient: Set<string>[][] = groups.map(() => [new Set(), new Set()]);
   for (const r of [0, 1]) {
     const cells = reels[r];
     const bonus = new Set(
       [...yakuList.premiumYaku, ...yakuList.bonusYaku].map((y) => y.symbols[r]).filter(Boolean),
     );
-    for (const g of groups) {
+    const anchorSyms = new Set(groups.map((g) => g.sym(r)).filter(Boolean));
+    const anchorsAt = cells.flatMap((c, p) => (anchorSyms.has(c) ? [p] : []));
+    /** p の狙い所の担当として数えてよいコマか（別の狙い所の方が近い・同じ近さなら数えない） */
+    const ownCell = (p: number, q: number) => anchorsAt.every((o) => o === p || dist(q, o) > dist(q, p));
+    groups.forEach((g, gi) => {
       const a = g.sym(r);
-      if (a === undefined) continue;
+      if (a === undefined) return;
       const roles = [...new Set(g.roles.map((y) => y.symbols[r]).filter((x): x is string => x !== undefined))];
       cells.forEach((c, p) => {
         if (c !== a) return;
-        const nb = [cells[(p - 1 + N) % N], cells[(p + 1) % N]];
+        // 上側・下側の2コマずつ（間に1文字まで）。近い方から見る
+        const up = [1, 2].map((d) => (p + d) % N).filter((q) => ownCell(p, q));
+        const dn = [1, 2].map((d) => (p - d + N) % N).filter((q) => ownCell(p, q));
+        const roleAt = (qs: number[]) => qs.map((q) => cells[q]).find((x) => roles.includes(x));
+        const u = roleAt(up);
+        const d = roleAt(dn);
         if (roles.length >= 2) {
-          for (const sym of roles) if (!nb.includes(sym)) miss++;
+          // 上に1つ・下に1つ、別々の役
+          if (u === undefined || d === undefined || u === d) miss++;
+          if (u !== undefined) orient[gi][r].add(String(g.roles.findIndex((y) => y.symbols[r] === u)));
         } else if (roles.length === 1) {
-          if (!nb.includes(roles[0])) miss++;
-          if (a === landmark) for (const c2 of nb) if (c2 !== roles[0] && bonus.has(c2)) miss++;
+          if (u === undefined && d === undefined) miss++;
+          orient[gi][r].add(u !== undefined ? 'up' : 'down');
+          // 目印のすぐ隣にボーナス図柄を置かない（目印を狙ったハズレでテンパイに見える）
+          if (a === landmark) {
+            for (const q of [(p + 1) % N, (p - 1 + N) % N]) if (bonus.has(cells[q])) miss++;
+          }
         }
       });
-    }
+    });
+  }
+  // **向き**（2026-10-12）：チェリー・BIG1・BIG2 とも、上側に来る担当を左と中で逆にし、
+  // 全部の狙い所でそろえる。同じ向きだと、片方の役を上段に揃えた時にもう片方が下段に揃い
+  // （ウサギ上段＋キリン下段、目印を横に揃えた時の隣の段のチェリーなど）、フラグの無い役が
+  // 揃うので制御がその止め方を拒んだ。比べるのは文字ではなく、どの役の文字か
+  for (const [l, m] of orient) {
+    miss += Math.max(0, l.size - 1) + Math.max(0, m.size - 1);
+    if (l.size === 1 && m.size === 1 && [...l][0] === [...m][0]) miss++;
   }
   return miss;
 }
@@ -1652,6 +1684,96 @@ describe.skipIf(!RUN)('リール配列の再最適化', () => {
           nbr: curNbr, pattern: curPattern,
         });
         let bestViol = curViol;
+        // `OPT_SWEEP=1`：焼きなましの代わりに**掃き出し**（2026-10-12）。並びの条件を崩さない
+        // 1か所の入れ替えと、候補の山（OPT_POOL）からの1リールの取り替えを**全部**試し、
+        // 違反が一番減るものを採る。減らなくなるまで繰り返し、OPT_SAVE に保存して終える
+        // （書き出しは保存結果から OPT_ITER=1 で行う＝全部の指標をそこで測り直す）。
+        // 乱数の焼きなましが数件の取りこぼしで何時間も止まったので、近所を総当たりする。
+        if (process.env.OPT_SWEEP === '1') {
+          const shapeOf = (c: string[][]) =>
+            landmarkCrowd(c, landmark) + (landmark ? thirdReelFlank(yakuList, c, landmark) : 0) +
+            anchorNeighborMiss(yakuList, c, landmark) + anchorSpacing(yakuList, c, landmark) +
+            (landmark ? patternPenalty(c, landmark) : 0);
+          const evalViol = (c: string[][], limit: number, shapeLimit: number): number => {
+            const crowd = landmarkCrowd(c, landmark);
+            const flank = landmark ? thirdReelFlank(yakuList, c, landmark) : 0;
+            const nbr = anchorNeighborMiss(yakuList, c, landmark) + anchorSpacing(yakuList, c, landmark);
+            const pattern = landmark ? patternPenalty(c, landmark) : 0;
+            if (crowd + flank + nbr + pattern > shapeLimit) return Infinity;
+            const ctrl = makeController(yakuList, c, resolver);
+            const v = {
+              aim: aimMisses(yakuList, c, ctrl, judge, AIM_ORDERS_FAST),
+              leaks: 0,
+              triples: countTripleTenpai(yakuList, c),
+              bases: basePositionPenalty(yakuList, c),
+              golds: goldTellPenalty(yakuList, c),
+              runs: runPenalty(c),
+              budget: budgetOf(c),
+              blind: thirdReelBlindSpots(yakuList, c),
+              pairs: thirdReelAdjacentPairs(yakuList, c),
+              group: groupMisses(yakuList, c, ctrl, judge, landmark, GROUP_ORDERS),
+              unpaired: landmark ? thirdReelUnpaired(yakuList, c) : 0,
+              range: landmark ? anchorRangeRate(yakuList, c, ctrl, judge, landmark, GROUP_ORDERS) : 1,
+              crowd, flank, nbr, pattern,
+            };
+            const light = violation(v);
+            if (light >= limit) return Infinity;
+            const cutoff = Math.floor(limit - light);
+            const leaks = countLeaks(yakuList, c, resolver, judge, cutoff, ctrl, SCAN_ORDERS, SCAN_STEP);
+            if (leaks > cutoff) return Infinity;
+            return violation({ ...v, leaks });
+          };
+          let round = 0;
+          for (;;) {
+            const shapeNow = shapeOf(cur);
+            let bestNext: string[][] | null = null;
+            let bestV = curViol;
+            let tried = 0;
+            const consider = (c: string[][]) => {
+              tried++;
+              const v = evalViol(c, bestV, shapeNow);
+              if (v < bestV - 1e-9) {
+                bestV = v;
+                bestNext = c;
+              }
+            };
+            for (let r = 0; r < 3; r++) {
+              for (let x = 0; x < free[r].length; x++) {
+                for (let y = x + 1; y < free[r].length; y++) {
+                  const a = free[r][x];
+                  const b = free[r][y];
+                  if (cur[r][a] === cur[r][b]) continue;
+                  const c = cur.map((row) => [...row]);
+                  [c[r][a], c[r][b]] = [c[r][b], c[r][a]];
+                  if (!matchesPlan(c[r], fullPlans[r])) continue;
+                  if (shapeOf(c) > shapeNow) continue;
+                  consider(c);
+                }
+              }
+              for (const cand of pool?.[r] ?? []) {
+                if (cand.join() === cur[r].join()) continue;
+                const c = cur.map((row) => [...row]);
+                c[r] = [...cand];
+                if (!matchesPlan(c[r], fullPlans[r])) continue;
+                if (shapeOf(c) > shapeNow) continue;
+                consider(c);
+              }
+            }
+            round++;
+            console.log(
+              `  [${chapter}] 掃き出し${round}回目：${tried}通りを試し、違反 ${curViol.toFixed(4)} → ${bestNext ? bestV.toFixed(4) : '改善なし'} ${((Date.now() - t0) / 1000).toFixed(0)}s`,
+            );
+            if (!bestNext) break;
+            cur = bestNext;
+            curViol = bestV;
+            if (process.env.OPT_SAVE) {
+              mkdirSync(process.env.OPT_SAVE, { recursive: true });
+              writeFileSync(`${process.env.OPT_SAVE}/${chapter}.json`, JSON.stringify({ reels: cur }), 'utf-8');
+            }
+            if (curViol < 1) console.log(`  [${chapter}] 掃き出しで必須の条件をすべて満たした`);
+          }
+          continue;
+        }
         for (let iter = 0; iter < MAX_ITER && (REACH_MODE || bestViol > 1e-9); iter++) {
           if (iter % 100 === 0) {
             if (iter > 0) profReport(`${chapter} ${iter}回`);

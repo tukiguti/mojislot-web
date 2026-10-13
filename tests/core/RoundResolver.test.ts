@@ -2,7 +2,6 @@ import { describe, expect, it } from 'vitest';
 import { RoundResolver } from '../../src/core/RoundResolver';
 import { PayoutCalc } from '../../src/core/PayoutCalc';
 import { YakuJudge } from '../../src/core/YakuJudge';
-import { ReachEyes } from '../../src/core/ReachEyes';
 import type { Grid3x3 } from '../../src/core/Paylines';
 import type { Payout, YakuList } from '../../src/data/schemas';
 
@@ -13,6 +12,7 @@ import type { Payout, YakuList } from '../../src/data/schemas';
  *  - 1枚役は倍率非適用・1Gあたり1枚まで（こぼしが美味しくなると連を狙わなくなる）
  *  - 出玉に効く技術介入は**ビタ押しだけ**（狙え・クイズの的中への加算は 2026-09-12 に廃止）
  *  - 連チャン倍率は成立**後**の数で評価（達成スピンから恩恵が乗る）
+ *  - コンボは揃えられる役を取りこぼした時だけ切れる（ハズレでは切れない・2026-10-12）
  * ここが狂うと出玉率だけがじわじわずれる。
  */
 
@@ -29,6 +29,13 @@ const YAKU: YakuList = {
   ],
   cherryYaku: [
     { id: 'cherry', name: 'もも', symbols: ['も', 'も'], category: 'cherry' },
+  ],
+  chanceYaku: [
+    { id: 'reach_eye', name: 'リーチ目', symbols: ['目', '目', '目'], category: 'chance', payout: 1, lines: ['middle'] },
+    {
+      id: 'chance_eye', name: 'チャンス目', symbols: ['目', '目', '目'], category: 'chance', payout: 1,
+      lines: ['top', 'bottom', 'diag_tlbr', 'diag_bltr'],
+    },
   ],
   singleYaku: [
     { id: 'one', name: 'とふん', symbols: ['と', 'ふ', 'ん'], category: 'single' },
@@ -52,7 +59,7 @@ const PAYOUT: Payout = {
 const resolver = new RoundResolver({
   judge: new YakuJudge(YAKU),
   calc: new PayoutCalc(PAYOUT),
-  reachEyes: new ReachEyes(null, YAKU),
+  comboYakuIds: new Set(['core_a', 'core_b', 'cherry', 'reach_eye', 'chance_eye']),
   singlePayout: PAYOUT.baseMultiplier.single,
   bitaMultiplier: PAYOUT.bitaMultiplier,
 });
@@ -100,8 +107,39 @@ describe('RoundResolver', () => {
     expect(r.singleHits).toHaveLength(1);
     expect(r.hits).toHaveLength(0);
     // ボーナス中でも連チャン中でも固定1枚。連チャンは伸びない（willHit=false）。
+    // 1枚役のフラグだけなら、取りこぼす役が無いので切れもしない。
     expect(r).toMatchObject({ win: 1, singleWin: 1, base: 0, willHit: false });
-    expect(r.streakAfter).toBe(0);
+    expect(r.streakAfter).toBe(10);
+  });
+
+  describe('コンボが切れる条件（2026-10-12）', () => {
+    it('ハズレではそのまま', () => {
+      const r = resolve(middleOnly('ぬ', 'ぬ', 'ぬ'), [], { streakBefore: 4 });
+      expect(r.streakAfter).toBe(4);
+    });
+
+    it('ボーナスだけのフラグで何も揃わなくてもそのまま', () => {
+      const r = resolve(middleOnly('ぬ', 'ぬ', 'ぬ'), ['prem'], { streakBefore: 4 });
+      expect(r.streakAfter).toBe(4);
+    });
+
+    it('小役のフラグを取りこぼしたら切れる', () => {
+      const r = resolve(middleOnly('ぬ', 'ぬ', 'ぬ'), ['core_a'], { streakBefore: 4 });
+      expect(r.streakAfter).toBe(0);
+    });
+
+    it('ボーナス中、小役をこぼして1枚役に落ちても切れる', () => {
+      const r = resolve(middleOnly('と', 'ふ', 'ん'), ['core_a', 'one'], {
+        bonusActive: true,
+        streakBefore: 4,
+      });
+      expect(r).toMatchObject({ win: 1, streakAfter: 0 });
+    });
+
+    it('目印揃いのフラグを取りこぼしたら切れる', () => {
+      const r = resolve(middleOnly('ぬ', 'ぬ', 'ぬ'), ['chance_eye'], { streakBefore: 4 });
+      expect(r.streakAfter).toBe(0);
+    });
   });
 
   it('連チャン倍率は成立後の数で評価する', () => {
@@ -139,9 +177,31 @@ describe('RoundResolver', () => {
     expect(r.win).toBe(4);
   });
 
-  it('何か揃っている時はリーチ目を判定しない', () => {
-    const r = resolve(middleOnly('あ', 'い', 'う'), ['core_a']);
-    expect(r.reachKind).toBeNull();
+  describe('目印揃い（リーチ目・チャンス目）', () => {
+    it('中段ならリーチ目。1枚で倍率は乗らず、コンボはつながる', () => {
+      const r = resolve(middleOnly('目', '目', '目'), ['reach_eye'], { streakBefore: 2 });
+      expect(r).toMatchObject({ reachEye: true, chanceEye: false, win: 1, streakAfter: 3 });
+    });
+
+    it('中段以外ならチャンス目', () => {
+      const grid: Grid3x3 = [
+        ['目', '目', '目'],
+        ['ぬ', 'ぬ', 'ぬ'],
+        ['ぬ', 'ぬ', 'ぬ'],
+      ];
+      const r = resolve(grid, ['chance_eye'], { streakBefore: 2 });
+      expect(r).toMatchObject({ reachEye: false, chanceEye: true, win: 1, streakAfter: 3 });
+    });
+
+    it('チャンス目のフラグで中段に揃っても成立させない（出目＝フラグ）', () => {
+      const r = resolve(middleOnly('目', '目', '目'), ['chance_eye']);
+      expect(r).toMatchObject({ reachEye: false, chanceEye: false, win: 0 });
+    });
+
+    it('ビタ押しの上乗せは付けない（1枚が2枚に化けるので）', () => {
+      const r = resolve(middleOnly('目', '目', '目'), ['reach_eye'], { slipCells: [0, 0, 0] });
+      expect(r).toMatchObject({ bitaBonus: 0, win: 1 });
+    });
   });
 
   describe('ビタ押し（引き込みなし＝完全自力）', () => {

@@ -23,13 +23,18 @@ export type ReelConfig = z.infer<typeof ReelConfigSchema>;
 
 // core=小役 / premium=BIG(7・バー揃い) / bonus=RB / cherry=チェリー(2文字役)
 // single=1枚役（実機の制御用1枚役。既存文字の無意味な並び＝「単語にならなかった」出目）
+// chance=目印揃い（リーチ目＝中段・チャンス目＝中段以外。2026-10-12・drafts/reach-eye-redesign）
 export const YakuCategorySchema = z.enum([
   'core',
   'premium',
   'bonus',
   'cherry',
   'single',
+  'chance',
 ]);
+
+/** ペイラインのID（core/Paylines.ts の PaylineId と同じ並び）。 */
+export const PaylineIdSchema = z.enum(['top', 'middle', 'bottom', 'diag_tlbr', 'diag_bltr']);
 
 /**
  * レバーONで抽選する内部役の種別（実機のフラグに相当）。
@@ -37,6 +42,9 @@ export const YakuCategorySchema = z.enum([
  * - single : 1枚役。singleYaku のどれかを自動引き込みで揃える＝1枚。
  *            押し順を外した時のこぼし先もこのグループ（実機の押し順ベルこぼし）
  * - core/cherry/reg/big : 表示役に対応するフラグ
+ * - chance : 目印揃い（リーチ目・チャンス目）。`carry` があれば同時にそのボーナスが成立する。
+ *            ボーナスを伴っても big/reg にしないのは、通常時の big/reg は前兆の経路でしか
+ *            成立させない（抽選で引いた big/reg はハズレに置き換える）ため
  */
 export const InternalRoleKindSchema = z.enum([
   'miss',
@@ -45,6 +53,7 @@ export const InternalRoleKindSchema = z.enum([
   'cherry',
   'reg',
   'big',
+  'chance',
 ]);
 export const InternalRoleStateSchema = z.enum(['default', 'rescue', 'bonus']);
 export const InternalRoleRateSchema = z.object({
@@ -71,6 +80,11 @@ export const InternalRoleSchema = z.object({
    * 強レア役になり、確率も他の役と同じ場所で管理できる。
    */
   freeze: z.boolean().default(false),
+  /**
+   * 同時に成立させるボーナス（premiumYaku / bonusYaku の役ID）。chance の内部役だけが持つ。
+   * 目印が揃ったあと、このボーナスを揃えるまで持ち越す。
+   */
+  carry: z.string().nullable().default(null),
 });
 
 export const YakuSchema = z.object({
@@ -115,6 +129,11 @@ export const YakuSchema = z.object({
    * いなり成立で握り寿司の絵が出る、という食い違いが残った。
    */
   cutinArt: z.string().optional(),
+  /**
+   * この役が成立するライン。書かなければ有効ライン全部。目印揃いは同じ3文字で、
+   * 中段ならリーチ目・それ以外ならチャンス目と、ラインで役が分かれる。
+   */
+  lines: z.array(PaylineIdSchema).optional(),
 });
 
 export const YakuListSchema = z
@@ -131,6 +150,8 @@ export const YakuListSchema = z
      * 押し順ミスのこぼし先・停止制御の受け皿を兼ねる。複数種で引き込みカバー率を稼ぐ。
      */
     singleYaku: z.array(YakuSchema).default([]),
+    /** 目印揃い（リーチ目・チャンス目）。払い出し1枚・倍率なし・コンボはつながる。 */
+    chanceYaku: z.array(YakuSchema).default([]),
     /** 内部役テーブル（表示役と分離。押し順役・1枚役を含む）。 */
     internalRoles: z.array(InternalRoleSchema).min(1),
   })
@@ -153,8 +174,27 @@ export const YakuListSchema = z
         ...list.cherryYaku,
         ...list.bonusYaku,
         ...list.premiumYaku,
+        ...list.chanceYaku,
       ].map((y) => y.id),
     );
+    const bonusIds = new Set([...list.bonusYaku, ...list.premiumYaku].map((y) => y.id));
+    const chanceIds = new Set(list.chanceYaku.map((y) => y.id));
+    list.internalRoles.forEach((role, i) => {
+      if (role.carry !== null && (role.kind !== 'chance' || !bonusIds.has(role.carry))) {
+        ctx.addIssue({
+          code: 'custom',
+          path: ['internalRoles', i, 'carry'],
+          message: `内部役 ${role.id} の carry はチャンスの内部役だけが持ち、ボーナスの役IDにしてください`,
+        });
+      }
+      if (role.kind === 'chance' && !chanceIds.has(role.displayYakuId ?? '')) {
+        ctx.addIssue({
+          code: 'custom',
+          path: ['internalRoles', i, 'displayYakuId'],
+          message: `内部役 ${role.id}（chance）の displayYakuId は chanceYaku の役にしてください`,
+        });
+      }
+    });
     list.singleYaku.forEach((y, i) => {
       if (y.category !== 'single') {
         ctx.addIssue({
@@ -359,30 +399,6 @@ export const StopTableSchema = z.object({
     .optional(),
 });
 export type StopTable = z.infer<typeof StopTableSchema>;
-
-/**
- * リーチ目表。出目キー（`左上中下|中…|右…`）→ 確定するボーナス種別。
- * 停止制御を全数実行して「ボーナスフラグでしか出ない出目」を抽出したもので、
- * 手で描いた絵ではなく制御の副産物。生成は tests/tools/find-reach-eyes.test.ts。
- */
-export const ReachEyeTableSchema = z.object({
-  mode: z.string(),
-  /** 3リール停止後の出目（3×3グリッド）→ 確定するボーナス種別。 */
-  eyes: z.record(z.string(), z.enum(['reg', 'big', 'both'])),
-  /**
-   * **第1停止1リールぶんの出目**（窓の3文字）→ 確定するボーナス種別。
-   *
-   * 「ボーナス専用図柄が特定の行に来たか」ではなく、`eyes` と同じく
-   * **到達可能性**で定義する。非ボーナスフラグでは制御上あり得ない停止形だけが
-   * ここに入るので、出れば確定＝嘘をつかない。
-   *
-   * 添字はリール番号（0=左）。省略時は第1停止の告知を出さない。
-   */
-  firstEyes: z
-    .array(z.record(z.string(), z.enum(['reg', 'big', 'both'])))
-    .optional(),
-});
-export type ReachEyeTable = z.infer<typeof ReachEyeTableSchema>;
 
 export type Quiz = z.infer<typeof QuizSchema>;
 export type QuizList = z.infer<typeof QuizListSchema>;
@@ -620,6 +636,33 @@ export const TuningSchema = z.object({
       delayMs: z.number().int().nonnegative().default(900),
     })
     .default({ rate: 0.05, bigRatio: 0.3, delayMs: 900 }),
+  /**
+   * 目印揃いのあと（2026-10-12・drafts/reach-eye-redesign）。リーチ目は必ずその場で確定ランプ。
+   * ボーナスを伴うチャンス目は、確定ランプ・次ゲームの狙え・次ゲームのクイズへ振り分ける
+   * （重みの比。狙え・クイズが出せない役なら残りで振り分け直す）。
+   */
+  chanceEye: z
+    .object({
+      follow: z
+        .object({
+          lamp: z.number().nonnegative(),
+          aim: z.number().nonnegative(),
+          quiz: z.number().nonnegative(),
+        })
+        .default({ lamp: 0.4, aim: 0.3, quiz: 0.3 }),
+    })
+    .default({ follow: { lamp: 0.4, aim: 0.3, quiz: 0.3 } }),
+  /**
+   * 矛盾（2026-10-12・drafts/reach-eye-redesign §5）。正しく押したのに揃わない、を
+   * ボーナスの時だけ起こす。
+   *  - aimDecoyRate：通常時のボーナスのゲームで出す狙えのうち、**小役を狙わせる**割合。
+   *    小役のフラグは無いので揃わない（コンボも切れない）＝矛盾。ボーナスは持ち越す
+   */
+  contradiction: z
+    .object({
+      aimDecoyRate: z.number().min(0).max(1).default(0.2),
+    })
+    .default({ aimDecoyRate: 0.2 }),
   /**
    * リール速度（コマ/秒）。実機（ジャグラー等）は約28コマ/秒＝0.75秒/周。
    * モーションブラー（ReelView）実装前は残像が無く、実機速度だと図柄が追えずカクついて見えたため

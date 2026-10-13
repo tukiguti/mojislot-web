@@ -101,8 +101,8 @@
       "kind": "miss",
       "displayYakuId": null,
       "rate": {
-        "default": 0.4314154681,
-        "rescue": 0.3317921271,
+        "default": 0.4296830462,
+        "rescue": 0.3300597052,
         "bonus": 0.0
       }
     },
@@ -196,7 +196,117 @@
         "rescue": 0.00156,
         "bonus": 0.029225
       }
+    },
+    {
+      "id": "reach_ikiru",
+      "kind": "chance",
+      "displayYakuId": "reach_eye",
+      "carry": "ikiru",
+      "rate": {
+        "default": 6.103515625e-05,
+        "rescue": 6.103515625e-05,
+        "bonus": 0.0
+      }
+    },
+    {
+      "id": "reach_yasumu",
+      "kind": "chance",
+      "displayYakuId": "reach_eye",
+      "carry": "yasumu",
+      "rate": {
+        "default": 6.103515625e-05,
+        "rescue": 6.103515625e-05,
+        "bonus": 0.0
+      }
+    },
+    {
+      "id": "reach_reg",
+      "kind": "chance",
+      "displayYakuId": "reach_eye",
+      "carry": "reg",
+      "rate": {
+        "default": 0.0001220703125,
+        "rescue": 0.0001220703125,
+        "bonus": 0.0
+      }
+    },
+    {
+      "id": "chance_ikiru",
+      "kind": "chance",
+      "displayYakuId": "chance_eye",
+      "carry": "ikiru",
+      "rate": {
+        "default": 0.0001220703125,
+        "rescue": 0.0001220703125,
+        "bonus": 0.0
+      }
+    },
+    {
+      "id": "chance_yasumu",
+      "kind": "chance",
+      "displayYakuId": "chance_eye",
+      "carry": "yasumu",
+      "rate": {
+        "default": 0.0001220703125,
+        "rescue": 0.0001220703125,
+        "bonus": 0.0
+      }
+    },
+    {
+      "id": "chance_reg",
+      "kind": "chance",
+      "displayYakuId": "chance_eye",
+      "carry": "reg",
+      "rate": {
+        "default": 0.000244140625,
+        "rescue": 0.000244140625,
+        "bonus": 0.0
+      }
+    },
+    {
+      "id": "chance",
+      "kind": "chance",
+      "displayYakuId": "chance_eye",
+      "carry": null,
+      "rate": {
+        "default": 0.001,
+        "rescue": 0.001,
+        "bonus": 0.0
+      }
     }
   ],
-  "singleYaku": []
+  "singleYaku": [],
+  "chanceYaku": [
+    {
+      "id": "reach_eye",
+      "name": "リーチ目",
+      "symbols": [
+        "動",
+        "動",
+        "動"
+      ],
+      "category": "chance",
+      "payout": 1,
+      "lines": [
+        "middle"
+      ]
+    },
+    {
+      "id": "chance_eye",
+      "name": "チャンス目",
+      "symbols": [
+        "動",
+        "動",
+        "動"
+      ],
+      "category": "chance",
+      "payout": 1,
+      "lines": [
+        "top",
+        "bottom",
+        "diag_tlbr",
+        "diag_bltr"
+      ]
+    }
+  ]
 }

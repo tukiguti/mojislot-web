@@ -90,6 +90,11 @@ describe('リール配列監査：出目＝フラグの保証（②が残らな�
           ...yakuList.premiumYaku,
         ].map((y) => ({ label: y.id, ids: [y.id] })),
         { label: 'single', ids: yakuList.singleYaku.map((y) => y.id) },
+        // 目印揃いの内部役（2026-10-12）。ボーナスなしのチャンス目で中段に揃うと
+        // 「確定」の嘘になる。リーチ目の内部役で中段以外に揃うのも出目＝フラグに反する
+        ...yakuList.internalRoles
+          .filter((r) => r.kind === 'chance' && (r.id === 'chance' || r.id === 'reach_reg'))
+          .map((r) => ({ label: r.id, ids: [r.displayYakuId as string] })),
       ];
 
       let games = 0;

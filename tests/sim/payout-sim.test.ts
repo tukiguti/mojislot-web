@@ -24,7 +24,6 @@ import {
 import { REMIX, applyRemixBoost } from '../../src/productions/RemixBoost';
 import { StopTableLookup } from '../../src/core/StopTable';
 import { StopController } from '../../src/core/StopController';
-import { ReachEyes } from '../../src/core/ReachEyes';
 import {
   PAYLINES,
   primaryRowIndexOf,
@@ -39,7 +38,6 @@ import {
   YakuListSchema,
   ReelConfigSchema,
   StopTableSchema,
-  ReachEyeTableSchema,
   type Payout,
   type Tuning,
   type Yaku,
@@ -243,20 +241,12 @@ interface Result {
   shisaEscalated: number;
   /** 持ち越し中のゲーム数 */
   carriedSpins: number;
-  /** そのうち全体出目がリーチ目だったゲーム数 */
-  carriedReach: number;
-  /** 第1リールにボーナス図柄が止まった持ち越しゲーム数 */
-  carriedSymOnFirst: number;
-  /** そのうち出目がリーチ目になったゲーム数 */
-  carriedSymOnFirstReach: number;
-  /** そのうち「中段にボーナス専用図柄」が出たゲーム数（一発リーチ目） */
-  carriedMiddleTell: number;
-  /** 非ボーナスフラグなのに中段告知が出たゲーム数（＝誤告知） */
-  falseTellSpins: number;
-  /** 非ボーナスフラグなのに第1停止で中段告知が出たゲーム数 */
-  falseTellFirst: number;
-  /** 非ボーナスフラグの総ゲーム数 */
-  nonBonusSpins: number;
+  /** 目印揃いの内部役（リーチ目・チャンス目）を引いたゲーム数 */
+  eyeRoles: number;
+  /** そのうち目印が実際に揃ったゲーム数 */
+  eyeHits: number;
+  /** 目印揃いの内部役で成立したボーナス数 */
+  eyeBonus: number;
   /** 確定告知ランプ（通常抽選）で確定したボーナス数 */
   lampBonus: number;
   /** チェリー重複で確定したボーナス数 */
@@ -363,16 +353,14 @@ function runChapter(
     pullInCells: tuning.assist.pullInCells,
     reels: reelCfg.reels.map((r) => r.cells),
   });
-  const reachEyes = new ReachEyes(
-    ReachEyeTableSchema.parse(readJson(`${DATA}/reach/${chapter}.json`)),
-    yakuList,
-  );
   const judge = new YakuJudge(yakuList);
   const calc = new PayoutCalc(payout);
   const roundResolver = new RoundResolver({
     judge,
     calc,
-    reachEyes,
+    comboYakuIds: new Set(
+      [...yakuList.coreYaku, ...yakuList.cherryYaku, ...yakuList.chanceYaku].map((y) => y.id),
+    ),
     singlePayout: payout.baseMultiplier.single,
     bitaMultiplier: payout.bitaMultiplier,
   });
@@ -384,6 +372,7 @@ function runChapter(
     ...yakuList.cherryYaku,
     ...yakuList.bonusYaku,
     ...yakuList.premiumYaku,
+    ...yakuList.chanceYaku,
   ];
   const yakuById = new Map(allYaku.map((y) => [y.id, y]));
   const allYakuWithSingle: Yaku[] = [...allYaku, ...yakuList.singleYaku];
@@ -428,9 +417,7 @@ function runChapter(
     bitaHits: 0,
     perYaku: new Map<string, [number, number]>(),
     shisaSpins: 0, shisaEscalated: 0, lampBonus: 0, cherryBonus: 0,
-    carriedSpins: 0, carriedReach: 0, carriedMiddleTell: 0,
-    carriedSymOnFirst: 0, carriedSymOnFirstReach: 0,
-    falseTellSpins: 0, falseTellFirst: 0, nonBonusSpins: 0,
+    carriedSpins: 0, eyeRoles: 0, eyeHits: 0, eyeBonus: 0,
   };
 
   let missStreak = 0;
@@ -763,50 +750,18 @@ function runChapter(
       }
     }
 
-    // 誤告知の計測：ボーナスフラグでないのに主ラインへ専用図柄が出たか
-    /** そのリールの窓（上・中・下）。第1停止の確定目の判定に使う。 */
-    const colOf = (r: number) => ({
-      top: grid[0][r],
-      middle: grid[1][r],
-      bottom: grid[2][r],
-    });
-    const isBonusFlag =
-      !!heldYaku || !!carried || role.kind === 'reg' || role.kind === 'big';
-    if (!isBonusFlag) {
-      res.nonBonusSpins++;
-      // 全停止後の出目がリーチ目になっていないか。第1停止用の表を最終位置の
-      // 全リールに当てる旧版は、止まった順も局面も無視していて意味が無かった。
-      if (reachEyes.detect(grid) !== null) {
-        res.falseTellSpins++;
+    if (carried) res.carriedSpins++;
+    // 目印揃い（main.ts と同じ）：ボーナスを伴えば、揃えられたかどうかによらず持ち越す。
+    // その後の確定ランプ・狙え・クイズは、どれも「持ち越しを狙う」打ち方になるので
+    // ここでは持ち越しに入れるだけでよい（持ち越しは必ず気づく＝carriedNoticed）。
+    if (role.kind === 'chance') {
+      res.eyeRoles++;
+      if (hits.some((h) => h.yaku.category === 'chance')) res.eyeHits++;
+      const carryYaku = role.carryYakuId ? (yakuById.get(role.carryYakuId) ?? null) : null;
+      if (carryYaku && !pendingBonus && !bonusActive && !heldBonusYaku) {
+        heldBonusYaku = carryYaku;
+        res.eyeBonus++;
       }
-      const firstReel = seq[0];
-      if (reachEyes.detectFirst(firstReel, colOf(firstReel)) !== null) {
-        res.falseTellFirst++;
-      }
-    }
-    if (carried) {
-      res.carriedSpins++;
-      // 払い出しの有無は問わない。**小役が揃っているのにボーナスフラグでしか
-      // 出ない形**は実機でも典型的なリーチ目で、むしろこちらが主流。
-      // 「0枚の時だけ」を条件にしていた頃はこの指標が0.0%に見えていた。
-      const isEye = reachEyes.detect(grid) !== null;
-      if (isEye) res.carriedReach++;
-      // 第1リールにボーナス図柄が止まったのに気づかなかった場合。ここでも出目が
-      // リーチ目になっていないと、揃わないまま素通りしてしまう。
-      const symL = carried.symbols[0];
-      const first = colOf(seq[0]);
-      if (
-        seq[0] === 0 &&
-        symL !== undefined &&
-        (first.top === symL || first.middle === symL || first.bottom === symL)
-      ) {
-        res.carriedSymOnFirst++;
-        if (isEye) res.carriedSymOnFirstReach++;
-      }
-      // 第1停止の1リールだけで確定する停止形が出た割合。**告知はしない**
-      // （2026-08-30に演出をやめた）ので、これは「読める人が気づける機会」の頻度。
-      const fr = seq[0];
-      if (reachEyes.detectFirst(fr, colOf(fr)) !== null) res.carriedMiddleTell++;
     }
     const isPremiumNow = hits.some((h) => h.yaku.category === 'premium');
     const isRegNow = !isPremiumNow && hits.some((h) => h.yaku.category === 'bonus');
@@ -915,12 +870,12 @@ describe.skipIf(!RUN)('出玉シミュレーション（新モデル）', () => 
   it('腕別の機械割・突入率・ボーナス平均を測る', () => {
     const SPINS = Number(process.env.SPINS ?? 200000);
     const lines: string[] = [];
-    lines.push('腕      機械割   通常時純増  ボ中純増  突入(1/G)  BIG平均  REG平均  示唆発展  ランプ  チェリー重複  持越G  確定形(第1)  出目告知  図柄止まり  その時の出目告知  誤告知(全停)  誤告知(第1)  ボ中こぼし  →1枚');
+    lines.push('腕      機械割   通常時純増  ボ中純増  突入(1/G)  BIG平均  REG平均  示唆発展  ランプ  チェリー重複  持越G  目印役  目印揃い  目印経由  ボ中こぼし  →1枚');
     for (const skill of SKILLS) {
       let bet = 0, win = 0, nbet = 0, nwin = 0, big = 0, reg = 0;
       let bspins = 0, bigPay = 0, regPay = 0;
       let spins = 0;
-      let shisaSpins = 0, shisaEsc = 0, lampB = 0, cherryB = 0, carS = 0, carR = 0, carM = 0, fT = 0, fT1 = 0, nb = 0, symF = 0, symFR = 0;
+      let shisaSpins = 0, shisaEsc = 0, lampB = 0, cherryB = 0, carS = 0, eyeR = 0, eyeH = 0, eyeB = 0;
       let bMiss = 0, bSpill = 0, bitaC = 0, bitaH = 0;
       CHAPTERS.forEach((ch, i) => {
         const r = runChapter(ch, skill, SPINS / CHAPTERS.length, 12345 + i * 977, SETTING);
@@ -932,9 +887,7 @@ describe.skipIf(!RUN)('出玉シミュレーション（新モデル）', () => 
         bspins += r.bonusSpins; bigPay += r.bigPayout; regPay += r.regPayout;
         shisaSpins += r.shisaSpins; shisaEsc += r.shisaEscalated;
         lampB += r.lampBonus; cherryB += r.cherryBonus;
-        carS += r.carriedSpins; carR += r.carriedReach; carM += r.carriedMiddleTell;
-        symF += r.carriedSymOnFirst; symFR += r.carriedSymOnFirstReach;
-        fT += r.falseTellSpins; fT1 += r.falseTellFirst; nb += r.nonBonusSpins;
+        carS += r.carriedSpins; eyeR += r.eyeRoles; eyeH += r.eyeHits; eyeB += r.eyeBonus;
         spins += r.spins;
       });
       const rtp = (win / bet) * 100;
@@ -950,12 +903,9 @@ describe.skipIf(!RUN)('出玉シミュレーション（新モデル）', () => 
         `${(lampB / Math.max(1, big + reg) * 100).toFixed(0).padStart(5)}% ` +
         `${(cherryB / Math.max(1, big + reg) * 100).toFixed(0).padStart(9)}% ` +
         `${carS.toString().padStart(6)} ` +
-        `${((carM / Math.max(1, carS)) * 100).toFixed(1).padStart(7)}% ` +
-        `${((carR / Math.max(1, carS)) * 100).toFixed(1).padStart(7)}% ` +
-        `${symF.toString().padStart(8)} ` +
-        `${((symFR / Math.max(1, symF)) * 100).toFixed(1).padStart(13)}% ` +
-        `${((fT / Math.max(1, nb)) * 100).toFixed(1).padStart(9)}% ` +
-        `${fT1.toString().padStart(10)}件 ` +
+        `${eyeR.toString().padStart(6)} ` +
+        `${((eyeH / Math.max(1, eyeR)) * 100).toFixed(0).padStart(6)}% ` +
+        `${((eyeB / Math.max(1, big + reg)) * 100).toFixed(0).padStart(6)}% ` +
         `${((bMiss / Math.max(1, bspins)) * 100).toFixed(1).padStart(9)}% ` +
         `${((bSpill / Math.max(1, bMiss)) * 100).toFixed(1).padStart(5)}%` +
         `  ビタ ${bitaC}回中${bitaH}揃い(${((bitaH / Math.max(1, bitaC)) * 100).toFixed(0)}%)`,

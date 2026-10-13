@@ -2,6 +2,7 @@ import type { ReelStrip, Yaku, YakuList } from '../data/schemas';
 import {
   PAYLINES,
   extractPartialLineSymbols,
+  yakuOnLine,
   visibleAt,
   type PartialGrid3x3,
   type Vertical,
@@ -67,6 +68,7 @@ export class SlipResolver {
       ...yakuList.coreYaku,
       ...yakuList.cherryYaku,
       ...yakuList.singleYaku,
+      ...yakuList.chanceYaku,
     ];
     this.assistMaxCells = opts.assistMaxCells ?? ASSIST_MAX_CELLS;
   }
@@ -167,7 +169,7 @@ export class SlipResolver {
     const grid = this.buildPartialGrid(position, ctx);
     return PAYLINES.some((line) => {
       const [a, b, c] = extractPartialLineSymbols(grid, line);
-      return yakus.some((y) => this.matchesLine(y, a, b, c));
+      return yakus.some((y) => yakuOnLine(y, line.id) && this.matchesLine(y, a, b, c));
     });
   }
 

@@ -118,7 +118,6 @@ import { ZukanOverlay } from './ui/ZukanOverlay';
 import { SlipResolver, type VisibleColumn } from './productions/SlipResolver';
 import { StopTableLookup } from './core/StopTable';
 import { StopController } from './core/StopController';
-import { ReachEyes } from './core/ReachEyes';
 import {
   extractGrid,
   getVisibleCell,
@@ -132,7 +131,6 @@ import {
   PayoutSchema,
   QuizListSchema,
   StopTableSchema,
-  ReachEyeTableSchema,
   TuningSchema,
   type Yaku,
   type YakuList,
@@ -271,6 +269,14 @@ function summarizeHits(
     .join(' ＋ ');
 }
 
+/**
+ * 揃え損ねるとコンボが切れる役（小役・チェリー・目印揃い）のID。2026-10-12 から、
+ * コンボはハズレでは切れず、揃えられる役を取りこぼした時だけ切れる（RoundResolver）。
+ */
+function comboYakuIdsOf(list: YakuList): Set<string> {
+  return new Set([...list.coreYaku, ...list.cherryYaku, ...list.chanceYaku].map((y) => y.id));
+}
+
 function requireEl<T extends HTMLElement>(id: string): T {
   const el = document.getElementById(id);
   if (!el) {
@@ -365,11 +371,6 @@ export async function bootstrap() {
   let quizList = QuizListSchema.parse(chapter.quizData);
   // 停止テーブル（第1停止＝実機のリール制御表）。手編集可・無ければ既定制御へフォールバック。
   let stopTable = new StopTableLookup(StopTableSchema.parse(chapter.stopData));
-  // リーチ目表（ボーナスフラグでしか出ない出目）。持ち越し中の察知に使う。
-  let reachEyes = new ReachEyes(
-    ReachEyeTableSchema.parse(chapter.reachData),
-    yakuList,
-  );
   // 演出レート・補助・フリーズ等の調整値（散在していた定数を集約）。data/tuning/default.json。
   const tuning = TuningSchema.parse(tuningDataRaw);
   /** 1ゲームの間合い（結果を読ませる間・レバーのウェイト）。 */
@@ -399,6 +400,8 @@ export async function bootstrap() {
     ...yakuList.premiumYaku,
     ...yakuList.bonusYaku,
     ...yakuList.cherryYaku,
+    // 目印揃い。AUTO が目印揃いのフラグで目印を狙うのに要る
+    ...yakuList.chanceYaku,
   ];
   /** 内部役テーブル（停止テーブルのキー解決に使う）。 */
   let allRolesFlat = yakuList.internalRoles;
@@ -409,7 +412,7 @@ export async function bootstrap() {
   let roundResolver = new RoundResolver({
     judge,
     calc,
-    reachEyes,
+    comboYakuIds: comboYakuIdsOf(yakuList),
     singlePayout: payout.baseMultiplier.single,
     bitaMultiplier: payout.bitaMultiplier,
   });
@@ -567,6 +570,11 @@ export async function bootstrap() {
    * 確定告知ランプ（announcedBonus）は「告知あり」の持ち越しで、こちらは無告知。
    */
   let heldBonusYaku: Yaku | null = null;
+  /**
+   * チャンス目のあと、次ゲーム（持ち越し中のボーナス）で出す演出。狙え・クイズのどちらか。
+   * 持ち越し中は普段は演出を出さない（none）が、チャンス目から進んだ時だけ出す。
+   */
+  let chanceFollow: 'aim' | 'quiz' | null = null;
   /** 持ち越しが始まってからのゲーム数（リーチ目の演出判定に使う）。 */
   let heldBonusSpins = 0;
 
@@ -1225,8 +1233,18 @@ export async function bootstrap() {
     }
     shisaEscalated = false;
     shisaMissShown = false;
+    // 矛盾 5.1：通常時のボーナスのゲームで出す狙えの一部は、小役を狙わせる。
+    // 小役のフラグは無いので、言われたとおりに押しても揃わない
+    const aimDecoy =
+      effect === 'aim' &&
+      yaku !== null &&
+      (yaku.category === 'premium' || yaku.category === 'bonus') &&
+      !bonusSession.spinActive &&
+      Math.random() < tuning.contradiction.aimDecoyRate
+        ? (yakuList.coreYaku[Math.floor(Math.random() * yakuList.coreYaku.length)] ?? null)
+        : null;
     applyEffect(effect, {
-      targetYaku: yaku,
+      targetYaku: aimDecoy ?? yaku,
       shisaTier,
       shisaCandidates: shisaTier
         ? eligibility.candidatesFor(shisaTier, activeInternalRoleState())
@@ -2074,16 +2092,29 @@ export async function bootstrap() {
     currentRound = null;
     if (debugVisible) delete cabinetEl.dataset.internalRole;
     for (const engine of engines) engine.reset();
-    for (const v of views) v.stopTenpaiFlash();
-    hideAimNotice();
-    hideShisaNotice();
-    quizState.reset();
-    applyEffect('none');
     // AUTO の狙い状態もクリア
     autoTargetYaku = null;
     aimPending.clear();
     lastSlipCells.fill(0);
     updateButtons();
+  };
+
+  /**
+   * 結果の表示の後片付け（テンパイの点滅・狙え・示唆・クイズの答え）。2026-10-12 から
+   * 全停止したらすぐ BET を受け付けるので、片付けだけを読む時間（pace.resultMs）の後に回す。
+   * その前に次の BET が押されたら、BET の時点で片付ける。
+   */
+  let clearResultTimer: number | null = null;
+  const clearResultView = () => {
+    if (clearResultTimer !== null) {
+      window.clearTimeout(clearResultTimer);
+      clearResultTimer = null;
+    }
+    for (const v of views) v.stopTenpaiFlash();
+    hideAimNotice();
+    hideShisaNotice();
+    quizState.reset();
+    applyEffect('none');
   };
 
   const flashButton = (btn: HTMLButtonElement) => {
@@ -2096,7 +2127,7 @@ export async function bootstrap() {
   /**
    * 確認表示に出す滑り量。`lastSlipCells` とは**寿命が違う**ので別に持つ。
    *
-   * 全停止のあと数百msで `resetForNextSpin` が走り、リールは idle へ戻る。
+   * 全停止の直後に `resetForNextSpin` が走り、リールは idle へ戻る（2026-10-12 から待ちなし）。
    * だが停止位置はそのまま残るので、出目はまだ画面に出ている——「惜しかった」に
    * 気づくのはむしろこの後なので、**次のレバーまで**確認できるようにする。
    */
@@ -2136,6 +2167,8 @@ export async function bootstrap() {
     bgm.init();
     bgm.play(bonusZone.isActive() ? (bonusZone.kind.get() ?? 'big') : 'normal');
     if (!wallet.bet(calc.bet)) return;
+    // 前ゲームの結果の表示が残っていれば、ここで片付ける（新しいゲームの演出と重ねない）
+    if (clearResultTimer !== null) clearResultView();
     bonusSession.beginSpin();
     recordRunSpeed(reelSpeed());
     if (autoMode) runAutoUsed = true;
@@ -2168,7 +2201,7 @@ export async function bootstrap() {
     // レバーの瞬間に合わせて点けるので、点いた時点でBIG確定と分かる。
     if (lampOnNextLever) {
       lampOnNextLever = false;
-      announceReachEye();
+      lightHeldLamp();
     }
 
     /**
@@ -2250,9 +2283,12 @@ export async function bootstrap() {
       // 持ち越し中：フラグは生きているが**演出は出ない**（実機Aタイプ）。
       // 小役は全部蹴られるので出目が普段と変わる＝それがリーチ目になる。
       heldBonusSpins++;
+      // チャンス目から進んだ次ゲームだけは狙え・クイズを出す（2026-10-12）
+      const follow = chanceFollow;
+      chanceFollow = null;
       activateRound(
         internalRoleLottery.forYaku(heldBonusYaku),
-        'none',
+        follow ?? 'none',
         'held-bonus',
       );
     } else if (pendingForcedDelay) {
@@ -2468,10 +2504,6 @@ export async function bootstrap() {
     yakuList = buildYakuList(chapter.yakuData);
     quizList = QuizListSchema.parse(chapter.quizData);
     stopTable = new StopTableLookup(StopTableSchema.parse(chapter.stopData));
-    reachEyes = new ReachEyes(
-      ReachEyeTableSchema.parse(chapter.reachData),
-      yakuList,
-    );
     allRolesFlat = yakuList.internalRoles;
 
     // --- ロジック層（yakuList に依存するもの）---
@@ -2486,7 +2518,7 @@ export async function bootstrap() {
     roundResolver = new RoundResolver({
       judge,
       calc,
-      reachEyes,
+      comboYakuIds: comboYakuIdsOf(yakuList),
       singlePayout: payout.baseMultiplier.single,
       bitaMultiplier: payout.bitaMultiplier,
     });
@@ -2578,6 +2610,7 @@ export async function bootstrap() {
     const flagKey = lamp
       ? (allRolesFlat.find((r) => r.displayYakuId === lamp.id)?.id ?? null)
       : (currentRound?.internalRole.roleId ?? null);
+    const role = currentRound?.internalRole ?? null;
     return stopController.resolveSlip({
       reelIndex: idx,
       basePosition: basePos,
@@ -2588,6 +2621,8 @@ export async function bootstrap() {
       flagKey,
       freeze: freezeActive,
       bitaMark: bitaChance ? landmarkNow() : null,
+      // 矛盾 5.3：ボーナスの再当選がある回は、ぴったり押しても目印を滑らせる
+      bitaRefuse: bitaChance && (role?.kind === 'big' || role?.kind === 'reg'),
     });
   };
 
@@ -2763,7 +2798,7 @@ export async function bootstrap() {
       });
       const { hits, willHit, premiumHit, bonusHit, isPremium, isRegular } =
         outcome;
-      const { streakAfter, streakMult, win, reachKind } = outcome;
+      const { streakAfter, streakMult, win } = outcome;
       // コンボが節目（5・10・15…）に届いた瞬間に、看板のランプで設定を示唆する。
       if (willHit && isSignLampMilestone(streakAfter)) {
         showSignLamp(drawSignLamp(machineSetting, Math.random));
@@ -2818,14 +2853,32 @@ export async function bootstrap() {
           if (announce) fireMissLamp(flagged.category === 'premium');
         }
       }
-      if (reachKind && heldBonusYaku) {
-        // 全リール停止後の出目が**リーチ目**（ボーナス成立時にしか出ない並び）だった。
-        // 枠を光らせて「今の出目はただのハズレじゃない」と伝える。**文字は出さない**。
-        // 種別（REG/BIG）はランプ側でも伏せたままなので、読める人が先に分かる。
-        for (const v of views) v.startTenpaiFlash(reachKind !== 'reg');
+      // 目印揃い（2026-10-12・drafts/reach-eye-redesign）。目印揃いの内部役でボーナスを
+      // 伴っていれば、目印を揃えられたかどうかによらず、そのボーナスを持ち越す。
+      //  - リーチ目（中段）＝その場で確定ランプ
+      //  - チャンス目（中段以外）＝確定ランプ・次ゲームの狙え・次ゲームのクイズのどれか
+      //  - 揃えられなかった＝取りこぼしと同じく確定ランプで知らせる
+      const carryId = currentRound?.internalRole.carryYakuId ?? null;
+      const carryYaku = carryId
+        ? ([...yakuList.premiumYaku, ...yakuList.bonusYaku].find((y) => y.id === carryId) ?? null)
+        : null;
+      if (outcome.reachEye || outcome.chanceEye) {
+        // 目印が揃った手触り。ボーナスの有無はここでは言わない
+        for (const v of views) v.startTenpaiFlash(outcome.reachEye);
         sfx.tenpaiPremium();
-        // ランプは上の持ち越しで既に点いている。ここは「今の出目はただのハズレでは
-        // ない」という手触りだけを返す。
+      }
+      if (carryYaku && !announcedBonus && !bonusZone.isActive()) {
+        heldBonusYaku = carryYaku;
+        const isBig = carryYaku.category === 'premium';
+        if (outcome.reachEye) {
+          lightHeldLamp();
+        } else if (outcome.chanceEye) {
+          const follow = pickChanceFollow(carryYaku);
+          if (follow === 'lamp') fireMissLamp(isBig);
+          else chanceFollow = follow;
+        } else {
+          fireMissLamp(isBig);
+        }
       }
       // チェリー昇格。チェリーが**実際に揃った**時だけ抽選し、当たれば確定告知ランプを
       // 点灯＝次ゲーム以降ボーナス確定。成立表示の余韻を残してから点灯させ、
@@ -2878,6 +2931,7 @@ export async function bootstrap() {
         hit: willHit,
         premium: isPremium,
         bonusTriggered: isPremium || isRegular,
+        streak: streakAfter,
       });
       // 台のデータカウンター（設定推測の材料）。ハマりはボーナスで0に戻る。
       // キーは台ID。章で数えると同じ島の4台のデータが混ざる。
@@ -3117,7 +3171,17 @@ export async function bootstrap() {
           : win > 0
             ? pace.resultMs.win
             : pace.resultMs.none;
-      window.setTimeout(resetForNextSpin, resultMs);
+      // 〔2026-10-12〕BET までのウェイトは無くす（ユーザー指定）。ボタンはすぐ戻し、
+      // 表示の片付けだけを読む時間の後に回す。ボーナス終了だけはリザルトへ繋ぐ間を残す
+      if (runEnd) {
+        window.setTimeout(() => {
+          resetForNextSpin();
+          clearResultView();
+        }, resultMs);
+      } else {
+        resetForNextSpin();
+        clearResultTimer = window.setTimeout(clearResultView, resultMs);
+      }
     }
   };
 
@@ -3218,14 +3282,11 @@ export async function bootstrap() {
     flashScreen({ color: '#fff3a0', alpha: 0.8, durMs: 280 });
   };
   /**
-   * **リーチ目が出た → 確定告知ランプを点ける。**
-   *
-   * リーチ目は「そのフラグの時にしか制御上あり得ない出目」なので、出た時点で
-   * ボーナスは確定している。読める人だけが分かる、では取りこぼす人が出るので、
-   * ランプで必ず伝える。**種別は抽選し直さない**——すでに立っているフラグを
-   * そのまま確定させる（抽選し直すと、点いた種別と持ち越し中の役が食い違う）。
+   * **持ち越し中のボーナスで確定告知ランプを点ける**（取りこぼし・リーチ目・チャンス目）。
+   * **種別は抽選し直さない**——すでに立っているフラグをそのまま確定させる
+   * （抽選し直すと、点いた種別と持ち越し中の役が食い違う）。
    */
-  const announceReachEye = () => {
+  const lightHeldLamp = () => {
     if (announcedBonus || bonusZone.isActive()) return;
     const held = heldBonusYaku ?? currentInternalYaku();
     if (!held || (held.category !== 'premium' && held.category !== 'bonus')) return;
@@ -3274,6 +3335,23 @@ export async function bootstrap() {
    * 「点いたのに揃わない」と読めてしまうため。**次レバーのプレミアだけは例外**で、
    * わざとレバーの瞬間に合わせて点ける。
    */
+  /**
+   * チャンス目のあとの進み先（確定ランプ・次ゲームの狙え・次ゲームのクイズ）を重みで選ぶ。
+   * その役で出せない演出（クイズの問題が無い等）は候補から外す。
+   */
+  const pickChanceFollow = (yaku: Yaku): 'lamp' | 'aim' | 'quiz' => {
+    const w = tuning.chanceEye.follow;
+    const ok = eligibility.eligibleEffects(yaku);
+    const cands: ['lamp' | 'aim' | 'quiz', number][] = [
+      ['lamp', w.lamp],
+      ['aim', ok.includes('aim') ? w.aim : 0],
+      ['quiz', ok.includes('quiz') ? w.quiz : 0],
+    ];
+    const total = cands.reduce((a, [, x]) => a + x, 0);
+    let r = Math.random() * total;
+    for (const [k, x] of cands) if ((r -= x) < 0) return k;
+    return 'lamp';
+  };
   let missLampTimer: number | null = null;
   /** 次ゲームのレバーで点ける予約（プレミアの点き方）。 */
   let lampOnNextLever = false;
@@ -3294,12 +3372,12 @@ export async function bootstrap() {
       }
     }
     if (delay <= 0) {
-      announceReachEye();
+      lightHeldLamp();
       return;
     }
     missLampTimer = window.setTimeout(() => {
       missLampTimer = null;
-      announceReachEye();
+      lightHeldLamp();
     }, delay);
   };
 

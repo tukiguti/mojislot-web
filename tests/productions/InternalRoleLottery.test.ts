@@ -35,6 +35,7 @@ const yakuList: YakuList = {
     { id: 'replay', name: 'リプレイ', symbols: ['り', 'ぷ', 'れ'], category: 'core' },
     { id: 'bell', name: 'ベル', symbols: ['べ', 'る', 'る'], category: 'core' },
   ],
+  chanceYaku: [],
   cherryYaku: [
     { id: 'cherry', name: 'チェリー', symbols: ['ち', 'ぇ'], category: 'cherry' },
   ],

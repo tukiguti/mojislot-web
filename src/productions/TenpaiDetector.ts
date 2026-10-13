@@ -1,5 +1,5 @@
 import type { Yaku, YakuList } from '../data/schemas';
-import { PAYLINES, type Vertical } from '../core/Paylines';
+import { PAYLINES, yakuOnLine, type Vertical } from '../core/Paylines';
 import type { VisibleColumn } from './SlipResolver';
 
 /** row 0/1/2 → 可視位置 top/middle/bottom */
@@ -37,6 +37,8 @@ export class TenpaiDetector {
       ...yakuList.premiumYaku,
       ...yakuList.bonusYaku,
       ...yakuList.cherryYaku,
+      // 目印揃い。最終リールの引き込み（StopController.pullIn）がテンパイのラインを使うので要る
+      ...yakuList.chanceYaku,
     ];
   }
 
@@ -53,6 +55,7 @@ export class TenpaiDetector {
       // 役が未停止リールを使わない（例: チェリーで最終リールが右）なら対象外
       if (yaku.symbols[missingReelIndex] === undefined) continue;
       for (const line of PAYLINES) {
+        if (!yakuOnLine(yaku, line.id)) continue;
         const finalCell = line.cells.find(([, col]) => col === missingReelIndex);
         if (!finalCell) continue;
         let ok = true;

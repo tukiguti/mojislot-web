@@ -16,6 +16,7 @@ const yakuList = (
   premiumYaku: premium.map((s, i) => ({ id: `p${i}`, name: `p${i}`, symbols: s, category: 'premium' })),
   bonusYaku: bonus.map((s, i) => ({ id: `b${i}`, name: `b${i}`, symbols: s, category: 'bonus' })),
   cherryYaku: cherry.map((s, i) => ({ id: `ch${i}`, name: `ch${i}`, symbols: s, category: 'cherry' })),
+  chanceYaku: [],
   singleYaku: [],
   // 蹴りの検証では抽選しないので、内部役はハズレ1件だけ置く（スキーマ上の合計＝1）。
   internalRoles: [

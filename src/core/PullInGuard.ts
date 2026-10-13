@@ -1,5 +1,5 @@
 import type { Yaku, YakuList } from '../data/schemas';
-import { PAYLINES, visibleAt } from './Paylines';
+import { PAYLINES, visibleAt, yakuOnLine } from './Paylines';
 
 /**
  * 引き込み保証（「狙えば揃う」）の判定。**[lol-slot] の `ReelControl` と同じ判定**。
@@ -51,6 +51,7 @@ export class PullInGuard {
       ...yakuList.coreYaku,
       ...yakuList.cherryYaku,
       ...yakuList.singleYaku,
+      ...yakuList.chanceYaku,
     ];
   }
 
@@ -79,6 +80,7 @@ export class PullInGuard {
     const w = [this.rowsAt(0, stops[0]), this.rowsAt(1, stops[1]), this.rowsAt(2, stops[2])];
     const lined = (y: Yaku) =>
       PAYLINES.some((L) =>
+        yakuOnLine(y, L.id) &&
         y.symbols.every((sym, r) => sym === undefined || w[r][L.cells[r][0]] === sym),
       );
     if (!targets.some(lined)) return false;

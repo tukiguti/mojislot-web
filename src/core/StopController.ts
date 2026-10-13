@@ -5,7 +5,7 @@ import {
   type VisibleColumn,
 } from '../productions/SlipResolver';
 import { TenpaiDetector, type TenpaiLine } from '../productions/TenpaiDetector';
-import { PAYLINES, ROW_VERTICAL } from './Paylines';
+import { PAYLINES, ROW_VERTICAL, yakuOnLine } from './Paylines';
 import type { StopTableLookup } from './StopTable';
 import { PullInGuard } from './PullInGuard';
 
@@ -43,6 +43,8 @@ const CAT_RANK: Record<Yaku['category'], number> = {
   core: 2,
   cherry: 1,
   single: 0,
+  // 目印揃い。目印揃いの内部役では当選役がこれだけなので、序列は他と競わない
+  chance: 2,
 };
 
 export interface StopRequest {
@@ -76,6 +78,11 @@ export interface StopRequest {
    * 3つ揃えるには3リールともぴったり押すしかない。
    */
   bitaMark?: string | null;
+  /**
+   * ビタチャンスで**ぴったり押しても目印を滑らせる**（2026-10-12・矛盾 5.3）。
+   * ボーナスの再当選がある回だけ立てる。正しく押したのに滑った＝上乗せの合図。
+   */
+  bitaRefuse?: boolean;
 }
 
 export interface StopControllerDeps {
@@ -99,6 +106,8 @@ export class StopController {
   private readonly stopTable: StopTableLookup | null;
   private readonly pullInCells: number;
   private readonly guard: PullInGuard;
+  /** 目印揃いの役ID（ビタの判定で出てよい役に数える）。 */
+  private readonly chanceIds: string[];
 
   constructor(deps: StopControllerDeps) {
     this.allYakus = [
@@ -107,18 +116,47 @@ export class StopController {
       ...deps.yakuList.bonusYaku,
       ...deps.yakuList.cherryYaku,
       ...deps.yakuList.singleYaku,
+      ...deps.yakuList.chanceYaku,
     ];
     this.slip = deps.slipResolver;
     this.tenpai = deps.tenpaiDetector;
     this.stopTable = deps.stopTable ?? null;
     this.pullInCells = deps.pullInCells;
     this.guard = new PullInGuard(deps.yakuList, deps.reels, deps.pullInCells);
+    this.chanceIds = deps.yakuList.chanceYaku.map((y) => y.id);
   }
 
   /** このリールのスベリコマ数（0..4）。 */
   resolveSlip(req: StopRequest): number {
     // フリーズ中は制御しない（強制セット位置へそのまま止める）。
     if (req.freeze) return 0;
+    // ビタの拒否（矛盾 5.3）：ぴったり押されても滑らせる。普段の制御が0を選ぶなら、
+    // 許可外の役が揃わない一番近い滑りへずらす
+    if (req.bitaMark && req.bitaRefuse && req.strip.cells[req.basePosition] === req.bitaMark) {
+      const base = this.baseSlip({ ...req, bitaMark: null });
+      if (base > 0) return base;
+      const ctx = this.ctxOf(req);
+      const n = req.strip.cells.length;
+      for (let s = 1; s <= this.pullInCells; s++) {
+        if (!this.slip.locksNonFlagAt(ctx, (req.basePosition + s) % n)) return s;
+      }
+      return base;
+    }
+    return this.baseSlip(req);
+  }
+
+  private ctxOf(req: StopRequest): SlipContext {
+    return {
+      reelIndex: req.reelIndex,
+      basePosition: req.basePosition,
+      strip: req.strip,
+      stoppedVisibles: req.stoppedVisibles,
+      exceptYakuIds: req.flagYakuIds,
+    };
+  }
+
+  /** 普段の制御（ビタの拒否をかける前）。 */
+  private baseSlip(req: StopRequest): number {
 
     const ctx: SlipContext = {
       reelIndex: req.reelIndex,
@@ -134,7 +172,13 @@ export class StopController {
     if (
       req.bitaMark &&
       req.strip.cells[req.basePosition] === req.bitaMark &&
-      !this.slip.locksNonFlagAt(ctx, req.basePosition)
+      // 目印揃い（リーチ目・チャンス目）は出てよい役に数える。ビタは目印を揃える場面そのもの
+      // なので、これを許さないと3つ目を止めた時に必ず拒まれる（2026-10-13 に実測で成功0%）。
+      // 払い出しはフラグで決まる（RoundResolver）ので、ここで許しても配当は増えない
+      !this.slip.locksNonFlagAt(
+        { ...ctx, exceptYakuIds: [...(ctx.exceptYakuIds ?? []), ...this.chanceIds] },
+        req.basePosition,
+      )
     ) {
       return 0;
     }
@@ -286,7 +330,7 @@ export class StopController {
     for (const y of targets) {
       if (y.symbols[req.reelIndex] === undefined) continue;
       for (const line of PAYLINES) {
-        if (!accept(line)) continue;
+        if (!accept(line) || !yakuOnLine(y, line.id)) continue;
         const rowOf = new Map(line.cells.map(([row, col]) => [col, row]));
         const row = rowOf.get(req.reelIndex);
         if (row === undefined) continue;
