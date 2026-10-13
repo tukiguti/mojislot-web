@@ -3,6 +3,7 @@ import { QuizState } from '../../src/productions/QuizState';
 import type { Quiz, YakuList } from '../../src/data/schemas';
 
 const YAKU_LIST: YakuList = {
+  dataVersion: 1,
   mode: 'test',
   internalRoleMissRate: { default: 0, rescue: 0, bonus: 0 },
   coreYaku: [

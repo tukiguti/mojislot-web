@@ -3,7 +3,7 @@ import { readFileSync, writeFileSync, mkdirSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { dirname, resolve } from 'node:path';
 import { SlipResolver, type VisibleColumn } from '../../src/productions/SlipResolver';
-import { StopController } from '../../src/core/StopController';
+import { StopController, type StopRequest } from '../../src/core/StopController';
 import { StopTableLookup } from '../../src/core/StopTable';
 import { TenpaiDetector } from '../../src/productions/TenpaiDetector';
 import { PullInGuard } from '../../src/core/PullInGuard';
@@ -18,17 +18,22 @@ import {
   YakuListSchema,
   ReelConfigSchema,
   TuningSchema,
+  StopTableSchema,
+  STOP_TABLE_VERSION,
+  SECOND_STOP_ORDERS,
+  THIRD_STOP_FINALS,
+  type StopTable,
   type Yaku,
   type YakuList,
 } from '../../src/data/schemas';
 
 /**
- * 停止テーブル（第1停止）の生成。
+ * 停止テーブルの生成。
  *
- *   GEN=1 npx vitest run tests/tools/gen-stop-table.test.ts
+ *   GEN=1 npx vitest run tests/tools/gen-stop-table.test.ts --testTimeout=1800000
  *
- * 現行の停止制御（当選役を pullInCells 以内で中段へ引き込む）から
- * `data/stops/<章>.json` を書き出す。**生成後は手で書き換えてよい**。
+ * 現行の停止制御から `data/stops/<章>.json` を書き出す。第1停止は**生成後に手で書き換えてよい**
+ * （第2・第3停止は第1停止の表を前提に焼くので、書き換えたら焼き直す）。
  * 第1停止ではどの役もロックし得ないため蹴りは発火せず、ここは完全に自由に
  * 設計できる（リーチ目・入り目の起点）。②ゼロ保証は第2・第3停止の蹴りが守り、
  * 監査テストが全押下位置で検証する。
@@ -241,11 +246,204 @@ export function buildFirstStopTable(
   return firstStop;
 }
 
+/**
+ * その内部役の許可リスト。ボーナス中だけ**1枚役（こぼし先）**が加わる。
+ * 当選役を引き込めなかった最終停止で拾いに行くための受け皿で、
+ * ここが違うと同じ内部役でも制御が変わる（設計: 31章）。
+ * ゲーム本体（main.ts の activeFlagYakuIds）と同じ規則。
+ */
+export function flagIdsFor(yakuList: YakuList, roleId: string, bonus: boolean): string[] {
+  const base = flagYakusFor(yakuList, roleId).map((y) => y.id);
+  if (!bonus || base.length === 0) return base;
+  const singles = yakuList.singleYaku.map((s) => s.id);
+  // 1枚役そのものが当選している時は足さない（既にグループ全体が入っている）
+  return singles.some((s) => base.includes(s)) ? base : [...base, ...singles];
+}
+
+const visCol = (cells: readonly string[], pos: number): VisibleColumn => ({
+  top: visibleAt(cells, pos, 'top'),
+  middle: visibleAt(cells, pos, 'middle'),
+  bottom: visibleAt(cells, pos, 'bottom'),
+});
+
+/**
+ * 第2・第3停止の表を焼く制御。第1停止の表だけを持たせ、第2・第3停止は**探索**
+ * （引き込み保証 → 引き込み → 蹴り、最終停止はリーチ目の寄せまで）で決めさせる。
+ * 表とアルゴリズムが食い違わないよう、表の値はこの制御の答えをそのまま写す。
+ * 表引きと探索の突き合わせ（tests/data/stop-table-equivalence）も同じものを使う。
+ */
+export function searchController(
+  yakuList: YakuList,
+  reels: readonly (readonly string[])[],
+  resolver: SlipResolver,
+  pullInCells: number,
+  firstStop: Record<string, number[][]>,
+  chapter: string,
+): StopController {
+  return new StopController({
+    yakuList,
+    slipResolver: resolver,
+    tenpaiDetector: new TenpaiDetector(yakuList),
+    stopTable: new StopTableLookup({
+      dataVersion: STOP_TABLE_VERSION,
+      mode: chapter,
+      firstStop,
+      slipPool: [],
+    }),
+    pullInCells,
+    reels,
+  });
+}
+
+/**
+ * 第2停止の要求。`first` を `firstPos` に止めた状態から `reel` を `press` で押す。
+ */
+export function secondStopRequest(
+  reels: readonly (readonly string[])[],
+  first: number,
+  firstPos: number,
+  reel: number,
+  press: number,
+  flagYakuIds: readonly string[],
+  flagKey: string,
+): StopRequest {
+  const vis: (VisibleColumn | null)[] = [null, null, null];
+  const pos: (number | null)[] = [null, null, null];
+  vis[first] = visCol(reels[first], firstPos);
+  pos[first] = firstPos;
+  return {
+    reelIndex: reel,
+    basePosition: press,
+    strip: { id: `r${reel}`, cells: [...reels[reel]] },
+    stoppedVisibles: vis,
+    stoppedPositions: pos,
+    flagYakuIds,
+    flagKey,
+  };
+}
+
+/**
+ * 第3停止の要求。`reel` 以外の2本を `posA`（若い番号のリール）・`posB` に止めた状態から
+ * `reel` を `press` で押す。どちらを先に止めたかは制御に効かない。
+ */
+export function thirdStopRequest(
+  reels: readonly (readonly string[])[],
+  reel: number,
+  posA: number,
+  posB: number,
+  press: number,
+  flagYakuIds: readonly string[],
+  flagKey: string,
+): StopRequest {
+  const [a, b] = [0, 1, 2].filter((i) => i !== reel);
+  const vis: (VisibleColumn | null)[] = [null, null, null];
+  const pos: (number | null)[] = [null, null, null];
+  vis[a] = visCol(reels[a], posA);
+  vis[b] = visCol(reels[b], posB);
+  pos[a] = posA;
+  pos[b] = posB;
+  return {
+    reelIndex: reel,
+    basePosition: press,
+    strip: { id: `r${reel}`, cells: [...reels[reel]] },
+    stoppedVisibles: vis,
+    stoppedPositions: pos,
+    flagYakuIds,
+    flagKey,
+  };
+}
+
+/**
+ * 全押し順の第2・第3停止の表を焼く（通常時とボーナス中の4つ）。
+ * 中身の文字列は `slipPool` に1つずつ置き、表は番号で指す（同じ表が多いため）。
+ *
+ * 添字は先に止めたリールの**停止位置**。**全21通り（第3停止は21×21通り）を埋める**——
+ * ある押し順で実際に止まる位置だけを計算すると残りの欄が空のまま残り、別の押し方で
+ * 同じ状態になった時にその空欄を引いてしまう（2026-10-02 に第3停止で実際に起きた）。
+ */
+export function buildLaterStopTables(
+  yakuList: YakuList,
+  reels: readonly (readonly string[])[],
+  controller: StopController,
+): Pick<
+  StopTable,
+  'slipPool' | 'secondStop' | 'thirdStop' | 'bonusSecondStop' | 'bonusThirdStop'
+> {
+  const n = reels[0].length;
+  const slipPool: string[] = [];
+  const poolIndex = new Map<string, number>();
+  const intern = (packed: string): number => {
+    let i = poolIndex.get(packed);
+    if (i === undefined) {
+      i = slipPool.length;
+      slipPool.push(packed);
+      poolIndex.set(packed, i);
+    }
+    return i;
+  };
+  const buildSecond = (bonus: boolean) => {
+    const out: Record<string, Record<string, number>> = {};
+    for (const key of SECOND_STOP_ORDERS) {
+      const first = Number(key[0]);
+      const reel = Number(key[1]);
+      const byRole: Record<string, number> = {};
+      for (const role of yakuList.internalRoles) {
+        const flagIds = flagIdsFor(yakuList, role.id, bonus);
+        let s = '';
+        for (let p0 = 0; p0 < n; p0++) {
+          for (let press = 0; press < n; press++) {
+            s += controller.resolveSlip(
+              secondStopRequest(reels, first, p0, reel, press, flagIds, role.id),
+            );
+          }
+        }
+        byRole[role.id] = intern(s);
+      }
+      out[key] = byRole;
+    }
+    return out as NonNullable<StopTable['secondStop']>;
+  };
+  const buildThird = (bonus: boolean) => {
+    const out: Record<string, Record<string, number>> = {};
+    for (const key of THIRD_STOP_FINALS) {
+      const reel = Number(key);
+      const byRole: Record<string, number> = {};
+      for (const role of yakuList.internalRoles) {
+        const flagIds = flagIdsFor(yakuList, role.id, bonus);
+        const parts: string[] = [];
+        for (let pa = 0; pa < n; pa++) {
+          for (let pb = 0; pb < n; pb++) {
+            let s = '';
+            for (let press = 0; press < n; press++) {
+              s += controller.resolveSlip(
+                thirdStopRequest(reels, reel, pa, pb, press, flagIds, role.id),
+              );
+            }
+            parts.push(s);
+          }
+        }
+        byRole[role.id] = intern(parts.join(''));
+      }
+      out[key] = byRole;
+    }
+    return out as NonNullable<StopTable['thirdStop']>;
+  };
+  const secondStop = buildSecond(false);
+  const thirdStop = buildThird(false);
+  const bonusSecondStop = buildSecond(true);
+  const bonusThirdStop = buildThird(true);
+  return { slipPool, secondStop, thirdStop, bonusSecondStop, bonusThirdStop };
+}
+
+/** `CHAPTER=寿司のID` で1島だけ焼く（島ごとに別プロセスで並べて回せる）。 */
+const ONLY = process.env.CHAPTER;
+
 describe.skipIf(!RUN)('停止テーブル生成', () => {
-  it('全章の第1停止テーブルを data/stops へ書き出す', () => {
+  it('全章の停止テーブル（第1停止＋全押し順の第2・第3停止）を data/stops へ書き出す', () => {
     const tuning = TuningSchema.parse(readJson(`${DATA}/tuning/default.json`));
     mkdirSync(`${DATA}/stops`, { recursive: true });
     for (const chapter of CHAPTERS) {
+      if (ONLY && chapter !== ONLY) continue;
       const yakuList = YakuListSchema.parse(readJson(`${DATA}/yaku/${chapter}.json`));
       const reelCfg = ReelConfigSchema.parse(readJson(`${DATA}/reels/${chapter}.json`));
       const reels = reelCfg.reels.map((r) => r.cells);
@@ -254,127 +452,33 @@ describe.skipIf(!RUN)('停止テーブル生成', () => {
       });
 
       const firstStop = buildFirstStopTable(yakuList, reels, resolver, tuning.assist.pullInCells);
-      // --- 第2停止（順押し）---
-      // 第1停止テーブルで左を止めた状態から、中リールの各押下位置で制御を実行して
-      // 結果を記録する。**制御そのものを通す**ので、表とアルゴリズムが食い違わない。
-      const n = reels[0].length;
-      const controller = new StopController({
-        yakuList,
-        slipResolver: resolver,
-        tenpaiDetector: new TenpaiDetector(yakuList),
-        stopTable: new StopTableLookup({ mode: chapter, firstStop }),
-        pullInCells: tuning.assist.pullInCells,
-        reels,
-      });
-      const visCol = (cells: readonly string[], pos: number): VisibleColumn => ({
-        top: visibleAt(cells, pos, 'top'),
-        middle: visibleAt(cells, pos, 'middle'),
-        bottom: visibleAt(cells, pos, 'bottom'),
-      });
-
-      /**
-       * その内部役の許可リスト。ボーナス中だけ**1枚役（こぼし先）**が加わる。
-       * 当選役を引き込めなかった最終停止で拾いに行くための受け皿で、
-       * ここが違うと同じ内部役でも制御が変わる（設計: 31章）。
-       */
-      const flagIdsFor = (roleId: string, bonus: boolean): string[] => {
-        const base = flagYakusFor(yakuList, roleId).map((y) => y.id);
-        if (!bonus || base.length === 0) return base;
-        const singles = yakuList.singleYaku.map((s) => s.id);
-        // 1枚役そのものが当選している時は足さない（既にグループ全体が入っている）
-        return singles.some((s) => base.includes(s))
-          ? base
-          : [...base, ...singles];
-      };
-
-      const buildSecond = (bonus: boolean): Record<string, number[][]> => {
-        const out: Record<string, number[][]> = {};
-        for (const role of yakuList.internalRoles) {
-          const flagIds = flagIdsFor(role.id, bonus);
-          // 添字は「第1停止の**停止位置**」。押下位置ではない点に注意。
-          const byFirstPos: number[][] = Array.from({ length: n }, () =>
-            new Array<number>(n).fill(0),
-          );
-          // **第1停止の停止位置は全21通りを埋める**。順押しで実際に止まる位置だけを
-          // 計算すると残りの欄が0（滑りなし）のまま残り、別の押し順で同じ状態に
-          // なった時にその空欄を引いてしまう（第3停止で実際に起きた）。
-          for (let pos0 = 0; pos0 < n; pos0++) {
-            const left = visCol(reels[0], pos0);
-            for (let press1 = 0; press1 < n; press1++) {
-              // 制御そのものを通す（引き込み保証も StopController の中で効く）。
-              byFirstPos[pos0][press1] = controller.resolveSlip({
-                reelIndex: 1,
-                basePosition: press1,
-                strip: { id: 'r1', cells: reels[1] },
-                stoppedVisibles: [left, null, null],
-                stoppedPositions: [pos0, null, null],
-                flagYakuIds: flagIds,
-                flagKey: role.id,
-              });
-            }
-          }
-          out[role.id] = byFirstPos;
-        }
-        return out;
-      };
-      const secondStop = buildSecond(false);
-      const bonusSecondStop = buildSecond(true);
-
-      // --- 第3停止（順押し）---
-      // 左・中を止めた状態から右リールの各押下位置で制御を実行する。
-      // 添字は第1・第2の**停止位置**。**全 21×21 の組を埋める**——左と中が止まっていれば
-      // 押し順に関係なくこの表を引くので（中→左→右でも引く）、順押しで到達する組だけを
-      // 計算すると空欄の0（滑りなし）を引いて②が出た（2026-10-02）。
-      const buildThird = (
-        bonus: boolean,
-      ): Record<string, number[][][]> => {
-        const out: Record<string, number[][][]> = {};
-        for (const role of yakuList.internalRoles) {
-          const flagIds = flagIdsFor(role.id, bonus);
-          const table: number[][][] = Array.from({ length: n }, () =>
-            Array.from({ length: n }, () => new Array<number>(n).fill(0)),
-          );
-          for (let pos0 = 0; pos0 < n; pos0++) {
-            const left = visCol(reels[0], pos0);
-            for (let pos1 = 0; pos1 < n; pos1++) {
-              const mid = visCol(reels[1], pos1);
-              for (let press2 = 0; press2 < n; press2++) {
-                table[pos0][pos1][press2] = controller.resolveSlip({
-                  reelIndex: 2,
-                  basePosition: press2,
-                  strip: { id: 'r2', cells: reels[2] },
-                  stoppedVisibles: [left, mid, null],
-                  stoppedPositions: [pos0, pos1, null],
-                  flagYakuIds: flagIds,
-                  flagKey: role.id,
-                });
-              }
-            }
-          }
-          out[role.id] = table;
-        }
-        return out;
-      };
-      const thirdStop = buildThird(false);
-      const bonusThirdStop = buildThird(true);
+      // 第2・第3停止は制御そのものを通す（引き込み保証も、最終停止のリーチ目の寄せも
+      // StopController の中で効く）。リーチ目の寄せは表を引いた値に重ねても同じ値を返す
+      // （冪等）ので、実行時に表の値へもう一度かかっても変わらない。
+      const controller = searchController(
+        yakuList, reels, resolver, tuning.assist.pullInCells, firstStop, chapter,
+      );
+      const later = buildLaterStopTables(yakuList, reels, controller);
 
       const out = {
+        dataVersion: STOP_TABLE_VERSION,
         mode: chapter,
         firstStop,
-        secondStop,
-        thirdStop,
-        bonusSecondStop,
-        bonusThirdStop,
+        secondStop: later.secondStop,
+        thirdStop: later.thirdStop,
+        bonusSecondStop: later.bonusSecondStop,
+        bonusThirdStop: later.bonusThirdStop,
+        slipPool: later.slipPool,
       };
-      // 第3停止だけで 11役 × 21³ ＝ 約10万エントリある。インデントを付けると
-      // 1.5MB/島まで膨らむので、ここはコンパクトに書き出す（手で読むものではない）。
+      // 第1停止は手で読み書きする表なので配列のまま。第2・第3停止はプールの番号。
+      // 手で読むものではないので、全体をコンパクトに書き出す。
       writeFileSync(
         `${DATA}/stops/${chapter}.json`,
         `${JSON.stringify(out)}\n`,
         'utf-8',
       );
-      expect(Object.keys(firstStop).length).toBe(yakuList.internalRoles.length);
-      expect(Object.keys(secondStop).length).toBe(yakuList.internalRoles.length);
+      const parsed = StopTableSchema.parse(out);
+      expect(Object.keys(parsed.firstStop).length).toBe(yakuList.internalRoles.length);
     }
   });
 });

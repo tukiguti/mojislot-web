@@ -20,9 +20,9 @@ import { PullInGuard } from './PullInGuard';
  *  1. フリーズ中 → 制御を一切かけない（強制セット位置へスナップ）
  *  2. 第1停止（他リール未停止）→ **停止テーブル**を引く。この時点ではどの役も
  *     ロックし得ないので蹴りが効かず、出目（リーチ目・入り目）の設計点になる
- *  3. 第2・第3停止は、順押しなら停止テーブルを引く。表が無い押し順では
+ *  3. 第2・第3停止も停止テーブルを引く（全押し順）。表が無ければ
  *     **引き込み保証**（`PullInGuard`：残りを狙って押せば必ず揃う滑り）で選ぶ。
- *     表も同じ判定で焼いてあるので、押し順で制御の性質は変わらない
+ *     表はこの探索を通して焼いてあるので、引いても探索しても同じ値になる
  *  4. 保証で選べなければ当選役を引き込む（最終リールは5ラインのテンパイ）
  *  5. 引き込めなければ、非当選役が揃わない位置へ決定的に蹴る
  *
@@ -230,43 +230,43 @@ export class StopController {
       ? targets.filter((y) => y.category === 'single')
       : [];
 
-    // 第2・第3停止も表を引く（**順押しのみ**）。狙い先を主ライン1本に固定したので、
-    // 値の意味が「主ラインへ何コマ寄せたか」に一意化されて表にできる。
-    // 停止位置を渡されていない／逆押し／表が無い、のいずれかなら既定制御へ落ちる。
+    // 第2・第3停止も表を引く（**全押し順**）。表は下の探索をそのまま通して焼いてあるので、
+    // 引いても探索しても同じ値になる（tests/data/stop-table-equivalence が突き合わせる）。
+    // 停止位置を渡されていない／表が無い、のどちらかなら探索へ落ちる。
     //
     // **ボーナス中のこぼし局面（当選役＋1枚役）は別の表を引く**。ボーナス中だけ
     // 許可リストに1枚役が加わり、当選役を引き込めなかった最終停止で拾いに行くため、
     // 通常時の表をそのまま使うと受け皿が消える（実測で「→1枚」8.6%→0.0%・機械割-2pt）。
     const isBonusSpill = hasWinTarget && spillTargets.length > 0;
-    if (req.flagKey && req.stoppedPositions) {
-      const [p0, p1] = req.stoppedPositions;
-      const [v0, v1, v2] = req.stoppedVisibles;
+    if (req.flagKey && req.stoppedPositions && req.stoppedVisibles[req.reelIndex] === null) {
+      const done = [0, 1, 2].filter(
+        (i) => i !== req.reelIndex && req.stoppedVisibles[i] !== null,
+      );
+      const firstPos = done.length === 1 ? req.stoppedPositions[done[0]] : null;
       const tabled =
-        req.reelIndex === 1 && v0 !== null && v1 === null && v2 === null
-          ? typeof p0 === 'number'
-            ? this.stopTable?.secondStopSlip(
+        done.length === 1 && typeof firstPos === 'number'
+          ? this.stopTable?.secondStopSlip(
+              req.flagKey,
+              done[0],
+              firstPos,
+              req.reelIndex,
+              req.basePosition,
+              isBonusSpill,
+            )
+          : done.length === 2
+            ? this.stopTable?.thirdStopSlip(
                 req.flagKey,
-                p0,
+                req.reelIndex,
+                req.stoppedPositions,
                 req.basePosition,
                 isBonusSpill,
               )
-            : null
-          : req.reelIndex === 2 && v0 !== null && v1 !== null && v2 === null
-            ? typeof p0 === 'number' && typeof p1 === 'number'
-              ? this.stopTable?.thirdStopSlip(
-                  req.flagKey,
-                  p0,
-                  p1,
-                  req.basePosition,
-                  isBonusSpill,
-                )
-              : null
             : null;
       if (tabled !== null && tabled !== undefined) return tabled;
     }
 
-    // 表が無い第2・第3停止（順押し以外の押し順）：引き込み保証で選ぶ。
-    // 表を焼く時と同じ判定なので、**押し順で「狙えば揃う」が変わらない**。
+    // 表が無い第2・第3停止：引き込み保証で選ぶ。表もこの判定で焼くので、
+    // **押し順で「狙えば揃う」が変わらない**。
     // 以前はここで素の引き込み（その時点で揃う最小の滑り）に落ちていて、
     // 先に止めた位置しだいで残りが詰み、正しく狙っても揃わない押し方が残った。
     if (!noneStopped && req.stoppedPositions && winTargets.length > 0) {

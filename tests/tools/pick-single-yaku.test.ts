@@ -5,6 +5,7 @@ import { dirname, resolve } from 'node:path';
 import {
   ReelConfigSchema,
   StopTableSchema,
+  STOP_TABLE_VERSION,
   YakuListSchema,
   type Yaku,
   type YakuList,
@@ -80,7 +81,7 @@ function buildStopTable(yakuList: YakuList, reels: string[][], resolver: SlipRes
       });
     });
   }
-  return { mode: 'pick', firstStop };
+  return { dataVersion: STOP_TABLE_VERSION, mode: 'pick', firstStop };
 }
 
 function makeController(yakuList: YakuList, reels: string[][]) {
