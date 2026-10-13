@@ -13,6 +13,7 @@ import {
   TuningSchema,
   StopTableSchema,
   STOP_TABLE_VERSION,
+  DATA_VERSION,
   type YakuList,
 } from '../../src/data/schemas';
 import {
@@ -2097,7 +2098,7 @@ describe.skipIf(!RUN)('リール配列の再最適化', () => {
             mode: chapter,
             reels: best.map((cells, i) => ({ id: reelCfg.reels[i].id, cells })),
           };
-          const lines = ['{', `  "mode": "${chapter}",`];
+          const lines = ['{', `  "dataVersion": ${DATA_VERSION.reels},`, `  "mode": "${chapter}",`];
           if (landmark) lines.push(`  "landmark": "${landmark}",`);
           lines.push('  "reels": [');
           out.reels.forEach((r, i) => {

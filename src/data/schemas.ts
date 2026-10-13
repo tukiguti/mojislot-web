@@ -4,6 +4,16 @@ import { z } from 'zod';
  * data/ の JSON が持つデータ版（`dataVersion`）。形式を変えたらその種類の版を上げ、
  * 古い形式のファイルを読み込んだ時点で分かるようにする（黙って別の意味に読まない）。
  */
+export const DATA_VERSION = {
+  reels: 1,
+  yaku: 1,
+  quizzes: 1,
+  stops: 2,
+  payouts: 1,
+  tuning: 1,
+  quizmasterLines: 1,
+} as const;
+
 export function dataVersion(expected: number, label: string) {
   return z.literal(expected, {
     error: (iss) =>
@@ -21,6 +31,7 @@ export const ReelStripSchema = z.object({
 });
 
 export const ReelConfigSchema = z.object({
+  dataVersion: dataVersion(DATA_VERSION.reels, 'リール配列（data/reels）'),
   mode: z.string(),
   /**
    * 目印の図柄（島の漢字1字・2026-10-02）。各リールの 0・7・14 番に置き、どの役にも
@@ -151,6 +162,7 @@ export const YakuSchema = z.object({
 
 export const YakuListSchema = z
   .object({
+    dataVersion: dataVersion(DATA_VERSION.yaku, '役（data/yaku）'),
     mode: z.string(),
     coreYaku: z.array(YakuSchema),
     premiumYaku: z.array(YakuSchema),
@@ -273,6 +285,7 @@ export type Yaku = z.infer<typeof YakuSchema>;
 export type YakuList = z.infer<typeof YakuListSchema>;
 
 export const PayoutSchema = z.object({
+  dataVersion: dataVersion(DATA_VERSION.payouts, '配当（data/payouts）'),
   // 1ゲームの掛け枚数（毎ゲーム消費するコスト）。実機の3枚掛け＝有効ライン多めのリアリティ用。
   // 払い出しには掛けない（払い出し＝役 base × コンボ倍率）。
   betPerSpin: z.number().int().positive(),
@@ -343,6 +356,7 @@ export const QuizSchema = z.object({
 });
 
 export const QuizListSchema = z.object({
+  dataVersion: dataVersion(DATA_VERSION.quizzes, 'クイズ（data/quizzes）'),
   mode: z.string(),
   quizzes: z.array(QuizSchema).min(1),
 });
@@ -382,8 +396,8 @@ export const QuizListSchema = z.object({
 /** スベリコマ数（0〜4）。 */
 const SlipSchema = z.number().int().min(0).max(4);
 
-/** 停止テーブルのデータ版。形式を変えたら上げる。 */
-export const STOP_TABLE_VERSION = 2;
+/** 停止テーブルのデータ版（`DATA_VERSION.stops`）。生成側が書き込む。 */
+export const STOP_TABLE_VERSION = DATA_VERSION.stops;
 
 /** 第2停止の押し順キー（第1停止のリール＋第2停止のリール）。 */
 export const SECOND_STOP_ORDERS = ['01', '02', '10', '12', '20', '21'] as const;
@@ -406,7 +420,7 @@ const ThirdStopSchema = z.record(
 );
 
 export const StopTableSchema = z.object({
-  dataVersion: dataVersion(STOP_TABLE_VERSION, '停止テーブル'),
+  dataVersion: dataVersion(DATA_VERSION.stops, '停止テーブル（data/stops）'),
   mode: z.string(),
   firstStop: z.record(
     z.string(),
@@ -543,6 +557,7 @@ const DEFAULT_DELAY = {
 };
 
 export const TuningSchema = z.object({
+  dataVersion: dataVersion(DATA_VERSION.tuning, 'チューニング（data/tuning）'),
   /** ベット毎の演出抽選レート（通常／ハマり救済／ボーナス中）。各合計は1.0必須。 */
   effectRates: z.object({
     default: EffectRatesSchema,
@@ -793,3 +808,20 @@ export const TuningSchema = z.object({
 });
 
 export type Tuning = z.infer<typeof TuningSchema>;
+
+/**
+ * 出題者の台詞（data/quizmaster-lines.json）。章ID → 場面ごとの台詞。
+ * ボイスの生成（tools/gen_voice.py）も同じファイルを読む。
+ */
+const QuizmasterSceneLinesSchema = z.object({
+  ask: z.array(z.string()).min(1),
+  correct: z.array(z.string()).min(1),
+  wrong: z.array(z.string()).min(1),
+  near: z.array(z.string()).min(1),
+});
+export const QuizmasterLinesSchema = z
+  .object({
+    dataVersion: dataVersion(DATA_VERSION.quizmasterLines, '出題者の台詞（data/quizmaster-lines.json）'),
+  })
+  .catchall(QuizmasterSceneLinesSchema);
+export type QuizmasterLines = z.infer<typeof QuizmasterLinesSchema>;

@@ -1,4 +1,5 @@
 {
+  "dataVersion": 1,
   "effectRates": {
     "default": {
       "none": 0.35,

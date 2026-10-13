@@ -40,6 +40,7 @@ const YAKU: YakuList = {
 } as unknown as YakuList;
 
 const PAYOUT: Payout = {
+  dataVersion: 1,
   betPerSpin: 3,
   baseMultiplier: { premium: 34, bonus: 14, cherry: 4, single: 1 },
   bonusZoneMultiplier: 2.2,

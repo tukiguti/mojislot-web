@@ -2,7 +2,7 @@ import { describe, it } from 'vitest';
 import { readFileSync, writeFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { dirname, resolve } from 'node:path';
-import { ReelConfigSchema } from '../../src/data/schemas';
+import { DATA_VERSION, ReelConfigSchema } from '../../src/data/schemas';
 
 /**
  * リールを回転させて、主ラインを別の形へ移す。
@@ -37,7 +37,7 @@ describe.skipIf(!RUN)('リールの回転', () => {
         // cells'[k] = cells[k + d] （前方向へ d コマ進める）
         return { id: r.id, cells: r.cells.map((_, k) => r.cells[(k + d) % n]) };
       });
-      const lines = ['{', `  "mode": "${chapter}",`, '  "reels": ['];
+      const lines = ['{', `  "dataVersion": ${DATA_VERSION.reels},`, `  "mode": "${chapter}",`, '  "reels": ['];
       shifted.forEach((r, i) => {
         const arr = r.cells.map((c) => `"${c}"`).join(', ');
         lines.push('    {', `      "id": "${r.id}",`, `      "cells": [${arr}]`,

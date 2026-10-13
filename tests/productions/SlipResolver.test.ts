@@ -11,6 +11,7 @@ const yakuList = (
   core: string[][] = [],
   cherry: string[][] = [],
 ): YakuList => ({
+  dataVersion: 1,
   mode: 'test',
   coreYaku: core.map((s, i) => ({ id: `c${i}`, name: `c${i}`, symbols: s, category: 'core' })),
   premiumYaku: premium.map((s, i) => ({ id: `p${i}`, name: `p${i}`, symbols: s, category: 'premium' })),
