@@ -33,7 +33,11 @@ export const EFFECT_KINDS = [
   { key: 'step-green', label: 'ステップ 緑' },
   { key: 'step-red', label: 'ステップ 赤' },
   { key: 'step-gold', label: 'ステップ 金' },
+  { key: 'chain-2', label: '連続 2G目' },
+  { key: 'chain-3', label: '連続 3G目' },
   { key: 'delay', label: '遅れ' },
+  { key: 'omen-silence', label: '無音' },
+  { key: 'omen-backlight', label: '消灯' },
   { key: 'lamp', label: '確定ランプ' },
   { key: 'freeze', label: 'フリーズ' },
 ] as const;

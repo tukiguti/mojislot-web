@@ -88,6 +88,8 @@ export class BgmEngine {
   /** init 前に play() が呼ばれた場合に保留するトラック */
   private pendingTrack: BgmTrack | null = null;
   private muted = false;
+  /** 無音の予兆で一時的に絞っているか。 */
+  private ducked = false;
   private targetVolume = 0.12;
   /** ボーナスBGMを取りに行ったか。1回で足りる。 */
   private prefetched = false;
@@ -98,7 +100,7 @@ export class BgmEngine {
       if (!ctx) return;
       this.ctx = ctx;
       this.masterGain = ctx.createGain();
-      this.masterGain.gain.value = this.muted ? 0 : this.targetVolume;
+      this.masterGain.gain.value = this.muted || this.ducked ? 0 : this.targetVolume;
       this.masterGain.connect(ctx.destination);
       sampleBank.attach(ctx);
       this.reshuffle();
@@ -120,8 +122,27 @@ export class BgmEngine {
       const t = this.ctx.currentTime;
       this.masterGain.gain.cancelScheduledValues(t);
       this.masterGain.gain.linearRampToValueAtTime(
-        muted ? 0 : this.targetVolume,
+        muted || this.ducked ? 0 : this.targetVolume,
         t + 0.05,
+      );
+    }
+  }
+
+  /**
+   * 一時的に絞る（無音の予兆）。消音の設定とは別に持つ——絞っている間に消音を
+   * 切り替えても、戻した時に消音の設定どおりの音量になる。
+   */
+  setDucked(ducked: boolean): void {
+    if (this.ducked === ducked) return;
+    this.ducked = ducked;
+    if (this.masterGain && this.ctx) {
+      const t = this.ctx.currentTime;
+      this.masterGain.gain.cancelScheduledValues(t);
+      this.masterGain.gain.setValueAtTime(this.masterGain.gain.value, t);
+      // 落とす時は一瞬で（音が消えたことが合図）、戻す時は少しかけて
+      this.masterGain.gain.linearRampToValueAtTime(
+        ducked || this.muted ? 0 : this.targetVolume,
+        t + (ducked ? 0.03 : 0.4),
       );
     }
   }
