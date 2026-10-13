@@ -29,6 +29,7 @@ const freezeRole = (
 });
 
 const yakuList: YakuList = {
+  dataVersion: 1,
   mode: 'test',
   coreYaku: [
     { id: 'grape', name: 'ぶどう', symbols: ['ぶ', 'ど', 'う'], category: 'core' },

@@ -37,6 +37,7 @@ const context = (hitCount: number): ChallengeContext => ({
   bitaCount: 0,
   zukanCounts: {},
   yakuList: {
+    dataVersion: 1,
     mode: 'test',
     coreYaku: [],
     premiumYaku: [],

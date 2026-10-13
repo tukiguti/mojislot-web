@@ -13,6 +13,12 @@ import { PayoutCalc } from '../../src/core/PayoutCalc';
 import { RoundResolver } from '../../src/core/RoundResolver';
 import { EffectEligibility } from '../../src/productions/EffectEligibility';
 import {
+  isStepTrigger,
+  pickChainLength,
+  pickStepBonus,
+  pickStepColor,
+} from '../../src/productions/StepUp';
+import {
   applySetting,
   applySettingToEffects,
   scaleNone,
@@ -22,6 +28,7 @@ import {
   type Setting,
 } from '../../src/productions/MachineSetting';
 import { REMIX, applyRemixBoost } from '../../src/productions/RemixBoost';
+import { RUN_RULESET_VERSION } from '../../src/productions/RunHistory';
 import { StopTableLookup } from '../../src/core/StopTable';
 import { StopController } from '../../src/core/StopController';
 import {
@@ -56,6 +63,8 @@ import {
  */
 
 const RUN = process.env.SIM === '1';
+/** 連続演出（ステップアップが複数ゲームへ続く）を入れて測るか。`CHAIN=0` で切る。 */
+const CHAIN_ON = process.env.CHAIN !== '0';
 /** リミックス島の上乗せを乗せて測る（覚え直しの取りこぼしは再現できないので上限値）。 */
 const REMIX_MODE = process.env.REMIX === '1';
 /**
@@ -169,6 +178,14 @@ function scaleOkawariRate(list: YakuList, mult: number): YakuList {
  * ここを変えてもビタの集計には影響しない。
  */
 const AIM_MARGIN = Number(process.env.AIM_MARGIN ?? 2);
+/** 差枚の分布を見る区間の長さ（ゲーム）。`BLOCK=3000` のように変えられる。 */
+const BLOCK = Number(process.env.BLOCK ?? 1000);
+/**
+ * 乱数のシード。章ごとに `SEED + 章の番号 × 977`（役ごとのビタ到達率だけは全章 `SEED`）。
+ * 既定の 12345 から変えると別の乱数列で測れる。**同じシード・同じ build なら出力は毎回同じ**。
+ */
+const SEED = Number(process.env.SEED ?? 12345);
+const seedOf = (chapterIndex: number) => SEED + chapterIndex * 977;
 const DIR = dirname(fileURLToPath(import.meta.url));
 const DATA = resolve(DIR, '../../data');
 const readJson = (p: string) => JSON.parse(readFileSync(p, 'utf-8'));
@@ -279,6 +296,28 @@ interface Result {
    * 「どの役も同じくらい狙いやすい」を配列で作るための計測（設計: 28章）。
    */
   perYaku: Map<string, [number, number]>;
+  /** 1ゲームの差枚（払い出し−投入）の和と二乗和。標準偏差を出す。 */
+  netSum: number;
+  netSqSum: number;
+  /** `BLOCK` ゲームごとの差枚（区間の差枚の分布を見る）。端数の区間は捨てる。 */
+  blockNets: number[];
+  /**
+   * 取りこぼしの内訳。キーは `局面|内部役の種別|狙えたか`、値は
+   * [当選ゲーム数, 揃えられなかった数, そのうち1枚役へ落ちた数]。
+   * 局面は 通常 / 持越（ボーナスのフラグを持ち越している・確定ランプ中）/ ボ中。
+   * 狙えたか は 狙えた（演出で狙う役が分かっていた）/ 適当押し / 目印狙い（ビタチャンス）。
+   * 1枚役のフラグは1枚役が揃えば取れた扱い、それ以外は当選役が揃えば取れた扱い。
+   */
+  loss: Map<string, [number, number, number]>;
+}
+
+/** 腕ごとの分散と取りこぼしの集計（全章ぶん）。 */
+interface SkillSpread {
+  spins: number;
+  netSum: number;
+  netSqSum: number;
+  blockNets: number[];
+  loss: Map<string, [number, number, number]>;
 }
 
 function runChapter(
@@ -416,6 +455,10 @@ function runChapter(
     bitaChances: 0,
     bitaHits: 0,
     perYaku: new Map<string, [number, number]>(),
+    netSum: 0,
+    netSqSum: 0,
+    blockNets: [],
+    loss: new Map<string, [number, number, number]>(),
     shisaSpins: 0, shisaEscalated: 0, lampBonus: 0, cherryBonus: 0,
     carriedSpins: 0, eyeRoles: 0, eyeHits: 0, eyeBonus: 0,
   };
@@ -435,26 +478,23 @@ function runChapter(
    * ステップアップ（前兆）が次ゲームへ渡すもの。main.ts と同じ設計。
    * ボーナスはステップアップ経由でしか出さないので、通常抽選からは落とす。
    */
-  const STEP_ENTRY_RATE = 0.055 * STEP_ENTRY_MULT;
-  // **main.ts と同じ値を持つ。片方だけ直すと、測っているモデルが実物とずれる。**
-  // 青を終了色に足した時（2026-09-09）もここを揃えてから測り直した。
-  const STEP_COLOR_RATE: readonly (readonly [
-    'blue' | 'green' | 'red' | 'gold',
-    number,
-  ])[] = [
-    ['blue', 0.45], ['green', 0.35], ['red', 0.18], ['gold', 0.02],
-  ];
-  const STEP_BONUS_RATE = { blue: 0.12, green: 0.53, red: 0.7, gold: 1.0 } as const;
-  const STEP_BIG_RATE = { blue: 0.15, green: 0.24, red: 0.35, gold: 0.92 } as const;
-  const STEP_TRIGGER_MIN_PAYOUT = 5;
-  /** 次ゲームの予約。`bonus` があればそれ、無ければ「必ず演出」の小役ゲーム。 */
-  let stepNext: { bonus: 'big' | 'reg' | null } | null = null;
+  // 率と手続きは main.ts と同じ tuning.stepUp / productions/StepUp.ts を読む
+  // （以前は値を写していて、片方だけ直すと測っているモデルが実物とずれた）。
+  const stepCfg = tuning.stepUp;
+  const STEP_ENTRY_RATE = stepCfg.entryRate * STEP_ENTRY_MULT;
+  /**
+   * 次ゲームの予約。`bonus` があればそれ、無ければ「必ず演出」の小役ゲーム。
+   * `wait` は連続演出の残りのゲーム数（その間は無演出の普通のゲームで、予約は先へ送る）。
+   */
+  let stepNext: { bonus: 'big' | 'reg' | null; wait: number } | null = null;
   /** ボーナスの無いチャンス目のあと、次ゲームで外れの狙え（BIG）を出すか（main.ts の fakeFollow）。 */
   let fakeNext = false;
   let stepCount = 0;
   let stepRed = 0;
   let stepGold = 0;
 
+  /** 今の区間（BLOCK ゲーム）の差枚。 */
+  let blockNet = 0;
   for (let g = 0; g < spins; g++) {
     const bonusActive = bonusRemaining > 0;
     const state: InternalRoleState = bonusActive
@@ -488,8 +528,12 @@ function runChapter(
         : null;
     const carried = !heldYaku && !bonusActive ? heldBonusYaku : null;
     // ステップアップの予約を消費する（通常抽選のブランチに来た時だけ）。
-    const step = !heldYaku && !carried && !bonusActive ? stepNext : null;
-    if (!bonusActive) stepNext = null;
+    // 連続演出の途中なら予約は先へ送り、このゲームは無演出の普通のゲーム（main.ts と同じ）。
+    const normalBranch = !heldYaku && !carried && !bonusActive;
+    const stepWaiting = normalBranch && stepNext !== null && stepNext.wait > 0;
+    const step = normalBranch && stepNext !== null && stepNext.wait === 0 ? stepNext : null;
+    if (stepWaiting && stepNext) stepNext.wait--;
+    else if (!bonusActive) stepNext = null;
     /**
      * ボーナスはステップアップ経由でしか出さないので通常抽選からは落とす（miss へ）。
      * **ボーナス中は落とさない**——おかわり（ボーナス中の再当選）が消えると
@@ -519,6 +563,8 @@ function runChapter(
                   r.kind !== 'big' && r.kind !== 'reg' && !r.freeze && y !== null,
               })
             : dropBonus(lottery.draw(state));
+    // 連続演出の途中でフリーズを引いたら走りごと捨てる（main.ts と同じ）
+    if (stepWaiting && role.freeze) stepNext = null;
     const yaku = role.yakuId ? (yakuById.get(role.yakuId) ?? null) : null;
     const rates =
       state === 'bonus'
@@ -530,6 +576,8 @@ function runChapter(
     let effect: 'none' | 'shisa' | 'quiz' | 'aim';
     if (heldYaku || carried) {
       effect = 'none'; // 持ち越し中は無告知（出目＝リーチ目で察知する）
+    } else if (stepWaiting) {
+      effect = 'none'; // 連続演出の途中はステップアップだけを出す（単独で出す）
     } else if (step && !stepBonusYaku && yaku) {
       // 先告知：緑や赤が出たのに何も起きずに終わる拍子抜けを防ぐ（none を外す）
       const cands = eligibility.eligibleEffects(yaku).filter((e) => e !== 'none');
@@ -552,7 +600,7 @@ function runChapter(
     let decoyAim: Yaku | null = null;
     const fakeNow = fakeNext;
     fakeNext = false;
-    if (fakeNow && !heldYaku && !carried && !step && !bonusActive) {
+    if (fakeNow && !heldYaku && !carried && !step && !stepWaiting && !bonusActive) {
       effect = 'aim';
       decoyAim = yakuList.premiumYaku[0] ?? null;
     } else if (
@@ -823,33 +871,49 @@ function runChapter(
     // ステップアップ（前兆）へ入るか。契機役の一部だけが入り、色で次ゲームが決まる。
     // ボーナス中と、すでに予約がある時は出さない。
     if (!bonusActive && !stepNext && !heldYaku && !carried && !role.freeze) {
-      const trig =
-        role.kind === 'cherry' ||
-        (role.kind === 'core' && (yaku?.payout ?? 0) >= STEP_TRIGGER_MIN_PAYOUT);
+      const trig = isStepTrigger(role.kind, yaku?.payout ?? 0, stepCfg);
       if (trig && rng() < STEP_ENTRY_RATE) {
-        let r = rng();
-        let color: 'green' | 'red' | 'gold' = 'green';
-        for (const [c, rate] of STEP_COLOR_RATE) {
-          if ((r -= rate) < 0) { color = c; break; }
-        }
+        const color = pickStepColor(stepCfg, rng);
         stepCount++;
         if (color === 'red') stepRed++;
         if (color === 'gold') stepGold++;
-        const isBonus =
-        rng() <
-        Math.min(
-          1,
-          STEP_BONUS_RATE[color] * stepBonusMultiplier(setting) * STEP_BONUS_MULT,
+        const bonus = pickStepBonus(
+          stepCfg,
+          color,
+          stepBonusMultiplier(setting) * STEP_BONUS_MULT,
+          rng,
         );
-        stepNext = {
-          bonus: isBonus ? (rng() < STEP_BIG_RATE[color] ? 'big' : 'reg') : null,
-        };
+        // CHAIN=0 で連続演出を切って測る（乱数の消費も止めるので、切れば以前と同じ列になる）
+        const length = CHAIN_ON ? pickChainLength(stepCfg, color, rng) : 1;
+        stepNext = { bonus, wait: length - 1 };
       }
     }
 
     streak = streakAfter;
     missStreak = willHit ? 0 : missStreak + 1;
     res.totalWin += win;
+    // 分散と取りこぼしの集計（乱数を引かないので、出玉には効かない）。
+    const net = win - calc.bet;
+    res.netSum += net;
+    res.netSqSum += net * net;
+    blockNet += net;
+    if ((g + 1) % BLOCK === 0) {
+      res.blockNets.push(blockNet);
+      blockNet = 0;
+    }
+    if (role.kind !== 'miss') {
+      const phase = bonusActive ? 'ボ中' : heldYaku || carried ? '持越' : '通常';
+      const got = role.kind === 'single' ? outcome.singleHits.length > 0 : willHit;
+      const aim = bitaChance ? '目印狙い' : aimedThisSpin ? '狙えた' : '適当押し';
+      const key = `${phase}|${role.kind}|${aim}`;
+      const cur = res.loss.get(key) ?? [0, 0, 0];
+      cur[0]++;
+      if (!got) {
+        cur[1]++;
+        if (role.kind !== 'single' && outcome.singleHits.length > 0) cur[2]++;
+      }
+      res.loss.set(key, cur);
+    }
     if (bonusActive) curBonusPayout += win;
     else res.normalWin += win;
 
@@ -902,6 +966,13 @@ function runChapter(
 describe.skipIf(!RUN)('出玉シミュレーション（新モデル）', () => {
   it('腕別の機械割・突入率・ボーナス平均を測る', () => {
     const SPINS = Number(process.env.SPINS ?? 200000);
+    const spreads = new Map<string, SkillSpread>();
+    // 再現に要るもの（どのコードで・どの規則で・どの乱数で測ったか）を先頭に残す。
+    console.log(
+      `\n===== 測定条件 =====\nbuild ${__BUILD_ID__} ・ 規則v${RUN_RULESET_VERSION} ・ ` +
+        `シード ${SEED}（章ごとに +977×章の番号） ・ ${SPINS}G/腕 ・ 区間 ${BLOCK}G ・ ` +
+        `押し順 ${process.env.SEQ ?? '0,1,2'} ・ ${SETTING ? '設定' + SETTING : '設定なし（素の役テーブル）'}`,
+    );
     const lines: string[] = [];
     lines.push('腕      機械割   通常時純増  ボ中純増  突入(1/G)  BIG平均  REG平均  示唆発展  ランプ  チェリー重複  持越G  目印役  目印揃い  目印経由  ボ中こぼし  →1枚');
     for (const skill of SKILLS) {
@@ -910,8 +981,19 @@ describe.skipIf(!RUN)('出玉シミュレーション（新モデル）', () => 
       let spins = 0;
       let shisaSpins = 0, shisaEsc = 0, lampB = 0, cherryB = 0, carS = 0, eyeR = 0, eyeH = 0, eyeB = 0;
       let bMiss = 0, bSpill = 0, bitaC = 0, bitaH = 0;
+      const spread: SkillSpread = { spins: 0, netSum: 0, netSqSum: 0, blockNets: [], loss: new Map() };
+      spreads.set(skill.name, spread);
       CHAPTERS.forEach((ch, i) => {
-        const r = runChapter(ch, skill, SPINS / CHAPTERS.length, 12345 + i * 977, SETTING);
+        const r = runChapter(ch, skill, SPINS / CHAPTERS.length, seedOf(i), SETTING);
+        spread.spins += r.spins;
+        spread.netSum += r.netSum;
+        spread.netSqSum += r.netSqSum;
+        spread.blockNets.push(...r.blockNets);
+        for (const [k, v] of r.loss) {
+          const cur = spread.loss.get(k) ?? [0, 0, 0];
+          v.forEach((x, j) => { cur[j] += x; });
+          spread.loss.set(k, cur);
+        }
         bMiss += r.bonusMissSpins; bSpill += r.bonusSpillWins;
         bitaC += r.bitaChances; bitaH += r.bitaHits;
         bet += r.totalBet; win += r.totalWin;
@@ -953,7 +1035,7 @@ describe.skipIf(!RUN)('出玉シミュレーション（新モデル）', () => 
       const acc = [0, 0, 0, 0];
       let hit = 0, perfect = 0;
       CHAPTERS.forEach((ch, i) => {
-        const r = runChapter(ch, skill, SPINS / CHAPTERS.length, 12345 + i * 977, SETTING);
+        const r = runChapter(ch, skill, SPINS / CHAPTERS.length, seedOf(i), SETTING);
         hit += r.hitSpins; perfect += r.bitaPerfect;
         r.bitaReels.forEach((n, k) => { acc[k] += n; });
       });
@@ -965,6 +1047,58 @@ describe.skipIf(!RUN)('出玉シミュレーション（新モデル）', () => 
     }
     console.log('\n===== 引き込みなし（自力停止）の到達度 =====\n' + bita.join('\n'));
 
+    // 分散。機械割は平均しか言わないので、同じ機械割でも荒さが違えば体感が変わる。
+    const spreadLines: string[] = [];
+    spreadLines.push(
+      `腕      σ/G    ${BLOCK}G差枚: 平均     σ      5%     25%    中央    75%    95%   (区間数)`,
+    );
+    for (const skill of SKILLS) {
+      const sp = spreads.get(skill.name)!;
+      const mean = sp.netSum / Math.max(1, sp.spins);
+      const sd = Math.sqrt(Math.max(0, sp.netSqSum / Math.max(1, sp.spins) - mean * mean));
+      const b = [...sp.blockNets].sort((x, y) => x - y);
+      const bMean = b.reduce((a, x) => a + x, 0) / Math.max(1, b.length);
+      const bSd = Math.sqrt(b.reduce((a, x) => a + (x - bMean) ** 2, 0) / Math.max(1, b.length));
+      const q = (p: number) => (b.length ? b[Math.min(b.length - 1, Math.floor(p * b.length))] : 0);
+      const f = (v: number) => v.toFixed(0).padStart(7);
+      spreadLines.push(
+        `${skill.name.padEnd(5)} ${sd.toFixed(2).padStart(6)}   ${f(bMean)}${f(bSd)}${f(q(0.05))}${f(q(0.25))}${f(q(0.5))}${f(q(0.75))}${f(q(0.95))}   (${b.length})`,
+      );
+    }
+    console.log('\n===== 差枚の分布（1Gの標準偏差と、区間ごとの差枚） =====\n' + spreadLines.join('\n'));
+
+    // 取りこぼし率の内訳。局面 × 内部役の種別 × 狙えたか。
+    const PHASES = ['通常', '持越', 'ボ中'];
+    const KINDS = ['single', 'core', 'cherry', 'chance', 'reg', 'big'];
+    const AIMS = ['狙えた', '適当押し', '目印狙い'];
+    const lossLines: string[] = [];
+    lossLines.push(
+      '局面 種別    狙い     ' + SKILLS.map((s) => `${s.name}: 当選G  こぼし  →1枚`.padStart(26)).join(''),
+    );
+    for (const ph of PHASES) {
+      for (const kd of KINDS) {
+        for (const am of AIMS) {
+          const key = `${ph}|${kd}|${am}`;
+          const cells = SKILLS.map((s) => spreads.get(s.name)!.loss.get(key) ?? [0, 0, 0]);
+          if (cells.every((c) => c[0] === 0)) continue;
+          lossLines.push(
+            `${ph}  ${kd.padEnd(7)} ${am.padEnd(5)}` +
+              cells
+                .map(
+                  (c) =>
+                    `${c[0].toString().padStart(15)}${((c[1] / Math.max(1, c[0])) * 100).toFixed(1).padStart(7)}%` +
+                    `${((c[2] / Math.max(1, c[1])) * 100).toFixed(0).padStart(4)}%`,
+                )
+                .join(''),
+          );
+        }
+      }
+    }
+    console.log(
+      '\n===== 取りこぼし率の内訳（こぼし＝当選役を揃えられなかった割合・→1枚＝こぼしのうち1枚役へ落ちた割合） =====\n' +
+        lossLines.join('\n'),
+    );
+
     // ボーナス中はどの演出でも狙う役は分かっているはずなのに取りこぼしが残る。
     // その内訳＝演出設計（どこまで役を明かすか）の判断材料。
     const byEffect: string[] = [];
@@ -972,7 +1106,7 @@ describe.skipIf(!RUN)('出玉シミュレーション（新モデル）', () => 
     for (const skill of SKILLS) {
       const acc = new Map<string, [number, number]>();
       CHAPTERS.forEach((ch, i) => {
-        const r = runChapter(ch, skill, SPINS / CHAPTERS.length, 12345 + i * 977, SETTING);
+        const r = runChapter(ch, skill, SPINS / CHAPTERS.length, seedOf(i), SETTING);
         for (const [k, v] of r.bonusByEffect) {
           const cur = acc.get(k) ?? [0, 0];
           cur[0] += v[0];
@@ -995,7 +1129,7 @@ describe.skipIf(!RUN)('出玉シミュレーション（新モデル）', () => 
     const per: string[] = [];
     per.push('章 / 役          狙えた   ビタ    到達率   ※狙えたゲームのみ（演出で役が分かった時）');
     for (const ch of CHAPTERS) {
-      const r = runChapter(ch, skill, SPINS / CHAPTERS.length, 12345, SETTING);
+      const r = runChapter(ch, skill, SPINS / CHAPTERS.length, SEED, SETTING);
       const rows = [...r.perYaku.entries()].sort((a, b) => b[1][0] - a[1][0]);
       const rates = rows.map(([, v]) => (v[1] / Math.max(1, v[0])) * 100);
       const lo = Math.min(...rates);
@@ -1021,7 +1155,7 @@ describe.skipIf(!RUN)('出玉シミュレーション（新モデル）', () => 
       for (const sk of SKILLS) {
         let bet = 0, win = 0, spins = 0, big = 0, reg = 0;
         CHAPTERS.forEach((ch, i) => {
-          const r = runChapter(ch, sk, SPINS / CHAPTERS.length, 12345 + i * 977, st);
+          const r = runChapter(ch, sk, SPINS / CHAPTERS.length, seedOf(i), st);
           bet += r.totalBet; win += r.totalWin; spins += r.spins;
           big += r.big; reg += r.reg;
         });
@@ -1035,5 +1169,5 @@ describe.skipIf(!RUN)('出玉シミュレーション（新モデル）', () => 
     }
     console.log('\n===== 設定差（1〜6） =====\n' + setLines.join('\n'));
     expect(lines.length).toBeGreaterThan(1);
-  }, 600000);
+  }, 7200000);
 });
