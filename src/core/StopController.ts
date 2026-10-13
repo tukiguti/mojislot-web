@@ -5,8 +5,9 @@ import {
   type VisibleColumn,
 } from '../productions/SlipResolver';
 import { TenpaiDetector, type TenpaiLine } from '../productions/TenpaiDetector';
-import { PAYLINES, ROW_VERTICAL } from './Paylines';
+import { PAYLINES, ROW_VERTICAL, yakuOnLine } from './Paylines';
 import type { StopTableLookup } from './StopTable';
+import { PullInGuard } from './PullInGuard';
 
 /**
  * 停止制御（実機のリール制御）。1リール停止時のスベリコマ数を決める**唯一の実装**。
@@ -19,8 +20,11 @@ import type { StopTableLookup } from './StopTable';
  *  1. フリーズ中 → 制御を一切かけない（強制セット位置へスナップ）
  *  2. 第1停止（他リール未停止）→ **停止テーブル**を引く。この時点ではどの役も
  *     ロックし得ないので蹴りが効かず、出目（リーチ目・入り目）の設計点になる
- *  3. 当選役があれば引き込む（最終リールは5ラインのテンパイ／それ以外は中段）
- *  4. 引き込めなければ、非当選役が揃わない位置へ決定的に蹴る
+ *  3. 第2・第3停止は、順押しなら停止テーブルを引く。表が無い押し順では
+ *     **引き込み保証**（`PullInGuard`：残りを狙って押せば必ず揃う滑り）で選ぶ。
+ *     表も同じ判定で焼いてあるので、押し順で制御の性質は変わらない
+ *  4. 保証で選べなければ当選役を引き込む（最終リールは5ラインのテンパイ）
+ *  5. 引き込めなければ、非当選役が揃わない位置へ決定的に蹴る
  *
  * 引き込み窓は**内部役だけで決まり演出では変わらない**（実機準拠）。
  * 難易度はリール配列（図柄の間隔）が担う。
@@ -39,6 +43,8 @@ const CAT_RANK: Record<Yaku['category'], number> = {
   core: 2,
   cherry: 1,
   single: 0,
+  // 目印揃い。目印揃いの内部役では当選役がこれだけなので、序列は他と競わない
+  chance: 2,
 };
 
 export interface StopRequest {
@@ -66,6 +72,17 @@ export interface StopRequest {
   flagKey?: string | null;
   /** フリーズ演出中（制御を無効化して押下位置へスナップ）。 */
   freeze?: boolean;
+  /**
+   * ビタチャンス中の目印の図柄（2026-10-02）。**押した瞬間に中段がこの図柄なら滑らせない**。
+   * それ以外の押し方は普段どおりの制御。目印は滑りで寄ってこないので、
+   * 3つ揃えるには3リールともぴったり押すしかない。
+   */
+  bitaMark?: string | null;
+  /**
+   * ビタチャンスで**ぴったり押しても目印を滑らせる**（2026-10-12・矛盾 5.3）。
+   * ボーナスの再当選がある回だけ立てる。正しく押したのに滑った＝上乗せの合図。
+   */
+  bitaRefuse?: boolean;
 }
 
 export interface StopControllerDeps {
@@ -75,6 +92,11 @@ export interface StopControllerDeps {
   stopTable?: StopTableLookup | null;
   /** 引き込み窓（コマ）。実機準拠の4。 */
   pullInCells: number;
+  /**
+   * 3リールの配列。引き込み保証（`PullInGuard`）が残りのリールまで見て滑りを選ぶのに使う。
+   * 停止要求には自分のリールしか載らないので、ここで全リールを持たせる。
+   */
+  reels: readonly (readonly string[])[];
 }
 
 export class StopController {
@@ -83,6 +105,9 @@ export class StopController {
   private readonly tenpai: TenpaiDetector;
   private readonly stopTable: StopTableLookup | null;
   private readonly pullInCells: number;
+  private readonly guard: PullInGuard;
+  /** 目印揃いの役ID（ビタの判定で出てよい役に数える）。 */
+  private readonly chanceIds: string[];
 
   constructor(deps: StopControllerDeps) {
     this.allYakus = [
@@ -91,17 +116,47 @@ export class StopController {
       ...deps.yakuList.bonusYaku,
       ...deps.yakuList.cherryYaku,
       ...deps.yakuList.singleYaku,
+      ...deps.yakuList.chanceYaku,
     ];
     this.slip = deps.slipResolver;
     this.tenpai = deps.tenpaiDetector;
     this.stopTable = deps.stopTable ?? null;
     this.pullInCells = deps.pullInCells;
+    this.guard = new PullInGuard(deps.yakuList, deps.reels, deps.pullInCells);
+    this.chanceIds = deps.yakuList.chanceYaku.map((y) => y.id);
   }
 
   /** このリールのスベリコマ数（0..4）。 */
   resolveSlip(req: StopRequest): number {
     // フリーズ中は制御しない（強制セット位置へそのまま止める）。
     if (req.freeze) return 0;
+    // ビタの拒否（矛盾 5.3）：ぴったり押されても滑らせる。普段の制御が0を選ぶなら、
+    // 許可外の役が揃わない一番近い滑りへずらす
+    if (req.bitaMark && req.bitaRefuse && req.strip.cells[req.basePosition] === req.bitaMark) {
+      const base = this.baseSlip({ ...req, bitaMark: null });
+      if (base > 0) return base;
+      const ctx = this.ctxOf(req);
+      const n = req.strip.cells.length;
+      for (let s = 1; s <= this.pullInCells; s++) {
+        if (!this.slip.locksNonFlagAt(ctx, (req.basePosition + s) % n)) return s;
+      }
+      return base;
+    }
+    return this.baseSlip(req);
+  }
+
+  private ctxOf(req: StopRequest): SlipContext {
+    return {
+      reelIndex: req.reelIndex,
+      basePosition: req.basePosition,
+      strip: req.strip,
+      stoppedVisibles: req.stoppedVisibles,
+      exceptYakuIds: req.flagYakuIds,
+    };
+  }
+
+  /** 普段の制御（ビタの拒否をかける前）。 */
+  private baseSlip(req: StopRequest): number {
 
     const ctx: SlipContext = {
       reelIndex: req.reelIndex,
@@ -110,6 +165,23 @@ export class StopController {
       stoppedVisibles: req.stoppedVisibles,
       exceptYakuIds: req.flagYakuIds,
     };
+
+    // ビタチャンス：目印をぴったり押したら、当選役の引き込みより優先してそのまま止める。
+    // 小役を取りに行くか目印を狙うかは打ち手が選ぶ（両方は取れないことがある）。
+    // ただし**出目＝フラグは崩さない**——止めると許可外の役が揃う位置なら普段の制御に戻す。
+    if (
+      req.bitaMark &&
+      req.strip.cells[req.basePosition] === req.bitaMark &&
+      // 目印揃い（リーチ目・チャンス目）は出てよい役に数える。ビタは目印を揃える場面そのもの
+      // なので、これを許さないと3つ目を止めた時に必ず拒まれる（2026-10-13 に実測で成功0%）。
+      // 払い出しはフラグで決まる（RoundResolver）ので、ここで許しても配当は増えない
+      !this.slip.locksNonFlagAt(
+        { ...ctx, exceptYakuIds: [...(ctx.exceptYakuIds ?? []), ...this.chanceIds] },
+        req.basePosition,
+      )
+    ) {
+      return 0;
+    }
 
     // 第1停止は停止テーブルを引く（まだどの役もロックし得ない＝出目の設計点）。
     const noneStopped = req.stoppedVisibles.every((v) => v === null);
@@ -171,6 +243,27 @@ export class StopController {
               : null
             : null;
       if (tabled !== null && tabled !== undefined) return tabled;
+    }
+
+    // 表が無い第2・第3停止（順押し以外の押し順）：引き込み保証で選ぶ。
+    // 表を焼く時と同じ判定なので、**押し順で「狙えば揃う」が変わらない**。
+    // 以前はここで素の引き込み（その時点で揃う最小の滑り）に落ちていて、
+    // 先に止めた位置しだいで残りが詰み、正しく狙っても揃わない押し方が残った。
+    if (!noneStopped && req.stoppedPositions && winTargets.length > 0) {
+      const stops = req.stoppedPositions.map((p, i) => (i === req.reelIndex ? null : p));
+      // 保証の判定では、ボーナス中のこぼし先（1枚役）を**出てよい役に数えない**。
+      // 数えると通常時と別の止め方を選び、同じ押し方でも当選役を取り逃がすことがあった
+      // （監査 bonus-spill で6通り）。1枚役は当選役を取れなかった時の受け皿で、
+      // 下の最終停止の拾いに任せる。
+      const guarded = this.guard.chooseSlip(
+        winTargets,
+        stops,
+        req.reelIndex,
+        req.basePosition,
+        () => 0,
+        winTargets.map((y) => y.id),
+      );
+      if (guarded !== null) return guarded;
     }
 
     let slip = this.pullIn(winTargets, req, ctx);
@@ -237,7 +330,7 @@ export class StopController {
     for (const y of targets) {
       if (y.symbols[req.reelIndex] === undefined) continue;
       for (const line of PAYLINES) {
-        if (!accept(line)) continue;
+        if (!accept(line) || !yakuOnLine(y, line.id)) continue;
         const rowOf = new Map(line.cells.map(([row, col]) => [col, row]));
         const row = rowOf.get(req.reelIndex);
         if (row === undefined) continue;

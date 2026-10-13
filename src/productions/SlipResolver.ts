@@ -2,6 +2,7 @@ import type { ReelStrip, Yaku, YakuList } from '../data/schemas';
 import {
   PAYLINES,
   extractPartialLineSymbols,
+  yakuOnLine,
   visibleAt,
   type PartialGrid3x3,
   type Vertical,
@@ -67,6 +68,7 @@ export class SlipResolver {
       ...yakuList.coreYaku,
       ...yakuList.cherryYaku,
       ...yakuList.singleYaku,
+      ...yakuList.chanceYaku,
     ];
     this.assistMaxCells = opts.assistMaxCells ?? ASSIST_MAX_CELLS;
   }
@@ -142,6 +144,16 @@ export class SlipResolver {
   }
 
   /**
+   * このリールを position に止めると、**出目に出てはいけない役**（許可リスト外）が
+   * 揃ってしまうか。ビタチャンスで「押した位置のまま止める」前の確認に使う。
+   */
+  locksNonFlagAt(ctx: SlipContext, position: number): boolean {
+    const exceptIds = new Set(ctx.exceptYakuIds ?? []);
+    const nonFlagged = this.allYakus.filter((y) => !exceptIds.has(y.id));
+    return this.anyCompletes(position, ctx, nonFlagged);
+  }
+
+  /**
    * このリールが position に停止したとして、5ペイラインのいずれかで
    * yakus のいずれかが**確定（ロック）**するかを判定＝蹴りが避けるべき成立。
    * 未停止リール（null）は**不成立扱い**（ワイルドカードにしない）。これにより、
@@ -157,7 +169,7 @@ export class SlipResolver {
     const grid = this.buildPartialGrid(position, ctx);
     return PAYLINES.some((line) => {
       const [a, b, c] = extractPartialLineSymbols(grid, line);
-      return yakus.some((y) => this.matchesLine(y, a, b, c));
+      return yakus.some((y) => yakuOnLine(y, line.id) && this.matchesLine(y, a, b, c));
     });
   }
 

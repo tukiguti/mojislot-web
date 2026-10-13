@@ -91,7 +91,7 @@ BOLD = {"hiragana_food": 1, "katakana_animal": 0, "hiragana_verb": 0, "yasai": 2
 
 CW, CH = 65, 50      # セルのドット数（130x100 のセルへ2倍）
 GLYPH_PX = 45        # 文字の既定の高さ
-PAD = 5              # 字面の外に取る余白。縁2＋金の輪2＋影1
+PAD = 6              # 字面の外に取る余白。縁2＋金の輪3＋影1
 MASK_W = CW - 2 * PAD - 2
 MASK_H = CH - 2 * PAD
 SS = 4               # ラスタライズの上げ幅。横だけ伸縮するので一度大きく焼いてから縮める
@@ -103,7 +103,9 @@ MARK_K = 1.5         # 手描きの濁点・半濁点の拡大率（v1 の 44x34
 TIER_SCALE = {"bonus": 1.2, "core": 0.88, "filler": 0.78}
 # 格ごとの字面の上限（幅, 高さ）。大きさの倍率だけだと、探索が小役を大きく選んだ時に
 # ボーナスと並んでしまう。上限で頭を押さえて、ボーナスだけが枠いっぱいに届くようにする。
-LIMITS = {"bonus": (MASK_W, MASK_H), "core": (MASK_W - 6, 33), "filler": (MASK_W - 10, 29)}
+# 〔2026-10-10〕小役の上限を幅も高さも下げた。回転中の見分けのために横へ広げた小役
+# （寿司の「い」など）が、ボーナス図柄とほぼ同じ大きさに見えていた。
+LIMITS = {"bonus": (MASK_W, MASK_H), "core": (40, 30), "filler": (36, 27)}
 
 CHAPTERS = [
     "hiragana_food",
@@ -127,100 +129,92 @@ def use_chapter(chapter: str) -> None:
 # 出したもの。
 TUNE: dict[str, dict[str, dict[str, float]]] = {
     "hiragana_food": {
-        "0:い": {"size": 47, "stretch": 1.16},
-        "0:え": {"stretch": 1.08},
-        "0:か": {"stretch": 1.08},
-        "0:さ": {"size": 43, "stretch": 0.84},
+        "0:い": {"stretch": 1.08},
+        "0:え": {"stretch": 0.84},
+        "0:さ": {"size": 39, "stretch": 0.84},
         "0:し": {"stretch": 0.84},
-        "0:た": {"size": 49, "stretch": 1.16},
-        "0:ま": {"stretch": 0.84},
-        "1:ぐ": {"stretch": 0.92, "gap": 8},
-        "1:び": {"gap": 8},
+        "0:た": {"stretch": 1.16},
+        "1:ぐ": {"size": 41, "stretch": 0.84, "gap": 8},
+        "1:び": {"stretch": 0.84, "gap": 8},
         "1:ゃ": {"size": 49, "stretch": 1.16},
-        "1:ら": {"stretch": 1.08},
+        "1:ら": {"size": 47},
         "1:わ": {"stretch": 0.84},
         "1:ん": {"stretch": 0.92},
         "2:け": {"stretch": 1.16},
-        "2:こ": {"stretch": 1.08},
-        "2:し": {"size": 47},
-        "2:ま": {"stretch": 0.84},
+        "2:し": {"size": 47, "stretch": 0.84},
     },
     "hiragana_verb": {
-        "0:あ": {"size": 39, "stretch": 0.84},
+        "0:あ": {"size": 47, "stretch": 0.84},
         "0:い": {"stretch": 1.16},
         "0:う": {"stretch": 0.84},
         "0:お": {"stretch": 0.84},
-        "0:ね": {"stretch": 1.16},
-        "0:は": {"stretch": 1.08},
-        "0:や": {"stretch": 1.16},
+        "0:ね": {"stretch": 1.08},
+        "0:や": {"stretch": 1.08},
         "1:き": {"stretch": 1.16},
         "1:す": {"size": 47, "stretch": 1.16},
         "1:そ": {"stretch": 0.84},
-        "1:た": {"stretch": 0.92},
+        "1:た": {"stretch": 1.08},
         "1:な": {"stretch": 1.08},
         "1:よ": {"stretch": 0.84},
-        "1:る": {"stretch": 1.08},
         "2:う": {"stretch": 0.84},
-        "2:ぐ": {"size": 41, "gap": 8},
-        "2:す": {"stretch": 0.92},
-        "2:ぶ": {"gap": 8},
-        "2:む": {"stretch": 1.08},
-        "2:る": {"stretch": 0.92},
+        "2:ぐ": {"size": 43, "gap": 8},
+        "2:ぶ": {"size": 43, "stretch": 0.84, "gap": 8},
+        "2:む": {"size": 47, "stretch": 1.16},
     },
     "katakana_animal": {
-        "0:イ": {"stretch": 1.08},
-        "0:ウ": {"size": 41, "stretch": 0.84},
-        "0:タ": {"stretch": 0.84},
+        "0:イ": {"size": 47},
+        "0:ウ": {"size": 43, "stretch": 0.84},
+        "0:キ": {"stretch": 0.84},
+        "0:サ": {"stretch": 1.08},
+        "0:タ": {"size": 41},
+        "0:ト": {"stretch": 0.84},
         "0:ナ": {"stretch": 1.16},
-        "1:イ": {"size": 41, "stretch": 0.84},
-        "1:カ": {"size": 43, "stretch": 0.84},
-        "1:マ": {"size": 49, "stretch": 1.16},
-        "1:リ": {"stretch": 0.84},
+        "1:イ": {"stretch": 0.84},
+        "1:カ": {"stretch": 0.84},
+        "1:サ": {"stretch": 1.08},
+        "1:マ": {"size": 47, "stretch": 1.16},
+        "1:リ": {"stretch": 0.92},
         "1:ン": {"stretch": 1.08},
-        "2:キ": {"stretch": 0.92},
-        "2:ギ": {"stretch": 0.92, "gap": 8},
+        "2:キ": {"stretch": 0.84},
+        "2:ギ": {"stretch": 0.84, "gap": 8},
         "2:ゲ": {"gap": 8},
-        "2:コ": {"stretch": 1.16},
         "2:ズ": {"gap": 8},
-        "2:ン": {"stretch": 1.08},
+        "2:ン": {"stretch": 0.92},
     },
     "security": {
-        "0:シ": {"size": 47, "stretch": 0.84},
-        "0:ス": {"size": 49, "stretch": 1.16},
-        "0:ソ": {"size": 39, "stretch": 0.84},
-        "0:ダ": {"size": 43, "stretch": 0.92, "gap": 8},
-        "0:ハ": {"stretch": 1.08},
+        "0:シ": {"size": 47, "stretch": 0.92},
+        "0:ス": {"stretch": 1.16},
+        "0:ソ": {"stretch": 0.84},
+        "0:ダ": {"stretch": 0.84, "gap": 8},
+        "0:ハ": {"size": 43},
         "0:バ": {"gap": 8},
-        "0:ワ": {"size": 47},
-        "1:ェ": {"size": 43, "stretch": 0.92},
-        "1:グ": {"size": 41, "stretch": 0.84, "gap": 8},
-        "1:ッ": {"size": 41, "stretch": 0.84},
+        "0:ワ": {"stretch": 0.92},
+        "1:ェ": {"size": 39, "stretch": 0.84},
+        "1:グ": {"stretch": 0.92, "gap": 8},
+        "1:ッ": {"size": 43, "stretch": 0.92},
         "1:パ": {"stretch": 0.92, "gap": 8},
-        "1:ー": {"stretch": 1.08},
         "2:イ": {"stretch": 0.84},
-        "2:ク": {"stretch": 0.84},
+        "2:ク": {"size": 39, "stretch": 0.84},
         "2:ト": {"stretch": 0.84},
-        "2:プ": {"size": 43, "gap": 8},
-        "2:ム": {"stretch": 1.08},
+        "2:プ": {"size": 39, "stretch": 0.92, "gap": 8},
+        "2:ム": {"stretch": 1.16},
     },
     "yasai": {
         "0:オ": {"stretch": 0.84},
-        "0:セ": {"size": 43},
         "0:ナ": {"stretch": 0.84},
         "0:プ": {"gap": 8},
-        "0:モ": {"size": 49, "stretch": 1.16},
-        "0:ラ": {"stretch": 1.08},
-        "0:レ": {"size": 41, "stretch": 0.84},
-        "1:ス": {"size": 49, "stretch": 1.16},
-        "1:タ": {"size": 41, "stretch": 0.84},
-        "1:ヤ": {"stretch": 0.92},
-        "1:ラ": {"stretch": 1.08},
-        "1:ロ": {"size": 43, "stretch": 0.84},
-        "2:シ": {"size": 39, "stretch": 0.84},
-        "2:ス": {"size": 47, "stretch": 1.16},
+        "0:モ": {"stretch": 1.08},
+        "0:ラ": {"stretch": 1.16},
+        "0:レ": {"size": 43},
+        "1:イ": {"stretch": 1.16},
+        "1:ク": {"stretch": 0.84},
+        "1:ヤ": {"stretch": 0.84},
+        "1:ラ": {"stretch": 1.16},
+        "1:ロ": {"stretch": 1.08},
+        "2:シ": {"stretch": 1.08},
         "2:チ": {"stretch": 1.16},
         "2:ム": {"stretch": 1.16},
-        "2:ラ": {"stretch": 1.16},
+        "2:ラ": {"size": 49, "stretch": 0.84},
     },
 }
 
@@ -402,13 +396,83 @@ GOLD_HI, GOLD_MID, GOLD_LO = (255, 236, 150), (232, 176, 52), (176, 116, 20)
 GOLD_EDGE = (70, 40, 6, 255)
 
 
+# ---------------------------------------------------------------- 目印
+
+_LANDMARK_CACHE: dict[str, str | None] = {}
+
+
+def landmark_of(chapter: str) -> str | None:
+    """その島の目印の図柄（data/reels の landmark）。無ければ None。"""
+    if chapter not in _LANDMARK_CACHE:
+        d = json.loads((DATA / "reels" / f"{chapter}.json").read_text())
+        _LANDMARK_CACHE[chapter] = d.get("landmark")
+    return _LANDMARK_CACHE[chapter]
+
+
+MARK_FACE = (236, 228, 204)      # 目印の字の色（生成り）
+MARK_SHADE = (176, 164, 136)     # 字の下側の陰り
+MARK_EDGE = (34, 30, 40, 255)    # 外の縁（ほかの文字と同じ黒）
+MARK_BAR = (150, 128, 84, 255)   # 字の上下に引く細い線（実機の BAR の帯）
+
+
+def landmark_glyph(ch: str, chapter: str) -> tuple[Image.Image, Image.Image]:
+    """目印＝**島の漢字1字を、上下に細い線を引いて置いたもの**（実機の BAR の役回り）。
+
+    〔2026-10-06〕金の札は目立ちすぎた。狙う場所の主役はボーナス図柄で、目印は
+    そこから届かない役のための脇役なので、**ほかの文字と同じ大きさ・同じ縁**にして、
+    色を役の色から外した生成りにする。上下の線で「役の文字ではない」ことだけ分かる。
+    役の色で染めない（表示側は tint を白）ので、色は地の1枚に焼き込む。艶は付けない。
+    """
+    use_chapter(chapter)
+    base = Image.new("RGBA", (CW, CH), (0, 0, 0, 0))
+    gloss = Image.new("RGBA", (CW, CH), (0, 0, 0, 0))
+    bp = base.load()
+    # 漢字は画数が多いので**太らせない**（仮名用の BOLD を掛けると潰れて塊になる）。
+    img = _raster(ch, 40)
+    k = min(34 / (img.width / SS), 30 / (img.height / SS))
+    m = _trim(_shrink(img, round(img.width / SS * k), round(img.height / SS * k)))
+    m = _pad(m, 3)
+    o1 = grow(m)
+    o2 = grow(o1)
+    h, w = len(m), len(m[0])
+    ox, oy = (CW - w) // 2, (CH - h) // 2
+    rows = [y for y in range(h) if any(m[y])]
+    top, bot = rows[0], rows[-1]
+
+    def put(x: int, y: int, c: tuple[int, int, int, int]) -> None:
+        X, Y = ox + x, oy + y
+        if 0 <= X < CW and 0 <= Y < CH:
+            bp[X, Y] = c
+
+    for y in range(h):
+        for x in range(w):
+            if o2[y][x] and not m[y][x]:
+                put(x, y, MARK_EDGE)
+    for y in range(h):
+        for x in range(w):
+            if m[y][x]:
+                c = MARK_FACE if (y - top) / max(1, bot - top) < 0.6 else MARK_SHADE
+                put(x, y, c + (255,))
+    # 上下の細い線（BAR の帯）。字の外の縁のさらに外側に2ドット
+    for yy in (oy + top - 6, oy + bot + 5):
+        for x in range(8, CW - 8):
+            for d in (0, 1):
+                if 0 <= yy + d < CH and bp[x, yy + d][3] == 0:
+                    bp[x, yy + d] = MARK_BAR
+    return base, gloss
+
+
 def glyph(ch: str, chapter: str = "hiragana_verb", reel: int = 0) -> tuple[Image.Image, Image.Image]:
     """(地, 艶) の2枚を返す。地は tint で役色に、艶はそのまま重ねる。"""
+    if ch == landmark_of(chapter):
+        return landmark_glyph(ch, chapter)
     tier = tier_of(chapter, reel, ch)
     m = _pad(face_of(ch, chapter, reel), PAD)
     o1 = grow(m)
     o2 = grow(o1)
-    g1 = grow(o2)
+    # 金の輪は2ドット（2026-10-12：ボーナス図柄をもっと見分けやすく）＋外の焦げ茶1ドット
+    g0 = grow(o2)
+    g1 = grow(g0)
     g2 = grow(g1)
     h, w = len(m), len(m[0])
     rows = [y for y in range(h) if any(m[y])]

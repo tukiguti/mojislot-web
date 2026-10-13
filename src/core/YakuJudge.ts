@@ -2,6 +2,7 @@ import type { Yaku, YakuList } from '../data/schemas';
 import {
   PAYLINES,
   extractLineSymbols,
+  yakuOnLine,
   type Grid3x3,
   type PaylineId,
 } from './Paylines';
@@ -26,8 +27,8 @@ export interface MultiJudgeResult {
 }
 
 export class YakuJudge {
-  /** 3文字役（左中右の完全一致）の索引 */
-  private readonly index = new Map<string, Yaku>();
+  /** 3文字役（左中右の完全一致）の索引。同じ3文字でラインごとに役が分かれることがある（目印揃い） */
+  private readonly index = new Map<string, Yaku[]>();
   /** チェリー等の2文字役（左+中の2リールで成立、右は不問）の索引 */
   private readonly cherryIndex = new Map<string, Yaku>();
 
@@ -37,9 +38,11 @@ export class YakuJudge {
       ...list.coreYaku,
       ...list.bonusYaku,
       ...list.singleYaku,
+      ...list.chanceYaku,
     ];
     for (const y of all) {
-      this.index.set(y.symbols.join(''), y);
+      const key = y.symbols.join('');
+      this.index.set(key, [...(this.index.get(key) ?? []), y]);
     }
     // 2文字役（チェリー）：先頭2リールのキーで索引
     for (const y of list.cherryYaku) {
@@ -51,7 +54,7 @@ export class YakuJudge {
   judge(symbols: [string, string, string]): JudgeResult {
     const key = symbols.join('');
     return {
-      yaku: this.index.get(key) ?? null,
+      yaku: this.index.get(key)?.find((y) => yakuOnLine(y, 'middle')) ?? null,
       symbols,
     };
   }
@@ -64,7 +67,7 @@ export class YakuJudge {
     const hits: PaylineHit[] = [];
     for (const line of PAYLINES) {
       const symbols = extractLineSymbols(grid, line);
-      const yaku = this.index.get(symbols.join(''));
+      const yaku = this.index.get(symbols.join(''))?.find((y) => yakuOnLine(y, line.id));
       if (yaku) {
         hits.push({
           paylineId: line.id,

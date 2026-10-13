@@ -6,8 +6,13 @@ import {
   YakuListSchema,
   ReelConfigSchema,
   StopTableSchema,
+  TuningSchema,
   type Yaku,
 } from '../../src/data/schemas';
+import { SlipResolver, type VisibleColumn } from '../../src/productions/SlipResolver';
+import { StopController } from '../../src/core/StopController';
+import { StopTableLookup } from '../../src/core/StopTable';
+import { TenpaiDetector } from '../../src/productions/TenpaiDetector';
 
 /**
  * **狙えば揃う**の監査：成立した役の図柄を狙って押したら、必ず有効ラインに揃うこと。
@@ -22,6 +27,11 @@ import {
  *
  * 3回とも**手で測って初めて分かった**。出玉も②ゼロ保証も1確も全部そのまま通るので、
  * テストが無ければ「たまに揃わない台」として静かに残る。だから気づける仕組みとして置く。
+ *
+ * 〔2026-10-02〕**全6通りの押し順を、ゲーム本体の停止制御（StopController）で測る**。
+ * 以前は停止テーブル（順押しの分しか無い）を直接読んでいたので、順押し以外で
+ * 2.7〜18.7% 揃わないことに気づけなかった。また②ゼロと両立しているかも見ていなかった
+ * （表は②を出してでも揃えていた）。
  *
  * 「狙って押す」は**図柄が中段に来る押下位置の手前2コマ**（ゲーム本体のAUTOと同じ打ち方）。
  * 役の図柄が配列に複数あるならその全ての出現位置を対象にし、第1×第2×第3の直積を回す。
@@ -47,6 +57,10 @@ const CHAPTERS = [
 const AIM_OFFSET = 2;
 
 /** 有効ライン5本。各要素は「リールrで見る行」＝ 0=上段 / 1=中段 / 2=下段。 */
+const STOP_ORDERS: readonly (readonly number[])[] = [
+  [0, 1, 2], [0, 2, 1], [1, 0, 2], [1, 2, 0], [2, 0, 1], [2, 1, 0],
+];
+
 const LINES: readonly (readonly [number, number, number])[] = [
   [0, 0, 0], // 上段
   [1, 1, 1], // 中段
@@ -86,7 +100,17 @@ describe('狙えば揃う（引き込み保証）', () => {
       (r) => r.cells,
     );
     const stops = StopTableSchema.parse(readJson(`${DATA}/stops/${chapter}.json`));
+    const tuning = TuningSchema.parse(readJson(`${DATA}/tuning/default.json`));
+    const ctrl = new StopController({
+      yakuList,
+      slipResolver: new SlipResolver(yakuList, { assistMaxCells: tuning.assist.pullInCells }),
+      tenpaiDetector: new TenpaiDetector(yakuList),
+      stopTable: new StopTableLookup(stops),
+      pullInCells: tuning.assist.pullInCells,
+      reels,
+    });
     const N = reels[0].length;
+    const strips = reels.map((cells, i) => ({ id: `r${i}`, cells: [...cells] }));
 
     const yakuById = new Map<string, Yaku>(
       [
@@ -102,14 +126,7 @@ describe('狙えば揃う（引き込み保証）', () => {
       const yaku = role.displayYakuId ? yakuById.get(role.displayYakuId) : undefined;
       if (!yaku) continue;
 
-      it(`${chapter}: ${role.id}（${yaku.name}）を狙えば必ず揃う`, () => {
-        const first = stops.firstStop[role.id];
-        const second = stops.secondStop?.[role.id];
-        const third = stops.thirdStop?.[role.id];
-        expect(first, `${chapter}: 内部役 ${role.id} の firstStop が無い`).toBeDefined();
-        expect(second, `${chapter}: 内部役 ${role.id} の secondStop が無い`).toBeDefined();
-        expect(third, `${chapter}: 内部役 ${role.id} の thirdStop が無い`).toBeDefined();
-
+      it(`${chapter}: ${role.id}（${yaku.name}）を狙えば必ず揃う（全押し順）`, () => {
         // 2文字役は第3リールが不問なので、狙い所も無い＝全21箇所を対象にする。
         const aims = [0, 1, 2].map((r) =>
           yaku.symbols[r] === undefined
@@ -124,28 +141,41 @@ describe('狙えば揃う（引き込み保証）', () => {
         }
 
         const misses: string[] = [];
-        for (const p0 of aims[0]) {
-          const q0 = (p0 + first![0][p0]) % N;
-          for (const p1 of aims[1]) {
-            const q1 = (p1 + second![q0][p1]) % N;
-            for (const p2 of aims[2]) {
-              const q2 = (p2 + third![q0][q1][p2]) % N;
-              const cols: [string, string, string][] = [
-                visible(reels[0], q0),
-                visible(reels[1], q1),
-                visible(reels[2], q2),
-              ];
-              if (!aligned(cols, yaku)) {
-                misses.push(
-                  `押下(${p0},${p1},${p2}) → 停止(${q0},${q1},${q2}) ` +
-                    `出目 ${cols.map((c) => c.join('/')).join(' | ')}`,
-                );
+        for (const order of STOP_ORDERS) {
+          for (const p0 of aims[0]) {
+            for (const p1 of aims[1]) {
+              for (const p2 of aims[2]) {
+                const press = [p0, p1, p2];
+                const vis: (VisibleColumn | null)[] = [null, null, null];
+                const pos: (number | null)[] = [null, null, null];
+                for (const r of order) {
+                  const slip = ctrl.resolveSlip({
+                    reelIndex: r,
+                    basePosition: press[r],
+                    strip: strips[r],
+                    stoppedVisibles: vis,
+                    stoppedPositions: pos,
+                    flagYakuIds: [yaku.id],
+                    flagKey: role.id,
+                  });
+                  const q = (press[r] + slip) % N;
+                  pos[r] = q;
+                  const [top, middle, bottom] = visible(reels[r], q);
+                  vis[r] = { top, middle, bottom };
+                }
+                const cols = pos.map((q, r) => visible(reels[r], q as number));
+                if (!aligned(cols, yaku)) {
+                  misses.push(
+                    `押し順${order.join('')} 押下(${press.join(',')}) → 停止(${pos.join(',')}) ` +
+                      `出目 ${cols.map((c) => c.join('/')).join(' | ')}`,
+                  );
+                }
               }
             }
           }
         }
 
-        const total = aims[0].length * aims[1].length * aims[2].length;
+        const total = STOP_ORDERS.length * aims[0].length * aims[1].length * aims[2].length;
         expect(
           misses,
           `${chapter} / ${role.id}（${yaku.name}＝${yaku.symbols.join('')}）: ` +

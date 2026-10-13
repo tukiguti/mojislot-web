@@ -104,18 +104,8 @@
       "kind": "miss",
       "displayYakuId": null,
       "rate": {
-        "default": 0.4314154681,
-        "rescue": 0.3317921271,
-        "bonus": 0.0
-      }
-    },
-    {
-      "id": "single",
-      "kind": "single",
-      "displayYakuId": null,
-      "rate": {
-        "default": 0.0,
-        "rescue": 0.0,
+        "default": 0.4296830462,
+        "rescue": 0.3300597052,
         "bonus": 0.0
       }
     },
@@ -209,38 +199,117 @@
         "rescue": 0.00156,
         "bonus": 0.029225
       }
+    },
+    {
+      "id": "reach_raichi",
+      "kind": "chance",
+      "displayYakuId": "reach_eye",
+      "carry": "raichi",
+      "rate": {
+        "default": 6.103515625e-05,
+        "rescue": 6.103515625e-05,
+        "bonus": 0.0
+      }
+    },
+    {
+      "id": "reach_puramu",
+      "kind": "chance",
+      "displayYakuId": "reach_eye",
+      "carry": "puramu",
+      "rate": {
+        "default": 6.103515625e-05,
+        "rescue": 6.103515625e-05,
+        "bonus": 0.0
+      }
+    },
+    {
+      "id": "reach_reg",
+      "kind": "chance",
+      "displayYakuId": "reach_eye",
+      "carry": "reg",
+      "rate": {
+        "default": 0.0001220703125,
+        "rescue": 0.0001220703125,
+        "bonus": 0.0
+      }
+    },
+    {
+      "id": "chance_raichi",
+      "kind": "chance",
+      "displayYakuId": "chance_eye",
+      "carry": "raichi",
+      "rate": {
+        "default": 0.0001220703125,
+        "rescue": 0.0001220703125,
+        "bonus": 0.0
+      }
+    },
+    {
+      "id": "chance_puramu",
+      "kind": "chance",
+      "displayYakuId": "chance_eye",
+      "carry": "puramu",
+      "rate": {
+        "default": 0.0001220703125,
+        "rescue": 0.0001220703125,
+        "bonus": 0.0
+      }
+    },
+    {
+      "id": "chance_reg",
+      "kind": "chance",
+      "displayYakuId": "chance_eye",
+      "carry": "reg",
+      "rate": {
+        "default": 0.000244140625,
+        "rescue": 0.000244140625,
+        "bonus": 0.0
+      }
+    },
+    {
+      "id": "chance",
+      "kind": "chance",
+      "displayYakuId": "chance_eye",
+      "carry": null,
+      "rate": {
+        "default": 0.001,
+        "rescue": 0.001,
+        "bonus": 0.0
+      }
     }
   ],
-  "singleYaku": [
+  "singleYaku": [],
+  "chanceYaku": [
     {
-      "id": "single_a",
-      "name": "モロシ",
+      "id": "reach_eye",
+      "name": "リーチ目",
       "symbols": [
-        "モ",
-        "ロ",
-        "シ"
+        "菜",
+        "菜",
+        "菜"
       ],
-      "category": "single"
+      "category": "chance",
+      "payout": 1,
+      "lines": [
+        "middle"
+      ]
     },
     {
-      "id": "single_b",
-      "name": "オイチ",
+      "id": "chance_eye",
+      "name": "チャンス目",
       "symbols": [
-        "オ",
-        "イ",
-        "チ"
+        "菜",
+        "菜",
+        "菜"
       ],
-      "category": "single"
-    },
-    {
-      "id": "single_c",
-      "name": "プクム",
-      "symbols": [
-        "プ",
-        "ク",
-        "ム"
-      ],
-      "category": "single"
+      "category": "chance",
+      "payout": 1,
+      "lines": [
+        "top",
+        "bottom",
+        "diag_tlbr",
+        "diag_bltr"
+      ]
     }
   ]
 }

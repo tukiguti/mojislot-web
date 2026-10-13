@@ -83,6 +83,15 @@ export class BonusZone {
   }
 
   /**
+   * 残りゲーム数を足す（ビタ揃いの上乗せ・2026-10-02）。区間外では何もしない。
+   * おかわりと違って種別は動かさない。
+   */
+  extend(spins: number): void {
+    if (!this.active.get() || spins <= 0) return;
+    this.remaining.set(this.remaining.get() + spins);
+  }
+
+  /**
    * spin 1回ぶんを消費。残り 0 になったら active を false に。
    * そのゲームの演出・配当判定がすべて終わった後に呼ぶ。
    * BET 時に減らすと最終ゲームだけボーナス扱いから外れるため、呼び出し順に注意する。

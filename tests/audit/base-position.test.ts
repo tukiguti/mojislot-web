@@ -31,9 +31,14 @@ describe('基準となる押下位置', () => {
 
   for (const chapter of CHAPTERS) {
     const yakuList = YakuListSchema.parse(readJson(`${DATA}/yaku/${chapter}.json`));
-    const reels = ReelConfigSchema.parse(readJson(`${DATA}/reels/${chapter}.json`)).reels.map(
-      (r) => r.cells,
-    );
+    const reelCfg = ReelConfigSchema.parse(readJson(`${DATA}/reels/${chapter}.json`));
+    // 目印のある配列（狙い所方式・2026-10-07）では基準位置を課さない。狙い所の約束は
+    // tests/audit/aim-groups.test.ts が見る。
+    if (reelCfg.landmark) {
+      it.skip(`${chapter}: 目印のある配列なので基準位置は見ない（aim-groups が見る）`, () => {});
+      continue;
+    }
+    const reels = reelCfg.reels.map((r) => r.cells);
     const bigs = yakuList.premiumYaku.slice(0, 2);
     const cherry = yakuList.cherryYaku[0];
 

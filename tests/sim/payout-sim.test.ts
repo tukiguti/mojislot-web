@@ -24,7 +24,6 @@ import {
 import { REMIX, applyRemixBoost } from '../../src/productions/RemixBoost';
 import { StopTableLookup } from '../../src/core/StopTable';
 import { StopController } from '../../src/core/StopController';
-import { ReachEyes } from '../../src/core/ReachEyes';
 import {
   PAYLINES,
   primaryRowIndexOf,
@@ -39,7 +38,6 @@ import {
   YakuListSchema,
   ReelConfigSchema,
   StopTableSchema,
-  ReachEyeTableSchema,
   type Payout,
   type Tuning,
   type Yaku,
@@ -243,20 +241,12 @@ interface Result {
   shisaEscalated: number;
   /** 持ち越し中のゲーム数 */
   carriedSpins: number;
-  /** そのうち全体出目がリーチ目だったゲーム数 */
-  carriedReach: number;
-  /** 第1リールにボーナス図柄が止まった持ち越しゲーム数 */
-  carriedSymOnFirst: number;
-  /** そのうち出目がリーチ目になったゲーム数 */
-  carriedSymOnFirstReach: number;
-  /** そのうち「中段にボーナス専用図柄」が出たゲーム数（一発リーチ目） */
-  carriedMiddleTell: number;
-  /** 非ボーナスフラグなのに中段告知が出たゲーム数（＝誤告知） */
-  falseTellSpins: number;
-  /** 非ボーナスフラグなのに第1停止で中段告知が出たゲーム数 */
-  falseTellFirst: number;
-  /** 非ボーナスフラグの総ゲーム数 */
-  nonBonusSpins: number;
+  /** 目印揃いの内部役（リーチ目・チャンス目）を引いたゲーム数 */
+  eyeRoles: number;
+  /** そのうち目印が実際に揃ったゲーム数 */
+  eyeHits: number;
+  /** 目印揃いの内部役で成立したボーナス数 */
+  eyeBonus: number;
   /** 確定告知ランプ（通常抽選）で確定したボーナス数 */
   lampBonus: number;
   /** チェリー重複で確定したボーナス数 */
@@ -281,6 +271,9 @@ interface Result {
   bitaReels: [number, number, number, number];
   /** 貢献リールが全部 slip=0 だったゲーム数（＝完全自力の成立）。 */
   bitaPerfect: number;
+  /** ビタチャンスが出たゲーム数と、目印が3つ揃ったゲーム数（2026-10-02）。 */
+  bitaChances: number;
+  bitaHits: number;
   /**
    * 役ID → [成立数, そのうちビタ押しだった数]。
    * 「どの役も同じくらい狙いやすい」を配列で作るための計測（設計: 28章）。
@@ -320,6 +313,11 @@ function runChapter(
   // おかわりで足すゲーム数。**本番と同じく tuning から読む**（環境変数は上書き用）。
   const okawariBig = OKAWARI_BIG ?? tuning.bonus.okawariSpinsBig;
   const okawariReg = OKAWARI_REG ?? tuning.bonus.okawariSpinsReg;
+  // ビタチャンス（ボーナス中）。環境変数で上書きして量を比べられる。
+  const env = process.env;
+  const bitaRate = env.BITA_RATE !== undefined ? Number(env.BITA_RATE) : tuning.bonus.bitaChanceRate;
+  const bitaAdd = env.BITA_ADD !== undefined ? Number(env.BITA_ADD) : tuning.bonus.bitaAddSpins;
+  const bitaMax = env.BITA_MAX !== undefined ? Number(env.BITA_MAX) : tuning.bonus.bitaMaxPerBonus;
   // 設定差の主役は演出レート（無演出の割合）。本番と同じ関数で適用する。
   const effectRates = NONE_MULT !== undefined
     ? {
@@ -353,17 +351,16 @@ function runChapter(
     tenpaiDetector,
     stopTable,
     pullInCells: tuning.assist.pullInCells,
+    reels: reelCfg.reels.map((r) => r.cells),
   });
-  const reachEyes = new ReachEyes(
-    ReachEyeTableSchema.parse(readJson(`${DATA}/reach/${chapter}.json`)),
-    yakuList,
-  );
   const judge = new YakuJudge(yakuList);
   const calc = new PayoutCalc(payout);
   const roundResolver = new RoundResolver({
     judge,
     calc,
-    reachEyes,
+    comboYakuIds: new Set(
+      [...yakuList.coreYaku, ...yakuList.cherryYaku, ...yakuList.chanceYaku].map((y) => y.id),
+    ),
     singlePayout: payout.baseMultiplier.single,
     bitaMultiplier: payout.bitaMultiplier,
   });
@@ -375,6 +372,7 @@ function runChapter(
     ...yakuList.cherryYaku,
     ...yakuList.bonusYaku,
     ...yakuList.premiumYaku,
+    ...yakuList.chanceYaku,
   ];
   const yakuById = new Map(allYaku.map((y) => [y.id, y]));
   const allYakuWithSingle: Yaku[] = [...allYaku, ...yakuList.singleYaku];
@@ -415,16 +413,18 @@ function runChapter(
     bonusByEffect: new Map<string, [number, number]>(),
     bitaReels: [0, 0, 0, 0],
     bitaPerfect: 0,
+    bitaChances: 0,
+    bitaHits: 0,
     perYaku: new Map<string, [number, number]>(),
     shisaSpins: 0, shisaEscalated: 0, lampBonus: 0, cherryBonus: 0,
-    carriedSpins: 0, carriedReach: 0, carriedMiddleTell: 0,
-    carriedSymOnFirst: 0, carriedSymOnFirstReach: 0,
-    falseTellSpins: 0, falseTellFirst: 0, nonBonusSpins: 0,
+    carriedSpins: 0, eyeRoles: 0, eyeHits: 0, eyeBonus: 0,
   };
 
   let missStreak = 0;
   let streak = 0;
   let bonusRemaining = 0;
+  /** このボーナスでビタ揃いが乗った回数（上限 bitaMax）。 */
+  let bitaThisBonus = 0;
   let curBonusKind: 'big' | 'reg' | null = null;
   let curBonusPayout = 0;
   /** 確定告知ランプ／チェリー重複の持ち越し（次ゲーム以降ボーナス確定）。 */
@@ -574,6 +574,13 @@ function runChapter(
     // SEQ=2,1,0 のように指定すると押し順を変えて比較できる（検証用）。
     const seq = (process.env.SEQ ?? '0,1,2').split(',').map(Number);
 
+    // ビタチャンス：ボーナス中にこの率で出る。出たゲームは**目印をぴったり狙う**
+    // （小役は捨てる。両方は狙えない）。main.ts と同じ規則。
+    const landmark = reelCfg.landmark ?? null;
+    const bitaChance =
+      bonusActive && landmark !== null && bitaThisBonus < bitaMax && rng() < bitaRate;
+    if (bitaChance) res.bitaChances++;
+
     const stopped: (VisibleColumn | null)[] = [null, null, null];
     /** 停止位置。第2停止のテーブルを引くのに要る（可視3セルからは逆引きできない）。 */
     const stoppedPos: (number | null)[] = [null, null, null];
@@ -637,7 +644,14 @@ function runChapter(
         heldYaku !== null;
       if (canAim && aimYaku) aimedThisSpin = true;
       const sym = canAim && aimYaku ? aimYaku.symbols[idx] : undefined;
-      if (sym === undefined) {
+      if (bitaChance && landmark !== null) {
+        // 目印のどれか（3つある）を中段にぴったり狙う。手前マージンは取らない
+        // ——目印は滑りで寄ってこないので、手前を狙うと必ず外れる。
+        const marks = cells.flatMap((c, i) => (c === landmark ? [i] : []));
+        const at = marks[Math.floor(rng() * marks.length)];
+        const err = Math.round(gauss() * sigmaCells);
+        basePos = (((at + err) % N) + N) % N;
+      } else if (sym === undefined) {
         basePos = Math.floor(rng() * N);
       } else {
         // 狙うのは「その図柄が**窓の上端**に来る位置」の少し手前。
@@ -671,6 +685,7 @@ function runChapter(
         stoppedPositions: stoppedPos,
         flagYakuIds: flagIds,
         flagKey: heldYaku ? heldRoleId : role.roleId,
+        bitaMark: bitaChance ? landmark : null,
       });
       const slipCells = slipCellsRaw;
       slipPerReel[idx] = slipCells;
@@ -735,50 +750,18 @@ function runChapter(
       }
     }
 
-    // 誤告知の計測：ボーナスフラグでないのに主ラインへ専用図柄が出たか
-    /** そのリールの窓（上・中・下）。第1停止の確定目の判定に使う。 */
-    const colOf = (r: number) => ({
-      top: grid[0][r],
-      middle: grid[1][r],
-      bottom: grid[2][r],
-    });
-    const isBonusFlag =
-      !!heldYaku || !!carried || role.kind === 'reg' || role.kind === 'big';
-    if (!isBonusFlag) {
-      res.nonBonusSpins++;
-      // 全停止後の出目がリーチ目になっていないか。第1停止用の表を最終位置の
-      // 全リールに当てる旧版は、止まった順も局面も無視していて意味が無かった。
-      if (reachEyes.detect(grid) !== null) {
-        res.falseTellSpins++;
+    if (carried) res.carriedSpins++;
+    // 目印揃い（main.ts と同じ）：ボーナスを伴えば、揃えられたかどうかによらず持ち越す。
+    // その後の確定ランプ・狙え・クイズは、どれも「持ち越しを狙う」打ち方になるので
+    // ここでは持ち越しに入れるだけでよい（持ち越しは必ず気づく＝carriedNoticed）。
+    if (role.kind === 'chance') {
+      res.eyeRoles++;
+      if (hits.some((h) => h.yaku.category === 'chance')) res.eyeHits++;
+      const carryYaku = role.carryYakuId ? (yakuById.get(role.carryYakuId) ?? null) : null;
+      if (carryYaku && !pendingBonus && !bonusActive && !heldBonusYaku) {
+        heldBonusYaku = carryYaku;
+        res.eyeBonus++;
       }
-      const firstReel = seq[0];
-      if (reachEyes.detectFirst(firstReel, colOf(firstReel)) !== null) {
-        res.falseTellFirst++;
-      }
-    }
-    if (carried) {
-      res.carriedSpins++;
-      // 払い出しの有無は問わない。**小役が揃っているのにボーナスフラグでしか
-      // 出ない形**は実機でも典型的なリーチ目で、むしろこちらが主流。
-      // 「0枚の時だけ」を条件にしていた頃はこの指標が0.0%に見えていた。
-      const isEye = reachEyes.detect(grid) !== null;
-      if (isEye) res.carriedReach++;
-      // 第1リールにボーナス図柄が止まったのに気づかなかった場合。ここでも出目が
-      // リーチ目になっていないと、揃わないまま素通りしてしまう。
-      const symL = carried.symbols[0];
-      const first = colOf(seq[0]);
-      if (
-        seq[0] === 0 &&
-        symL !== undefined &&
-        (first.top === symL || first.middle === symL || first.bottom === symL)
-      ) {
-        res.carriedSymOnFirst++;
-        if (isEye) res.carriedSymOnFirstReach++;
-      }
-      // 第1停止の1リールだけで確定する停止形が出た割合。**告知はしない**
-      // （2026-08-30に演出をやめた）ので、これは「読める人が気づける機会」の頻度。
-      const fr = seq[0];
-      if (reachEyes.detectFirst(fr, colOf(fr)) !== null) res.carriedMiddleTell++;
     }
     const isPremiumNow = hits.some((h) => h.yaku.category === 'premium');
     const isRegNow = !isPremiumNow && hits.some((h) => h.yaku.category === 'bonus');
@@ -846,12 +829,24 @@ function runChapter(
         curBonusPayout = 0;
         if (isPremium) res.big++; else res.reg++;
         bonusRemaining += isPremium ? spinsBig : spinsReg;
+        bitaThisBonus = 0;
       } else {
         // おかわり（消化中の再当選）。新規突入とは別のゲーム数を足せる。
         bonusRemaining += isPremium ? okawariBig : okawariReg;
       }
     }
     if (bonusActive) {
+      // ビタ揃い：3リールとも目印を中段に、滑り0で止めた。
+      if (
+        bitaChance &&
+        [0, 1, 2].every(
+          (r) => slipPerReel[r] === 0 && reels[r][stoppedPos[r] as number] === landmark,
+        )
+      ) {
+        res.bitaHits++;
+        bitaThisBonus++;
+        bonusRemaining += bitaAdd;
+      }
       // コンボ上乗せ：STEP 連ごとに ADD ゲーム。消化（--）より先に足す。
       if (COMBO_STEP > 0 && willHit && streakAfter % COMBO_STEP === 0) {
         bonusRemaining += COMBO_ADD;
@@ -875,25 +870,24 @@ describe.skipIf(!RUN)('出玉シミュレーション（新モデル）', () => 
   it('腕別の機械割・突入率・ボーナス平均を測る', () => {
     const SPINS = Number(process.env.SPINS ?? 200000);
     const lines: string[] = [];
-    lines.push('腕      機械割   通常時純増  ボ中純増  突入(1/G)  BIG平均  REG平均  示唆発展  ランプ  チェリー重複  持越G  確定形(第1)  出目告知  図柄止まり  その時の出目告知  誤告知(全停)  誤告知(第1)  ボ中こぼし  →1枚');
+    lines.push('腕      機械割   通常時純増  ボ中純増  突入(1/G)  BIG平均  REG平均  示唆発展  ランプ  チェリー重複  持越G  目印役  目印揃い  目印経由  ボ中こぼし  →1枚');
     for (const skill of SKILLS) {
       let bet = 0, win = 0, nbet = 0, nwin = 0, big = 0, reg = 0;
       let bspins = 0, bigPay = 0, regPay = 0;
       let spins = 0;
-      let shisaSpins = 0, shisaEsc = 0, lampB = 0, cherryB = 0, carS = 0, carR = 0, carM = 0, fT = 0, fT1 = 0, nb = 0, symF = 0, symFR = 0;
-      let bMiss = 0, bSpill = 0;
+      let shisaSpins = 0, shisaEsc = 0, lampB = 0, cherryB = 0, carS = 0, eyeR = 0, eyeH = 0, eyeB = 0;
+      let bMiss = 0, bSpill = 0, bitaC = 0, bitaH = 0;
       CHAPTERS.forEach((ch, i) => {
         const r = runChapter(ch, skill, SPINS / CHAPTERS.length, 12345 + i * 977, SETTING);
         bMiss += r.bonusMissSpins; bSpill += r.bonusSpillWins;
+        bitaC += r.bitaChances; bitaH += r.bitaHits;
         bet += r.totalBet; win += r.totalWin;
         nbet += r.normalBet; nwin += r.normalWin;
         big += r.big; reg += r.reg;
         bspins += r.bonusSpins; bigPay += r.bigPayout; regPay += r.regPayout;
         shisaSpins += r.shisaSpins; shisaEsc += r.shisaEscalated;
         lampB += r.lampBonus; cherryB += r.cherryBonus;
-        carS += r.carriedSpins; carR += r.carriedReach; carM += r.carriedMiddleTell;
-        symF += r.carriedSymOnFirst; symFR += r.carriedSymOnFirstReach;
-        fT += r.falseTellSpins; fT1 += r.falseTellFirst; nb += r.nonBonusSpins;
+        carS += r.carriedSpins; eyeR += r.eyeRoles; eyeH += r.eyeHits; eyeB += r.eyeBonus;
         spins += r.spins;
       });
       const rtp = (win / bet) * 100;
@@ -909,14 +903,12 @@ describe.skipIf(!RUN)('出玉シミュレーション（新モデル）', () => 
         `${(lampB / Math.max(1, big + reg) * 100).toFixed(0).padStart(5)}% ` +
         `${(cherryB / Math.max(1, big + reg) * 100).toFixed(0).padStart(9)}% ` +
         `${carS.toString().padStart(6)} ` +
-        `${((carM / Math.max(1, carS)) * 100).toFixed(1).padStart(7)}% ` +
-        `${((carR / Math.max(1, carS)) * 100).toFixed(1).padStart(7)}% ` +
-        `${symF.toString().padStart(8)} ` +
-        `${((symFR / Math.max(1, symF)) * 100).toFixed(1).padStart(13)}% ` +
-        `${((fT / Math.max(1, nb)) * 100).toFixed(1).padStart(9)}% ` +
-        `${fT1.toString().padStart(10)}件 ` +
+        `${eyeR.toString().padStart(6)} ` +
+        `${((eyeH / Math.max(1, eyeR)) * 100).toFixed(0).padStart(6)}% ` +
+        `${((eyeB / Math.max(1, big + reg)) * 100).toFixed(0).padStart(6)}% ` +
         `${((bMiss / Math.max(1, bspins)) * 100).toFixed(1).padStart(9)}% ` +
-        `${((bSpill / Math.max(1, bMiss)) * 100).toFixed(1).padStart(5)}%`,
+        `${((bSpill / Math.max(1, bMiss)) * 100).toFixed(1).padStart(5)}%` +
+        `  ビタ ${bitaC}回中${bitaH}揃い(${((bitaH / Math.max(1, bitaC)) * 100).toFixed(0)}%)`,
       );
     }
     console.log('\n===== 出玉シミュレーション（' + (NONE_MULT !== undefined ? 'none×' + NONE_MULT + '・' : '') + (STEP_BONUS_MULT !== 1 ? 'stepB×' + STEP_BONUS_MULT + '・' : '') + (STEP_ENTRY_MULT !== 1 ? 'stepE×' + STEP_ENTRY_MULT + '・' : '') + (BONUS_MULT !== undefined ? 'bonus×' + BONUS_MULT + '・' : '') + (OKAWARI_MULT !== 1 ? 'おかわり×' + OKAWARI_MULT + '・' : '') + (OKAWARI_BIG !== undefined || OKAWARI_REG !== undefined ? 'おかわり+' + (OKAWARI_BIG ?? 10) + 'G/+' + (OKAWARI_REG ?? 5) + 'G・' : '') + (BIG_SPINS !== undefined || REG_SPINS !== undefined ? 'BIG' + (BIG_SPINS ?? 10) + 'G/REG' + (REG_SPINS ?? 5) + 'G・' : '') + (COMBO_STEP > 0 ? COMBO_STEP + '連ごと+' + COMBO_ADD + 'G・' : '') + (ADDON_RATE > 0 ? '上乗せ' + Math.round(ADDON_RATE * 100) + '%(BB+' + ADDON_BIG + 'G/RB+' + ADDON_REG + 'G)・' : '') + (SETTING ? '設定' + SETTING + '・' : '') + SPINS + 'G/腕・全5章）=====\n' + lines.join('\n'));

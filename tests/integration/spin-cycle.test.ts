@@ -13,7 +13,6 @@ import {
 import { CoinWallet } from '../../src/core/CoinWallet';
 import { PayoutCalc } from '../../src/core/PayoutCalc';
 import { YakuJudge } from '../../src/core/YakuJudge';
-import { ReachEyes } from '../../src/core/ReachEyes';
 import { RoundResolver } from '../../src/core/RoundResolver';
 import { StopController } from '../../src/core/StopController';
 import { StopTableLookup } from '../../src/core/StopTable';
@@ -51,7 +50,6 @@ const stopTable = StopTableSchema.parse(readJson(`${DATA}/stops/${CHAPTER}.json`
 function newGame() {
   const calc = new PayoutCalc(payout);
   const judge = new YakuJudge(yakuList);
-  const reachEyes = new ReachEyes(null, yakuList);
   const stopController = new StopController({
     yakuList,
     slipResolver: new SlipResolver(yakuList, {
@@ -60,11 +58,12 @@ function newGame() {
     tenpaiDetector: new TenpaiDetector(yakuList),
     stopTable: new StopTableLookup(stopTable),
     pullInCells: tuning.assist.pullInCells,
+    reels: reelCfg.reels.map((r) => r.cells),
   });
   const roundResolver = new RoundResolver({
     judge,
     calc,
-    reachEyes,
+    comboYakuIds: new Set([...yakuList.coreYaku, ...yakuList.cherryYaku, ...yakuList.chanceYaku].map((y) => y.id)),
     singlePayout: payout.baseMultiplier.single,
     bitaMultiplier: payout.bitaMultiplier,
   });
@@ -142,6 +141,7 @@ function pressThatHits(
         const press = [p0, p1, p2];
         // 状態を汚さずに出目だけ作る（BET も払い出しもしない）
         const stopped: (VisibleColumn | null)[] = [null, null, null];
+        const stops: (number | null)[] = [null, null, null];
         let slipped = false;
         for (let reel = 0; reel < 3; reel++) {
           const slip = g.stopController.resolveSlip({
@@ -149,11 +149,13 @@ function pressThatHits(
             basePosition: press[reel],
             strip: strips[reel],
             stoppedVisibles: stopped,
+            stoppedPositions: stops,
             flagYakuIds: [yakuId],
             flagKey,
           });
           if (slip !== 0) slipped = true;
           const pos = (press[reel] + slip) % CELLS;
+          stops[reel] = pos;
           stopped[reel] = {
             top: visibleAt(strips[reel].cells, pos, 'top'),
             middle: visibleAt(strips[reel].cells, pos, 'middle'),
@@ -198,6 +200,7 @@ function playSpin(g: Game, opts: SpinOptions) {
 
   // --- 停止（順押し）---
   const stopped: (VisibleColumn | null)[] = [null, null, null];
+  const stops: (number | null)[] = [null, null, null];
   const slipCells = [0, 0, 0];
   for (let reel = 0; reel < 3; reel++) {
     const basePosition = opts.press?.[reel] ?? 0;
@@ -206,11 +209,13 @@ function playSpin(g: Game, opts: SpinOptions) {
       basePosition,
       strip: strips[reel],
       stoppedVisibles: stopped,
+      stoppedPositions: stops,
       flagYakuIds: opts.flagYakuIds,
       flagKey: opts.flagKey,
     });
     slipCells[reel] = slip;
     const pos = (basePosition + slip) % CELLS;
+    stops[reel] = pos;
     stopped[reel] = {
       top: visibleAt(strips[reel].cells, pos, 'top'),
       middle: visibleAt(strips[reel].cells, pos, 'middle'),

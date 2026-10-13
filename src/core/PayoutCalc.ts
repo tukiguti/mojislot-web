@@ -31,6 +31,7 @@ export class PayoutCalc {
       case 'cherry':
         return m.cherry;
       case 'single':
+      case 'chance':
         return m.single;
       case 'core':
         throw new Error(`小役「${yaku.id}」に payout がありません`);
@@ -48,6 +49,8 @@ export class PayoutCalc {
     if (yaku.category === 'premium' || yaku.category === 'bonus') {
       return this.payout.bonusYakuPayout;
     }
+    // 目印揃い（リーチ目・チャンス目）は1枚。倍率は乗せない（コンボはつながる・RoundResolver）
+    if (yaku.category === 'chance') return this.baseOf(yaku);
     // base はそのものが「コンボなしの払い出し枚数」。betPerSpin は掛け枚数=コスト（毎ゲーム消費）で
     // あって払い出しには掛けない（＝役 base × 倍率がそのまま枚数）。
     const base = this.baseOf(yaku);

@@ -24,7 +24,10 @@
     "spinsPerBig": 10,
     "spinsPerReg": 5,
     "okawariSpinsBig": 5,
-    "okawariSpinsReg": 3
+    "okawariSpinsReg": 3,
+    "bitaChanceRate": 0.15,
+    "bitaAddSpins": 2,
+    "bitaMaxPerBonus": 3
   },
   "assist": {
     "pullInCells": 4,
@@ -92,7 +95,6 @@
   },
   "reelSpeed": 24,
   "motionBlurStrength": 0.34,
-  "bitaWindowMs": 12,
   "entryChargeMs": 650,
   "delay": {
     "ms": 400,

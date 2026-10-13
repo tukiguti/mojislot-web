@@ -16,6 +16,8 @@ export interface InternalRoleResult {
   yakuName: string | null;
   /** 当選と同時にフリーズ演出を発動する強レア役か。 */
   freeze: boolean;
+  /** 同時に成立するボーナスの役ID（目印揃いの内部役だけ）。無ければ null。 */
+  carryYakuId: string | null;
 }
 
 export interface InternalRoleDrawOptions {
@@ -47,6 +49,7 @@ export class InternalRoleLottery {
         ...yakuList.cherryYaku,
         ...yakuList.bonusYaku,
         ...yakuList.premiumYaku,
+        ...yakuList.chanceYaku,
       ].map((y) => [y.id, y]),
     );
   }
@@ -85,6 +88,7 @@ export class InternalRoleLottery {
         yakuId: yaku.id,
         yakuName: yaku.name,
         freeze: false,
+        carryYakuId: null,
       };
     }
     return this.toResult(role);
@@ -117,6 +121,7 @@ export class InternalRoleLottery {
       yakuId: role.displayYakuId,
       yakuName: yaku?.name ?? null,
       freeze: role.freeze,
+      carryYakuId: role.carry,
     };
   }
 
@@ -127,6 +132,7 @@ export class InternalRoleLottery {
       yakuId: null,
       yakuName: null,
       freeze: false,
+      carryYakuId: null,
     };
   }
 

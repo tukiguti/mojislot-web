@@ -340,7 +340,9 @@ export class ReelView {
   }
 
   update(nowMs?: number): void {
-    const pos = this.engine.position;
+    const now = nowMs ?? performance.now();
+    // 止めた直後は滑りの途中を描く（ReelEngine.displayPosition）
+    const pos = this.engine.displayPosition(now);
     const total = this.engine.strip.cells.length;
     const totalHeight = total * CELL_HEIGHT;
 
@@ -353,7 +355,9 @@ export class ReelView {
       const t = nowMs ?? performance.now();
       const elapsed = t - this.bounceStart;
       const durMs = 220;
-      if (elapsed >= durMs) {
+      if (elapsed < 0) {
+        this.bounceOffsetY = 0; // まだ滑っている（止まり切ってから揺らす）
+      } else if (elapsed >= durMs) {
         this.bounceActive = false;
         this.bounceOffsetY = 0;
       } else {
@@ -371,7 +375,8 @@ export class ReelView {
 
     // モーションブラー：回転中だけ、速度（1フレームの移動px）に比例して縦に滲ませる。
     // 停止した瞬間に 0 へ戻るので、出目はくっきり読める（目押しの答え合わせを妨げない）。
-    const spinning = this.engine.state.get() === 'spinning';
+    const spinning =
+      this.engine.state.get() === 'spinning' || this.engine.slideRemainingMs(now) > 0;
     const speed = spinning ? this.engine.currentSpeed : 0;
     const strengthY =
       speed >= MOTION_BLUR_MIN_SPEED
@@ -466,8 +471,10 @@ export class ReelView {
   }
 
   /** STOP 押下後の停止バウンス（軽い縦振動） */
+  /** 止まった時の揺れ。滑りが残っていれば、止まり切った瞬間から揺らす。 */
   triggerStopBounce(): void {
-    this.bounceStart = performance.now();
+    const now = performance.now();
+    this.bounceStart = now + this.engine.slideRemainingMs(now);
     this.bounceActive = true;
   }
 

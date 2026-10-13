@@ -15,7 +15,6 @@ import { RoundResolver } from '../../src/core/RoundResolver';
 import { EffectEligibility } from '../../src/productions/EffectEligibility';
 import { StopTableLookup } from '../../src/core/StopTable';
 import { StopController } from '../../src/core/StopController';
-import { ReachEyes } from '../../src/core/ReachEyes';
 import {
   PAYLINES,
   PRIMARY_PAYLINE,
@@ -31,7 +30,6 @@ import {
   YakuListSchema,
   ReelConfigSchema,
   StopTableSchema,
-  ReachEyeTableSchema,
   type Payout,
   type Tuning,
   type Yaku,
@@ -170,17 +168,14 @@ function runChapter(chapter: string, spins: number, seed: number, acc: Acc): voi
     tenpaiDetector,
     stopTable,
     pullInCells: tuning.assist.pullInCells,
+    reels: reelCfg.reels.map((r) => r.cells),
   });
-  const reachEyes = new ReachEyes(
-    ReachEyeTableSchema.parse(readJson(`${DATA}/reach/${chapter}.json`)),
-    yakuList,
-  );
   const judge = new YakuJudge(yakuList);
   const calc = new PayoutCalc(payout);
   const roundResolver = new RoundResolver({
     judge,
     calc,
-    reachEyes,
+    comboYakuIds: new Set([...yakuList.coreYaku, ...yakuList.cherryYaku, ...yakuList.chanceYaku].map((y) => y.id)),
     singlePayout: payout.baseMultiplier.single,
     bitaMultiplier: payout.bitaMultiplier,
   });
