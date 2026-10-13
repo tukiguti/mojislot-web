@@ -100,14 +100,77 @@ export function loadRunHistory(): RunRecord[] {
 
 /**
  * 1戦を追記する。append-only（過去レコードは書き換えない）。
+ * 同じ runId が既にあれば何もしない（計数と自動確定が同じ戦を二重に積まない）。
  * 容量超過などで保存できない場合は警告のみ出してゲーム進行は止めない。
+ * @returns 新しく積んだら true
  */
-export function appendRunRecord(record: RunRecord): void {
+export function appendRunRecord(record: RunRecord): boolean {
   const history = loadRunHistory();
+  if (history.some((r) => r.runId === record.runId)) return false;
   history.push(record);
   try {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(history));
   } catch (err) {
     console.warn('runHistory の保存に失敗しました（容量超過の可能性）:', err);
+    return false;
+  }
+  return true;
+}
+
+const DRAFT_KEY = 'mojislot.runDraft.v1';
+
+/**
+ * 計数前の戦の控え。1回転ごとに上書きする（最大1戦ぶん）。
+ *
+ * 計数せずにタブを閉じた戦は破棄せず、次に開いた時に記録へ確定する
+ * （`settleRunDraft`）。持ちメダルは保存しない方針なので、確定に要る
+ * 投資・回収もここへ写す。`settledAt` は最後に更新した時刻になる。
+ */
+export function saveRunDraft(record: RunRecord): void {
+  try {
+    localStorage.setItem(DRAFT_KEY, JSON.stringify(record));
+  } catch (err) {
+    console.warn('戦の控えを保存できませんでした:', err);
+  }
+}
+
+export function clearRunDraft(): void {
+  try {
+    localStorage.removeItem(DRAFT_KEY);
+  } catch {
+    // 消せなくても次の起動で runId の重複判定が二重確定を止める
+  }
+}
+
+/**
+ * 未確定のまま残った戦を計数したのと同じ扱いで記録に確定する。
+ * 控えは読んだ時点で消す。runId は戦の開始時に振ってあるので、
+ * 何度呼んでも、計数と競合しても1戦は1件しか積まれない。
+ * @returns 確定した記録（無ければ null）
+ */
+export function settleRunDraft(): RunRecord | null {
+  let raw: string | null = null;
+  try {
+    raw = localStorage.getItem(DRAFT_KEY);
+  } catch {
+    return null;
+  }
+  if (!raw) return null;
+  clearRunDraft();
+  try {
+    const d = JSON.parse(raw);
+    if (
+      typeof d !== 'object' ||
+      d === null ||
+      typeof d.runId !== 'string' ||
+      typeof d.sahmai !== 'number' ||
+      typeof d.spinCount !== 'number' ||
+      d.spinCount <= 0
+    ) {
+      return null;
+    }
+    return appendRunRecord(d as RunRecord) ? (d as RunRecord) : null;
+  } catch {
+    return null;
   }
 }

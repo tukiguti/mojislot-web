@@ -4,6 +4,7 @@ import { bootstrap } from './main';
 import { mountHallView } from './ui/HallView';
 import { renderCounterRanking } from './ui/CounterRanking';
 import { renderCounterCard } from './ui/CounterCard';
+import { settleRunDraft } from './productions/RunHistory';
 
 /**
  * アプリ起点。hash ルータでビューを出し分ける。
@@ -14,6 +15,10 @@ import { renderCounterCard } from './ui/CounterCard';
  *   teardown を自前実装せず location.reload で安全に破棄する（計画 §2）。
  */
 let gameStarted = false;
+
+// 計数せずにタブを閉じた戦は、次に開いた時に計数したのと同じ扱いで記録へ確定する。
+// 画面を描く前（ホール・ランキング・会員カードが履歴を読む前）に1度だけ走らせる。
+settleRunDraft();
 
 function enter(route: Route): void {
   if (route === 'game') {
