@@ -1134,7 +1134,7 @@ export async function bootstrap() {
         symbols: targetYaku.symbols,
         // 各文字を実リールのセル色に合わせる（左/中/右）
         colors: targetYaku.symbols.map((s, i) => colorResolver.cssFor(i, s)),
-        yakuName: targetYaku.name,
+        yakuName: aimNameOf(targetYaku),
         imageUrl: `${ART_BASE}ui/aim.png`,
         hasPremium: targetYaku.category === 'premium',
         // 現行 canvas 寸法に基づくリール座標比（旧ハードコードのズレを解消）
@@ -1207,6 +1207,13 @@ export async function bootstrap() {
   let bitaChance = false;
   let bitaThisBonus = 0;
   const landmarkNow = (): string | null => reelConfig.landmark ?? null;
+  /**
+   * 狙えに出す役名。目印揃いの役は「目印揃い」とだけ出す。リーチ目・チャンス目は
+   * 止まった出目を読んで分かるもので、狙うものではない（中段かどうかで意味が変わるので、
+   * 名前を出すとボーナスの有無まで言ってしまう）。
+   */
+  const aimNameOf = (yaku: Yaku): string =>
+    yaku.category === 'chance' ? '目印揃い' : yaku.name;
 
   const activateRound = (
     role: InternalRoleResult,
@@ -1853,7 +1860,7 @@ export async function bootstrap() {
       pendingForcedRole = role;
       // 狙えも出す。AUTO は演出の出たゲームでしか狙わないので、これで目印を狙って揃える
       pendingForcedEffect = 'aim';
-      showResult(`${role.yakuName ?? roleId}（${roleId}）を狙え付きで次のレバーに予約`, 'win');
+      showResult(`${roleId} を「目印揃いを狙え」付きで次のレバーに予約`, 'win');
     },
     triggerNextDelay: () => {
       // 次のレバーで遅れを強制する。素の出現率は 1/214 かつ無演出のゲーム限定なので、
@@ -2750,7 +2757,7 @@ export async function bootstrap() {
         showAimNotice({
           symbols: target.symbols,
           colors: target.symbols.map((s, i) => colorResolver.cssFor(i, s)),
-          yakuName: target.name,
+          yakuName: aimNameOf(target),
           imageUrl: `${ART_BASE}ui/aim.png`,
           hasPremium: target.category === 'premium',
           reelCentersXFrac: [0, 1, 2].map(
