@@ -65,6 +65,16 @@
     （quizmaster-lines.json）にも `QuizmasterLinesSchema` を足して読み込み時に検証する
   - 配列を書き出すツール（optimize-reels・shift-reels・scripts/build_chapter_reels.py）も
     版を書く
+- [x] **JSON 間の参照を一括で検証するテスト**（2026-10-14・`tests/data/references.test.ts`）
+  - 章ID（chapters.ts）と data/reels・yaku・quizzes・stops のファイルが一対一、出題者・台詞・
+    島の章IDが実在、各ファイルの mode が章ID
+  - 役ID・内部役IDの重複、displayYakuId が内部役の種別に合う役（core→小役・big→BIG など）、
+    carry がボーナスの役、役の図柄がそのリールの配列にある、目印が全リールにある、
+    cutinArt の絵が public/art にある、クイズの答えと選択肢が名前のある役で選択肢が重複しない、
+    停止テーブルの行が内部役と一対一（全押し順）
+  - 1ファイルの形が壊れた章は「スキーマを通る」だけが落ち、ほかの章は続けて見る
+  - リポジトリに CI のワークフロー（.github/）は無く、デプロイ側で vitest が回る設定も
+    リポジトリからは見えない。このテストは手元の `npx vitest run` で回る
 - [x] セキュリティ島の焼きなましが遅い件は**島固有の問題ではなかった**（2026-08-14・仕様書 32 §11）
   - 同条件で測ると寿司6秒 / セキュリティ4秒（5回）でむしろ速い。旧目的関数で
     ②＝0の平坦な領域を延々と探索していたのが原因で、目的関数の作り直しで解消済み
