@@ -13,7 +13,7 @@
 export const VOICEVOX_SPEAKERS: readonly string[] = [
   '麒ヶ島宗麟',
   '玄野武宏',
-  'WhiteCUL',
+  '夜語トバリ',
   '青山龍星',
   '雀松朱司',
 ];

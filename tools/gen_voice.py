@@ -48,8 +48,9 @@ VOICES: dict[str, tuple[str, dict[str, int]]] = {
     "hiragana_food": ("麒ヶ島宗麟", {"ask": 53, "correct": 53, "wrong": 53, "near": 53}),
     # 動物園の飼育員（20代・快活）。喜び／悲しみが揃っている
     "katakana_animal": ("玄野武宏", {"ask": 11, "correct": 39, "wrong": 41, "near": 41}),
-    # 国語の教師（30代女性・丁寧）。落ち着いた成人女性
-    "hiragana_verb": ("WhiteCUL", {"ask": 23, "correct": 24, "wrong": 25, "near": 25}),
+    # 国語の教師（40代男性・丁寧）。2026-10-14 に絵を男性で描き直したので声も男性へ。
+    # 正解は「明るい」、不正解・ニアミスは「哀しみ」
+    "hiragana_verb": ("夜語トバリ", {"ask": 118, "correct": 119, "wrong": 120, "near": 120}),
     # 八百屋の店主（40代・声が大きい）。出題から熱血で押す
     "yasai": ("青山龍星", {"ask": 81, "correct": 83, "wrong": 85, "near": 85}),
     # セキュリティエンジニア（30代・ぼそぼそ）。抑えた低音。スタイルは1つ
