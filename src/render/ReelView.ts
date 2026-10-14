@@ -75,7 +75,7 @@ export const REEL_PEEK = CELL_HEIGHT * 0.1;
 /** バックライト消灯の暗さ（暗幕の不透明度）。図柄が読める範囲に留める。 */
 const BACKLIGHT_OFF_ALPHA = 0.62;
 /** ボーナス図柄の後ろの板の明るさ（役の色に掛ける）と、板の金の枠。 */
-const BONUS_PLATE_SHADE = 0.38;
+const BONUS_PLATE_SHADE = 0.55;
 const BONUS_PLATE_FRAME = 0xe8b034;
 
 /** 役の色を暗くした板の色。赤い BIG なら暗い赤、青い BIG2 なら暗い青になる。 */
