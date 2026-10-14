@@ -481,6 +481,8 @@ function runChapter(
   let pendingBonus: 'big' | 'reg' | null = null;
   /** pendingBonus と heldBonusYaku がどの経路で来たか（突入の内訳用・乱数は引かない）。 */
   let pendingSource = '';
+  /** 単独の告知抽選の後告知ぶん。このゲームだけ演出なしのボーナスのゲームにする。 */
+  let silentBonus: Yaku | null = null;
   let heldSource = '';
   /** こぼしたボーナスフラグの持ち越し（無告知・実機Aタイプ）。 */
   let heldBonusYaku: Yaku | null = null;
@@ -519,9 +521,15 @@ function runChapter(
 
     // 確定告知ランプの通常抽選（通常時のみ・持ち越し中は引かない）。
     if (!pendingBonus && !bonusActive && rng() < tuning.announceLamp.rate) {
-      pendingBonus = rng() < tuning.announceLamp.bigRatio ? 'big' : 'reg';
+      const big = rng() < tuning.announceLamp.bigRatio;
       res.lampBonus++;
-      pendingSource = '先告知｜ランプ単独（レバーON）';
+      if (rng() < tuning.announceLamp.leverShare) {
+        pendingBonus = big ? 'big' : 'reg';
+        pendingSource = '先告知｜ランプ単独（レバーON）';
+      } else {
+        // 後告知：このゲームを演出なしのボーナスのゲームにする（main.ts と同じ）
+        silentBonus = (big ? yakuList.premiumYaku[0] : yakuList.bonusYaku[0]) ?? null;
+      }
     }
     // 持ち越し中は内部役を確定役へ強制し、演出は抑止（ランプが出ているため）。
     const heldRoleId = pendingBonus
@@ -538,9 +546,11 @@ function runChapter(
         ? (pendingBonus === 'big' ? yakuList.premiumYaku[0] : yakuList.bonusYaku[0]) ?? null
         : null;
     const carried = !heldYaku && !bonusActive ? heldBonusYaku : null;
+    const silent = !heldYaku && !carried && !bonusActive ? silentBonus : null;
+    silentBonus = null;
     // ステップアップの予約を消費する（通常抽選のブランチに来た時だけ）。
     // 連続演出の途中なら予約は先へ送り、このゲームは無演出の普通のゲーム（main.ts と同じ）。
-    const normalBranch = !heldYaku && !carried && !bonusActive;
+    const normalBranch = !heldYaku && !carried && !silent && !bonusActive;
     const stepWaiting = normalBranch && stepNext !== null && stepNext.wait > 0;
     const step = normalBranch && stepNext !== null && stepNext.wait === 0 ? stepNext : null;
     if (stepWaiting && stepNext) stepNext.wait--;
@@ -564,7 +574,9 @@ function runChapter(
       ? lottery.forYaku(heldYaku)
       : carried
         ? lottery.forYaku(carried)
-        : stepBonusYaku
+        : silent
+          ? lottery.forYaku(silent)
+          : stepBonusYaku
           ? lottery.forYaku(stepBonusYaku)
           : step
             ? // ステップアップの次でボーナスでない＝**必ず演出**が出る小役
@@ -585,7 +597,7 @@ function runChapter(
           : effectRates.default;
 
     let effect: 'none' | 'shisa' | 'quiz' | 'aim';
-    if (heldYaku || carried) {
+    if (heldYaku || carried || silent) {
       effect = 'none'; // 持ち越し中は無告知（出目＝リーチ目で察知する）
     } else if (stepWaiting) {
       effect = 'none'; // 連続演出の途中はステップアップだけを出す（単独で出す）
@@ -640,6 +652,7 @@ function runChapter(
       !bonusActive &&
       !carried &&
       !heldYaku &&
+      !silent &&
       rng() <
         (role.kind === 'core'
           ? delayRate.core
@@ -868,8 +881,9 @@ function runChapter(
       // Aタイプはボーナスフラグが消えない。以前は演出の出ていたゲームでこぼしたら
       // 権利ごと消していたので、ここも合わせて変えてある。
       heldBonusYaku = yaku;
-      heldSource =
-        effect !== 'none'
+      heldSource = silent
+        ? '後告知｜ランプ単独（第3停止の後）'
+        : effect !== 'none'
           ? '後告知｜演出が出たのにこぼした（ランプ50%）'
           : delayed
             ? '後告知｜遅れが出てこぼした（ランプ）'
@@ -948,7 +962,9 @@ function runChapter(
           ? pendingSource
           : carried
             ? heldSource
-            : role.freeze
+            : silent
+              ? '告知なし｜ランプ単独の回に先に揃った'
+              : role.freeze
               ? '先告知｜フリーズ'
               : step && stepBonusYaku
                 ? '先告知｜ステップアップの予告'

@@ -710,6 +710,13 @@ export const TuningSchema = z.object({
         .default({ instant: 0.06, late: 0.06, nextLever: 0.04 }),
       /** 確定ランプ点灯中にこの回数こぼしたら、当選役を明かす。 */
       revealAfterMisses: z.number().int().min(1).default(7),
+      /**
+       * 単独の告知抽選のうち、**レバーONで点ける（先告知）**割合（2026-10-14）。
+       * 残りは後告知：そのゲームを演出なしのボーナスのゲームにし、こぼした時の
+       * 確定ランプ（第3停止の後・即点灯／遅れ／次レバーのプレミア込み）で知らせる。
+       * ジャグラーと同じく、ランプは後告知が主で先告知は一部、という配分にする。
+       */
+      leverShare: z.number().min(0).max(1).default(0.25),
     })
     .default({
       rate: 0.0033,
@@ -719,6 +726,7 @@ export const TuningSchema = z.object({
       missAnnounceWithEffect: 0.5,
       premium: { instant: 0.06, late: 0.06, nextLever: 0.04 },
       revealAfterMisses: 7,
+      leverShare: 0.25,
     }),
   /**
    * チェリー昇格。チェリーが**実際に揃った**時だけ抽選し、当たれば確定告知ランプを
