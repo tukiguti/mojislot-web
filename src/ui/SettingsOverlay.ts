@@ -124,8 +124,8 @@ export const MOTION_BLUR_KEY = 'mojislot.motionBlur.v2';
 export const MIN_REEL_SPEED = 24;
 export const MAX_REEL_SPEED = 32;
 
-/** リールの地の色の選択肢と保存キー（2026-10-14）。 */
-const REEL_BG_KEY = 'mojislot.reelBg.v1';
+/** リールの地の色の選択肢と保存キー（2026-10-14・既定は灰。黒の既定を届け直すため v2）。 */
+const REEL_BG_KEY = 'mojislot.reelBg.v2';
 const REEL_BG_CHOICES: readonly { id: string; name: string; color: number }[] = [
   { id: 'black', name: '黒', color: 0x000000 },
   { id: 'gray', name: '灰', color: 0x96969e },
@@ -134,9 +134,9 @@ const REEL_BG_CHOICES: readonly { id: string; name: string; color: number }[] = 
 ];
 function loadReelBg(): string {
   try {
-    return localStorage.getItem(REEL_BG_KEY) ?? 'black';
+    return localStorage.getItem(REEL_BG_KEY) ?? 'gray';
   } catch {
-    return 'black';
+    return 'gray';
   }
 }
 
@@ -349,14 +349,14 @@ export class SettingsOverlay {
     // リールの地：ReelView のモジュール変数を差し替えると、各リールが次のフレームで塗り直す。
     const bgButtons = [...this.root.querySelectorAll<HTMLButtonElement>('[data-reel-bg]')];
     const applyBg = (id: string) => {
-      const choice = REEL_BG_CHOICES.find((c) => c.id === id) ?? REEL_BG_CHOICES[0];
+      const choice = REEL_BG_CHOICES.find((c) => c.id === id) ?? REEL_BG_CHOICES[1];
       setReelBackground(choice.color);
       for (const b of bgButtons) b.classList.toggle('on', b.dataset.reelBg === choice.id);
     };
     applyBg(loadReelBg());
     for (const b of bgButtons) {
       b.addEventListener('click', () => {
-        const id = b.dataset.reelBg ?? 'black';
+        const id = b.dataset.reelBg ?? 'gray';
         try {
           localStorage.setItem(REEL_BG_KEY, id);
         } catch {
