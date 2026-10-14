@@ -121,6 +121,14 @@ let motionBlurStrength = MOTION_BLUR_K;
 export function setMotionBlurStrength(k: number): void {
   motionBlurStrength = Math.max(0, k);
 }
+/**
+ * リールの地の色（2026-10-14・設定の「リールの地」）。既定は黒。図柄の外の縁は黒で焼いてあるので、
+ * 灰や白の地でも輪郭は残る。各リールは毎フレーム自分の塗った色と比べて、変わっていれば塗り直す。
+ */
+let reelBackground = 0x000000;
+export function setReelBackground(color: number): void {
+  reelBackground = color;
+}
 /** これ未満の速度ではブラーをかけない（停止直前のチラつき防止） */
 const MOTION_BLUR_MIN_SPEED = 2;
 /** ブラーの品質。1 で十分（縦1方向・小さな矩形なので負荷は軽い） */
@@ -171,6 +179,9 @@ export class ReelView {
   /** 滑りコマ数の表示（停止済みリールのSTOPをもう一度押した時だけ出す） */
   private readonly slipBadge: Container;
   private readonly slipBadgeText: Text;
+  /** いま塗ってあるリールの地の色と、枠の色・太さ（地だけ塗り直す時に使う）。 */
+  private paintedBg = -1;
+  private lastStroke: [number, number] = [0xffd700, 3];
   /** バックライト消灯（予兆）の暗幕。図柄の上に重ねて窓ごと暗くする。 */
   private readonly backlightShade: Graphics;
   /** 停止バウンス用：振動オフセット（px） */
@@ -381,6 +392,7 @@ export class ReelView {
 
   update(nowMs?: number): void {
     const now = nowMs ?? performance.now();
+    if (this.paintedBg !== reelBackground) this.redrawBg(...this.lastStroke);
     // 止めた直後は滑りの途中を描く（ReelEngine.displayPosition）
     const pos = this.engine.displayPosition(now);
     const total = this.engine.strip.cells.length;
@@ -558,8 +570,10 @@ export class ReelView {
       CELL_WIDTH,
       VIEW_HEIGHT + REEL_PEEK * 2 + FRAME_PAD * 2,
     );
-    this.bg.fill({ color: 0x000000 });
+    this.bg.fill({ color: reelBackground });
     this.bg.stroke({ width: strokeWidth, color: strokeColor });
+    this.paintedBg = reelBackground;
+    this.lastStroke = [strokeColor, strokeWidth];
   }
 
   /**
