@@ -2339,13 +2339,26 @@ export async function bootstrap() {
         'held-bonus',
       );
     } else if (shouldAnnounce) {
-      announceBonus();
-      if (announcedRole) {
-        activateRound(
-          internalRoleLottery.forYaku(announcedRole),
-          'none',
-          'announce',
-        );
+      if (Math.random() < tuning.announceLamp.leverShare) {
+        // 先告知：レバーONでランプを点け、点灯中は確定役を回す。
+        announceBonus();
+        if (announcedRole) {
+          activateRound(
+            internalRoleLottery.forYaku(announcedRole),
+            'none',
+            'announce',
+          );
+        }
+      } else {
+        // 後告知（2026-10-14）：このゲームを演出なしのボーナスのゲームにするだけ。
+        // こぼせば全停止後の取りこぼしの処理が確定ランプを点ける（第3停止の後）。
+        const silent =
+          (Math.random() < tuning.announceLamp.bigRatio
+            ? yakuList.premiumYaku[0]
+            : yakuList.bonusYaku[0]) ?? null;
+        if (silent) {
+          activateRound(internalRoleLottery.forYaku(silent), 'none', 'announce');
+        }
       }
     } else if (pendingForcedRole) {
       // デバッグ：内部役を直接指定する。演出は通常どおり抽選する（おかわりの見え方も確認したいため）。

@@ -87,7 +87,8 @@
       "late": 0.06,
       "nextLever": 0.04
     },
-    "revealAfterMisses": 7
+    "revealAfterMisses": 7,
+    "leverShare": 0.25
   },
   "cherryBonus": {
     "rate": 0.02,
