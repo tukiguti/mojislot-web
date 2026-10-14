@@ -74,9 +74,17 @@ const PAYLINE_Y = CELL_HEIGHT * 1.5;
 export const REEL_PEEK = CELL_HEIGHT * 0.1;
 /** バックライト消灯の暗さ（暗幕の不透明度）。図柄が読める範囲に留める。 */
 const BACKLIGHT_OFF_ALPHA = 0.62;
-/** ボーナス図柄の後ろの板（生成り）と、その縁（ほかの文字の縁と同じ黒）。 */
-const BONUS_PLATE_COLOR = 0xf0e8d2;
-const BONUS_PLATE_EDGE = 0x1e1a26;
+/** ボーナス図柄の後ろの板の明るさ（役の色に掛ける）と、板の金の枠。 */
+const BONUS_PLATE_SHADE = 0.38;
+const BONUS_PLATE_FRAME = 0xe8b034;
+
+/** 役の色を暗くした板の色。赤い BIG なら暗い赤、青い BIG2 なら暗い青になる。 */
+function bonusPlateColor(color: number): number {
+  const r = Math.round(((color >> 16) & 0xff) * BONUS_PLATE_SHADE);
+  const g = Math.round(((color >> 8) & 0xff) * BONUS_PLATE_SHADE);
+  const b = Math.round((color & 0xff) * BONUS_PLATE_SHADE);
+  return (r << 16) | (g << 8) | b;
+}
 /**
  * 図柄（チラ見せ含む）と金枠の線の間に挟む黒余白（px）。枠(bg)を図柄表示範囲より FRAME_PAD
  * 分だけ外側に描くことで、図柄が枠線に接触して色が混じるのを防ぐ。
@@ -245,16 +253,17 @@ export class ReelView {
         glyph.x = CELL_WIDTH / 2;
         glyph.y = 0;
         if (tier === 'premium' || tier === 'bonus') {
-          // 〔2026-10-14〕ボーナス図柄の後ろに**生成りの板**を敷く（実機のリールの帯の地）。
+          // 〔2026-10-14〕ボーナス図柄の後ろに**役の色を暗くした板と金の枠**を敷く。
           // 一画の字（寿司の「し」）は色の面積が小さく、形の似た小役の中に埋もれていた。
-          // 板は tint しない——役の色に染めると、赤い字の後ろが黒に近い暗赤になって消える。
+          // 灰の板を tint で染める形だと赤の後ろが黒に近くなって見えず、生成りの板は
+          // 暗いリールの中で浮きすぎた。色はここで計算し、tint はしない。
           const w = glyphTexture.width;
           const h = glyphTexture.height;
           const plate = new Graphics();
           plate
             .roundRect(-w / 2 + 3, -h / 2 + 2, w - 7, h - 5, 6)
-            .fill({ color: BONUS_PLATE_COLOR })
-            .stroke({ color: BONUS_PLATE_EDGE, width: 1 });
+            .fill({ color: bonusPlateColor(originalColor) })
+            .stroke({ color: BONUS_PLATE_FRAME, width: 2 });
           glyph.addChild(plate);
         }
         const base = new Sprite(glyphTexture);
