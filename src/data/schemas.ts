@@ -25,7 +25,7 @@ export function dataVersion(expected: number, label: string) {
 
 export const ReelStripSchema = z.object({
   id: z.string(),
-  // 1リール = 21コマ。既定24コマ/秒＝1周0.88秒で、設定から20〜28コマ/秒に変更できる。
+  // 1リール = 21コマ。既定28コマ/秒＝1周0.75秒（実機と同じ）で、設定から24〜32コマ/秒に変更できる。
   // 回転中は速度比例のモーションブラーを掛け、停止後は図柄を鮮明に戻す。
   cells: z.array(z.string()).length(21),
 });
@@ -785,13 +785,15 @@ export const TuningSchema = z.object({
    * モーションブラー（ReelView）実装前は残像が無く、実機速度だと図柄が追えずカクついて見えたため
    * 20（1.05秒/周）に落としていた。ブラー実装後は実機速度が使える。
    * 速度を上げると 1コマ = 1000/speed ms が短くなり、目押しは相対的にシビアになる（出玉も下がる）。
+   * 〔2026-10-14〕既定を実機と同じ28にした（24から）。設定で24〜32を選べる。
    */
-  reelSpeed: z.number().positive().default(20),
+  reelSpeed: z.number().positive().default(28),
   /**
    * モーションブラーの強さ係数。0=ブラー無し。
    * ブラー強度 = （1フレームの移動px）× この係数。速度に比例して自動で強くなる。
+   * 〔2026-10-14〕既定を弱めの0.1にした（0.34から）。設定で0〜1を選べる。
    */
-  motionBlurStrength: z.number().min(0).default(0.34),
+  motionBlurStrength: z.number().min(0).default(0.1),
   /** 突入直前の「溜め」演出の長さ（ms）。 */
   entryChargeMs: z.number().nonnegative().default(650),
   /**

@@ -119,7 +119,7 @@ import {
 import { SpeechBubble } from './ui/SpeechBubble';
 import { ChallengeTracker } from './productions/Challenges';
 import { showMissionToast } from './ui/MissionToast';
-import { SettingsOverlay } from './ui/SettingsOverlay';
+import { SettingsOverlay, REEL_SPEED_KEY, clampReelSpeed } from './ui/SettingsOverlay';
 import { QUIZMASTER_SCALE, QuizmasterView } from './render/QuizmasterView';
 import { LcdBackground } from './render/LcdBackground';
 import { pickLine, quizmasterFor, type Quizmaster } from './data/quizmasters';
@@ -562,11 +562,11 @@ export async function bootstrap() {
    * ReelView のモーションブラーはこの速度に比例して強くなる。
    * 速いほど 1コマの通過時間（1000/speed ms）が短く、目押しはシビアになる。
    */
-  const REEL_SPEED_KEY = 'mojislot.reelSpeed.v1';
-  const reelSpeed = (): number => {
-    const saved = Number(localStorage.getItem(REEL_SPEED_KEY));
-    return Number.isFinite(saved) && saved > 0 ? saved : (tuning.reelSpeed ?? REEL_BASE_SPEED);
-  };
+  const reelSpeed = (): number =>
+    clampReelSpeed(
+      Number(localStorage.getItem(REEL_SPEED_KEY)),
+      tuning.reelSpeed ?? REEL_BASE_SPEED,
+    );
 
   // === 確定告知ランプの状態 ===
   // 点灯中（announcedBonus !== null）はボーナス確定。種別は内部確定だが UI 上は伏せる。
