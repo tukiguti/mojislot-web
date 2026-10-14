@@ -2867,9 +2867,14 @@ export async function bootstrap() {
     // 以前は中段に来た時だけだった。示唆は色しか出さず候補から当てずっぽうで選ぶので、
     // 発展しないと腕に関係なくほぼ落とす（実測98%）。発展が候補を1役へ絞る唯一の出口なので、
     // 条件を可視3コマへ緩めて発展率を上げてある（実測 69%→82%）。
+    //
+    // 〔2026-10-14〕**「ハズレ」を出した後は発展させない。** 以前は第1停止で外れて
+    // ハズレを出した後も判定が続き、第2停止の窓にたまたまその役の2文字目が見えると
+    // 「狙え！」に変わっていた。1リール目で外れた役はもう揃わない。
     if (
       currentEffect === 'shisa' &&
       !shisaEscalated &&
+      !shisaMissShown &&
       engines.some((e) => e.state.get() === 'spinning')
     ) {
       const target = effectTargetYaku ?? currentInternalYaku();

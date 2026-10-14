@@ -706,6 +706,7 @@ function runChapter(
     // （初心者は2割しか気づけず、フラグを抱えたまま1900ゲーム打ち続けていた）。
     const carriedNoticed = true;
     let escalated = false;
+    let shisaMissed = false;
     let stopN = 0;
     for (const idx of seq) {
       stopOrder.push(idx);
@@ -792,11 +793,14 @@ function runChapter(
       stopN++;
       // 示唆→「狙え！」への発展：最終停止より前に内部役の図柄が**窓のどこかへ**来たか。
       // main.ts と同じ条件。中段限定だと発展しない時に腕と無関係にほぼ落とすため緩めてある。
-      if (effect === 'shisa' && !escalated && stopN < 3 && shownYaku) {
+      // 窓に来なかった停止があれば、その時点でハズレを出して発展は打ち切る（main.ts と同じ）。
+      if (effect === 'shisa' && !escalated && !shisaMissed && stopN < 3 && shownYaku) {
         const sy = shownYaku.symbols[idx];
         const v = stopped[idx]!;
         if (sy !== undefined && (v.top === sy || v.middle === sy || v.bottom === sy)) {
           escalated = true;
+        } else {
+          shisaMissed = true;
         }
       }
     }
