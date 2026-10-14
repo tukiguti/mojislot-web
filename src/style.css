@@ -5236,3 +5236,60 @@ to {
   outline: 2px solid var(--gold, #f2b33c);
   outline-offset: 2px;
 }
+
+/* ===================================================================
+   縦長のデータランプ（2026-10-14）
+   ===================================================================
+   縦長では表示器の幅が筐体の幅（iPhone で約316px）に揃っていて、中の文字は表示器の
+   幅に比例させている（cqw）ので、見出しや確率が下限の6〜7pxまで縮んでいた。
+   比率は横長の広い表示器に合わせてあるので、縦長では次の3つを変える。
+   - 幅は画面いっぱい（筐体より少し広くなるが、表示器は台の上に載る別の機械なのでよい）
+   - 背に余裕のある画面では、グラフを上・数値のマスを下の2段に積む（マスが全幅を使える）
+   - 文字の比率を上げる
+   背の低い画面（高さ720px以下）は筐体の取り分が先なので、横並びのまま幅と文字だけ広げる。 */
+@media (max-aspect-ratio: 1/1) {
+  #datalamp {
+    width: min(calc(100vw - var(--layout-pad) * 2), 640px);
+  }
+  .dl-legend {
+    font-size: clamp(8px, 2.2cqw, 14px);
+  }
+  .dl-seat {
+    font-size: clamp(10px, 2.8cqw, 18px);
+  }
+  .dl-leg-line b {
+    font-size: clamp(10px, 2.7cqw, 17px);
+  }
+  .dl-axis {
+    font-size: clamp(7px, 1.9cqw, 12px);
+  }
+  .dl-cell-head {
+    /* 横並びのままのマスは幅が狭い。「総スタート」が切れない大きさに留める */
+    font-size: clamp(7.5px, 2cqw, 14px);
+  }
+  .dl-cell-value b {
+    font-size: clamp(12px, 3.6cqw, 24px);
+  }
+  .dl-cell-value i {
+    font-size: clamp(7px, 1.9cqw, 12px);
+  }
+}
+
+@media (max-aspect-ratio: 1/1) and (min-height: 721px) {
+  :root {
+    --datalamp-h: 184px;
+  }
+  #datalamp {
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-rows: minmax(0, 1fr) minmax(0, 1.15fr);
+  }
+  .dl-cell-head {
+    font-size: clamp(9px, 2.6cqw, 14px);
+  }
+  .dl-cell-value b {
+    font-size: clamp(13px, 4.2cqw, 24px);
+  }
+  .dl-cell-value i {
+    font-size: clamp(8px, 2.2cqw, 12px);
+  }
+}
