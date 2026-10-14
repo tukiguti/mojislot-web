@@ -1,4 +1,8 @@
-import LINES from '../../data/quizmaster-lines.json';
+import RAW_LINES from '../../data/quizmaster-lines.json';
+import { QuizmasterLinesSchema } from './schemas';
+
+/** 台詞（読み込み時にデータ版と形を検証する）。 */
+const LINES = QuizmasterLinesSchema.parse(RAW_LINES);
 
 /**
  * クイズの出題者。**島（章）ごとに別人**で、クイズ演出のときだけ液晶に出る。

@@ -1,4 +1,5 @@
 {
+  "dataVersion": 1,
   "mode": "security",
   "coreYaku": [
     {
@@ -55,6 +56,7 @@
   "premiumYaku": [
     {
       "id": "spy",
+      "cutinArt": "cutin/security_spy.png",
       "name": "スパイ",
       "symbols": [
         "ス",
@@ -66,6 +68,7 @@
     },
     {
       "id": "worm",
+      "cutinArt": "cutin/security_worm.png",
       "name": "ワーム",
       "symbols": [
         "ワ",
@@ -79,6 +82,7 @@
   "bonusYaku": [
     {
       "id": "reg",
+      "cutinArt": "cutin/security_reg.png",
       "name": "スパム",
       "symbols": [
         "ス",

@@ -55,11 +55,29 @@ import { drawEndScreen } from './productions/SettingHint';
 import { drawCabinetLamp } from './productions/CabinetLamp';
 import { drawSignLamp, isSignLampMilestone, type SignLampLevel } from './productions/SignLamp';
 import { EffectEligibility } from './productions/EffectEligibility';
+import {
+  STEP_LEVEL,
+  isStepTrigger,
+  pickChainLength,
+  pickStepBonus,
+  pickStepColor,
+  stepCapFor,
+  stepLevelAfterStop,
+  type StepColor,
+} from './productions/StepUp';
+import { rollOmen, type OmenKind, type OmenPlan } from './productions/Omen';
+import { EffectDirector } from './productions/EffectProcedures';
 import { SfxEngine } from './audio/SfxEngine';
 import { BgmEngine } from './audio/BgmEngine';
 import { TenpaiDetector } from './productions/TenpaiDetector';
 import { PlayStats } from './productions/PlayStats';
-import { appendRunRecord, RUN_RULESET_VERSION } from './productions/RunHistory';
+import {
+  appendRunRecord,
+  clearRunDraft,
+  RUN_RULESET_VERSION,
+  saveRunDraft,
+  type RunRecord,
+} from './productions/RunHistory';
 import { getMemberId, getMemberName } from './productions/Member';
 import { NearMissDetector } from './productions/NearMissDetector';
 import {
@@ -94,10 +112,7 @@ import {
   setBlackoutLevel,
   clearBlackout,
   setStepFx,
-  STEP_BLUE,
-  STEP_GREEN,
-  STEP_RED,
-  STEP_GOLD,
+  setStepNext,
   clearFreezeBanner,
   showRankUpBadge,
 } from './ui/Effects';
@@ -156,13 +171,10 @@ import {
   REMIX_ISLAND_ID,
 } from './data/machines';
 import './style.css';
-import './skins.css';
-// 筐体 v3 の輪郭と質感。皮の変数（skins.css）より後に読む。
+// 筐体 v3 の輪郭と質感。
 import './cabinet-v3.css';
-import { applySkin, loadSkin } from './productions/CabinetSkin';
-
-// 保存してある筐体の皮を、筐体が組み上がる前に張る（張り直しで一瞬ちらつくのを防ぐ）。
-applySkin(loadSkin());
+// 島の題材の素材（看板の絵・本体・枠・操作部・下パネル）。v3 の既定より後に読む。
+import './cabinet-islands.css';
 
 /**
  * リール3本の間隔。**額（クローム）が左右に 9px ずつ張り出す**ので、16px だと
@@ -344,7 +356,7 @@ export async function bootstrap() {
       // 両脇の小物に食い込まないよう、空けてある真ん中の幅に収める。
       titleEl.style.setProperty('--title-len', String(titleEl.textContent.length));
     }
-    // 看板の絵は島ごと（cabinet-v3.css が data-island で当てる）。決め方はホールの
+    // 看板の絵と筐体の素材は島ごと（cabinet-islands.css が data-island で当てる）。決め方はホールの
     // ミニ筐体と同じ：リミックス台はリミックス、試打台は章、それ以外は島。
     const cab = document.getElementById('cabinet');
     if (cab) {
@@ -1016,12 +1028,15 @@ export async function bootstrap() {
     spinMarks.add(key);
   };
   /**
-   * 前ゲームで出たステップアップの終了色。**次ゲームの結果で採点する**ので持ち越す。
+   * 前ゲームで終わったステップアップの帳簿のキー（終了色と連続演出の長さ）。
+   * **予告したゲーム＝このゲームの結果で採点する**ので持ち越す。
    *
    * ステップアップはレバーで光り、停止ごとに色が進み、決まった色が指すのは
    * **次ゲーム**がボーナスかどうか。出たゲームの結果で数えると別の話になる。
+   * 〔2026-10-14〕以前はレバーで控えて同じゲームの全停止で採点しており、
+   * 予告していないゲーム（契機の小役のゲーム）の結果を数えていた。
    */
-  let pendingStepKey: string | null = null;
+  let pendingStepKeys: string[] = [];
   /** その持ち越しがデバッグの強制だったか。強制した回は帳簿へ入れない。 */
   let pendingStepForced = false;
   /**
@@ -1059,30 +1074,90 @@ export async function bootstrap() {
   }
 
   /**
-   * ステップアップ演出のいまの段（0＝出ていない）。チェリー成立ゲームでだけ動く。
-   * このゲームのことは何も言わず、**終了色（第3停止）が次ゲームの予告**になる。
+   * ステップアップ演出の段を出す（0＝消す）。契機役のゲームでだけ動く。
+   * このゲームのことは何も言わず、**終了色（最後のゲームの第3停止）が次ゲームの予告**。
+   * 手続きは `productions/StepUp.ts`、率は `tuning.stepUp`。
    */
-  let stepFx = 0;
-  /** そのステップアップの終了色。レバーONの時点で決まっている（先読み）。 */
-  let stepFinalColor = STEP_BLUE;
-  const setStep = (step: number) => {
-    stepFx = step;
-    setStepFx(step);
-  };
+  const setStep = (step: number) => setStepFx(step);
+
   /**
-   * 段を1つ進める。第3停止では終了色へ飛ぶ。
-   *
-   * **終了色を追い越さない。** 終了色が青なら3回とも青のままで、段が上がらないこと
-   * 自体が「弱い」という情報になる。クランプが無いと、青どまりのはずが第2停止で
-   * 緑まで上がってから青へ戻る＝色が後退して見える。
+   * 走っているステップアップ。連続演出では複数ゲームにまたがって持ち越す。
+   * `game` は今何ゲーム目か（1始まり）、`length` は何ゲーム続くか。
    */
-  const bumpStep = (to?: number) => {
-    if (stepFx <= 0) return;
-    const next = Math.min(to ?? stepFx + 1, stepFinalColor);
-    if (next <= stepFx) return;
-    setStep(next);
-    sfx.stepUp(next);
+  interface StepRun {
+    color: StepColor;
+    length: number;
+    game: number;
+    /** デバッグの予約で出したか。強制した回は帳簿へ入れない。 */
+    forced: boolean;
+    /** 今の段。続いたゲームはここから始める。 */
+    level: number;
+  }
+  let stepRun: StepRun | null = null;
+  /** デバッグ：次のステップアップの連続演出の長さ（null＝抽選どおり）。 */
+  let pendingStepChain: 1 | 2 | 3 | null = null;
+  /** デバッグ：次のレバーで出す予兆。内部役は BIG に予約する。 */
+  let pendingForcedOmen: OmenKind | null = null;
+
+  /**
+   * 演出の手続きの進行役。レバー・停止・全停止・片付けの段取りを、手続きごとに
+   * 1か所へ登録する（`productions/EffectProcedures.ts`）。ボーナス中に出してよいかは
+   * 手続きの性質で決まっていて、進行役が `never` の手続きをボーナス中に始めさせない。
+   */
+  const director = new EffectDirector();
+
+  director.register<StepRun>('stepUp', {
+    // 1ゲーム目は青から、続いたゲームは前のゲームで止まった段から始める
+    onLever: (run) => setStep(run.level),
+    onStop: (run, stopNo) => {
+      // 押した位置や出目では変わらない——チェリーを落としても予告は生きる
+      const next = stepLevelAfterStop(run.level, stopNo, stepCapFor(run.game, run.length, run.color));
+      if (next <= run.level) return;
+      run.level = next;
+      setStep(next);
+      sfx.stepUp(next);
+    },
+    // 続くなら「つづく」を出す。最後のゲームで終了色が出るまで色は決まらない
+    onAllStop: (run) => setStepNext(run.game < run.length),
+    // 終了色は次のレバーまで残す。予告している当のゲームが始まるまで見えていないと、
+    // 何を待っているのか分からなくなる。続くゲームではレバーでもう一度始める
+    onEnd: () => {
+      setStepNext(false);
+      setStep(0);
+    },
+  });
+
+  /**
+   * 無音（予兆）。レバー音を鳴らさず、全停止まで BGM を絞る。
+   * 消音中は音の変化に気づけないので、音の手応えを画面に出す設定では文字で出す。
+   */
+  director.register<OmenPlan>('omenSilence', {
+    onLever: () => {
+      bgm.setDucked(true);
+      showSoundCue('無音');
+    },
+    onAllStop: () => bgm.setDucked(false),
+    onEnd: () => bgm.setDucked(false),
+  });
+
+  /**
+   * バックライト消灯（予兆）。レバー・第1停止・第2停止のどこかで3リールの
+   * バックライトが落ち、結果の表示を片付けるまで戻らない。図柄は読める暗さに留める
+   * （出目を読ませないのは目押しのゲームとして筋が悪い）。
+   */
+  const setBacklight = (on: boolean) => {
+    for (const v of views) v.setBacklight(on);
   };
+  director.register<OmenPlan>('omenBacklight', {
+    onLever: (plan) => {
+      if (plan.at === 0) setBacklight(false);
+    },
+    onStop: (plan, stopNo) => {
+      if (plan.at === stopNo) setBacklight(false);
+    },
+    onResultClear: () => setBacklight(true),
+    onEnd: () => setBacklight(true),
+  });
 
   const applyEffect = (effect: EffectType, options: EffectOptions = {}) => {
     currentEffect = effect;
@@ -1335,68 +1410,10 @@ export async function bootstrap() {
    * 意味が「消化」に変わる（[spec] 出たら意味があるが出なくても否定にならない）。
    */
   /**
-   * ステップアップの色と、次ゲームの中身。
-   *
-   * **色が期待度そのもの。** 先読みして色を決めるのではなく、**色を先に決めて
-   * そこから次ゲームを作る**。前者だと「次がボーナスの狙えになる」確率
-   * （BIG 1/1343・REG 1/561）が天井になり、赤が3000ゲームに1回しか出ない。
-   * 色から作れば、色の振り分けで頻度を決められる。
-   *
-   * **ボーナスの総確率は動かさない。** ステップアップ経由で出すぶん、通常抽選の
-   * 側からは BIG と REG を外してある（`withoutBonus`）。外した分は miss へ回すので
-   * 小役の量も変わらない。フリーズ役だけは通常抽選に残す（別枠の強レア役）。
+   * ステップアップの色と、次ゲームの中身。手続きと根拠は `productions/StepUp.ts`、
+   * 率は `tuning.stepUp`（sim も同じものを読む）。
    */
-  type StepColor = 'blue' | 'green' | 'red' | 'gold';
-  /** 契機役のうち、実際にステップアップへ入る割合。ここでボーナスの総量が決まる。 */
-  const STEP_ENTRY_RATE = 0.055;
-  /**
-   * 色の振り分け。
-   *
-   * **青を終了色に足した時（2026-09-09）、総量は動かしていない。** 青の分は緑から
-   * 取り、そのぶん緑のボーナス率を上げて、1回のステップアップから出るボーナスを
-   * 0.386 のまま揃えてある（下の検算）。ここを崩すとボーナス確率がそのまま動く
-   * ——BIG/REG はステップアップ経由でしか出ないので。
-   */
-  const STEP_COLOR_RATE: readonly (readonly [StepColor, number])[] = [
-    ['blue', 0.45],
-    ['green', 0.35],
-    ['red', 0.18],
-    ['gold', 0.02],
-  ];
-  /** 色ごとの「次ゲームがボーナス」の確率。 */
-  const STEP_BONUS_RATE: Record<StepColor, number> = {
-    blue: 0.12,
-    green: 0.53,
-    red: 0.70,
-    gold: 1.0,
-  };
-  /**
-   * 色ごとのBIG比率（残りがREG）。全体で BIG:REG ≒ 29.9:70.1 に合わせてある。
-   *
-   * 検算（1回のステップアップあたり）:
-   * - ボーナス = .45×.12 + .35×.53 + .18×.70 + .02×1.0 = 0.3855（青の追加前 0.386）
-   * - うちBIG = .054×.15 + .1855×.24 + .126×.35 + .020×.92 = 0.1151（追加前 0.1153）
-   */
-  const STEP_BIG_RATE: Record<StepColor, number> = {
-    blue: 0.15,
-    green: 0.24,
-    red: 0.35,
-    gold: 0.92,
-  };
-  const STEP_COLOR_TO_LEVEL: Record<StepColor, number> = {
-    blue: STEP_BLUE,
-    green: STEP_GREEN,
-    red: STEP_RED,
-    gold: STEP_GOLD,
-  };
-
-  const pickStepColor = (): StepColor => {
-    let r = Math.random();
-    for (const [color, rate] of STEP_COLOR_RATE) {
-      if ((r -= rate) < 0) return color;
-    }
-    return 'green';
-  };
+  const stepCfg = tuning.stepUp;
 
   /**
    * 通常抽選から BIG と REG を落とす（フリーズ役は残す）。
@@ -1416,11 +1433,11 @@ export async function bootstrap() {
   /** 色から次ゲームを作る。 */
   const buildPreRoll = (color: StepColor): PreRoll => {
     // 設定差はここに乗る（演出の出方は変えず、繋がる率だけを動かす）。
-    const bonusRate = Math.min(1, STEP_BONUS_RATE[color] * stepBonusMultiplier(machineSetting));
-    if (Math.random() < bonusRate) {
+    const bonus = pickStepBonus(stepCfg, color, stepBonusMultiplier(machineSetting), Math.random);
+    if (bonus) {
       const bigs = yakuList.premiumYaku;
       const yaku =
-        Math.random() < STEP_BIG_RATE[color]
+        bonus === 'big'
           ? (bigs[Math.random() < 0.5 ? 0 : 1] ?? bigs[0])
           : yakuList.bonusYaku[0];
       if (yaku) {
@@ -1447,18 +1464,11 @@ export async function bootstrap() {
   };
 
   /**
-   * ステップアップの契機になる内部役か。
-   *
-   * **チェリーと、払い出しの大きい小役**（5枚以上）。実機の「チャンス役から前兆」で、
-   * 契機をすでにある役に乗せるのは出玉を動かさないため。ここに入るのは
-   * `STEP_ENTRY_RATE` の割合だけ——全部で入れるとボーナスが14倍になる。
+   * ステップアップの契機になる内部役か（チェリーと払い出しの大きい小役）。
+   * ここに入るのは `stepUp.entryRate` の割合だけ——全部で入れるとボーナスが14倍になる。
    */
-  const STEP_TRIGGER_MIN_PAYOUT = 5;
-  const isStepTrigger = (role: InternalRoleResult): boolean => {
-    if (role.kind === 'cherry') return true;
-    if (role.kind !== 'core') return false;
-    return (internalRoleLottery.yakuFor(role)?.payout ?? 0) >= STEP_TRIGGER_MIN_PAYOUT;
-  };
+  const stepTrigger = (role: InternalRoleResult): boolean =>
+    isStepTrigger(role.kind, internalRoleLottery.yakuFor(role)?.payout ?? 0, stepCfg);
 
   const drawDebugRole = (effect: ForcedEffect): InternalRoleResult =>
     internalRoleLottery.draw(activeInternalRoleState(), {
@@ -1592,6 +1602,48 @@ export async function bootstrap() {
     runReelSpeedMax = Math.max(runReelSpeedMax, speed);
   };
 
+  // 戦の記録を組む。計数と、計数せず閉じた戦の控え（RunDraft）で同じ形にする。
+  // runId は戦の開始時に振る。控えから自動確定された戦と計数が重なっても二重に積まれない。
+  let runId = crypto.randomUUID();
+  const buildRunRecord = (settledAt: number): RunRecord => {
+    const investment = wallet.investmentTotal.get();
+    const payback = wallet.paybackTotal.get();
+    return {
+      runId,
+      memberId: getMemberId(),
+      memberName: getMemberName(),
+      chapterId,
+      machineId: machine.id,
+      startedAt: runStartedAt,
+      settledAt,
+      investment,
+      payback,
+      sahmai: payback - investment,
+      spinCount: runSpinCount,
+      totalBet: runTotalBet,
+      totalWin: runTotalWin,
+      premiumCount: runPremiumCount,
+      bonusCount: runBonusCount,
+      normalSpins: runNormalSpins,
+      effectSpins: runEffectSpins,
+      appVersion: packageMeta.version,
+      buildId: __BUILD_ID__,
+      rulesetVersion: RUN_RULESET_VERSION,
+      reelSpeedMin: Number.isFinite(runReelSpeedMin) ? runReelSpeedMin : reelSpeed(),
+      reelSpeedMax: Number.isFinite(runReelSpeedMax) ? runReelSpeedMax : reelSpeed(),
+      autoUsed: runAutoUsed,
+      missionsEnabled: challengeTracker.enabled.get(),
+      debugEnabled: debugVisible,
+      trialPlay: isTrialMachine(machine),
+    };
+  };
+  // 計数せずタブを閉じても戦を失わないよう、変わるたびに控えを書く（次の起動で確定する）。
+  const persistRunDraft = (): void => {
+    if (runSpinCount > 0) saveRunDraft(buildRunRecord(Date.now()));
+  };
+  wallet.investmentTotal.subscribe(persistRunDraft);
+  wallet.paybackTotal.subscribe(persistRunDraft);
+
   // 計数＝この戦を締める：spinCount>0 なら1戦を RunHistory に確定記録し、差枚と戦カウンタをリセット。
   //
   // 呼び口は**操作部の右端の1つだけ**。以前はドックにも同じ動作のボタンがあり、
@@ -1606,41 +1658,9 @@ export async function bootstrap() {
     // 次に通常へ戻る時から別の曲になる。今かかっている音は変えない——
     // 締めた直後に切り替わると、計数の余韻が途切れる。
     bgm.reshuffle();
-    // 借りないので、投資＝ベット総額・回収＝払い出し総額。機械割は payback / investment。
-    const investment = wallet.investmentTotal.get();
-    const payback = wallet.paybackTotal.get();
     // 空打ち（1回も回さず計数）は機械割が算出不能なので記録しない＝離脱は破棄に準ずる
-    if (runSpinCount > 0) {
-      appendRunRecord({
-        runId: crypto.randomUUID(),
-        memberId: getMemberId(),
-        memberName: getMemberName(),
-        chapterId,
-        machineId: machine.id,
-        startedAt: runStartedAt,
-        settledAt: Date.now(),
-        investment,
-        payback,
-        sahmai: payback - investment,
-        spinCount: runSpinCount,
-        totalBet: runTotalBet,
-        totalWin: runTotalWin,
-        premiumCount: runPremiumCount,
-        bonusCount: runBonusCount,
-        normalSpins: runNormalSpins,
-        effectSpins: runEffectSpins,
-        appVersion: packageMeta.version,
-        buildId: __BUILD_ID__,
-        rulesetVersion: RUN_RULESET_VERSION,
-        reelSpeedMin: Number.isFinite(runReelSpeedMin) ? runReelSpeedMin : reelSpeed(),
-        reelSpeedMax: Number.isFinite(runReelSpeedMax) ? runReelSpeedMax : reelSpeed(),
-        autoUsed: runAutoUsed,
-        missionsEnabled: challengeTracker.enabled.get(),
-        debugEnabled: debugVisible,
-        trialPlay: isTrialMachine(machine),
-      });
-    }
-    wallet.reset(0);
+    if (runSpinCount > 0) appendRunRecord(buildRunRecord(Date.now()));
+    runId = crypto.randomUUID();
     runStartedAt = Date.now();
     runSpinCount = 0;
     runTotalBet = 0;
@@ -1652,6 +1672,9 @@ export async function bootstrap() {
     runAutoUsed = false;
     runReelSpeedMin = Infinity;
     runReelSpeedMax = -Infinity;
+    // 戦カウンタを0へ戻してから財布を戻す（戻す通知で控えを書き直さない）
+    clearRunDraft();
+    wallet.reset(0);
   };
   /**
    * メニュー（ドックの「メニュー」）。**遊技中に触らないもの**をまとめる。
@@ -1908,11 +1931,22 @@ export async function bootstrap() {
       views[2].startTenpaiFlash(false);
       window.setTimeout(() => views[2].stopTenpaiFlash(), 2500);
     },
-    triggerNextStepUp: (color: StepColor) => {
+    triggerNextStepUp: (color: StepColor, chain?: 1 | 2 | 3) => {
       // 素の出現率はチャンス役の 5.5%、しかも色は 青45/緑35/赤18/金2 なので金は待てない。
+      // 連続演出は赤でも3ゲーム続くのが 1/7 なので、長さも指定できるようにする。
       pendingStepColor = color;
+      pendingStepChain = chain ?? null;
       const name = { blue: '青', green: '緑', red: '赤', gold: '金' }[color];
-      showResult(`ステップアップ（${name}）を次のレバーに予約`, 'win');
+      const len = chain && chain > 1 ? `・${chain}ゲーム連続` : '';
+      showResult(`ステップアップ（${name}${len}）を次のレバーに予約`, 'win');
+    },
+    triggerNextOmen: (kind: OmenKind) => {
+      const big = yakuList.premiumYaku[0];
+      if (!big) return;
+      pendingForcedRole = internalRoleLottery.forYaku(big);
+      pendingForcedEffect = 'none';
+      pendingForcedOmen = kind;
+      showResult(`予兆（${kind === 'silence' ? '無音' : 'バックライト消灯'}）を次のレバーに予約`, 'win');
     },
     triggerCabinetLamp: () => {
       // 設定示唆のランプ。素はボーナス終了時にしか点かないので単体で見られるようにする。
@@ -2153,6 +2187,7 @@ export async function bootstrap() {
     hideShisaNotice();
     quizState.reset();
     applyEffect('none');
+    director.resultClear();
   };
 
   const flashButton = (btn: HTMLButtonElement) => {
@@ -2266,18 +2301,23 @@ export async function bootstrap() {
       !announcedBonus &&
       Math.random() < tuning.announceLamp.rate;
 
-    // 前ゲームのステップアップをここで畳む。**この位置でないといけない**——
-    // startSpin の中で消していた時は、レバーONで点けた段をそのまま自分で
+    // 前ゲームの手続き（ステップアップ・予兆）をここで畳む。**この位置でないといけない**
+    // ——startSpin の中で消していた時は、レバーONで点けた段をそのまま自分で
     // 消していた（startSpin は下で呼ばれるので、点灯より後になる）。
-    // 終了色は次のレバーまで残す。予告している当のゲームが始まるまで見えて
-    // いないと、何を待っているのか分からなくなる。
-    if (stepFx > 0) setStep(0);
+    director.beginSpin();
+
+    // 連続演出の途中か。続くゲームでは先読み（予告するゲームの中身）を取り出さずに残す。
+    // 最後のゲームを終えた走りは、ここで役目を終える（このゲームが予告の対象）。
+    const stepContinuing = stepRun !== null && stepRun.game < stepRun.length;
+    if (!stepContinuing) stepRun = null;
 
     // 先読みはここで取り出す。**通常抽選のブランチ以外に入れば捨てられる**——
     // ボーナス突入やデバッグ予約が挟まった時に古い先読みを使うと、
     // 予告した内容と実際の内部役が食い違う。
-    const pre = preRoll;
-    preRoll = null;
+    const pre = stepContinuing ? null : preRoll;
+    if (!stepContinuing) preRoll = null;
+    /** 連続演出を続けたか。通常抽選のブランチ以外に入ったら、走りごと捨てる。 */
+    let stepContinued = false;
     // 外れの狙え・クイズは直後の1ゲームだけ（通常抽選のブランチで使う）。ここで取り出して消す
     const fakeFollowNow = fakeFollow;
     fakeFollow = null;
@@ -2299,13 +2339,26 @@ export async function bootstrap() {
         'held-bonus',
       );
     } else if (shouldAnnounce) {
-      announceBonus();
-      if (announcedRole) {
-        activateRound(
-          internalRoleLottery.forYaku(announcedRole),
-          'none',
-          'announce',
-        );
+      if (Math.random() < tuning.announceLamp.leverShare) {
+        // 先告知：レバーONでランプを点け、点灯中は確定役を回す。
+        announceBonus();
+        if (announcedRole) {
+          activateRound(
+            internalRoleLottery.forYaku(announcedRole),
+            'none',
+            'announce',
+          );
+        }
+      } else {
+        // 後告知（2026-10-14）：このゲームを演出なしのボーナスのゲームにするだけ。
+        // こぼせば全停止後の取りこぼしの処理が確定ランプを点ける（第3停止の後）。
+        const silent =
+          (Math.random() < tuning.announceLamp.bigRatio
+            ? yakuList.premiumYaku[0]
+            : yakuList.bonusYaku[0]) ?? null;
+        if (silent) {
+          activateRound(internalRoleLottery.forYaku(silent), 'none', 'announce');
+        }
       }
     } else if (pendingForcedRole) {
       // デバッグ：内部役を直接指定する。演出は通常どおり抽選する（おかわりの見え方も確認したいため）。
@@ -2346,8 +2399,21 @@ export async function bootstrap() {
       });
       doFreeze = role.freeze;
       activateRound(role, 'none', doFreeze ? 'freeze' : 'lottery');
+    } else if (stepContinuing && stepRun && !bonusSession.spinActive) {
+      // 連続演出の途中のゲーム。予告するゲームはまだ先なので、普段どおり引く
+      // （BIG/REG は落ちる）。**演出は出さない**——ステップアップは画面全体を塗るので、
+      // 示唆と重ねると2つの色が同時に出る（ステップアップは単独で出す）。
+      const role = rollNormalGame().role;
+      doFreeze = role.freeze;
+      activateRound(role, 'none', doFreeze ? 'freeze' : 'lottery');
+      if (!doFreeze) {
+        stepRun.game++;
+        stepContinued = true;
+        stepRan = true;
+        director.start('stepUp', stepRun, { bonusActive: bonusSession.spinActive });
+      }
     } else {
-      // 前ゲームでステップアップが出ていれば、その時に決めた役と演出をここで使う。
+      // 前ゲームでステップアップが終わっていれば、その時に決めた役と演出をここで使う。
       // 無ければ普段どおり引く（ただし BIG と REG は落とす——それはステップアップ
       // 経由でしか出さない）。
       const rolled = pre ?? rollNormalGame();
@@ -2372,29 +2438,43 @@ export async function bootstrap() {
       // BIG/REG はステップアップ経由でしか出ないので出玉ごと動いてしまう。
       const forcedStep = pendingStepColor;
       pendingStepColor = null;
+      const forcedChain = pendingStepChain;
+      pendingStepChain = null;
       const startStep =
         !doFreeze &&
         !bonusSession.spinActive &&
         (forcedStep !== null ||
-          (isStepTrigger(role) && Math.random() < STEP_ENTRY_RATE));
+          (stepTrigger(role) && Math.random() < stepCfg.entryRate));
 
-      // チャンス目（ボーナスなし）のあとの外れの狙え・クイズ。対象は BIG に差し替える
-      const fake = !doFreeze && !startStep && !bonusSession.spinActive ? fakeFollowNow : null;
+      // チャンス目（ボーナスなし）のあとの外れの狙え・クイズ。対象は BIG に差し替える。
+      // 予告したゲーム（先読み）には重ねない——予告した中身を上書きしてしまう
+      const fake =
+        !doFreeze && !startStep && !bonusSession.spinActive && !pre ? fakeFollowNow : null;
       const fakeTarget = fake ? (yakuList.premiumYaku[0] ?? null) : null;
       const effect: EffectType = doFreeze || startStep ? 'none' : (fake ?? rolled.effect);
       activateRound(role, effect, doFreeze ? 'freeze' : 'lottery', fakeTarget);
 
       if (startStep) {
-        const color = forcedStep ?? pickStepColor();
-        // このゲームではなく**次ゲーム**の結果で採点するので、控えではなく持ち越しへ。
-        pendingStepKey = `step-${color}`;
-        pendingStepForced = forcedStep !== null;
+        const color = forcedStep ?? pickStepColor(stepCfg, Math.random);
         if (forcedStep !== null) spinDebugForced = true;
         stepRan = true;
-        stepFinalColor = STEP_COLOR_TO_LEVEL[color];
+        stepRun = {
+          color,
+          length: forcedChain ?? pickChainLength(stepCfg, color, Math.random),
+          game: 1,
+          forced: forcedStep !== null,
+          level: STEP_LEVEL.blue,
+        };
         preRoll = buildPreRoll(color);
-        setStep(STEP_BLUE);
+        director.start('stepUp', stepRun, { bonusActive: bonusSession.spinActive });
       }
+    }
+
+    // 連続演出の途中で別のブランチ（ボーナス・確定ランプ・持ち越し・デバッグ予約・
+    // フリーズ）に入ったら、走りと先読みを捨てる。予告した相手が消えている
+    if (stepContinuing && !stepContinued) {
+      stepRun = null;
+      preRoll = null;
     }
 
     // 遅れ：レバーを叩いてもリールが回り出さない「間」。ハズレでは出さないので
@@ -2406,6 +2486,36 @@ export async function bootstrap() {
     if (delayMs > 0) markEffect('delay');
     if (forcedDelay) spinDebugForced = true;
     if (doFreeze) markEffect('freeze');
+
+    // 予兆（無音・バックライト消灯）。ボーナスのフラグがある無演出のゲームでだけ出る
+    // （productions/Omen.ts）。デバッグの予約は BIG を予約したゲームで必ず出す。
+    const forcedOmen = pendingForcedOmen;
+    pendingForcedOmen = null;
+    const round = currentRound;
+    const omen: OmenPlan | null =
+      forcedOmen !== null
+        ? { kind: forcedOmen, at: Math.floor(Math.random() * 3) as 0 | 1 | 2 }
+        : round && !doFreeze
+          ? rollOmen(
+              tuning.omen,
+              {
+                roleKind: round.internalRole.kind,
+                freeze: round.internalRole.freeze,
+                carryYakuId: round.internalRole.carryYakuId,
+                fromLottery: round.source === 'lottery',
+                effectShown: currentEffect !== 'none' || stepRan,
+                bonusActive: bonusSession.spinActive,
+              },
+              Math.random,
+            )
+          : null;
+    if (omen) {
+      const id = omen.kind === 'silence' ? 'omenSilence' : 'omenBacklight';
+      if (director.start(id, omen, { bonusActive: bonusSession.spinActive })) {
+        markEffect(`omen-${omen.kind}`);
+      }
+    }
+    const silent = director.isActive('omenSilence');
     const startSpin = () => {
       spinPending = false;
       // 滑りの確認は前ゲームの出目とセット。回り出したら消す
@@ -2427,10 +2537,11 @@ export async function bootstrap() {
     };
     flashButton(leverBtn);
     spawnButtonRipple(leverBtn, '#ffd700');
-    sfx.lever();
+    // 無音の予兆ではレバー音もウェイト音も鳴らさない（鳴るはずの音が鳴らないのが合図）
+    if (!silent) sfx.lever();
     // 実機のウェイト。**前ゲームから間が空いていない時だけ**鳴る＝急いでいる合図。
     const leverAt = performance.now();
-    if (lastLeverAt > 0 && leverAt - lastLeverAt < LEVER_WAIT_MS) sfx.wait();
+    if (!silent && lastLeverAt > 0 && leverAt - lastLeverAt < LEVER_WAIT_MS) sfx.wait();
     lastLeverAt = leverAt;
     if (delayMs > 0) {
       // 間の最中はまだどのリールも回っていない＝レバーが有効なままなので、
@@ -2726,9 +2837,8 @@ export async function bootstrap() {
     // 押したリールの狙えガイドは消す。止めた後も文字と矢印が浮いていると、
     // まだ狙うものが残っているように見える（2026-09-14）。
     hideAimReel(idx);
-    // ステップアップを1段。第3停止で終了色（＝次ゲームの予告）まで開く。
-    // 押した位置や出目では変わらない——チェリーを落としても予告は生きる。
-    bumpStep(stopOrder.length >= REEL_COUNT ? stepFinalColor : undefined);
+    // 停止に連動する手続き（ステップアップの段・バックライト消灯）。
+    director.stop(stopOrder.length, idx);
     flashButton(stopBtns[idx]);
     spawnButtonRipple(stopBtns[idx], '#ff5566');
 
@@ -2838,6 +2948,8 @@ export async function bootstrap() {
       // 全停止したので「狙え！」演出は閉じる（レバーオン示唆として出た場合）
       hideAimNotice();
       hideShisaNotice();
+      // 全停止に連動する手続き（無音を解く・連続演出の「つづく」）
+      director.allStop();
 
       // 出目から成立ラインと払い出しを確定させる（表示はしない純粋な計算）。
       const grid = extractGrid(engines);
@@ -3042,10 +3154,19 @@ export async function bootstrap() {
       // ステップアップは前ゲームから持ち越して**このゲームの結果**で採点する。
       // あれが指しているのは次ゲームだから。ボーナス中に着地したら捨てる
       // （予告した相手がボーナス消化になっていて、当たり外れを問えない）。
-      const carriedStep = pendingStepKey;
+      const carriedStep = pendingStepKeys;
       const carriedForced = pendingStepForced;
-      pendingStepKey = null;
+      pendingStepKeys = [];
       pendingStepForced = false;
+      // このゲームで連続演出の最後のゲームを終えたなら、終了色と長さを次ゲームへ渡す
+      if (stepRan && stepRun && stepRun.game >= stepRun.length) {
+        pendingStepKeys = [
+          `step-${stepRun.color}`,
+          ...(stepRun.length >= 2 ? ['chain-2'] : []),
+          ...(stepRun.length >= 3 ? ['chain-3'] : []),
+        ];
+        pendingStepForced = stepRun.forced;
+      }
 
       if (!inBonusSpin) {
         const keys: string[] = [];
@@ -3058,7 +3179,7 @@ export async function bootstrap() {
           }
           keys.push(...spinMarks);
         }
-        if (carriedStep && !carriedForced) keys.push(carriedStep);
+        if (!carriedForced) keys.push(...carriedStep);
         if (keys.length > 0) {
           effectTable.update(recordEffects(keys, isPremium || isRegular));
         }

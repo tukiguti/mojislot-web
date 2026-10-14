@@ -284,7 +284,7 @@ export function showRankUpBadge(streak: number, color: string): void {
  * **どの色でも当たりはする。** 出現率が 青45% / 緑35% / 赤18% / 金2% なので、
  * ボーナスの多くは青と緑から出ている。弱い色を「何も予告しない」にすると、
  * 当たりの大半が予告なしで降ってくることになり、ステップアップを見る意味が消える。
- * 率は `main.ts` の `STEP_BONUS_RATE` / `STEP_BIG_RATE`。
+ * 率は `tuning.stepUp`、手続きは `productions/StepUp.ts`。
  *
  * **濃厚であって確定ではない。** 次ゲームの役と演出を先読みして色を決めるが、
  * 間にボーナス突入やデバッグ予約が挟まると先読みは捨てられる。加えて低確率の
@@ -296,19 +296,11 @@ export function showRankUpBadge(streak: number, color: string): void {
  * ここが指すのは**次ゲーム**なので、そもそも軸が違う。
  */
 /**
- * レバーON（青）。**ここが出発点**で、白（段1）は使わない——実機のステップアップは
- * 光った時点で既に色が付いている。CSS には段1が残っているが、到達しない。
+ * 段の上限（金）。段の番号と色の対応は `productions/StepUp.ts` の `STEP_LEVEL`。
+ * 白（段1）は使わない——実機のステップアップは光った時点で既に色が付いている。
+ * CSS には段1が残っているが、到達しない。
  */
-export const STEP_STOP1 = 2;
-/** 終了色・青。段が1つも上がらなかった形。 */
-export const STEP_BLUE = STEP_STOP1;
-/** 終了色・緑。 */
-export const STEP_GREEN = 3;
-/** 終了色・赤。次ゲームはREGの狙え以上が濃厚。 */
-export const STEP_RED = 4;
-/** 終了色・金。次ゲームはBIGの狙え以上が濃厚。 */
-export const STEP_GOLD = 5;
-export const STEP_FX_MAX = STEP_GOLD;
+export const STEP_FX_MAX = 5;
 let stepFxEl: HTMLElement | null = null;
 export function setStepFx(step: number): void {
   if (step <= 0) {
@@ -328,6 +320,26 @@ export function setStepFx(step: number): void {
   el.classList.remove('bump');
   void el.offsetWidth;
   el.classList.add('bump');
+}
+
+/**
+ * 連続演出の「つづく」。ステップアップが次のゲームへ続く時、全停止で出して
+ * 次のレバーまで残す。段の色（`setStepFx`）とは別の要素にしてある——段の要素は
+ * 段ごとに薄くしてあるので、中に文字を置くと弱い段ほど読めなくなる。
+ */
+let stepNextEl: HTMLElement | null = null;
+export function setStepNext(on: boolean): void {
+  if (!on) {
+    stepNextEl?.remove();
+    stepNextEl = null;
+    return;
+  }
+  if (stepNextEl) return;
+  const el = document.createElement('div');
+  el.className = 'step-next';
+  el.textContent = 'つづく';
+  effectHost.appendChild(el);
+  stepNextEl = el;
 }
 
 /**

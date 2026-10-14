@@ -5,6 +5,7 @@ import type { PaylineHit } from '../../src/core/YakuJudge';
 
 // テスト専用の固定 Payout（実データ default.json の変更で壊れないよう独立）。
 const PAYOUT: Payout = {
+  dataVersion: 1,
   betPerSpin: 3,
   baseMultiplier: { premium: 25, bonus: 6, cherry: 2 },
   // ボーナス図柄は配当ではなく権利。BET と同額だけ返す（倍率もコンボも乗らない）。

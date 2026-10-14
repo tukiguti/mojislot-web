@@ -1,6 +1,16 @@
 import { describe, expect, it } from 'vitest';
+import { readFileSync } from 'node:fs';
+import { fileURLToPath } from 'node:url';
+import { dirname, resolve } from 'node:path';
 import {
+  DATA_VERSION,
   EffectRatesSchema,
+  PayoutSchema,
+  QuizListSchema,
+  QuizmasterLinesSchema,
+  ReelConfigSchema,
+  StopTableSchema,
+  TuningSchema,
   YakuListSchema,
 } from '../../src/data/schemas';
 import hiraganaFood from '../../data/yaku/hiragana_food.json';
@@ -31,6 +41,7 @@ describe('EffectRatesSchema', () => {
 describe('YakuListSchema internalRoles', () => {
   const rate = (v: number) => ({ default: v, rescue: v, bonus: v });
   const yakuList = {
+    dataVersion: 1,
     mode: 'test',
     coreYaku: [
       { id: 'apple', name: 'りんご', symbols: ['り', 'ん', 'ご'], category: 'core', payout: 5 },
@@ -101,5 +112,39 @@ describe('YakuListSchema internalRoles', () => {
     ['yasai', yasai],
   ])('%s章の内部役テーブルが妥当で、状態別合計が1になる', (_mode, raw) => {
     expect(YakuListSchema.safeParse(raw).success).toBe(true);
+  });
+});
+
+/**
+ * データ版（dataVersion）。data/ の JSON はすべて版を持ち、読み込み時に検証する。
+ * 形式を変えたのに古いファイルが残っていると、黙って別の意味に読まずにここで止まる。
+ */
+describe('データ版', () => {
+  const DATA = resolve(dirname(fileURLToPath(import.meta.url)), '../../data');
+  const read = (p: string) => JSON.parse(readFileSync(`${DATA}/${p}`, 'utf-8'));
+  const cases = [
+    ['reels/hiragana_food.json', ReelConfigSchema, DATA_VERSION.reels],
+    ['yaku/hiragana_food.json', YakuListSchema, DATA_VERSION.yaku],
+    ['quizzes/hiragana_food.json', QuizListSchema, DATA_VERSION.quizzes],
+    ['stops/hiragana_food.json', StopTableSchema, DATA_VERSION.stops],
+    ['payouts/default.json', PayoutSchema, DATA_VERSION.payouts],
+    ['tuning/default.json', TuningSchema, DATA_VERSION.tuning],
+    ['quizmaster-lines.json', QuizmasterLinesSchema, DATA_VERSION.quizmasterLines],
+  ] as const;
+
+  it.each(cases)('%s は今の版で読める', (path, schema, version) => {
+    const raw = read(path);
+    expect(raw.dataVersion).toBe(version);
+    expect(schema.safeParse(raw).success).toBe(true);
+  });
+
+  it.each(cases)('%s は版が無い・違うと拒否し、理由に dataVersion を出す', (path, schema, version) => {
+    const raw = read(path);
+    for (const bad of [undefined, version + 1]) {
+      const r = schema.safeParse({ ...raw, dataVersion: bad });
+      expect(r.success).toBe(false);
+      const issue = r.error!.issues.find((i) => i.path[0] === 'dataVersion');
+      expect(issue?.message).toContain('dataVersion');
+    }
   });
 });

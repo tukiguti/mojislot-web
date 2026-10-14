@@ -481,14 +481,16 @@ function runChapter(chapter: string, spins: number, seed: number, acc: Acc): voi
               : stopN === 2
                 ? stopTable.secondStopSlip(
                     fk ?? '',
-                    stoppedPos[0] as number,
+                    seq[0],
+                    stoppedPos[seq[0]] as number,
+                    idx,
                     basePos,
                     isBonusSpill,
                   )
                 : stopTable.thirdStopSlip(
                     fk ?? '',
-                    stoppedPos[0] as number,
-                    stoppedPos[1] as number,
+                    idx,
+                    stoppedPos,
                     basePos,
                     isBonusSpill,
                   );

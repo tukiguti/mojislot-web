@@ -1,5 +1,28 @@
 import { z } from 'zod';
 
+/**
+ * data/ の JSON が持つデータ版（`dataVersion`）。形式を変えたらその種類の版を上げ、
+ * 古い形式のファイルを読み込んだ時点で分かるようにする（黙って別の意味に読まない）。
+ */
+export const DATA_VERSION = {
+  reels: 1,
+  yaku: 1,
+  quizzes: 1,
+  stops: 2,
+  payouts: 1,
+  tuning: 1,
+  quizmasterLines: 1,
+} as const;
+
+export function dataVersion(expected: number, label: string) {
+  return z.literal(expected, {
+    error: (iss) =>
+      iss.input === undefined
+        ? `${label}に dataVersion がありません（期待する版は ${expected}）`
+        : `${label}の dataVersion が ${String(iss.input)} です。この版のコードは ${expected} を読みます`,
+  });
+}
+
 export const ReelStripSchema = z.object({
   id: z.string(),
   // 1リール = 21コマ。既定24コマ/秒＝1周0.88秒で、設定から20〜28コマ/秒に変更できる。
@@ -8,6 +31,7 @@ export const ReelStripSchema = z.object({
 });
 
 export const ReelConfigSchema = z.object({
+  dataVersion: dataVersion(DATA_VERSION.reels, 'リール配列（data/reels）'),
   mode: z.string(),
   /**
    * 目印の図柄（島の漢字1字・2026-10-02）。各リールの 0・7・14 番に置き、どの役にも
@@ -138,6 +162,7 @@ export const YakuSchema = z.object({
 
 export const YakuListSchema = z
   .object({
+    dataVersion: dataVersion(DATA_VERSION.yaku, '役（data/yaku）'),
     mode: z.string(),
     coreYaku: z.array(YakuSchema),
     premiumYaku: z.array(YakuSchema),
@@ -260,6 +285,7 @@ export type Yaku = z.infer<typeof YakuSchema>;
 export type YakuList = z.infer<typeof YakuListSchema>;
 
 export const PayoutSchema = z.object({
+  dataVersion: dataVersion(DATA_VERSION.payouts, '配当（data/payouts）'),
   // 1ゲームの掛け枚数（毎ゲーム消費するコスト）。実機の3枚掛け＝有効ライン多めのリアリティ用。
   // 払い出しには掛けない（払い出し＝役 base × コンボ倍率）。
   betPerSpin: z.number().int().positive(),
@@ -330,74 +356,106 @@ export const QuizSchema = z.object({
 });
 
 export const QuizListSchema = z.object({
+  dataVersion: dataVersion(DATA_VERSION.quizzes, 'クイズ（data/quizzes）'),
   mode: z.string(),
   quizzes: z.array(QuizSchema).min(1),
 });
 
 /**
- * 停止テーブル（第1停止）。実機のリール制御表に相当する。
- * `firstStop[内部役ID][リールindex][押下位置] = スベリコマ数(0〜4)`。
+ * 停止テーブル。実機のリール制御表に相当する。
  *
- * 第1停止は**まだどの役もロックし得ない**（3文字役は3リール、チェリーは2リール必要）ので
- * 蹴りが発火せず、停止位置は完全に自由＝ここが出目（リーチ目・入り目）の設計点になる。
- *
- * 第2停止も表を持つ（2026-08-14〜）。制御の狙い先を主ライン1本に固定したので
- * 「主ラインへ何コマ寄せたか」だけが値の意味になり、表として書けるようになった。
- * 第3停止は 21³ × 役数で膨らむため当面アルゴリズムのまま。
- *
- * このファイルは生成できるが**手で書き換えてよい**。書き換えても②ゼロ保証は
+ * **第1停止** `firstStop[内部役ID][リールindex][押下位置] = スベリコマ数(0〜4)`。
+ * まだどの役もロックし得ない（3文字役は3リール、チェリーは2リール必要）ので
+ * 蹴りが発火せず、停止位置は完全に自由＝ここが出目の設計点になる。
+ * ここは生成できるが**手で書き換えてよい**。書き換えても②ゼロ保証は
  * 蹴りが守るので崩れない（監査テストが全押下位置で検証する）。
+ *
+ * **第2・第3停止は全押し順ぶん持つ**（2026-10-14〜。それまでは順押しだけで、
+ * ほかの押し順は実行時の探索へ落ちていた）。`StopController` を通して焼くので
+ * 探索と同じ値になり、`tests/data/stop-table-equivalence` が全押し順で突き合わせる。
+ * 手で書き換えるものではない。
+ *
+ * 押し順を含めると6倍に膨らむので、1内部役ぶんを**数字の文字列**に詰め
+ * （1文字＝スベリ0〜4。数値の配列で持つと1要素に `,` が付いて倍になる）、
+ * 同じ文字列は `slipPool` に1つだけ置いて表からは番号で指す。同じ図柄を揃える
+ * 内部役（BIG とそのフリーズ版など）や、通常時とボーナス中で表が同じになることが多い。
+ *  - 第2停止 `secondStop[押し順][内部役ID]` は 21×21 文字。押し順のキーは
+ *    「第1停止のリール」「第2停止のリール」を並べた2桁（`"01"`＝左→中）。
+ *    添字は `第1停止の停止位置 × 21 + 押下位置`
+ *  - 第3停止 `thirdStop[最後のリール][内部役ID]` は 21×21×21 文字。止まっている
+ *    2リールの停止位置だけで決まり、どちらを先に止めたかは効かない（左→中→右も
+ *    中→左→右も同じ表）。添字は `(若い番号のリールの停止位置 × 21 + もう一方) × 21 + 押下位置`
+ * 添字はどれも**停止位置**であって押下位置ではない。混同すると静かにずれる。
+ *
+ * ボーナス中用の `bonusSecondStop` / `bonusThirdStop` は構造が同じ。ボーナス中だけ
+ * 許可リストに1枚役（こぼし先）が加わり、当選役を引き込めなかった最終停止で拾いに行く。
+ * 表は内部役IDでしか引けずこの違いを区別できないので別に持つ（通常時の表を使うと
+ * 受け皿が消え、実測で「→1枚」8.6%→0.0%・機械割-2pt）。第1停止は許可リストの影響を
+ * 受けないので共用する。
  */
 /** スベリコマ数（0〜4）。 */
 const SlipSchema = z.number().int().min(0).max(4);
 
+/** 停止テーブルのデータ版（`DATA_VERSION.stops`）。生成側が書き込む。 */
+export const STOP_TABLE_VERSION = DATA_VERSION.stops;
+
+/** 第2停止の押し順キー（第1停止のリール＋第2停止のリール）。 */
+export const SECOND_STOP_ORDERS = ['01', '02', '10', '12', '20', '21'] as const;
+/** 第3停止のキー（最後に止めるリール）。 */
+export const THIRD_STOP_FINALS = ['0', '1', '2'] as const;
+
+/** 第2停止・第3停止の1内部役ぶんの文字数。 */
+export const SECOND_STOP_LENGTH = 21 * 21;
+export const THIRD_STOP_LENGTH = 21 * 21 * 21;
+
+/** `slipPool` の番号。 */
+const PoolIndexSchema = z.number().int().nonnegative();
+const SecondStopSchema = z.record(
+  z.enum(SECOND_STOP_ORDERS),
+  z.record(z.string(), PoolIndexSchema),
+);
+const ThirdStopSchema = z.record(
+  z.enum(THIRD_STOP_FINALS),
+  z.record(z.string(), PoolIndexSchema),
+);
+
 export const StopTableSchema = z.object({
+  dataVersion: dataVersion(DATA_VERSION.stops, '停止テーブル（data/stops）'),
   mode: z.string(),
-  /** 第1停止。[内部役][リール][押下位置] → スベリ。 */
   firstStop: z.record(
     z.string(),
     z.array(z.array(SlipSchema).length(21)).length(3),
   ),
-  /**
-   * 第2停止（**順押し限定**）。[内部役][第1停止位置][第2リールの押下位置] → スベリ。
-   *
-   * 押し順を含めると6倍に膨らむ。本作は順押し前提（押し順役は 2026-07-25 に廃止・
-   * ナビも無い）なので、逆押しは実行時の探索へフォールバックする。結果は同じで、
-   * 速度と追跡可能性が落ちるだけ。
-   */
-  secondStop: z
-    .record(z.string(), z.array(z.array(SlipSchema).length(21)).length(21))
-    .optional(),
-  /**
-   * 第3停止（**順押し限定**）。[内部役][第1停止位置][第2停止位置][押下位置] → スベリ。
-   * 添字は停止位置であって押下位置ではない。到達しない位置の枠は 0 のまま残る。
-   */
-  thirdStop: z
-    .record(
-      z.string(),
-      z.array(z.array(z.array(SlipSchema).length(21)).length(21)).length(21),
-    )
-    .optional(),
-  /**
-   * **ボーナス中用**の第2・第3停止。構造は上と同じ。
-   *
-   * ボーナス中だけ許可リストに1枚役（こぼし先）が加わる——当選役を引き込めなかった
-   * 最終停止で1枚役を拾い、外した距離が枚数に出る（設計: 31章）。表は内部役IDでしか
-   * 引けずこの違いを区別できないので、通常時の表をそのまま使うと受け皿が消える
-   * （実測で「→1枚」8.6%→0.0%・機械割-2pt）。だから別に持つ。
-   *
-   * 第1停止は許可リストの影響を受けない（まだどの役もロックし得ない）ので共用する。
-   */
-  bonusSecondStop: z
-    .record(z.string(), z.array(z.array(SlipSchema).length(21)).length(21))
-    .optional(),
-  bonusThirdStop: z
-    .record(
-      z.string(),
-      z.array(z.array(z.array(SlipSchema).length(21)).length(21)).length(21),
-    )
-    .optional(),
+  /** 第2・第3停止の表の中身（詰めた文字列）。表からは番号で指す。 */
+  slipPool: z
+    .array(z.string().regex(/^[0-4]+$/, 'スベリは 0〜4 の数字で詰めてください'))
+    .default([]),
+  secondStop: SecondStopSchema.optional(),
+  thirdStop: ThirdStopSchema.optional(),
+  bonusSecondStop: SecondStopSchema.optional(),
+  bonusThirdStop: ThirdStopSchema.optional(),
+}).superRefine((t, ctx) => {
+  // 表が指す番号がプールにあり、長さがその停止の表の大きさに合うこと
+  const check = (name: string, table: Record<string, Record<string, number>> | undefined, len: number) => {
+    for (const [key, byRole] of Object.entries(table ?? {})) {
+      for (const [role, idx] of Object.entries(byRole)) {
+        const packed = t.slipPool[idx];
+        if (packed === undefined || packed.length !== len) {
+          ctx.addIssue({
+            code: 'custom',
+            path: [name, key, role],
+            message: `${name}.${key}.${role} の番号 ${idx} が指す表が無いか、長さが ${len} でありません`,
+          });
+        }
+      }
+    }
+  };
+  check('secondStop', t.secondStop, SECOND_STOP_LENGTH);
+  check('bonusSecondStop', t.bonusSecondStop, SECOND_STOP_LENGTH);
+  check('thirdStop', t.thirdStop, THIRD_STOP_LENGTH);
+  check('bonusThirdStop', t.bonusThirdStop, THIRD_STOP_LENGTH);
 });
+
 export type StopTable = z.infer<typeof StopTableSchema>;
 
 export type Quiz = z.infer<typeof QuizSchema>;
@@ -498,7 +556,51 @@ const DEFAULT_DELAY = {
   rate: { core: 0.0, cherry: 0.02, reg: 0.45, big: 0.6 },
 };
 
+/**
+ * ステップアップの1色ぶん。
+ *  - rate: 終了色の振り分け（4色の合計1）
+ *  - bonusRate: 予告したゲームがボーナスになる率（設定の倍率はここへ掛かる）
+ *  - bigRate: そのボーナスが BIG の率（残りは REG）
+ *  - chain: 連続演出。2ゲーム目へ続く率と、2ゲーム目から3ゲーム目へ続く率。
+ *    **強い色ほど続きやすくしてある**ので、続いたこと自体が本当に期待度を上げる
+ */
+const StepColorTuningSchema = z.object({
+  rate: z.number().min(0).max(1),
+  bonusRate: z.number().min(0).max(1),
+  bigRate: z.number().min(0).max(1),
+  chain: z.object({
+    second: z.number().min(0).max(1),
+    third: z.number().min(0).max(1),
+  }),
+});
+
+/**
+ * ステップアップの既定。data/tuning が正、ここはフォールバック。値の根拠は
+ * `productions/StepUp.ts` の冒頭。1回のステップアップから出るボーナスは 0.3855。
+ */
+const DEFAULT_STEP_UP = {
+  entryRate: 0.055,
+  triggerMinPayout: 5,
+  colors: {
+    blue: { rate: 0.45, bonusRate: 0.12, bigRate: 0.15, chain: { second: 0, third: 0 } },
+    green: { rate: 0.35, bonusRate: 0.53, bigRate: 0.24, chain: { second: 0.1, third: 0.1 } },
+    red: { rate: 0.18, bonusRate: 0.7, bigRate: 0.35, chain: { second: 0.35, third: 0.4 } },
+    gold: { rate: 0.02, bonusRate: 1.0, bigRate: 0.92, chain: { second: 0.6, third: 0.8 } },
+  },
+};
+
+/**
+ * 予兆（無音・バックライト消灯）の既定。data/tuning が正、ここはフォールバック。
+ * **ボーナスのフラグがある無演出のゲームでしか出さない**（2026-07-29 の方針）。
+ */
+const DEFAULT_OMEN = {
+  rate: { reg: 0.08, big: 0.12, chance: 0.25 },
+  kinds: { silence: 1, backlight: 1 },
+  backlightAt: { lever: 1, stop1: 1, stop2: 1 },
+};
+
 export const TuningSchema = z.object({
+  dataVersion: dataVersion(DATA_VERSION.tuning, 'チューニング（data/tuning）'),
   /** ベット毎の演出抽選レート（通常／ハマり救済／ボーナス中）。各合計は1.0必須。 */
   effectRates: z.object({
     default: EffectRatesSchema,
@@ -608,6 +710,13 @@ export const TuningSchema = z.object({
         .default({ instant: 0.06, late: 0.06, nextLever: 0.04 }),
       /** 確定ランプ点灯中にこの回数こぼしたら、当選役を明かす。 */
       revealAfterMisses: z.number().int().min(1).default(7),
+      /**
+       * 単独の告知抽選のうち、**レバーONで点ける（先告知）**割合（2026-10-14）。
+       * 残りは後告知：そのゲームを演出なしのボーナスのゲームにし、こぼした時の
+       * 確定ランプ（第3停止の後・即点灯／遅れ／次レバーのプレミア込み）で知らせる。
+       * ジャグラーと同じく、ランプは後告知が主で先告知は一部、という配分にする。
+       */
+      leverShare: z.number().min(0).max(1).default(0.25),
     })
     .default({
       rate: 0.0033,
@@ -617,6 +726,7 @@ export const TuningSchema = z.object({
       missAnnounceWithEffect: 0.5,
       premium: { instant: 0.06, late: 0.06, nextLever: 0.04 },
       revealAfterMisses: 7,
+      leverShare: 0.25,
     }),
   /**
    * チェリー昇格。チェリーが**実際に揃った**時だけ抽選し、当たれば確定告知ランプを
@@ -746,6 +856,70 @@ export const TuningSchema = z.object({
       }),
     })
     .default(DEFAULT_DELAY),
+  /**
+   * ステップアップ（段階演出）と、それを複数ゲームへ延ばす連続演出。
+   *
+   * 契機はチェリーと払い出し `triggerMinPayout` 枚以上の小役で、そのうち `entryRate`
+   * だけが入る。BIG/REG は通常抽選から落としてあり、ここ経由でしか出ない——
+   * **色の率を動かすとボーナス確率がそのまま動く。**
+   */
+  stepUp: z
+    .object({
+      entryRate: z.number().min(0).max(1),
+      triggerMinPayout: z.number().int().nonnegative(),
+      colors: z.object({
+        blue: StepColorTuningSchema,
+        green: StepColorTuningSchema,
+        red: StepColorTuningSchema,
+        gold: StepColorTuningSchema,
+      }),
+    })
+    .default(DEFAULT_STEP_UP),
+  /**
+   * 予兆。レバーで無音になる・リールのバックライトが消える。
+   *
+   * **ボーナスのフラグがある無演出のゲームでしか出ない**＝出たらボーナスは本当にある。
+   * 強レア役とボーナス専用に取っておく方針（2026-07-29）で、無演出の穴埋めには使わない。
+   * ボーナス中・持ち越し中・確定ランプ点灯中・フリーズでは出さない。
+   *  - rate: フラグの種類ごとの発生率（chance はボーナスを持ち越すチャンス目の内部役）
+   *  - kinds: 出た時の種類の重み
+   *  - backlightAt: バックライトが消える場面の重み（レバー／第1停止／第2停止）
+   */
+  omen: z
+    .object({
+      rate: z.object({
+        reg: z.number().min(0).max(1),
+        big: z.number().min(0).max(1),
+        chance: z.number().min(0).max(1),
+      }),
+      kinds: z.object({
+        silence: z.number().nonnegative(),
+        backlight: z.number().nonnegative(),
+      }),
+      backlightAt: z.object({
+        lever: z.number().nonnegative(),
+        stop1: z.number().nonnegative(),
+        stop2: z.number().nonnegative(),
+      }),
+    })
+    .default(DEFAULT_OMEN),
 });
 
 export type Tuning = z.infer<typeof TuningSchema>;
+
+/**
+ * 出題者の台詞（data/quizmaster-lines.json）。章ID → 場面ごとの台詞。
+ * ボイスの生成（tools/gen_voice.py）も同じファイルを読む。
+ */
+const QuizmasterSceneLinesSchema = z.object({
+  ask: z.array(z.string()).min(1),
+  correct: z.array(z.string()).min(1),
+  wrong: z.array(z.string()).min(1),
+  near: z.array(z.string()).min(1),
+});
+export const QuizmasterLinesSchema = z
+  .object({
+    dataVersion: dataVersion(DATA_VERSION.quizmasterLines, '出題者の台詞（data/quizmaster-lines.json）'),
+  })
+  .catchall(QuizmasterSceneLinesSchema);
+export type QuizmasterLines = z.infer<typeof QuizmasterLinesSchema>;

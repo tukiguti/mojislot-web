@@ -75,7 +75,8 @@ def main():
         reels.append((rid, cells))
 
     out = os.path.join(ROOT, "data/reels", f"{chapter}.json")
-    lines = ["{", f'  "mode": "{chapter}",', '  "reels": [']
+    # dataVersion は src/data/schemas.ts の DATA_VERSION.reels と揃える
+    lines = ["{", '  "dataVersion": 1,', f'  "mode": "{chapter}",', '  "reels": [']
     for i, (rid, cells) in enumerate(reels):
         arr = ", ".join('"' + c + '"' for c in cells)
         comma = "," if i < len(reels) - 1 else ""

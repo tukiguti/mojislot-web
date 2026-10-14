@@ -14,10 +14,9 @@
   --chrome-dk: #6b6e7a;     /* メタル暗 */
   --ivory: #f3e9d6;         /* 暗地の文字 */
 
-  /* === 筐体の皮（スキン・2026-09-08）===
-   * 筐体の chrome（面・縁・計器・ボタン）は**この変数群だけ**を見る。差し替えれば
-   * 見た目が丸ごと変わる。既定値は現行のクローム×紫×金で、別の皮は `skins.css` が
-   * `body[data-skin]` で上書きする。
+  /* === 筐体の皮（2026-09-08）===
+   * 筐体の chrome（面・縁・計器・ボタン）は**この変数群だけ**を見る。既定値は
+   * クローム×紫×金。遊技中の筐体は島の題材で上書きする（`cabinet-islands.css`）。
    *
    * **寸法はここに入れない。** 皮で高さや幅が動くと、向きで切り替わるレイアウト
    * （縦長／横長）の計算が崩れる。皮が持つのは色・質感・書体だけ。 */
@@ -32,7 +31,7 @@
   --cab-sheen: rgba(255, 255, 255, 0.08); /* 面の上端に乗る照り */
   --cab-glow: rgba(92, 46, 142, 0.4);     /* 筐体の外へ滲む光 */
   /* **角は落とさない**（2026-09-08）。実機の筐体は成形板の角ばった箱で、
-     丸めるとアプリのカードに見える。皮ごとに変えられる形は残すが、既定は0。
+     丸めるとアプリのカードに見える。変えられる形は残すが、既定は0。
      丸いままにしてよいのは物理的に丸いもの——ストップボタン、レバーの玉、
      ランプのドームだけ。 */
   --cab-radius: 0px;
@@ -912,7 +911,7 @@ body.has-chapter-bg {
 
 /* === データランプ（データカウンター）===
  * 筐体の上に載る**別体の表示器**。ホールの設備なので筐体の皮とは分けて、
- * どの皮でも黒地の計器として出す——実機のホールでも、台が変わっても上の
+ * どの島でも黒地の計器として出す——実機のホールでも、台が変わっても上の
  * 表示器は同じものが並んでいる。
  *
  * 並びは実機アプリの表示器に倣う。**左＝スランプグラフ、右＝数値のマス**で、
@@ -1193,7 +1192,7 @@ body.has-chapter-bg {
 }
 
 /* === トップランプ＝筐体最上部の光る帯。実機の一番上にある光るライン。
- * 島テーマの色（--isl-top）が来ればそれを使い、無ければ皮の色で光る。 === */
+ * 島テーマの色（--isl-top）が来ればそれを使い、無ければ既定の色で光る。 === */
 
 /* === タイトルパネル（島名の板）＋控えめマーキー電飾 ===
  * 実機のここは機種名の板。以前は mojislot のワードマークを出していたが、
@@ -2787,7 +2786,7 @@ body.shake {
   box-shadow: none;
 }
 /* 押せない状態＝**消灯した物理ボタン**。透かして消すのではなく、色を抜いて
-   暗くする。透明度で消すと、レトロ皮のようなクリーム色の操作板では
+   暗くする。透明度で消すと、生成りや原稿用紙のような明るい操作板では
    ボタンごと板に溶けて「そこに何があるか」すら分からなくなる。 */
 #bet-btn:disabled,
 #lever-btn:disabled,
@@ -3621,6 +3620,36 @@ body.shake {
   opacity: calc(var(--step-a, 0.4) * 0.45);
 }
 
+/* 連続演出の「つづく」。段の色の上に重ねる文字。段の要素とは別なので薄くならない */
+.step-next {
+  position: absolute;
+  top: 6%;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 9991;
+  pointer-events: none;
+  padding: 0.3em 1.1em;
+  border-radius: 999px;
+  background: rgba(10, 8, 16, 0.82);
+  border: 2px solid #ffe08a;
+  color: #ffe08a;
+  font-weight: 900;
+  font-size: clamp(14px, 4.2cqmin, 30px);
+  letter-spacing: 0.3em;
+  animation: step-next-pulse 900ms ease-in-out infinite alternate;
+}
+@keyframes step-next-pulse {
+  from {
+    opacity: 0.75;
+  }
+  to {
+    opacity: 1;
+  }
+}
+.a11y-reduce-motion .step-next {
+  animation: none;
+}
+
 /* ブラックアウト（フリーズ専用）。筐体まるごと落とす——液晶だけ暗くしても
    リールと操作部が光ったままで「電源が落ちた」に見えない。
    落ちるのはゆっくり、明けるのは一瞬。明けた瞬間に爆発させたいので。 */
@@ -3769,6 +3798,8 @@ body.shake {
   background-size: cover;
   background-position: center center;
   background-repeat: no-repeat;
+  /* 一枚絵はドット絵（200×144 を3倍で焼いたもの）。液晶が 600px より大きいと補間でにじむ */
+  image-rendering: pixelated;
   transform: scale(1.08);
   opacity: 0;
   transition:
@@ -5204,4 +5235,61 @@ to {
 .key-binding-key:focus-visible {
   outline: 2px solid var(--gold, #f2b33c);
   outline-offset: 2px;
+}
+
+/* ===================================================================
+   縦長のデータランプ（2026-10-14）
+   ===================================================================
+   縦長では表示器の幅が筐体の幅（iPhone で約316px）に揃っていて、中の文字は表示器の
+   幅に比例させている（cqw）ので、見出しや確率が下限の6〜7pxまで縮んでいた。
+   比率は横長の広い表示器に合わせてあるので、縦長では次の3つを変える。
+   - 幅は画面いっぱい（筐体より少し広くなるが、表示器は台の上に載る別の機械なのでよい）
+   - 背に余裕のある画面では、グラフを上・数値のマスを下の2段に積む（マスが全幅を使える）
+   - 文字の比率を上げる
+   背の低い画面（高さ720px以下）は筐体の取り分が先なので、横並びのまま幅と文字だけ広げる。 */
+@media (max-aspect-ratio: 1/1) {
+  #datalamp {
+    width: min(calc(100vw - var(--layout-pad) * 2), 640px);
+  }
+  .dl-legend {
+    font-size: clamp(8px, 2.2cqw, 14px);
+  }
+  .dl-seat {
+    font-size: clamp(10px, 2.8cqw, 18px);
+  }
+  .dl-leg-line b {
+    font-size: clamp(10px, 2.7cqw, 17px);
+  }
+  .dl-axis {
+    font-size: clamp(7px, 1.9cqw, 12px);
+  }
+  .dl-cell-head {
+    /* 横並びのままのマスは幅が狭い。「総スタート」が切れない大きさに留める */
+    font-size: clamp(7.5px, 2cqw, 14px);
+  }
+  .dl-cell-value b {
+    font-size: clamp(12px, 3.6cqw, 24px);
+  }
+  .dl-cell-value i {
+    font-size: clamp(7px, 1.9cqw, 12px);
+  }
+}
+
+@media (max-aspect-ratio: 1/1) and (min-height: 721px) {
+  :root {
+    --datalamp-h: 184px;
+  }
+  #datalamp {
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-rows: minmax(0, 1fr) minmax(0, 1.15fr);
+  }
+  .dl-cell-head {
+    font-size: clamp(9px, 2.6cqw, 14px);
+  }
+  .dl-cell-value b {
+    font-size: clamp(13px, 4.2cqw, 24px);
+  }
+  .dl-cell-value i {
+    font-size: clamp(8px, 2.2cqw, 12px);
+  }
 }
