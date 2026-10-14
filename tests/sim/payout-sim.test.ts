@@ -309,6 +309,11 @@ interface Result {
    * 1枚役のフラグは1枚役が揃えば取れた扱い、それ以外は当選役が揃えば取れた扱い。
    */
   loss: Map<string, [number, number, number]>;
+  /**
+   * ボーナス突入（新規）を、プレイヤーがどの経路でボーナスを知ったかで数える。
+   * 先告知＝揃える前にランプや演出で分かる／後告知＝揃わなかった後でランプが点く。
+   */
+  entryBy: Map<string, number>;
 }
 
 /** 腕ごとの分散と取りこぼしの集計（全章ぶん）。 */
@@ -318,6 +323,7 @@ interface SkillSpread {
   netSqSum: number;
   blockNets: number[];
   loss: Map<string, [number, number, number]>;
+  entryBy: Map<string, number>;
 }
 
 function runChapter(
@@ -459,6 +465,7 @@ function runChapter(
     netSqSum: 0,
     blockNets: [],
     loss: new Map<string, [number, number, number]>(),
+    entryBy: new Map<string, number>(),
     shisaSpins: 0, shisaEscalated: 0, lampBonus: 0, cherryBonus: 0,
     carriedSpins: 0, eyeRoles: 0, eyeHits: 0, eyeBonus: 0,
   };
@@ -472,6 +479,9 @@ function runChapter(
   let curBonusPayout = 0;
   /** 確定告知ランプ／チェリー重複の持ち越し（次ゲーム以降ボーナス確定）。 */
   let pendingBonus: 'big' | 'reg' | null = null;
+  /** pendingBonus と heldBonusYaku がどの経路で来たか（突入の内訳用・乱数は引かない）。 */
+  let pendingSource = '';
+  let heldSource = '';
   /** こぼしたボーナスフラグの持ち越し（無告知・実機Aタイプ）。 */
   let heldBonusYaku: Yaku | null = null;
   /**
@@ -511,6 +521,7 @@ function runChapter(
     if (!pendingBonus && !bonusActive && rng() < tuning.announceLamp.rate) {
       pendingBonus = rng() < tuning.announceLamp.bigRatio ? 'big' : 'reg';
       res.lampBonus++;
+      pendingSource = '先告知｜ランプ単独（レバーON）';
     }
     // 持ち越し中は内部役を確定役へ強制し、演出は抑止（ランプが出ているため）。
     const heldRoleId = pendingBonus
@@ -835,6 +846,7 @@ function runChapter(
       if (carryYaku && !pendingBonus && !bonusActive && !heldBonusYaku) {
         heldBonusYaku = carryYaku;
         res.eyeBonus++;
+        heldSource = '先告知｜チャンス目';
       }
       if (
         !carryYaku && !pendingBonus && !bonusActive && !heldBonusYaku &&
@@ -856,6 +868,12 @@ function runChapter(
       // Aタイプはボーナスフラグが消えない。以前は演出の出ていたゲームでこぼしたら
       // 権利ごと消していたので、ここも合わせて変えてある。
       heldBonusYaku = yaku;
+      heldSource =
+        effect !== 'none'
+          ? '後告知｜演出が出たのにこぼした（ランプ50%）'
+          : delayed
+            ? '後告知｜遅れが出てこぼした（ランプ）'
+            : '後告知｜無演出でこぼした（ランプ）';
     }
     // チェリー重複：チェリーが実際に揃った時だけ抽選し、次ゲーム以降ボーナス確定。
     if (
@@ -866,6 +884,7 @@ function runChapter(
     ) {
       pendingBonus = rng() < tuning.cherryBonus.bigRatio ? 'big' : 'reg';
       res.cherryBonus++;
+      pendingSource = '後告知｜チェリー昇格（ランプ）';
     }
 
     // ステップアップ（前兆）へ入るか。契機役の一部だけが入り、色で次ゲームが決まる。
@@ -925,6 +944,20 @@ function runChapter(
         curBonusKind = isPremium ? 'big' : 'reg';
         curBonusPayout = 0;
         if (isPremium) res.big++; else res.reg++;
+        const via = heldYaku
+          ? pendingSource
+          : carried
+            ? heldSource
+            : role.freeze
+              ? '先告知｜フリーズ'
+              : step && stepBonusYaku
+                ? '先告知｜ステップアップの予告'
+                : effect !== 'none'
+                  ? '先告知｜演出（狙え・示唆・クイズ）'
+                  : delayed
+                    ? '先告知｜遅れ'
+                    : '告知なし｜無演出のまま揃った';
+        res.entryBy.set(via, (res.entryBy.get(via) ?? 0) + 1);
         bonusRemaining += isPremium ? spinsBig : spinsReg;
         bitaThisBonus = 0;
       } else {
@@ -981,7 +1014,7 @@ describe.skipIf(!RUN)('出玉シミュレーション（新モデル）', () => 
       let spins = 0;
       let shisaSpins = 0, shisaEsc = 0, lampB = 0, cherryB = 0, carS = 0, eyeR = 0, eyeH = 0, eyeB = 0;
       let bMiss = 0, bSpill = 0, bitaC = 0, bitaH = 0;
-      const spread: SkillSpread = { spins: 0, netSum: 0, netSqSum: 0, blockNets: [], loss: new Map() };
+      const spread: SkillSpread = { spins: 0, netSum: 0, netSqSum: 0, blockNets: [], loss: new Map(), entryBy: new Map() };
       spreads.set(skill.name, spread);
       CHAPTERS.forEach((ch, i) => {
         const r = runChapter(ch, skill, SPINS / CHAPTERS.length, seedOf(i), SETTING);
@@ -989,6 +1022,7 @@ describe.skipIf(!RUN)('出玉シミュレーション（新モデル）', () => 
         spread.netSum += r.netSum;
         spread.netSqSum += r.netSqSum;
         spread.blockNets.push(...r.blockNets);
+        for (const [k, v] of r.entryBy) spread.entryBy.set(k, (spread.entryBy.get(k) ?? 0) + v);
         for (const [k, v] of r.loss) {
           const cur = spread.loss.get(k) ?? [0, 0, 0];
           v.forEach((x, j) => { cur[j] += x; });
@@ -1098,6 +1132,21 @@ describe.skipIf(!RUN)('出玉シミュレーション（新モデル）', () => 
       '\n===== 取りこぼし率の内訳（こぼし＝当選役を揃えられなかった割合・→1枚＝こぼしのうち1枚役へ落ちた割合） =====\n' +
         lossLines.join('\n'),
     );
+
+    // 突入の内訳：プレイヤーがどの経路でボーナスを知ったか。
+    const viaKeys = [...new Set(SKILLS.flatMap((sk) => [...spreads.get(sk.name)!.entryBy.keys()]))].sort();
+    const viaLines: string[] = ['経路' + ' '.repeat(36) + SKILLS.map((sk) => sk.name.padStart(9)).join('')];
+    for (const k of viaKeys) {
+      viaLines.push(
+        k.padEnd(38) +
+          SKILLS.map((sk) => {
+            const m = spreads.get(sk.name)!.entryBy;
+            const tot = [...m.values()].reduce((a, x) => a + x, 0);
+            return (((m.get(k) ?? 0) / Math.max(1, tot)) * 100).toFixed(1).padStart(8) + '%';
+          }).join(''),
+      );
+    }
+    console.log('\n===== ボーナス突入の告知経路（新規突入のうちの割合） =====\n' + viaLines.join('\n'));
 
     // ボーナス中はどの演出でも狙う役は分かっているはずなのに取りこぼしが残る。
     // その内訳＝演出設計（どこまで役を明かすか）の判断材料。
