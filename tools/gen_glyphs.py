@@ -394,7 +394,6 @@ GLOSS_A = {"bonus": 150, "core": 95, "filler": 0}
 RIDGE_A = {"bonus": 130, "core": 110, "filler": 0}
 GOLD_HI, GOLD_MID, GOLD_LO = (255, 236, 150), (232, 176, 52), (176, 116, 20)
 GOLD_EDGE = (70, 40, 6, 255)
-BONUS_PLATE = (70, 66, 80, 255)  # ボーナス図柄の後ろの板。tint で暗い役色になる
 
 
 # ---------------------------------------------------------------- 目印
@@ -525,17 +524,6 @@ def glyph(ch: str, chapter: str = "hiragana_verb", reel: int = 0) -> tuple[Image
                 put(bp, x, y, EDGE)
             elif o1[y][x] and not m[y][x]:
                 put(bp, x, y, RIM)
-    if tier == "bonus":
-        # 〔2026-10-14〕字の後ろに**役の色の暗い板**を敷く。寿司の「し」のように一画の字は
-        # 色の面積が小さく、形の似た小役（「い」）の中に埋もれていた。灰で描くので tint で
-        # 暗い役色になる。線を太くする案は、ほとんど変わらなかったので採らなかった。
-        plate = Image.new("RGBA", (CW, CH), (0, 0, 0, 0))
-        ImageDraw.Draw(plate).rounded_rectangle(
-            [3, 2, CW - 4, CH - 3], radius=6, fill=BONUS_PLATE, outline=EDGE, width=1
-        )
-        plate.alpha_composite(base)
-        base = plate
-        bp = base.load()
     for y in range(h):
         for x in range(w):
             if not m[y][x]:
