@@ -112,7 +112,7 @@ const SLIP_BADGE_H = 20;
  * 強さは「1フレームで進むピクセル数」に比例させる（速いほど強く滲む）。
  * 60fps 想定で pxPerFrame = speed(コマ/秒) × CELL_HEIGHT ÷ 60。
  */
-const MOTION_BLUR_K = 0.34;
+const MOTION_BLUR_K = 0.1;
 /**
  * 実効のブラー係数。data/tuning の既定値を main.ts が流し込み、設定モーダルから変更できる
  * （体感で決める値なので、ビルドし直さずに比べられるようにしている）。0 でブラー無し。

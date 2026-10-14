@@ -95,8 +95,8 @@
     "bigRatio": 0.3,
     "delayMs": 900
   },
-  "reelSpeed": 24,
-  "motionBlurStrength": 0.34,
+  "reelSpeed": 28,
+  "motionBlurStrength": 0.1,
   "entryChargeMs": 650,
   "delay": {
     "ms": 400,
