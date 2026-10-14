@@ -394,6 +394,7 @@ GLOSS_A = {"bonus": 150, "core": 95, "filler": 0}
 RIDGE_A = {"bonus": 130, "core": 110, "filler": 0}
 GOLD_HI, GOLD_MID, GOLD_LO = (255, 236, 150), (232, 176, 52), (176, 116, 20)
 GOLD_EDGE = (70, 40, 6, 255)
+BONUS_PLATE = (70, 66, 80, 255)  # ボーナス図柄の後ろの板。tint で暗い役色になる
 
 
 # ---------------------------------------------------------------- 目印
@@ -409,8 +410,10 @@ def landmark_of(chapter: str) -> str | None:
     return _LANDMARK_CACHE[chapter]
 
 
-MARK_FACE = (236, 228, 204)      # 目印の字の色（生成り）
-MARK_SHADE = (176, 164, 136)     # 字の下側の陰り
+MARK_FACE = (255, 255, 255)      # 目印の字の色（白・2026-10-14 に生成りから）
+MARK_SHADE = (214, 210, 226)     # 字の下側の陰り
+MARK_BAND = (24, 20, 52, 255)    # 帯の間の地（紺）。実機の BAR の黒帯
+MARK_BAND_X = 6                  # 帯と地の左右の余白
 MARK_EDGE = (34, 30, 40, 255)    # 外の縁（ほかの文字と同じ黒）
 MARK_BAR = (150, 128, 84, 255)   # 字の上下に引く細い線（実機の BAR の帯）
 
@@ -422,6 +425,11 @@ def landmark_glyph(ch: str, chapter: str) -> tuple[Image.Image, Image.Image]:
     そこから届かない役のための脇役なので、**ほかの文字と同じ大きさ・同じ縁**にして、
     色を役の色から外した生成りにする。上下の線で「役の文字ではない」ことだけ分かる。
     役の色で染めない（表示側は tint を白）ので、色は地の1枚に焼き込む。艶は付けない。
+
+    〔2026-10-14〕それでも埋もれる（寿司の「寿」）という指摘で、大きさはそのままに
+    **帯の間を紺で塗り（実機の BAR の黒帯）、帯を金の2段にし、字を白にした**。金の札と
+    違って字の大きさは小役と同じで、色の面積は帯の中に閉じている。字を金にする案は、
+    ボーナス図柄の金の輪と色がかぶって狙う主役と張り合うので採らなかった。
     """
     use_chapter(chapter)
     base = Image.new("RGBA", (CW, CH), (0, 0, 0, 0))
@@ -453,12 +461,19 @@ def landmark_glyph(ch: str, chapter: str) -> tuple[Image.Image, Image.Image]:
             if m[y][x]:
                 c = MARK_FACE if (y - top) / max(1, bot - top) < 0.6 else MARK_SHADE
                 put(x, y, c + (255,))
-    # 上下の細い線（BAR の帯）。字の外の縁のさらに外側に2ドット
-    for yy in (oy + top - 6, oy + bot + 5):
-        for x in range(8, CW - 8):
-            for d in (0, 1):
-                if 0 <= yy + d < CH and bp[x, yy + d][3] == 0:
-                    bp[x, yy + d] = MARK_BAR
+    # 上下の帯（BAR の帯）。字の外の縁のさらに外側に、金の2段＋外側の焦げ1段
+    bar_top, bar_bot = oy + top - 6, oy + bot + 5
+    for y in range(bar_top + 2, bar_bot):
+        for x in range(MARK_BAND_X, CW - MARK_BAND_X):
+            if bp[x, y][3] == 0:
+                bp[x, y] = MARK_BAND
+    for yy, rows_ in ((bar_top, (-1, 0, 1)), (bar_bot, (0, 1, 2))):
+        for i, d in enumerate(rows_):
+            outer = (d == -1) or (d == 2)
+            c = GOLD_EDGE if outer else ((*GOLD_HI, 255) if i == (1 if yy == bar_top else 0) else (*GOLD_MID, 255))
+            for x in range(MARK_BAND_X, CW - MARK_BAND_X):
+                if 0 <= yy + d < CH:
+                    bp[x, yy + d] = c
     return base, gloss
 
 
@@ -510,6 +525,17 @@ def glyph(ch: str, chapter: str = "hiragana_verb", reel: int = 0) -> tuple[Image
                 put(bp, x, y, EDGE)
             elif o1[y][x] and not m[y][x]:
                 put(bp, x, y, RIM)
+    if tier == "bonus":
+        # 〔2026-10-14〕字の後ろに**役の色の暗い板**を敷く。寿司の「し」のように一画の字は
+        # 色の面積が小さく、形の似た小役（「い」）の中に埋もれていた。灰で描くので tint で
+        # 暗い役色になる。線を太くする案は、ほとんど変わらなかったので採らなかった。
+        plate = Image.new("RGBA", (CW, CH), (0, 0, 0, 0))
+        ImageDraw.Draw(plate).rounded_rectangle(
+            [3, 2, CW - 4, CH - 3], radius=6, fill=BONUS_PLATE, outline=EDGE, width=1
+        )
+        plate.alpha_composite(base)
+        base = plate
+        bp = base.load()
     for y in range(h):
         for x in range(w):
             if not m[y][x]:
