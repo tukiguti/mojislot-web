@@ -122,10 +122,10 @@ export function setMotionBlurStrength(k: number): void {
   motionBlurStrength = Math.max(0, k);
 }
 /**
- * リールの地の色（2026-10-14・設定の「リールの地」）。既定は明るい灰（2026-10-16 に灰→白→明るい灰）。図柄の外の縁は黒で焼いてあるので、
+ * リールの地の色（2026-10-14・設定の「リールの地」）。既定は暗い灰（2026-10-16 に灰→白→明るい灰→暗い灰）。図柄の外の縁は黒で焼いてあるので、
  * 灰や白の地でも輪郭は残る。各リールは毎フレーム自分の塗った色と比べて、変わっていれば塗り直す。
  */
-let reelBackground = 0xc6c3ba;
+let reelBackground = 0x76767e;
 export function setReelBackground(color: number): void {
   reelBackground = color;
 }
