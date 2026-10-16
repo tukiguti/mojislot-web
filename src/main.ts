@@ -838,15 +838,18 @@ export async function bootstrap() {
    * ステージ切替でリールが入れ替わったら呼び直す。
    */
   let renderReelStrips: () => void = () => {};
+  /** 役の色で染めない図柄（目印とハズレ図柄。色は絵に焼き込んである）。 */
+  const isUncolored = (symbol: string): boolean =>
+    symbol === reelConfig.landmark || (reelConfig.blanks?.includes(symbol) ?? false);
 
   for (let i = 0; i < REEL_COUNT; i++) {
     const engine = new ReelEngine(reelConfig.reels[i]);
     const reelIdx = i;
     const view = new ReelView(
       engine,
-      // 目印は金の札として焼いてあるので役の色で染めない（白＝そのまま）
+      // 目印とハズレ図柄は色を焼き込んであるので役の色で染めない（白＝そのまま）
       (symbol) =>
-        symbol === reelConfig.landmark ? 0xffffff : colorResolver.colorFor(reelIdx, symbol),
+        isUncolored(symbol) ? 0xffffff : colorResolver.colorFor(reelIdx, symbol),
       (symbol) => colorResolver.tierFor(reelIdx, symbol),
       (symbol) => glyphTextures.get(`${reelIdx}:${symbol}`) ?? null,
       (symbol) => glyphGlosses.get(`${reelIdx}:${symbol}`) ?? null,
@@ -2690,9 +2693,9 @@ export async function bootstrap() {
       const reelIdx = i;
       const view = new ReelView(
         engine,
-        // 目印は金の札として焼いてあるので役の色で染めない（白＝そのまま）
+        // 目印とハズレ図柄は色を焼き込んであるので役の色で染めない（白＝そのまま）
       (symbol) =>
-        symbol === reelConfig.landmark ? 0xffffff : colorResolver.colorFor(reelIdx, symbol),
+        isUncolored(symbol) ? 0xffffff : colorResolver.colorFor(reelIdx, symbol),
         (symbol) => colorResolver.tierFor(reelIdx, symbol),
         (symbol) => art.textures.get(`${reelIdx}:${symbol}`) ?? null,
         (symbol) => art.glosses.get(`${reelIdx}:${symbol}`) ?? null,
@@ -3904,7 +3907,11 @@ export async function bootstrap() {
         // スタイルシート側の background-repeat / size / position まで初期値へ戻り、
         // ドット文字が敷き詰められる（実際に踏んだ）
         cell.style.backgroundColor =
-          symbol === reelConfig.landmark ? '#2a1a08' : colorResolver.cssFor(idx, symbol);
+          symbol === reelConfig.landmark
+            ? '#2a1a08'
+            : reelConfig.blanks?.includes(symbol)
+              ? '#5a5a62'
+              : colorResolver.cssFor(idx, symbol);
         const glyphUrl = glyphUrlFor(idx, symbol);
         if (glyphUrl) {
           cell.classList.add('has-art');

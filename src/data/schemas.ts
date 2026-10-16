@@ -39,6 +39,12 @@ export const ReelConfigSchema = z.object({
    * 無い島は目印なし。
    */
   landmark: z.string().optional(),
+  /**
+   * ハズレ図柄（2026-10-16）。どの役にも属さない灰の線画の絵柄で、島ごとに2種類。
+   * 文字は配列の中の目印として使うだけで、リールには tools/blank_glyphs.py の絵が出る。
+   * 役の色で染めない（目印と同じく tint は白）。
+   */
+  blanks: z.array(z.string()).optional(),
   reels: z.array(ReelStripSchema).length(3),
 });
 

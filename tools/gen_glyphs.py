@@ -61,6 +61,9 @@ import json
 import pathlib
 import unicodedata
 
+import sys
+sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent))
+from blank_glyphs import blank_glyph, blank_name  # noqa: E402
 from PIL import Image, ImageDraw, ImageFont
 
 ROOT = pathlib.Path(__file__).resolve().parent.parent
@@ -480,6 +483,8 @@ def glyph(ch: str, chapter: str = "hiragana_verb", reel: int = 0) -> tuple[Image
     """(地, 艶) の2枚を返す。地は tint で役色に、艶はそのまま重ねる。"""
     if ch == landmark_of(chapter):
         return landmark_glyph(ch, chapter)
+    if blank_name(chapter, ch) is not None:
+        return blank_glyph(chapter, ch)
     tier = tier_of(chapter, reel, ch)
     m = _pad(face_of(ch, chapter, reel), PAD)
     o1 = grow(m)

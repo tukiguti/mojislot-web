@@ -70,6 +70,19 @@ const LANDMARKS: Record<string, string> = {
 const BAR_COUNT = Number(process.env.OPT_BARS ?? 1);
 
 /**
+ * 島ごとのハズレ図柄（2026-10-16）。どの役にも属さない灰の線画で、絵は
+ * tools/blank_glyphs.py の BLANKS と同じ文字で引く。1種類だと同じ絵柄を続けて・1つおきに
+ * 置けない決まりで1リールに4枚までしか入らないので2種類（各リール4枚＋3枚）。
+ */
+const BLANK_SYMS: Record<string, readonly [string, string]> = {
+  hiragana_food: ['湯', '箸'],
+  hiragana_verb: ['鉛', '消'],
+  katakana_animal: ['足', '骨'],
+  security: ['歯', '螺'],
+  yasai: ['葉', '籠'],
+};
+
+/**
  * `OPT_PROFILE=1` で工程ごとの所要時間を合計して出す（計算の改善の当たりを付けるため）。
  * `prof('名前', () => 計算)` で包むと、その工程の時間と回数が積み上がる。
  */
@@ -605,21 +618,29 @@ function planCounts(yakuList: YakuList, reel: number, size = N): Map<string, num
 }
 
 /**
- * 目印のある配列の枚数計画（2026-10-16）。**小役4種を4枚ずつ**、チェリー2枚、ボーナス図柄は
- * 左・中が BIG1（REG と共有）1枚・BIG2 1枚、右がペア2組の4コマ。目印（1枚）は別に足す。
+ * 目印のある配列の枚数計画（2026-10-16）。**3枚役3・4枚役2・5枚役2・7枚役2**、チェリー2枚、
+ * ボーナス図柄は左・中が BIG1（REG と共有）1枚・BIG2 1枚、右がペア2組の4コマ、
+ * 残りは**ハズレ図柄**2種類（4枚＋3枚）。目印（1枚）は別に足す。
  *
- * 狙い所の両側に担当の文字を置く型（`templateReels`）は、狙い所1つにつき担当の文字を3コマ
- * 使う。3枚役を5〜6枚に厚くすると、同じ字の2連・1つおきを避けて並べる場所が残らなかった
- * （全数で確かめた）。4枚ずつなら並ぶ。
+ * 小役を4枚ずつにした版は、狙い所の型（`templateReels`）に入らない余りのコマに高い役が
+ * 出て、適当に押しても5枚・7枚役が6〜7割揃った（前の配列は4割台）。小役を減らして余りを
+ * ハズレで埋め、高い役はほぼ BIG2 の型の中だけに置く。
  */
-function evenPlan(yakuList: YakuList, r: number): Map<string, number> {
+function evenPlan(yakuList: YakuList, r: number, blanks?: readonly string[]): Map<string, number> {
   const plan = new Map<string, number>();
   const set = (sym: string | undefined, n: number) => {
     if (sym !== undefined) plan.set(sym, Math.max(plan.get(sym) ?? 0, n));
   };
-  for (const y of yakuList.coreYaku) set(y.symbols[r], 4);
+  const low = Math.min(...yakuList.coreYaku.map((y) => y.payout ?? 7));
+  for (const y of yakuList.coreYaku) set(y.symbols[r], (y.payout ?? 7) === low ? 3 : 2);
   for (const y of yakuList.cherryYaku) set(y.symbols[r], 2);
   for (const y of [...yakuList.premiumYaku, ...yakuList.bonusYaku]) set(y.symbols[r], r === 2 ? 2 : 1);
+  const used = [...plan.values()].reduce((a, b) => a + b, 0);
+  const rest = N - BAR_COUNT - used;
+  if (blanks && rest > 0) {
+    plan.set(blanks[0], Math.ceil(rest / 2));
+    plan.set(blanks[1], Math.floor(rest / 2));
+  }
   return plan;
 }
 
@@ -1707,7 +1728,7 @@ describe.skipIf(!RUN)('リール配列の再最適化', () => {
         // 目印がある島は、目印のコマを除いた枠で枚数を計画する。
         const plans = [0, 1, 2].map((r) => {
           if (!landmark) return planCounts(yakuList, r, N);
-          if (process.env.OPT_EVEN !== '0') return evenPlan(yakuList, r);
+          if (process.env.OPT_EVEN !== '0') return evenPlan(yakuList, r, BLANK_SYMS[chapter]);
           // 右は目印3枚だった時の枠で計画し、空いた1コマは adjustPlan で5枚役へ回す
           // （枠を広げて planCounts に任せると、3枚役を削らずに残す方へ回ってしまう）
           return adjustPlan(yakuList, r, planCounts(yakuList, r, r === 2 ? N - 3 : N - barsOn(r)), r === 2 ? 3 - barsOn(r) : 0);
@@ -2173,10 +2194,12 @@ describe.skipIf(!RUN)('リール配列の再最適化', () => {
                  band < bestBand - 1e-9 ||
                  (Math.abs(band - bestBand) < 1e-9 &&
                   (spread < bestSpread || (spread === bestSpread && reach > bestReach))))
-              : aim + leaks + triples + bases + golds + runs + budget + blind <
-                  bestAim + bestLeaks + bestTriples + bestBases + bestGolds + bestRuns +
+              // 狙い所の取りこぼし（group）も足す（2026-10-16）。足していなかった頃は、保存した
+              // 配列を OPT_ITER=1 で書き出す時の1回の入れ替えで狙い所の取りこぼしが増えても採っていた
+              : aim + group + leaks + triples + bases + golds + runs + budget + blind <
+                  bestAim + bestGroup + bestLeaks + bestTriples + bestBases + bestGolds + bestRuns +
                     bestBudget + bestBlind ||
-                (aim === bestAim && leaks === bestLeaks && triples === bestTriples && bases === bestBases &&
+                (aim === bestAim && group === bestGroup && leaks === bestLeaks && triples === bestTriples && bases === bestBases &&
                  golds === bestGolds && runs === bestRuns && budget === bestBudget &&
                  blind === bestBlind && pairs === bestPairs &&
                  (band < bestBand - 1e-9 ||
@@ -2310,6 +2333,8 @@ describe.skipIf(!RUN)('リール配列の再最適化', () => {
           };
           const lines = ['{', `  "dataVersion": ${DATA_VERSION.reels},`, `  "mode": "${chapter}",`];
           if (landmark) lines.push(`  "landmark": "${landmark}",`);
+          const blanks = BLANK_SYMS[chapter];
+          if (landmark && blanks) lines.push(`  "blanks": [${blanks.map((b) => `"${b}"`).join(', ')}],`);
           lines.push('  "reels": [');
           out.reels.forEach((r, i) => {
             const arr = r.cells.map((c) => `"${c}"`).join(', ');
