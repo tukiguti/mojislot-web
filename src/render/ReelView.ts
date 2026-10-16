@@ -125,7 +125,7 @@ export function setMotionBlurStrength(k: number): void {
  * リールの地の色（2026-10-14・設定の「リールの地」）。既定は白（2026-10-16 に灰から）。図柄の外の縁は黒で焼いてあるので、
  * 灰や白の地でも輪郭は残る。各リールは毎フレーム自分の塗った色と比べて、変わっていれば塗り直す。
  */
-let reelBackground = 0xf4f2ec;
+let reelBackground = 0xdedbd3;
 export function setReelBackground(color: number): void {
   reelBackground = color;
 }
