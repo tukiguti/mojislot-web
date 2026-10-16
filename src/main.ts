@@ -133,6 +133,7 @@ import { ZukanOverlay } from './ui/ZukanOverlay';
 import { SlipResolver, type VisibleColumn } from './productions/SlipResolver';
 import { StopTableLookup } from './core/StopTable';
 import { StopController } from './core/StopController';
+import { aimAnchors } from './core/PullInGuard';
 import {
   extractGrid,
   getVisibleCell,
@@ -3642,8 +3643,9 @@ export async function bootstrap() {
   /** AUTO が予告役を狙うとき、target を中段の手前何コマで止めて残りを引き込みに
    *  委ねるかのマージン。 */
   // 〔2026-10-13〕4（引き込みの上限ちょうど）から2へ。上限ちょうどだと押すタイミングが
-  // 少し遅れただけで届かず、目印揃いなどを取りこぼしていた。配列が「狙えば必ず揃う」と
-  // 保証しているのは2コマ手前（tests/audit/aim-guarantee・aim-groups）なので、それに合わせる
+  // 少し遅れただけで届かず、目印揃いなどを取りこぼしていた。狙い所は4コマ手前〜下段の
+  // どこでも揃う（tests/audit/aim-groups・2026-10-16）が、ボーナス役は役の図柄を2コマ手前で
+  // 狙った時だけを保証している（tests/audit/aim-guarantee）ので、2のままにする
   const AUTO_AIM_MARGIN = Math.min(2, PULL_IN_CELLS);
 
   /**
@@ -3664,10 +3666,16 @@ export async function bootstrap() {
     const targetSymbol = autoTargetYaku.symbols[reelIdx];
     const speed = engine.currentSpeed;
 
-    // 順方向で次に target symbol が来る距離（コマ単位）
+    // 狙うコマ：目印のある島の小役・チェリー・目印揃いは**狙い所**（BIG1・BIG2・目印。
+    // 2026-10-16）。配列が保証しているのは狙い所を狙った押し方で、役の図柄そのものを
+    // 狙うと押し順によってまれに取りこぼす。ボーナス役と目印の無い島は役の図柄を狙う。
+    const anchor = aimAnchors(yakuList, engines.map((e) => e.strip.cells)).get(autoTargetYaku.id);
+    const aimCells = anchor
+      ? anchor.at[reelIdx]
+      : cells.flatMap((c, i) => (c === targetSymbol ? [i] : []));
+    // 順方向で次に狙うコマが来る距離（コマ単位）
     let bestDist = Infinity;
-    for (let i = 0; i < total; i++) {
-      if (cells[i] !== targetSymbol) continue;
+    for (const i of aimCells) {
       const dist = (((i - pos) % total) + total) % total;
       if (dist < bestDist) bestDist = dist;
     }

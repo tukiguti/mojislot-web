@@ -14,15 +14,19 @@ import { StopController } from '../../src/core/StopController';
 import { StopTableLookup } from '../../src/core/StopTable';
 import { TenpaiDetector } from '../../src/productions/TenpaiDetector';
 import { YakuJudge } from '../../src/core/YakuJudge';
+import { AIM_TIMINGS, MARK_AIM_TIMINGS } from '../../src/core/PullInGuard';
 
 /**
  * **狙い所の監査**（2026-10-10）。目印のある配列は「BIG1・BIG2・目印のどれかを
  * 狙って押せば、その役が揃う」を約束している（tests/tools/optimize-reels の aimGroups）。
  *
- *  - 押し方：狙う図柄が中段に来る**2コマ手前**で押す（少し早めに押しても引き込みで取れる）
+ *  - 押し方：押した瞬間に狙う図柄が**中段の4コマ手前〜下段**のどこにいても揃う
+ *    （4・3・2・1コマ手前・ちょうど・1コマ遅い＝下段に見えている、の6段階。2026-10-16 決定。
+ *    それまでは2コマ手前の1点しか確かめておらず、少しずれると押し順によって外れていた）。
+ *    タイミングは**リールごとに別々**に取り、6×6×6 の組み合わせを全部確かめる
  *  - 押し順：順押し・逆押し・中押し2通りの**4通り**
- *  - 判定：役ごとに、3つの狙い所の**どれか1つ**で取りこぼしが0であること
- *    （受け持つ役は島ごとに割り振ってよい、という決定）
+ *  - 揃うラインは横3本・斜め2本のどれでもよい
+ *  - 判定：役ごとに、**担当の狙い所**で取りこぼしが0であること
  *  - 第3リールの BIG1・BIG2 は図柄ではなく**組**で狙う（2026-10-10 決定）。目印の
  *    すぐ次の組がペア1（BIG1 の担当）、もう一方の組がペア2（BIG2 の担当）
  *  - 担当は BIG1＝3枚・4枚役、BIG2＝5枚・7枚役、目印＝チェリー（2026-10-12 決定）。
@@ -195,7 +199,8 @@ describe('狙い所（BIG1・BIG2・目印）', () => {
           pairs.set(key, (pairs.get(key) ?? 0) + 1);
         }
         for (const [k, v] of pairs) {
-          expect(v, `${chapter}: リール${r + 1}で「${k}」の並びが${v}回ある`).toBeLessThanOrEqual(2);
+          // 右は3回まで（ペアの両側に担当の2役を並べる型のため・2026-10-16）
+          expect(v, `${chapter}: リール${r + 1}で「${k}」の並びが${v}回ある`).toBeLessThanOrEqual(r === 2 ? 3 : 2);
         }
       });
     });
@@ -206,8 +211,14 @@ describe('狙い所（BIG1・BIG2・目印）', () => {
     });
     const misses = (y: Yaku, at: number[][]): number => {
       const role = yakuList.internalRoles.find((rr) => rr.displayYakuId === y.id && !rr.freeze);
-      const aims = at.map((list) => (list.length === 0 ? [0] : list.map((i) => (i - 2 + N) % N)));
       let n = 0;
+      {
+      // 目印揃いだけは3コマ手前〜下段（目印は各リール1枚で、4コマ手前と下段を混ぜると
+      // どのラインにも並ばない。src/core/PullInGuard の MARK_AIM_TIMINGS）
+      const ts = y.category === 'chance' ? MARK_AIM_TIMINGS : AIM_TIMINGS;
+      const aims = at.map((list) =>
+        (list.length === 0 ? [0] : list).flatMap((i) => ts.map((e) => (i - e + N) % N)),
+      );
       for (const order of ORDERS) {
         for (const p0 of aims[0]) for (const p1 of aims[1]) {
           for (const p2 of y.symbols[2] === undefined ? [aims[2][0] ?? 0] : aims[2]) {
@@ -233,20 +244,25 @@ describe('狙い所（BIG1・BIG2・目印）', () => {
           }
         }
       }
+      }
       return n;
     };
     // 目印揃い（チャンス目）は目印を狙えば必ず揃う（2026-10-12）
     for (const y of yakuList.chanceYaku) {
-      it(`${chapter}: ${y.name} は目印を狙えば必ず揃う`, () => {
+      it(`${chapter}: ${y.name} は目印を3コマ手前〜下段のどこで押しても揃う`, () => {
         const m = misses(y, anchors[2].at);
         expect(m, `${chapter} ${y.name}: 目印を狙って揃わない押し方 ${m}通り`).toBe(0);
       });
     }
-    it(`${chapter}: 左と中でチェリー・BIG1・BIG2 の担当の向き（どれが上側か）が逆`, () => {
+    it(`${chapter}: 左と中で BIG1・BIG2 の担当の向き（どれが上側か）が逆`, () => {
       // 同じ向きだと、片方の役を上段に揃えた時にもう片方が下段に揃い（目印を横に揃えた時の
       // 隣の段のチェリーも同じ）、フラグの無い役が揃うので制御がその止め方を拒む。
       // 比べるのは文字ではなく、どの役の文字か（同じ役でも左と中で文字は違う）
       for (const g of anchorGroups) {
+        // チェリー（目印の担当・1役）の向きは問わない（2026-10-16）。どのタイミングで押しても
+        // 揃えるには、左は目印の下1つ・上3つ、中は下2つ・上2つに置く必要があり、片側に
+        // そろえられない。目印揃いと一緒にチェリーが揃わないことは、目印揃いの監査が見る
+        if (g.roles.length < 2) continue;
         const keys = [0, 1].map((r) => {
           const roles = [...new Set(g.roles.map((y) => y.symbols[r]).filter(Boolean))] as string[];
           return [...new Set(reels[r].flatMap((c, p) => {
@@ -261,11 +277,13 @@ describe('狙い所（BIG1・BIG2・目印）', () => {
         expect(keys[0][0], `${chapter}: ${g.label} 左と中で同じ向き（${keys[0][0]}）`).not.toBe(keys[1][0]);
       }
     });
+    // 担当：BIG1＝3枚・4枚役、BIG2＝5枚・7枚役、目印＝チェリー
+    const owner = (y: Yaku) =>
+      y.category === 'cherry' ? anchors[2] : (y.payout ?? 7) <= 4 ? anchors[0] : anchors[1];
     for (const y of [...yakuList.coreYaku, ...yakuList.cherryYaku]) {
-      it(`${chapter}: ${y.name} はどれかの狙い所で必ず揃う`, () => {
-        const byAnchor = anchors.map((a) => `${a.label}=${misses(y, a.at)}`);
-        const ok = anchors.some((a) => misses(y, a.at) === 0);
-        expect(ok, `${chapter} ${y.name}: 狙い所ごとの取りこぼし ${byAnchor.join(' ')}`).toBe(true);
+      it(`${chapter}: ${y.name} は担当の狙い所（${owner(y).label}）をどのタイミングで押しても揃う`, () => {
+        const m = misses(y, owner(y).at);
+        expect(m, `${chapter} ${y.name}: ${owner(y).label}を狙って揃わない押し方 ${m}通り`).toBe(0);
       });
     }
   }

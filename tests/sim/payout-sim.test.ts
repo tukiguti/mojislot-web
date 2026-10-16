@@ -31,6 +31,7 @@ import { REMIX, applyRemixBoost } from '../../src/productions/RemixBoost';
 import { RUN_RULESET_VERSION } from '../../src/productions/RunHistory';
 import { StopTableLookup } from '../../src/core/StopTable';
 import { StopController } from '../../src/core/StopController';
+import { aimAnchors } from '../../src/core/PullInGuard';
 import {
   PAYLINES,
   primaryRowIndexOf,
@@ -411,6 +412,8 @@ function runChapter(
   });
 
   const reels = reelCfg.reels.map((r) => r.cells);
+  /** 狙い所（目印のある島の小役・チェリー・目印揃い）。打ち手は役の図柄ではなくここを狙う */
+  const anchors = aimAnchors(yakuList, reels);
   const N = reels[0].length;
   const allYaku: Yaku[] = [
     ...yakuList.coreYaku,
@@ -763,9 +766,19 @@ function runChapter(
         const row: Vertical = 'top';
         const start = Math.floor(rng() * N);
         let intended = start;
-        for (let d = 0; d < N; d++) {
-          const p = (start + d) % N;
-          if (visibleAt(cells, p, row) === sym) { intended = p; break; }
+        // 目印のある島の小役・チェリー・目印揃いは**狙い所**（BIG1・BIG2・目印）を中段に
+        // 狙う（2026-10-16・AUTO と同じ）。配列が保証しているのはこちらの押し方
+        const anc = aimYaku ? anchors.get(aimYaku.id)?.at[idx] : undefined;
+        if (anc && anc.length > 0) {
+          const nextAt = anc
+            .map((i) => ({ i, d: (((i - start) % N) + N) % N }))
+            .sort((x, y) => x.d - y.d)[0];
+          intended = nextAt.i;
+        } else {
+          for (let d = 0; d < N; d++) {
+            const p = (start + d) % N;
+            if (visibleAt(cells, p, row) === sym) { intended = p; break; }
+          }
         }
         // 引き込みは**前方向にしか効かない**ので、狙い位置ちょうどを狙うと
         // 押し遅れが構造的に一切救済されない。ゲーム本体のAUTOと同じく

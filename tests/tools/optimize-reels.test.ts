@@ -67,7 +67,7 @@ const LANDMARKS: Record<string, string> = {
   yasai: '菜',
   security: '鍵',
 };
-const BAR_COUNT = Number(process.env.OPT_BARS ?? 2);
+const BAR_COUNT = Number(process.env.OPT_BARS ?? 1);
 
 /**
  * `OPT_PROFILE=1` で工程ごとの所要時間を合計して出す（計算の改善の当たりを付けるため）。
@@ -97,8 +97,8 @@ function profReport(label: string): void {
   console.log(`  [計測 ${label}] 合計 ${(all / 1000).toFixed(1)}s\n    ` + rows.join('\n    '));
 }
 /**
- * 目印は全リール `BAR_COUNT` 枚（2026-10-12 決定）。第3リールは 2026-10-07 から1枚多い
- * 3枚だったが、目印の担当がチェリーだけになり、右の目印は役を持たなくなったので2枚に戻す。
+ * 目印は全リール `BAR_COUNT` 枚。2026-10-16 に2枚から1枚へ（BIG1・BIG2・目印を1つずつにする
+ * ユーザー決定。右はペア2組と目印1つ）。
  */
 const barsOn = (_reel: number): number => BAR_COUNT;
 
@@ -604,6 +604,25 @@ function planCounts(yakuList: YakuList, reel: number, size = N): Map<string, num
   return plan;
 }
 
+/**
+ * 目印のある配列の枚数計画（2026-10-16）。**小役4種を4枚ずつ**、チェリー2枚、ボーナス図柄は
+ * 左・中が BIG1（REG と共有）1枚・BIG2 1枚、右がペア2組の4コマ。目印（1枚）は別に足す。
+ *
+ * 狙い所の両側に担当の文字を置く型（`templateReels`）は、狙い所1つにつき担当の文字を3コマ
+ * 使う。3枚役を5〜6枚に厚くすると、同じ字の2連・1つおきを避けて並べる場所が残らなかった
+ * （全数で確かめた）。4枚ずつなら並ぶ。
+ */
+function evenPlan(yakuList: YakuList, r: number): Map<string, number> {
+  const plan = new Map<string, number>();
+  const set = (sym: string | undefined, n: number) => {
+    if (sym !== undefined) plan.set(sym, Math.max(plan.get(sym) ?? 0, n));
+  };
+  for (const y of yakuList.coreYaku) set(y.symbols[r], 4);
+  for (const y of yakuList.cherryYaku) set(y.symbols[r], 2);
+  for (const y of [...yakuList.premiumYaku, ...yakuList.bonusYaku]) set(y.symbols[r], r === 2 ? 2 : 1);
+  return plan;
+}
+
 /** 枚数が計画どおりか。 */
 function matchesPlan(reel: string[], plan: ReadonlyMap<string, number>): boolean {
   const counts = new Map<string, number>();
@@ -960,9 +979,12 @@ function aimMisses(
   orders: readonly (readonly number[])[],
   detail?: string[],
 ): number {
+  // 目印のある配列では、小役・チェリーは狙い所で保証する（groupMisses・2026-10-16 決定）。
+  // ここ（役の図柄そのものを狙う）はボーナス役だけを見る
+  const anchored = yakuList.chanceYaku.length > 0;
   const yakus = [
-    ...yakuList.coreYaku,
-    ...yakuList.cherryYaku,
+    ...(anchored ? [] : yakuList.coreYaku),
+    ...(anchored ? [] : yakuList.cherryYaku),
     ...yakuList.bonusYaku,
     ...yakuList.premiumYaku,
   ];
@@ -1077,6 +1099,139 @@ function thirdReelFlank(yakuList: YakuList, reels: string[][], landmark?: string
   return miss;
 }
 
+/**
+ * **型から組む出発点**（`OPT_TEMPLATE=1`・2026-10-16）。乱数の入れ替えで並びを探すのをやめ、
+ * 押すタイミングの幅（中段の4コマ手前〜下段）を全部取れる形を先に置く。
+ *
+ * 押してから最大4コマ滑るので、狙う図柄 p を k コマ手前で押すと止まる位置は p-k〜p-k+4。
+ * 役の文字 q が窓（止まった位置の上下1コマ）に入るかで数えると：
+ *  - q = p+1（狙う図柄のすぐ上）は k = 4〜-1 のすべてで届く
+ *  - q = p-1 は k = 4〜0、q = p+2 は k = 3〜-1 で届くので、2枚あれば全部を覆う
+ * そこで左・中は、担当が2役の狙い所（BIG1・BIG2）を「Rb・狙い所・Ra・Rb」
+ * （p-1＝Rb・p+1＝Ra・p+2＝Rb）、目印のチェリーを左は p-1・p+3、中は p-2・p+2 に置く。
+ * Ra と Rb は左と中で入れ替える（向きを逆にそろえる決まり）。狙い所は7コマおき。
+ * 右はペア（lo・lo+1）の両側を「Rb・Ra・ペア・Ra・Rb」にする。目印は1つでペアから4以上離す。
+ * 残りのコマは枚数計画の残りを乱数で埋め、並びの決まりを満たすまで引き直す。
+ */
+function templateReels(
+  yakuList: YakuList,
+  fullPlans: readonly Map<string, number>[],
+  landmark: string,
+  rng: () => number,
+): string[][] | null {
+  const big1 = yakuList.premiumYaku[0];
+  const big2 = yakuList.premiumYaku[1] ?? big1;
+  const symsOf = (ys: Yaku[], r: number) =>
+    [...new Set(ys.map((y) => y.symbols[r]).filter((x): x is string => x !== undefined))];
+  const low = yakuList.coreYaku.filter((y) => (y.payout ?? 7) <= 4);
+  const high = yakuList.coreYaku.filter((y) => (y.payout ?? 7) >= 5);
+  const shuffle = <T,>(a: T[]): T[] => {
+    for (let i = a.length - 1; i > 0; i--) {
+      const j = Math.floor(rng() * (i + 1));
+      [a[i], a[j]] = [a[j], a[i]];
+    }
+    return a;
+  };
+  /**
+   * 枠を埋める。並びの決まり（同じ字の2連・1つおき・同じ2文字の組は2回まで）を守りながら
+   * 乱数順に深さ優先で置く。置けない（枚数が足りない・行き詰まる）なら null。
+   */
+  const fill = (cells: (string | null)[], plan: ReadonlyMap<string, number>, ri: number): string[] | null => {
+    const left = new Map(plan);
+    for (const c of cells) {
+      if (c === null) continue;
+      const n = (left.get(c) ?? 0) - 1;
+      if (n < 0) return null;
+      left.set(c, n);
+    }
+    const out = [...cells];
+    const holes = out.flatMap((c, i) => (c === null ? [i] : []));
+    let budget = 20000;
+    const at = (i: number) => out[((i % N) + N) % N];
+    const ok = (i: number, c: string): boolean => {
+      for (const d of [-2, -1, 1, 2]) if (at(i + d) === c) return false;
+      return true;
+    };
+    const go = (k: number): boolean => {
+      if (--budget < 0) return false;
+      if (k === holes.length) return patternPenalty([out as string[]], landmark, ri) === 0;
+      const i = holes[k];
+      for (const c of shuffle([...left].filter(([, n]) => n > 0).map(([c]) => c))) {
+        if (!ok(i, c)) continue;
+        out[i] = c;
+        left.set(c, (left.get(c) ?? 0) - 1);
+        if (go(k + 1)) return true;
+        left.set(c, (left.get(c) ?? 0) + 1);
+        out[i] = null;
+      }
+      return false;
+    };
+    return go(0) ? (out as string[]) : null;
+  };
+  // 担当2役の向き（左で上に来る役）。中は逆にする
+  const flip = [rng() < 0.5, rng() < 0.5];
+  const reels: string[][] = [];
+  for (const r of [0, 1]) {
+    let made: string[] | null = null;
+    for (let tries = 0; tries < 200 && !made; tries++) {
+      const cells: (string | null)[] = Array(N).fill(null);
+      const base = Math.floor(rng() * N);
+      const groups = shuffle([
+        { a: big1?.symbols[r], roles: symsOf(low, r), gi: 0 },
+        { a: big2?.symbols[r], roles: symsOf(high, r), gi: 1 },
+        { a: landmark, roles: symsOf(yakuList.cherryYaku, r), gi: 2 },
+      ]);
+      groups.forEach((g, k) => {
+        const p = (base + k * 7) % N;
+        cells[p] = g.a ?? null;
+        if (g.roles.length >= 2) {
+          const swap = (flip[g.gi] ?? false) !== (r === 1);
+          const [ra, rb] = swap ? [g.roles[1], g.roles[0]] : [g.roles[0], g.roles[1]];
+          cells[(p + 1) % N] = ra;
+          cells[(p - 1 + N) % N] = rb;
+          cells[(p + 2) % N] = rb;
+        } else if (g.roles.length === 1) {
+          // チェリーは2枚とも目印の近くに置く。左は p-1・p+3、中は p-2・p+2。次の3つを全部満たす
+          // 置き方を総当たりで探した（2026-10-16）：
+          //  - 左と中を別々のタイミング（4コマ手前〜下段）で押しても、どれかのラインに並べられる
+          //  - 2枚の間を4コマ以上あける。3コマだと、その近くを押すとどこに止めてもチェリーが
+          //    窓に見え、フラグの無い時に蹴れなかった（②の大半がこれだった）
+          //  - 目印を3リール並べた時に、チェリーが一緒に並ばない
+          const [c1, c2] = r === 0 ? [-1, 3] : [-2, 2];
+          cells[(p + c1 + N) % N] = g.roles[0];
+          cells[(p + c2 + N) % N] = g.roles[0];
+        }
+      });
+      const out = fill(cells, fullPlans[r], r);
+      if (out) made = out;
+    }
+    if (!made) { console.log(`  型：リール${r + 1}が組めない`); return null; }
+    reels.push(made);
+  }
+  // 右リール
+  const fixed = thirdReelFixed(yakuList);
+  const [r1, r2] = pairRoleSymbols(yakuList);
+  let right: string[] | null = null;
+  for (let tries = 0; tries < 200 && !right; tries++) {
+    const cells: (string | null)[] = Array(N).fill(null);
+    for (const [i, c] of fixed) cells[i] = c;
+    for (const [lo, roles] of [[PAIR1_AT[0], r1], [PAIR2_AT[0], r2]] as const) {
+      const [ra, rb] = rng() < 0.5 ? [roles[0], roles[1] ?? roles[0]] : [roles[1] ?? roles[0], roles[0]];
+      cells[(lo - 1 + N) % N] = ra;
+      cells[(lo + 2) % N] = ra;
+      cells[(lo - 2 + N) % N] = rb;
+      cells[(lo + 3) % N] = rb;
+    }
+    const spots = [8, 9, 18, 19, 20].filter((i) => cells[i] === null);
+    cells[spots[Math.floor(rng() * spots.length)]] = landmark;
+    const out = fill(cells, fullPlans[2], 2);
+    if (out) right = out;
+  }
+  if (!right) { console.log('  型：リール3が組めない'); return null; }
+  reels.push(right);
+  return reels;
+}
+
 interface AimGroup {
   label: string;
   anchor: (string | undefined)[];
@@ -1131,6 +1286,11 @@ function anchorIndices(g: AimGroup, reels: string[][], r: number): number[] {
  * 左→右→中と右→左→中は必須にせず、書き出し前に数えて報告する
  * （`OPT_GROUP_ORDERS=all` で全6通りを必須にできる）。
  */
+/** 狙う図柄が中段の何コマ手前にいる時に押すか（-1＝1コマ遅い＝下段に見えている）。 */
+const AIM_TIMINGS: readonly number[] = (process.env.OPT_AIM_TIMINGS ?? '4,3,2,1,0,-1')
+  .split(',')
+  .map(Number);
+
 const GROUP_ORDERS: readonly (readonly number[])[] =
   process.env.OPT_GROUP_ORDERS === 'all'
     ? STOP_ORDERS
@@ -1154,17 +1314,22 @@ function anchorMissTable(
   const yakus = groups.flatMap((g) => g.yakus);
   const table = new Map<string, Map<string, number>>();
   for (const g of groups) {
-    // 必須の押し方は**2コマ早く押す**。ピタリ押しまで必須にすると配列が見つからなかった
-    // ので、押すタイミングの幅は目標（`anchorRangeRate`）として別に数える（2026-10-10）。
-    const aims = [0, 1, 2].map((r) => {
-      const at = anchorIndices(g, reels, r);
-      return at.length === 0 ? [0] : at.map((i) => ((i - 2) % N + N) % N);
-    });
+    // 必須の押し方は**狙う図柄が中段の4コマ手前〜下段に見えている**の6段階すべて
+    // （2026-10-16 決定）。2026-10-10〜10-15 は2コマ手前の1点だけで、少しずれると押し順に
+    // よって外れていた。`AIM_TIMINGS` で変えられる。
     for (const y of yakus) {
       if (only && only.get(y.id) !== g.label) continue;
       const role = yakuList.internalRoles.find((rr) => rr.displayYakuId === y.id && !rr.freeze);
       const flagKey = role?.id ?? y.id;
       let misses = 0;
+      // タイミングはリールごとに別々に取る（6×6×6 の組み合わせ）
+      // 目印揃いだけは3コマ手前〜下段（PullInGuard の MARK_AIM_TIMINGS と同じ理由）
+      {
+      const ts = y.category === 'chance' ? AIM_TIMINGS.filter((e) => e !== 4) : AIM_TIMINGS;
+      const aims = [0, 1, 2].map((r) => {
+        const at = anchorIndices(g, reels, r);
+        return (at.length === 0 ? [0] : at).flatMap((i) => ts.map((e) => ((i - e) % N + N) % N));
+      });
       for (const order of orders) {
         for (const p0 of aims[0]) {
           for (const p1 of aims[1]) {
@@ -1175,6 +1340,7 @@ function anchorMissTable(
             }
           }
         }
+      }
       }
       if (!table.has(y.id)) table.set(y.id, new Map());
       table.get(y.id)!.set(g.label, misses);
@@ -1333,6 +1499,9 @@ function adjustPlan(yakuList: YakuList, r: number, plan: Map<string, number>, ex
     const big2 = yakuList.premiumYaku[1]?.symbols[r];
     const shared = [yakuList.premiumYaku[0], ...yakuList.bonusYaku].some((y) => y?.symbols[r] === big2);
     if (!shared) move(big2, core(3), 1);
+    // BIG1（REG と共有の図柄）も1枚（2026-10-16）。空いたコマは4枚役へ（3枚役へ回すと
+    // 6枚になり、同じ字の並びの決まりを満たす並べ方がほぼ無くなる）
+    move(yakuList.premiumYaku[0]?.symbols[r], core(4), 1);
   } else {
     const a = pairedBig(yakuList)?.symbols[2];
     const b = yakuList.bonusYaku[0]?.symbols[2];
@@ -1444,7 +1613,10 @@ function anchorNeighborMiss(yakuList: YakuList, reels: string[][], landmark: str
   // 全部の狙い所でそろえる。同じ向きだと、片方の役を上段に揃えた時にもう片方が下段に揃い
   // （ウサギ上段＋キリン下段、目印を横に揃えた時の隣の段のチェリーなど）、フラグの無い役が
   // 揃うので制御がその止め方を拒んだ。比べるのは文字ではなく、どの役の文字か
-  for (const [l, m] of orient) {
+  // チェリー（担当が1役）の向きは問わない（2026-10-16）。押すタイミングの幅を全部取るには、
+  // 中リールでも目印の上側にチェリーが要り、向きを逆にできないため。
+  for (const [gi, [l, m]] of orient.entries()) {
+    if (groups[gi].roles.length < 2) continue;
     miss += Math.max(0, l.size - 1) + Math.max(0, m.size - 1);
     if (l.size === 1 && m.size === 1 && [...l][0] === [...m][0]) miss++;
   }
@@ -1460,9 +1632,16 @@ function anchorNeighborMiss(yakuList: YakuList, reels: string[][], landmark: str
  *    目印を含む組は数えない。右の目印3枚は隣に置ける文字が限られ、同じ組が3回出るのを
  *    避けると並びが1つも組めない（全数で確かめた）。目印のまわりが同じ並びなのは狙う目安になる
  */
-function patternPenalty(reels: string[][], landmark: string | undefined): number {
+/**
+ * 隣り合う2文字の組の上限は左・中が2回、**右が3回**（2026-10-16）。右はペアの両側に担当の
+ * 2役を「Rb・Ra・ペア・Ra・Rb」と置くので、その2役の組だけで2回使い、残りのコマで
+ * 担当の文字どうしを1回も隣り合わせない並べ方が無かった（全数で確かめた）。
+ */
+const PAIR_LIMIT = [2, 2, 3];
+function patternPenalty(reels: string[][], landmark: string | undefined, reelIndex?: number): number {
   let n = 0;
-  for (const cells of reels) {
+  for (const [ri, cells] of reels.entries()) {
+    const limit = PAIR_LIMIT[reelIndex ?? ri] ?? 2;
     const pairs = new Map<string, number>();
     for (let p = 0; p < N; p++) {
       const a = cells[p];
@@ -1473,7 +1652,7 @@ function patternPenalty(reels: string[][], landmark: string | undefined): number
       const key = [a, b].sort().join('');
       pairs.set(key, (pairs.get(key) ?? 0) + 1);
     }
-    for (const v of pairs.values()) if (v > 2) n += v - 2;
+    for (const v of pairs.values()) if (v > limit) n += v - limit;
   }
   return n;
 }
@@ -1528,6 +1707,7 @@ describe.skipIf(!RUN)('リール配列の再最適化', () => {
         // 目印がある島は、目印のコマを除いた枠で枚数を計画する。
         const plans = [0, 1, 2].map((r) => {
           if (!landmark) return planCounts(yakuList, r, N);
+          if (process.env.OPT_EVEN !== '0') return evenPlan(yakuList, r);
           // 右は目印3枚だった時の枠で計画し、空いた1コマは adjustPlan で5枚役へ回す
           // （枠を広げて planCounts に任せると、3枚役を削らずに残す方へ回ってしまう）
           return adjustPlan(yakuList, r, planCounts(yakuList, r, r === 2 ? N - 3 : N - barsOn(r)), r === 2 ? 3 - barsOn(r) : 0);
@@ -1554,6 +1734,13 @@ describe.skipIf(!RUN)('リール配列の再最適化', () => {
             ? (JSON.parse(readFileSync(fromFile, 'utf-8')) as { reels: string[][] }).reels
             : reelCfg.reels.map((r) => r.cells);
         let cur = startCells.map((cells, i) => layoutWithFixed(cells, fixedOf[i], fullPlans[i]));
+        if (process.env.OPT_TEMPLATE === '1' && landmark) {
+          const trng = makeRng(Number(process.env.OPT_SEED ?? 20261016));
+          const t = templateReels(yakuList, fullPlans, landmark, trng);
+          if (!t) throw new Error(`${chapter}: 型から配列を組めなかった`);
+          cur = t;
+          console.log(`[${chapter}] 型から組んだ出発点\n  ` + cur.map((c) => c.join('')).join('\n  '));
+        }
         const pools = plans.map((pl) => [...pl.keys()]);
         const poolFile = process.env.OPT_POOL ? `${process.env.OPT_POOL}/${chapter}.json` : null;
         const pool: string[][][] | null =
@@ -1630,6 +1817,29 @@ describe.skipIf(!RUN)('リール配列の再最適化', () => {
           const lines: string[] = [];
           aimMisses(yakuList, cur, curCtrl, judge, STOP_ORDERS, lines);
           console.log(`  狙い漏れ ${lines.length}件\n    ` + lines.join('\n    '));
+        }
+        if (process.env.OPT_DETAIL === 'leaks') {
+          // ②の内訳（どのフラグで、どの役が揃って見えたか）。押し順は全6通り
+          const tally = new Map<string, number>();
+          const flags = [
+            { label: 'miss', ids: [] as string[] },
+            ...[...yakuList.coreYaku, ...yakuList.cherryYaku, ...yakuList.bonusYaku, ...yakuList.premiumYaku]
+              .map((y) => ({ label: y.id, ids: [y.id] })),
+            ...yakuList.internalRoles.filter((r) => r.kind === 'chance' && r.id === 'chance')
+              .map((r) => ({ label: r.id, ids: [r.displayYakuId as string] })),
+          ];
+          for (const f of flags) {
+            for (const order of STOP_ORDERS) {
+              for (let p0 = 0; p0 < N; p0++) for (let p1 = 0; p1 < N; p1++) for (let p2 = 0; p2 < N; p2++) {
+                const ids = playHits(curCtrl, judge, cur, [p0, p1, p2], f.ids, f.label, order);
+                for (const id of ids) if (!f.ids.includes(id)) {
+                  const k = `${f.label}→${id} 押し順${order.map((r) => r + 1).join('')}`;
+                  tally.set(k, (tally.get(k) ?? 0) + 1);
+                }
+              }
+            }
+          }
+          console.log('  ②の内訳\n    ' + [...tally].sort((a, b) => b[1] - a[1]).slice(0, 40).map(([k, v]) => `${k}: ${v}`).join('\n    '));
         }
         if (process.env.OPT_DETAIL === '2') {
           // 通常時とボーナス中で到達率がどう違うかを見る。ボーナス中は純増が
@@ -2107,8 +2317,13 @@ describe.skipIf(!RUN)('リール配列の再最適化', () => {
               i < 2 ? '    },' : '    }');
           });
           lines.push('  ]', '}');
-          writeFileSync(`${DATA}/reels/${chapter}.json`, `${lines.join('\n')}\n`, 'utf-8');
-          console.log(`[${chapter}] 書き出した`);
+          // `OPT_NO_WRITE=1`：同じ島を種違いで並べて回す時は data/reels を書かない（OPT_SAVE に残る）
+          if (process.env.OPT_NO_WRITE !== '1') {
+            writeFileSync(`${DATA}/reels/${chapter}.json`, `${lines.join('\n')}\n`, 'utf-8');
+            console.log(`[${chapter}] 書き出した`);
+          } else {
+            console.log(`[${chapter}] 必須の条件をすべて満たした（OPT_NO_WRITE のため書き出さない）`);
+          }
         } else {
           console.log(`[${chapter}] ハード制約（狙えば揃う・②・3本同時・金示唆・3連続・3リールの盲点と隣接）のどれかが残ったので書き出さない`);
         }
