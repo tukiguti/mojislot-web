@@ -130,7 +130,7 @@ const REEL_BG_CHOICES: readonly { id: string; name: string; color: number }[] = 
   { id: 'black', name: '黒', color: 0x000000 },
   { id: 'gray', name: '灰', color: 0x96969e },
   { id: 'light', name: '明るい灰', color: 0xcdcdd4 },
-  { id: 'white', name: '白', color: 0xf4f2ec },
+  { id: 'white', name: '白', color: 0xdedbd3 },
 ];
 function loadReelBg(): string {
   try {
