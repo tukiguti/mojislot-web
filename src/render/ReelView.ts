@@ -122,10 +122,10 @@ export function setMotionBlurStrength(k: number): void {
   motionBlurStrength = Math.max(0, k);
 }
 /**
- * リールの地の色（2026-10-14・設定の「リールの地」）。既定は灰。図柄の外の縁は黒で焼いてあるので、
+ * リールの地の色（2026-10-14・設定の「リールの地」）。既定は白（2026-10-16 に灰から）。図柄の外の縁は黒で焼いてあるので、
  * 灰や白の地でも輪郭は残る。各リールは毎フレーム自分の塗った色と比べて、変わっていれば塗り直す。
  */
-let reelBackground = 0x96969e;
+let reelBackground = 0xf4f2ec;
 export function setReelBackground(color: number): void {
   reelBackground = color;
 }
@@ -181,7 +181,7 @@ export class ReelView {
   private readonly slipBadgeText: Text;
   /** いま塗ってあるリールの地の色と、枠の色・太さ（地だけ塗り直す時に使う）。 */
   private paintedBg = -1;
-  private lastStroke: [number, number] = [0xffd700, 3];
+  private lastStroke: [number, number] = [0xffd700, 0];
   /** バックライト消灯（予兆）の暗幕。図柄の上に重ねて窓ごと暗くする。 */
   private readonly backlightShade: Graphics;
   /** 停止バウンス用：振動オフセット（px） */
@@ -201,7 +201,7 @@ export class ReelView {
     this.container = new Container();
 
     this.bg = new Graphics();
-    this.redrawBg(0xffd700, 3);
+    this.redrawBg(0xffd700, 0);
     this.container.addChild(this.bg);
 
     // 中央セル（ペイライン上）のハイライトグロー
@@ -557,7 +557,7 @@ export class ReelView {
   stopTenpaiFlash(): void {
     this.tenpaiAnimMs = 0;
     this.tenpaiReach = false;
-    this.redrawBg(0xffd700, 3);
+    this.redrawBg(0xffd700, 0);
   }
 
   private redrawBg(strokeColor: number, strokeWidth: number): void {
@@ -571,7 +571,8 @@ export class ReelView {
       VIEW_HEIGHT + REEL_PEEK * 2 + FRAME_PAD * 2,
     );
     this.bg.fill({ color: reelBackground });
-    this.bg.stroke({ width: strokeWidth, color: strokeColor });
+    // 普段は縁を描かない（2026-10-16 に金の線を外した）。テンパイ・リーチ目の脈動の間だけ光らせる。
+    if (strokeWidth > 0) this.bg.stroke({ width: strokeWidth, color: strokeColor });
     this.paintedBg = reelBackground;
     this.lastStroke = [strokeColor, strokeWidth];
   }

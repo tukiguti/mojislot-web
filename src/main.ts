@@ -861,52 +861,8 @@ export async function bootstrap() {
   // 押した位置と停止位置の差＝引き込みコマ数を、画面上で数えられるようにする。
   for (const v of views) v.setShowCellIndices(debugVisible);
 
-  /**
-   * リール窓の額（クローム）。**リールの上に重ねる。**
-   *
-   * 実機（カルミナ系）のリール窓は、液晶に開いた穴に金属の枠が嵌まっていて、その
-   * 内側に光る縁がある。ここでは金属の枠がこれ、光る縁は `ReelView` の金枠が担う
-   * （あちらはテンパイで色が変わるので、機能としても分けたままにする）。
-   *
-   * 枠は `ReelView` の金枠の**外側**だけを通る。線幅の半分ずつ内外へ広がるので、
-   * パスを金枠の外周から `BEZEL/2` だけ外へ置くと、内側に食い込まない。
-   */
-  {
-    const BEZEL = 8;
-    const top = reelY - REEL_PEEK - FRAME_PAD;
-    const h = CELL_HEIGHT * VISIBLE_CELLS + (REEL_PEEK + FRAME_PAD) * 2;
-    const bezel = new Graphics();
-    for (let i = 0; i < REEL_COUNT; i++) {
-      const x = startX + i * (CELL_WIDTH + REEL_GAP);
-      // 金枠（線幅3＝±1.5）の外側から始める。重ねると金の線が半分隠れて、
-      // テンパイで色が変わっても分かりにくくなる。
-      const o = BEZEL / 2 + 2;
-      // 落ち影。窓が液晶より手前にせり出して見える。
-      bezel
-        .roundRect(x - o + 1, top - o + 2, CELL_WIDTH + o * 2, h + o * 2, 3)
-        .stroke({ color: 0x000000, width: BEZEL, alpha: 0.5 });
-      // 金属の枠
-      bezel
-        .roundRect(x - o, top - o, CELL_WIDTH + o * 2, h + o * 2, 3)
-        .stroke({ color: 0x8f96a4, width: BEZEL });
-      // 外周の暗い線。液晶の上で金属の輪郭が溶けないよう、外側だけ締める。
-      bezel
-        .roundRect(
-          x - o - BEZEL / 2,
-          top - o - BEZEL / 2,
-          CELL_WIDTH + (o + BEZEL / 2) * 2,
-          h + (o + BEZEL / 2) * 2,
-          3,
-        )
-        .stroke({ color: 0x23262e, width: 1.5 });
-      // 上辺のハイライト（光源は上）。1本入れるだけで平らな帯が金属に見える。
-      bezel
-        .moveTo(x - o, top - o - BEZEL / 2 + 1.5)
-        .lineTo(x + CELL_WIDTH + o, top - o - BEZEL / 2 + 1.5)
-        .stroke({ color: 0xe6ebf2, width: 1.5, alpha: 0.9 });
-    }
-    app.stage.addChild(bezel);
-  }
+  // リール窓の金属の額（灰の枠）は外した（2026-10-16）。白い地のリールをそのまま液晶の穴に
+  // 嵌めた見え方にする。テンパイの光る縁は ReelView 側にある。
 
   // 成立ラインのインジケーター（リール左脇の5本線）は廃止した（2026-09-23）。
   // 空いたリール左右の下には差枚と払出の計器を置く（#reel-meters・DOM）。
