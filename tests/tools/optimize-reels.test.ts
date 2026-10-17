@@ -1157,7 +1157,12 @@ function templateReels(
    * 枠を埋める。並びの決まり（同じ字の2連・1つおき・同じ2文字の組は2回まで）を守りながら
    * 乱数順に深さ優先で置く。置けない（枚数が足りない・行き詰まる）なら null。
    */
-  const fill = (cells: (string | null)[], plan: ReadonlyMap<string, number>, ri: number): string[] | null => {
+  const fill = (
+    cells: (string | null)[],
+    plan: ReadonlyMap<string, number>,
+    ri: number,
+    banned: ReadonlyMap<number, ReadonlySet<string>> = new Map(),
+  ): string[] | null => {
     const left = new Map(plan);
     for (const c of cells) {
       if (c === null) continue;
@@ -1170,6 +1175,7 @@ function templateReels(
     let budget = 20000;
     const at = (i: number) => out[((i % N) + N) % N];
     const ok = (i: number, c: string): boolean => {
+      if (banned.get(i)?.has(c)) return false;
       for (const d of [-2, -1, 1, 2]) if (at(i + d) === c) return false;
       return true;
     };
@@ -1202,12 +1208,23 @@ function templateReels(
         { a: big2?.symbols[r], roles: symsOf(high, r), gi: 1 },
         { a: landmark, roles: symsOf(yakuList.cherryYaku, r), gi: 2 },
       ]);
+      // 狙い所の上下2コマには別の狙い所の担当の文字を置かない（anchorNeighborMiss と同じ決まり）
+      const banned = new Map<number, Set<string>>();
+      groups.forEach((g, k) => {
+        const p = (base + k * 7) % N;
+        const others = groups.flatMap((o) => (o === g ? [] : o.roles)).filter((x) => !g.roles.includes(x));
+        for (const d of [-2, -1, 1, 2]) banned.set((p + d + N) % N, new Set(others));
+      });
       groups.forEach((g, k) => {
         const p = (base + k * 7) % N;
         cells[p] = g.a ?? null;
         if (g.roles.length >= 2) {
           const swap = (flip[g.gi] ?? false) !== (r === 1);
           const [ra, rb] = swap ? [g.roles[1], g.roles[0]] : [g.roles[0], g.roles[1]];
+          // 「Ra・Rb・狙い所・Ra・Rb」（p-2・p-1・p+1・p+2）。Ra を p+1 の1枚だけにしていた頃は、
+          // 後から押すリールが4コマ手前だと上段にしか出せず、先に止めたリールが中段を選んでいると
+          // 詰んだ（寿司で BIG2 の担当が194通り揃わなかった）。両方の役を2枚ずつ置く
+          cells[(p - 2 + N) % N] = ra;
           cells[(p + 1) % N] = ra;
           cells[(p - 1 + N) % N] = rb;
           cells[(p + 2) % N] = rb;
@@ -1223,7 +1240,7 @@ function templateReels(
           cells[(p + c2 + N) % N] = g.roles[0];
         }
       });
-      const out = fill(cells, fullPlans[r], r);
+      const out = fill(cells, fullPlans[r], r, banned);
       if (out) made = out;
     }
     if (!made) { console.log(`  型：リール${r + 1}が組めない`); return null; }
@@ -1613,6 +1630,12 @@ function anchorNeighborMiss(yakuList: YakuList, reels: string[][], landmark: str
         const up = [1, 2].map((d) => (p + d) % N).filter((q) => ownCell(p, q));
         const dn = [1, 2].map((d) => (p - d + N) % N).filter((q) => ownCell(p, q));
         const roleAt = (qs: number[]) => qs.map((q) => cells[q]).find((x) => roles.includes(x));
+        // 上下2コマには**別の狙い所の担当の文字を置かない**（2026-10-16）。寿司の左で BIG1 の
+        // すぐ下に5枚役の「か」が入り、BIG1 を狙うとかつおの文字が見えて担当が読めなかった
+        const others = groups.flatMap((o) =>
+          o === g ? [] : o.roles.map((y) => y.symbols[r]).filter((x): x is string => x !== undefined && !roles.includes(x)),
+        );
+        for (const q of [...up, ...dn]) if (others.includes(cells[q])) miss++;
         const u = roleAt(up);
         const d = roleAt(dn);
         if (roles.length >= 2) {

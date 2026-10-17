@@ -135,6 +135,14 @@ describe('狙い所（BIG1・BIG2・目印）', () => {
             if (c !== a) return;
             const { up, down } = zones(r, p, roles);
             const where = `${chapter}: リール${r + 1}の${g.label}（${p}番）`;
+            // 上下2コマに別の狙い所の担当の文字を置かない（2026-10-16）
+            const others = anchorGroups.flatMap((o) =>
+              o === g ? [] : o.roles.map((y) => y.symbols[r]).filter((x): x is string => x !== undefined && !roles.includes(x)),
+            );
+            for (const d of [1, 2, -1, -2]) {
+              const q = (p + d + N) % N;
+              expect(others.includes(cells[q]), `${where} の${d > 0 ? '上' : '下'}${Math.abs(d)}コマに別の担当の「${cells[q]}」がある`).toBe(false);
+            }
             if (roles.length >= 2) {
               expect(up, `${where} の上側2コマに担当の文字が無い`).toBeDefined();
               expect(down, `${where} の下側2コマに担当の文字が無い`).toBeDefined();
