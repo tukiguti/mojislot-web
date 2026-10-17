@@ -82,6 +82,12 @@ const SETTING: Setting | undefined = process.env.SETTING
 const NONE_MULT = process.env.NONE_MULT ? Number(process.env.NONE_MULT) : undefined;
 const BONUS_MULT = process.env.BONUS_MULT ? Number(process.env.BONUS_MULT) : undefined;
 /**
+ * `BONUS_SCALE` … ボーナス役の当選率（通常・救済）に、**設定の倍率を掛けた後で**さらに掛ける
+ * （2026-10-17）。`BONUS_MULT` は設定の倍率そのものを置き換えるので設定差が消える。
+ * こちらは設定差を保ったまま全体の当たりやすさだけを動かす。
+ */
+const BONUS_SCALE = process.env.BONUS_SCALE ? Number(process.env.BONUS_SCALE) : 1;
+/**
  * ボーナスは段階演出（ステップアップ）経由に一本化されているので、
  * `BONUS_MULT`（通常抽選の倍率）はもう機械割に効かない。設定差を載せ直す先の
  * 候補を測るための弁を2つ用意する。
@@ -346,8 +352,9 @@ function runChapter(
       : setting
         ? applySetting(baseYaku, setting)
         : baseYaku;
+  const scaled = BONUS_SCALE !== 1 ? scaleBonusRate(withSetting, BONUS_SCALE) : withSetting;
   const withOkawari =
-    OKAWARI_MULT !== 1 ? scaleOkawariRate(withSetting, OKAWARI_MULT) : withSetting;
+    OKAWARI_MULT !== 1 ? scaleOkawariRate(scaled, OKAWARI_MULT) : scaled;
   const yakuList: YakuList = REMIX_MODE ? applyRemixBoost(withOkawari) : withOkawari;
   const reelCfg = ReelConfigSchema.parse(readJson(`${DATA}/reels/${chapter}.json`));
   const payout: Payout = PayoutSchema.parse(readJson(`${DATA}/payouts/default.json`));

@@ -179,7 +179,9 @@ describe('リーチ目の監査', () => {
     if (falseExamples.length > 0) {
       console.log('\n----- ボーナスなしで同じ形になった例 -----\n' + falseExamples.join('\n'));
     }
-    // 2026-10-13 の実測は5島とも約77%。制御を変えて大きく下がったら気づけるようにする
-    expect(shownTotal / chanceTotal).toBeGreaterThan(0.7);
+    // 2026-10-17 の実測は約49%（ハズレ図柄を入れて小役の文字を減らし、小役のテンパイ自体が
+    // 減った。2026-10-13 は約77%）。代わりにボーナスなしで同じ形になるのは0.7%まで下がり、
+    // 出ればほぼボーナスになった（ユーザー了承）。制御を変えて大きく下がったら気づけるようにする
+    expect(shownTotal / chanceTotal).toBeGreaterThan(0.42);
   }, 1_800_000);
 });
