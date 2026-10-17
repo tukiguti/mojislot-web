@@ -39,6 +39,12 @@ export const ReelConfigSchema = z.object({
    * 無い島は目印なし。
    */
   landmark: z.string().optional(),
+  /**
+   * ハズレ図柄（2026-10-16）。どの役にも属さない灰の線画の絵柄で、島ごとに2種類。
+   * 文字は配列の中の目印として使うだけで、リールには tools/blank_glyphs.py の絵が出る。
+   * 役の色で染めない（目印と同じく tint は白）。
+   */
+  blanks: z.array(z.string()).optional(),
   reels: z.array(ReelStripSchema).length(3),
 });
 
@@ -579,7 +585,7 @@ const StepColorTuningSchema = z.object({
  * `productions/StepUp.ts` の冒頭。1回のステップアップから出るボーナスは 0.3855。
  */
 const DEFAULT_STEP_UP = {
-  entryRate: 0.055,
+  entryRate: 0.099,
   triggerMinPayout: 5,
   colors: {
     blue: { rate: 0.45, bonusRate: 0.12, bigRate: 0.15, chain: { second: 0, third: 0 } },
@@ -612,8 +618,8 @@ export const TuningSchema = z.object({
   /** ボーナス区間の継続スピン数と、ボーナス中だけ差し替える示唆tier。 */
   bonus: z
     .object({
-      spinsPerBig: z.number().int().positive().default(10),
-      spinsPerReg: z.number().int().positive().default(5),
+      spinsPerBig: z.number().int().positive().default(18),
+      spinsPerReg: z.number().int().positive().default(9),
       /**
        * おかわり（消化中の再当選）で足すゲーム数。**新規突入より薄い**——
        * 当選率を上げて何度も乗せる形にしてあるので、突入と同じ量を足すと
@@ -639,8 +645,8 @@ export const TuningSchema = z.object({
       shisaTiers: z.array(ShisaTierSchema).min(1).optional(),
     })
     .default({
-      spinsPerBig: 10,
-      spinsPerReg: 5,
+      spinsPerBig: 18,
+      spinsPerReg: 9,
       okawariSpinsBig: 5,
       okawariSpinsReg: 3,
       bitaChanceRate: 0.15,
