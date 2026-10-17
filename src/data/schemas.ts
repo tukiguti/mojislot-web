@@ -25,7 +25,7 @@ export function dataVersion(expected: number, label: string) {
 
 export const ReelStripSchema = z.object({
   id: z.string(),
-  // 1リール = 21コマ。既定24コマ/秒＝1周0.88秒で、設定から20〜28コマ/秒に変更できる。
+  // 1リール = 21コマ。既定28コマ/秒＝1周0.75秒（実機と同じ）で、設定から24〜32コマ/秒に変更できる。
   // 回転中は速度比例のモーションブラーを掛け、停止後は図柄を鮮明に戻す。
   cells: z.array(z.string()).length(21),
 });
@@ -39,6 +39,12 @@ export const ReelConfigSchema = z.object({
    * 無い島は目印なし。
    */
   landmark: z.string().optional(),
+  /**
+   * ハズレ図柄（2026-10-16）。どの役にも属さない灰の線画の絵柄で、島ごとに2種類。
+   * 文字は配列の中の目印として使うだけで、リールには tools/blank_glyphs.py の絵が出る。
+   * 役の色で染めない（目印と同じく tint は白）。
+   */
+  blanks: z.array(z.string()).optional(),
   reels: z.array(ReelStripSchema).length(3),
 });
 
@@ -579,7 +585,7 @@ const StepColorTuningSchema = z.object({
  * `productions/StepUp.ts` の冒頭。1回のステップアップから出るボーナスは 0.3855。
  */
 const DEFAULT_STEP_UP = {
-  entryRate: 0.055,
+  entryRate: 0.099,
   triggerMinPayout: 5,
   colors: {
     blue: { rate: 0.45, bonusRate: 0.12, bigRate: 0.15, chain: { second: 0, third: 0 } },
@@ -612,8 +618,8 @@ export const TuningSchema = z.object({
   /** ボーナス区間の継続スピン数と、ボーナス中だけ差し替える示唆tier。 */
   bonus: z
     .object({
-      spinsPerBig: z.number().int().positive().default(10),
-      spinsPerReg: z.number().int().positive().default(5),
+      spinsPerBig: z.number().int().positive().default(18),
+      spinsPerReg: z.number().int().positive().default(9),
       /**
        * おかわり（消化中の再当選）で足すゲーム数。**新規突入より薄い**——
        * 当選率を上げて何度も乗せる形にしてあるので、突入と同じ量を足すと
@@ -639,8 +645,8 @@ export const TuningSchema = z.object({
       shisaTiers: z.array(ShisaTierSchema).min(1).optional(),
     })
     .default({
-      spinsPerBig: 10,
-      spinsPerReg: 5,
+      spinsPerBig: 18,
+      spinsPerReg: 9,
       okawariSpinsBig: 5,
       okawariSpinsReg: 3,
       bitaChanceRate: 0.15,
@@ -785,13 +791,15 @@ export const TuningSchema = z.object({
    * モーションブラー（ReelView）実装前は残像が無く、実機速度だと図柄が追えずカクついて見えたため
    * 20（1.05秒/周）に落としていた。ブラー実装後は実機速度が使える。
    * 速度を上げると 1コマ = 1000/speed ms が短くなり、目押しは相対的にシビアになる（出玉も下がる）。
+   * 〔2026-10-14〕既定を実機と同じ28にした（24から）。設定で24〜32を選べる。
    */
-  reelSpeed: z.number().positive().default(20),
+  reelSpeed: z.number().positive().default(28),
   /**
    * モーションブラーの強さ係数。0=ブラー無し。
    * ブラー強度 = （1フレームの移動px）× この係数。速度に比例して自動で強くなる。
+   * 〔2026-10-14〕既定を弱めの0.1にした（0.34から）。設定で0〜1を選べる。
    */
-  motionBlurStrength: z.number().min(0).default(0.34),
+  motionBlurStrength: z.number().min(0).default(0.1),
   /** 突入直前の「溜め」演出の長さ（ms）。 */
   entryChargeMs: z.number().nonnegative().default(650),
   /**

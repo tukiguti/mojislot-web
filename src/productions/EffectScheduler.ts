@@ -82,6 +82,6 @@ export class EffectScheduler {
 
 /**
  * リール速度のフォールバック（コマ/秒）。実運用の既定値は data/tuning が正。
- * 24コマ/秒では1コマ約42ms、21コマを約0.88秒で1周する。
+ * 28コマ/秒では1コマ約36ms、21コマを0.75秒で1周する（実機と同じ）。
  */
-export const REEL_BASE_SPEED = 24;
+export const REEL_BASE_SPEED = 28;

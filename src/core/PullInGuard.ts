@@ -16,6 +16,7 @@ import { PAYLINES, visibleAt, yakuOnLine } from './Paylines';
  *   feasible    … 未停止のリールに「どこかの位置」を置けば成立するか
  *   robust      … 未停止のリールを**どこで押されても**成立させ続けられるか
  *   robustAimed … 未停止のリールを**図柄を狙って押せば**成立させ続けられるか
+ *   anchored    … 未停止のリールを**狙い所（BIG1・BIG2・目印）を狙って押せば**成立させ続けられるか
  *
  * どれも再帰で、純粋関数なのでキャッシュする。
  *
@@ -24,11 +25,64 @@ import { PAYLINES, visibleAt, yakuOnLine } from './Paylines';
  * 正しく狙っても 2.7〜18.7% で揃わなかった。停止制御（`StopController`）の本体へ移し、
  * どの押し順でも同じ判定で滑りを選ぶ。テーブルを焼くツールもこれを使う。
  */
+/**
+ * 狙い所を押すタイミング（狙う図柄が中段の何コマ手前にいるか。-1＝下段に見えている）。
+ * この6段階のどこで押しても担当の役が揃うことを保証する（2026-10-16 決定・監査 aim-groups）。
+ */
+export const AIM_TIMINGS: readonly number[] = [4, 3, 2, 1, 0, -1];
+/**
+ * 目印揃い（3リールとも目印）だけは**3コマ手前〜下段**。目印は各リール1枚なので、
+ * あるリールを4コマ手前（目印は上段か中段にしか置けない）・別のリールを下段
+ * （下段にしか置けない）で押すと、どのラインにも並ばない。4コマ手前を除けば、
+ * 下段のラインで必ず並べられる。
+ */
+export const MARK_AIM_TIMINGS: readonly number[] = [3, 2, 1, 0, -1];
+
+/**
+ * 役ごとの**狙い所**（リールごとのコマの番号と、保証する押すタイミング）。
+ * 担当（2026-10-12 決定）：BIG1＝3枚・4枚役、BIG2＝5枚・7枚役、目印＝チェリーと目印揃い。
+ * 左・中は図柄そのもの、右は BIG と REG の組（BIG・REG の順＝ペア1が BIG1、REG・BIG の順＝
+ * ペア2が BIG2）。目印は目印揃いの役の図柄から取る。目印の無い配列では空。
+ * 停止制御の保証（`PullInGuard`）と AUTO の狙い方（main.ts）が同じものを使う。
+ */
+export function aimAnchors(
+  yakuList: YakuList,
+  reels: readonly (readonly string[])[],
+): Map<string, { at: number[][]; timings: readonly number[] }> {
+  const out = new Map<string, { at: number[][]; timings: readonly number[] }>();
+  const landmark = yakuList.chanceYaku[0]?.symbols[0];
+  if (landmark === undefined) return out;
+  const n = reels[0].length;
+  const big1 = yakuList.premiumYaku[0];
+  const big2 = yakuList.premiumYaku[1] ?? big1;
+  const r3 = reels[2];
+  const regSym = yakuList.bonusYaku[0]?.symbols[2];
+  const bigSym = big1?.symbols[2];
+  const pair1 = r3.findIndex((c, i) => c === bigSym && r3[(i + 1) % n] === regSym);
+  const pair2Reg = r3.findIndex((c, i) => c === regSym && r3[(i + 1) % n] === bigSym);
+  if (pair1 < 0 || pair2Reg < 0) return out;
+  const pair2 = big2?.symbols[2] === regSym ? pair2Reg : (pair2Reg + 1) % n;
+  const at = (r: number, sym: string | undefined) =>
+    sym === undefined ? [] : reels[r].flatMap((c, i) => (c === sym ? [i] : []));
+  const big1At = [at(0, big1?.symbols[0]), at(1, big1?.symbols[1]), [pair1]];
+  const big2At = [at(0, big2?.symbols[0]), at(1, big2?.symbols[1]), [pair2]];
+  const markAt = [at(0, landmark), at(1, landmark), at(2, landmark)];
+  for (const y of yakuList.coreYaku) {
+    out.set(y.id, { at: (y.payout ?? 7) <= 4 ? big1At : big2At, timings: AIM_TIMINGS });
+  }
+  for (const y of yakuList.cherryYaku) out.set(y.id, { at: markAt, timings: AIM_TIMINGS });
+  for (const y of yakuList.chanceYaku) out.set(y.id, { at: markAt, timings: MARK_AIM_TIMINGS });
+  return out;
+}
+
 export class PullInGuard {
   private readonly n: number;
   private readonly feasCache = new Map<string, boolean>();
   private readonly robustCache = new Map<string, boolean>();
   private readonly aimedCache = new Map<string, boolean>();
+  private readonly anchoredCache = new Map<string, boolean>();
+  /** 役ID → リールごとの狙い所の番号（狙い所の担当でない役は持たない）。 */
+  private readonly anchorsOf = new Map<string, { at: number[][]; timings: readonly number[] }>();
   private readonly allYakus: Yaku[];
   /** 出目に出てよい役ID。`chooseSlip` の呼び出しごとに差し替わる（キャッシュの鍵にも入る）。 */
   private allowed: ReadonlySet<string> = new Set();
@@ -53,6 +107,11 @@ export class PullInGuard {
       ...yakuList.singleYaku,
       ...yakuList.chanceYaku,
     ];
+    this.buildAnchors(yakuList);
+  }
+
+  private buildAnchors(yakuList: YakuList): void {
+    for (const [id, v] of aimAnchors(yakuList, this.reels)) this.anchorsOf.set(id, v);
   }
 
   /**
@@ -185,6 +244,46 @@ export class PullInGuard {
     return ok;
   }
 
+  /**
+   * **狙い所を狙った押し方に限った保証**（2026-10-16）。`aimed` は役の図柄そのものを狙う
+   * 押し方を全部見るので、配列によっては通らず、通らないと段の振り分けに戻って
+   * 「BIG2 を狙ったのに、かつおが揃わない」押し方が残った。狙い所を中段の4コマ手前〜下段で
+   * 押す範囲（AIM_TIMINGS）だけを見る。担当の狙い所が無い役（ボーナスなど）は常に通る。
+   */
+  private anchored(targets: readonly Yaku[], stops: readonly (number | null)[]): boolean {
+    const k = this.key(targets, stops);
+    const hit = this.anchoredCache.get(k);
+    if (hit !== undefined) return hit;
+    this.anchoredCache.set(k, true);
+    let ok = true;
+    outer: for (let r = 0; r < 3; r++) {
+      if (stops[r] !== null) continue;
+      const presses = new Set<number>();
+      for (const y of targets) {
+        if (y.symbols[r] === undefined) continue;
+        const anc = this.anchorsOf.get(y.id);
+        for (const a of anc?.at[r] ?? []) {
+          for (const e of anc?.timings ?? []) presses.add((((a - e) % this.n) + this.n) % this.n);
+        }
+      }
+      for (const press of presses) {
+        let good = false;
+        for (let slip = 0; slip <= this.pullInCells && !good; slip++) {
+          const next = [...stops];
+          next[r] = (press + slip) % this.n;
+          if (this.feas(targets, next) && this.anchored(targets, next)) good = true;
+        }
+        if (!good) {
+          ok = false;
+          break outer;
+        }
+      }
+    }
+    if (stops.every((v) => v !== null)) ok = this.matches(targets, stops as number[]);
+    this.anchoredCache.set(k, ok);
+    return ok;
+  }
+
   /** 未停止のリールをどこかに置けば成立するか（出てよい役は allowedIds、省略時は targets だけ）。 */
   feasible(
     targets: readonly Yaku[],
@@ -197,6 +296,8 @@ export class PullInGuard {
 
   /**
    * そのリールを press から止める時のスベリを選ぶ。
+   * ⓪ 狙い所（BIG1・BIG2・目印）を狙った押し方での保証を満たす候補（2026-10-16）。
+   *    この中で①②の順に絞る
    * ① 引き込み保証（狙った押下位置での保証 かつ どこで押されても揃いうる）を満たす候補
    * ② 狙った押下位置に限った保証（robustAimed）を満たす候補
    * ③ 保証はできないが成立させうる候補
@@ -218,16 +319,18 @@ export class PullInGuard {
     const cands = Array.from({ length: this.pullInCells + 1 }, (_, s) => s).sort(
       (a, b) => prefer(a) - prefer(b) || a - b,
     );
-    for (const pass of [0, 1, 2]) {
+    // 狙い所の保証を満たす候補があれば、その中から従来の順（①②③）で選ぶ
+    for (const pass of [0, 1, 2, 3, 4, 5]) {
       for (const s of cands) {
         const next = [...stops];
         next[reel] = (press + s) % this.n;
         if (!this.feas(targets, next)) continue;
+        if (pass < 3 && !this.anchored(targets, next)) continue;
         // **狙った押下位置での保証を最優先**にする。robust（どこで押されても
         // 揃いうる）は5ラインあるぶん通りやすく、選択の縛りとして弱い。先に
         // 通してしまうと「正しく狙ったのに揃わない」が残る（実測で4役）。
-        if (pass === 0 && !(this.aimed(targets, next) && this.rob(targets, next))) continue;
-        if (pass === 1 && !this.aimed(targets, next)) continue;
+        if (pass % 3 === 0 && !(this.aimed(targets, next) && this.rob(targets, next))) continue;
+        if (pass % 3 === 1 && !this.aimed(targets, next)) continue;
         return s;
       }
     }

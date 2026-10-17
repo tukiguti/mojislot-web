@@ -1,4 +1,4 @@
-import { setMotionBlurStrength } from '../render/ReelView';
+import { setMotionBlurStrength, setReelBackground } from '../render/ReelView';
 import type { CoinWallet } from '../core/CoinWallet';
 import type { PlayStats } from '../productions/PlayStats';
 import type { ZukanState } from '../productions/ZukanState';
@@ -109,17 +109,43 @@ const a11yRow = (r: (typeof A11Y_ROWS)[number]): string => {
     </label>`;
 };
 
-export const REEL_SPEED_KEY = 'mojislot.reelSpeed.v1';
+/**
+ * 保存キー。〔2026-10-14〕既定（速度28・ブラー0.1）と範囲を変えたので v2 にした。
+ * v1 に残った値（多くは旧既定の24・0.34）を引き継ぐと、新しい既定が誰にも届かない。
+ */
+export const REEL_SPEED_KEY = 'mojislot.reelSpeed.v2';
 /** モーションブラー強さの保存キー。 */
-export const MOTION_BLUR_KEY = 'mojislot.motionBlur.v1';
+export const MOTION_BLUR_KEY = 'mojislot.motionBlur.v2';
 
 /**
- * リール速度スライダーの範囲（コマ/秒）。
- * 下限20＝モーションブラー実装前の速度。上限28＝実機（ジャグラー等）の 0.75秒/周。
- * 見やすさは人によるので、この範囲でプレイヤー自身に選ばせる。
+ * リール速度スライダーの範囲（コマ/秒）。〔2026-10-14〕24〜32（以前は20〜28）。
+ * 既定の28＝実機（ジャグラー等）の 0.75秒/周を真ん中に置き、遅くも速くも選べる。
  */
-const MIN_REEL_SPEED = 20;
-const MAX_REEL_SPEED = 28;
+export const MIN_REEL_SPEED = 24;
+export const MAX_REEL_SPEED = 32;
+
+/** リールの地の色の選択肢と保存キー（2026-10-14・既定は暗い灰。既定を変えるたびに届け直すためキーを上げる）。 */
+const REEL_BG_KEY = 'mojislot.reelBg.v5';
+const REEL_BG_CHOICES: readonly { id: string; name: string; color: number }[] = [
+  { id: 'black', name: '黒', color: 0x000000 },
+  { id: 'dark', name: '暗い灰', color: 0x76767e },
+  { id: 'gray', name: '灰', color: 0x96969e },
+  { id: 'light', name: '明るい灰', color: 0xc6c3ba },
+  { id: 'white', name: '白', color: 0xf4f2ec },
+];
+function loadReelBg(): string {
+  try {
+    return localStorage.getItem(REEL_BG_KEY) ?? 'dark';
+  } catch {
+    return 'dark';
+  }
+}
+
+/** 保存された速度を範囲に収める。範囲外や壊れた値は既定へ。 */
+export function clampReelSpeed(saved: number, fallback: number): number {
+  if (!Number.isFinite(saved) || saved <= 0) return fallback;
+  return Math.min(MAX_REEL_SPEED, Math.max(MIN_REEL_SPEED, saved));
+}
 /** リール1本のコマ数（1周の秒数表示に使う）。 */
 const REEL_CELLS = 21;
 
@@ -132,8 +158,7 @@ export class SettingsOverlay {
 
   /** 現在のリール速度（localStorage 優先・未設定なら data/tuning の既定）。 */
   private get reelSpeed(): number {
-    const saved = Number(localStorage.getItem(REEL_SPEED_KEY));
-    return Number.isFinite(saved) && saved > 0 ? saved : this.defaultReelSpeed;
+    return clampReelSpeed(Number(localStorage.getItem(REEL_SPEED_KEY)), this.defaultReelSpeed);
   }
 
   /** 現在のブラー強さ（localStorage 優先・未設定なら data/tuning の既定）。 */
@@ -160,8 +185,8 @@ export class SettingsOverlay {
     private readonly debugVisible: boolean,
     /** キー割り当て。押す位置は成績に直結するので変えられるようにする。 */
     private readonly keyBindings: KeyBindings,
-    private readonly defaultReelSpeed: number = 24,
-    private readonly defaultMotionBlur: number = 0.34,
+    private readonly defaultReelSpeed: number = 28,
+    private readonly defaultMotionBlur: number = 0.1,
   ) {
     const root = document.getElementById('settings-overlay');
     if (!root) throw new Error('#settings-overlay not found');
@@ -195,6 +220,13 @@ export class SettingsOverlay {
           </div>
           <div class="slider-value"><b class="blur-value"></b></div>
           <div class="settings-note">実機の残像を再現します。強いほど滑らかに見えますが、図柄は読みにくくなります。</div>
+        </div>
+        <div class="settings-section">
+          <div class="settings-section-label">リールの地</div>
+          <div class="reel-bg-choices">
+            ${REEL_BG_CHOICES.map((c) => `<button type="button" data-reel-bg="${c.id}">${c.name}</button>`).join('')}
+          </div>
+          <div class="settings-note">リールの地の色です。図柄の見え方を比べるために選べるようにしています。</div>
         </div>
         <div class="settings-section">
           <div class="settings-section-label">見やすさ</div>
@@ -314,6 +346,26 @@ export class SettingsOverlay {
       renderBlur(v);
       setMotionBlurStrength(v);
     });
+
+    // リールの地：ReelView のモジュール変数を差し替えると、各リールが次のフレームで塗り直す。
+    const bgButtons = [...this.root.querySelectorAll<HTMLButtonElement>('[data-reel-bg]')];
+    const applyBg = (id: string) => {
+      const choice = REEL_BG_CHOICES.find((c) => c.id === id) ?? REEL_BG_CHOICES[1];
+      setReelBackground(choice.color);
+      for (const b of bgButtons) b.classList.toggle('on', b.dataset.reelBg === choice.id);
+    };
+    applyBg(loadReelBg());
+    for (const b of bgButtons) {
+      b.addEventListener('click', () => {
+        const id = b.dataset.reelBg ?? 'dark';
+        try {
+          localStorage.setItem(REEL_BG_KEY, id);
+        } catch {
+          // 保存できなくてもこのページの間は効く
+        }
+        applyBg(id);
+      });
+    }
 
     const resetCoinBtn = this.root.querySelector<HTMLButtonElement>('.reset-coin')!;
     resetCoinBtn.addEventListener('click', () => {

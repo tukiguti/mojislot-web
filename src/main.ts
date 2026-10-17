@@ -119,7 +119,7 @@ import {
 import { SpeechBubble } from './ui/SpeechBubble';
 import { ChallengeTracker } from './productions/Challenges';
 import { showMissionToast } from './ui/MissionToast';
-import { SettingsOverlay } from './ui/SettingsOverlay';
+import { SettingsOverlay, REEL_SPEED_KEY, clampReelSpeed } from './ui/SettingsOverlay';
 import { QUIZMASTER_SCALE, QuizmasterView } from './render/QuizmasterView';
 import { LcdBackground } from './render/LcdBackground';
 import { pickLine, quizmasterFor, type Quizmaster } from './data/quizmasters';
@@ -133,6 +133,7 @@ import { ZukanOverlay } from './ui/ZukanOverlay';
 import { SlipResolver, type VisibleColumn } from './productions/SlipResolver';
 import { StopTableLookup } from './core/StopTable';
 import { StopController } from './core/StopController';
+import { aimAnchors } from './core/PullInGuard';
 import {
   extractGrid,
   getVisibleCell,
@@ -562,11 +563,11 @@ export async function bootstrap() {
    * ReelView のモーションブラーはこの速度に比例して強くなる。
    * 速いほど 1コマの通過時間（1000/speed ms）が短く、目押しはシビアになる。
    */
-  const REEL_SPEED_KEY = 'mojislot.reelSpeed.v1';
-  const reelSpeed = (): number => {
-    const saved = Number(localStorage.getItem(REEL_SPEED_KEY));
-    return Number.isFinite(saved) && saved > 0 ? saved : (tuning.reelSpeed ?? REEL_BASE_SPEED);
-  };
+  const reelSpeed = (): number =>
+    clampReelSpeed(
+      Number(localStorage.getItem(REEL_SPEED_KEY)),
+      tuning.reelSpeed ?? REEL_BASE_SPEED,
+    );
 
   // === 確定告知ランプの状態 ===
   // 点灯中（announcedBonus !== null）はボーナス確定。種別は内部確定だが UI 上は伏せる。
@@ -837,15 +838,18 @@ export async function bootstrap() {
    * ステージ切替でリールが入れ替わったら呼び直す。
    */
   let renderReelStrips: () => void = () => {};
+  /** 役の色で染めない図柄（目印とハズレ図柄。色は絵に焼き込んである）。 */
+  const isUncolored = (symbol: string): boolean =>
+    symbol === reelConfig.landmark || (reelConfig.blanks?.includes(symbol) ?? false);
 
   for (let i = 0; i < REEL_COUNT; i++) {
     const engine = new ReelEngine(reelConfig.reels[i]);
     const reelIdx = i;
     const view = new ReelView(
       engine,
-      // 目印は金の札として焼いてあるので役の色で染めない（白＝そのまま）
+      // 目印とハズレ図柄は色を焼き込んであるので役の色で染めない（白＝そのまま）
       (symbol) =>
-        symbol === reelConfig.landmark ? 0xffffff : colorResolver.colorFor(reelIdx, symbol),
+        isUncolored(symbol) ? 0xffffff : colorResolver.colorFor(reelIdx, symbol),
       (symbol) => colorResolver.tierFor(reelIdx, symbol),
       (symbol) => glyphTextures.get(`${reelIdx}:${symbol}`) ?? null,
       (symbol) => glyphGlosses.get(`${reelIdx}:${symbol}`) ?? null,
@@ -861,52 +865,8 @@ export async function bootstrap() {
   // 押した位置と停止位置の差＝引き込みコマ数を、画面上で数えられるようにする。
   for (const v of views) v.setShowCellIndices(debugVisible);
 
-  /**
-   * リール窓の額（クローム）。**リールの上に重ねる。**
-   *
-   * 実機（カルミナ系）のリール窓は、液晶に開いた穴に金属の枠が嵌まっていて、その
-   * 内側に光る縁がある。ここでは金属の枠がこれ、光る縁は `ReelView` の金枠が担う
-   * （あちらはテンパイで色が変わるので、機能としても分けたままにする）。
-   *
-   * 枠は `ReelView` の金枠の**外側**だけを通る。線幅の半分ずつ内外へ広がるので、
-   * パスを金枠の外周から `BEZEL/2` だけ外へ置くと、内側に食い込まない。
-   */
-  {
-    const BEZEL = 8;
-    const top = reelY - REEL_PEEK - FRAME_PAD;
-    const h = CELL_HEIGHT * VISIBLE_CELLS + (REEL_PEEK + FRAME_PAD) * 2;
-    const bezel = new Graphics();
-    for (let i = 0; i < REEL_COUNT; i++) {
-      const x = startX + i * (CELL_WIDTH + REEL_GAP);
-      // 金枠（線幅3＝±1.5）の外側から始める。重ねると金の線が半分隠れて、
-      // テンパイで色が変わっても分かりにくくなる。
-      const o = BEZEL / 2 + 2;
-      // 落ち影。窓が液晶より手前にせり出して見える。
-      bezel
-        .roundRect(x - o + 1, top - o + 2, CELL_WIDTH + o * 2, h + o * 2, 3)
-        .stroke({ color: 0x000000, width: BEZEL, alpha: 0.5 });
-      // 金属の枠
-      bezel
-        .roundRect(x - o, top - o, CELL_WIDTH + o * 2, h + o * 2, 3)
-        .stroke({ color: 0x8f96a4, width: BEZEL });
-      // 外周の暗い線。液晶の上で金属の輪郭が溶けないよう、外側だけ締める。
-      bezel
-        .roundRect(
-          x - o - BEZEL / 2,
-          top - o - BEZEL / 2,
-          CELL_WIDTH + (o + BEZEL / 2) * 2,
-          h + (o + BEZEL / 2) * 2,
-          3,
-        )
-        .stroke({ color: 0x23262e, width: 1.5 });
-      // 上辺のハイライト（光源は上）。1本入れるだけで平らな帯が金属に見える。
-      bezel
-        .moveTo(x - o, top - o - BEZEL / 2 + 1.5)
-        .lineTo(x + CELL_WIDTH + o, top - o - BEZEL / 2 + 1.5)
-        .stroke({ color: 0xe6ebf2, width: 1.5, alpha: 0.9 });
-    }
-    app.stage.addChild(bezel);
-  }
+  // リール窓の金属の額（灰の枠）は外した（2026-10-16）。白い地のリールをそのまま液晶の穴に
+  // 嵌めた見え方にする。テンパイの光る縁は ReelView 側にある。
 
   // 成立ラインのインジケーター（リール左脇の5本線）は廃止した（2026-09-23）。
   // 空いたリール左右の下には差枚と払出の計器を置く（#reel-meters・DOM）。
@@ -2733,9 +2693,9 @@ export async function bootstrap() {
       const reelIdx = i;
       const view = new ReelView(
         engine,
-        // 目印は金の札として焼いてあるので役の色で染めない（白＝そのまま）
+        // 目印とハズレ図柄は色を焼き込んであるので役の色で染めない（白＝そのまま）
       (symbol) =>
-        symbol === reelConfig.landmark ? 0xffffff : colorResolver.colorFor(reelIdx, symbol),
+        isUncolored(symbol) ? 0xffffff : colorResolver.colorFor(reelIdx, symbol),
         (symbol) => colorResolver.tierFor(reelIdx, symbol),
         (symbol) => art.textures.get(`${reelIdx}:${symbol}`) ?? null,
         (symbol) => art.glosses.get(`${reelIdx}:${symbol}`) ?? null,
@@ -2867,9 +2827,14 @@ export async function bootstrap() {
     // 以前は中段に来た時だけだった。示唆は色しか出さず候補から当てずっぽうで選ぶので、
     // 発展しないと腕に関係なくほぼ落とす（実測98%）。発展が候補を1役へ絞る唯一の出口なので、
     // 条件を可視3コマへ緩めて発展率を上げてある（実測 69%→82%）。
+    //
+    // 〔2026-10-14〕**「ハズレ」を出した後は発展させない。** 以前は第1停止で外れて
+    // ハズレを出した後も判定が続き、第2停止の窓にたまたまその役の2文字目が見えると
+    // 「狙え！」に変わっていた。1リール目で外れた役はもう揃わない。
     if (
       currentEffect === 'shisa' &&
       !shisaEscalated &&
+      !shisaMissShown &&
       engines.some((e) => e.state.get() === 'spinning')
     ) {
       const target = effectTargetYaku ?? currentInternalYaku();
@@ -3681,8 +3646,9 @@ export async function bootstrap() {
   /** AUTO が予告役を狙うとき、target を中段の手前何コマで止めて残りを引き込みに
    *  委ねるかのマージン。 */
   // 〔2026-10-13〕4（引き込みの上限ちょうど）から2へ。上限ちょうどだと押すタイミングが
-  // 少し遅れただけで届かず、目印揃いなどを取りこぼしていた。配列が「狙えば必ず揃う」と
-  // 保証しているのは2コマ手前（tests/audit/aim-guarantee・aim-groups）なので、それに合わせる
+  // 少し遅れただけで届かず、目印揃いなどを取りこぼしていた。狙い所は4コマ手前〜下段の
+  // どこでも揃う（tests/audit/aim-groups・2026-10-16）が、ボーナス役は役の図柄を2コマ手前で
+  // 狙った時だけを保証している（tests/audit/aim-guarantee）ので、2のままにする
   const AUTO_AIM_MARGIN = Math.min(2, PULL_IN_CELLS);
 
   /**
@@ -3703,10 +3669,16 @@ export async function bootstrap() {
     const targetSymbol = autoTargetYaku.symbols[reelIdx];
     const speed = engine.currentSpeed;
 
-    // 順方向で次に target symbol が来る距離（コマ単位）
+    // 狙うコマ：目印のある島の小役・チェリー・目印揃いは**狙い所**（BIG1・BIG2・目印。
+    // 2026-10-16）。配列が保証しているのは狙い所を狙った押し方で、役の図柄そのものを
+    // 狙うと押し順によってまれに取りこぼす。ボーナス役と目印の無い島は役の図柄を狙う。
+    const anchor = aimAnchors(yakuList, engines.map((e) => e.strip.cells)).get(autoTargetYaku.id);
+    const aimCells = anchor
+      ? anchor.at[reelIdx]
+      : cells.flatMap((c, i) => (c === targetSymbol ? [i] : []));
+    // 順方向で次に狙うコマが来る距離（コマ単位）
     let bestDist = Infinity;
-    for (let i = 0; i < total; i++) {
-      if (cells[i] !== targetSymbol) continue;
+    for (const i of aimCells) {
       const dist = (((i - pos) % total) + total) % total;
       if (dist < bestDist) bestDist = dist;
     }
@@ -3935,7 +3907,11 @@ export async function bootstrap() {
         // スタイルシート側の background-repeat / size / position まで初期値へ戻り、
         // ドット文字が敷き詰められる（実際に踏んだ）
         cell.style.backgroundColor =
-          symbol === reelConfig.landmark ? '#2a1a08' : colorResolver.cssFor(idx, symbol);
+          symbol === reelConfig.landmark
+            ? '#2a1a08'
+            : reelConfig.blanks?.includes(symbol)
+              ? '#5a5a62'
+              : colorResolver.cssFor(idx, symbol);
         const glyphUrl = glyphUrlFor(idx, symbol);
         if (glyphUrl) {
           cell.classList.add('has-art');

@@ -53,7 +53,7 @@ const CHAPTERS = [
   'yasai',
 ] as const;
 
-/** 中段に来る押下位置から手前へ何コマ戻して押すか（ゲーム本体のAUTOと同じ）。 */
+/** 中段に来る押下位置から手前へ何コマ戻して押すか（ゲーム本体のAUTOがボーナス役を狙う時と同じ）。 */
 const AIM_OFFSET = 2;
 
 /** 有効ライン5本。各要素は「リールrで見る行」＝ 0=上段 / 1=中段 / 2=下段。 */
@@ -112,12 +112,16 @@ describe('狙えば揃う（引き込み保証）', () => {
     const N = reels[0].length;
     const strips = reels.map((cells, i) => ({ id: `r${i}`, cells: [...cells] }));
 
+    // 目印のある島は、小役とチェリーを**狙い所**で保証する（aim-groups・2026-10-16 決定）。
+    // 役の図柄そのものを狙う打ち方の保証は外し、ここではボーナス役だけを見る。AUTO も
+    // 小役・チェリーは狙い所を狙う（main.ts の scheduleAimedStop）。
+    const hasLandmark = ReelConfigSchema.parse(readJson(`${DATA}/reels/${chapter}.json`)).landmark !== undefined;
     const yakuById = new Map<string, Yaku>(
       [
-        ...yakuList.coreYaku,
+        ...(hasLandmark ? [] : yakuList.coreYaku),
         ...yakuList.premiumYaku,
         ...yakuList.bonusYaku,
-        ...yakuList.cherryYaku,
+        ...(hasLandmark ? [] : yakuList.cherryYaku),
       ].map((y) => [y.id, y]),
     );
 

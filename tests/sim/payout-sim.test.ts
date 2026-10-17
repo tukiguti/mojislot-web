@@ -31,6 +31,7 @@ import { REMIX, applyRemixBoost } from '../../src/productions/RemixBoost';
 import { RUN_RULESET_VERSION } from '../../src/productions/RunHistory';
 import { StopTableLookup } from '../../src/core/StopTable';
 import { StopController } from '../../src/core/StopController';
+import { aimAnchors } from '../../src/core/PullInGuard';
 import {
   PAYLINES,
   primaryRowIndexOf,
@@ -80,6 +81,12 @@ const SETTING: Setting | undefined = process.env.SETTING
  */
 const NONE_MULT = process.env.NONE_MULT ? Number(process.env.NONE_MULT) : undefined;
 const BONUS_MULT = process.env.BONUS_MULT ? Number(process.env.BONUS_MULT) : undefined;
+/**
+ * `BONUS_SCALE` … ボーナス役の当選率（通常・救済）に、**設定の倍率を掛けた後で**さらに掛ける
+ * （2026-10-17）。`BONUS_MULT` は設定の倍率そのものを置き換えるので設定差が消える。
+ * こちらは設定差を保ったまま全体の当たりやすさだけを動かす。
+ */
+const BONUS_SCALE = process.env.BONUS_SCALE ? Number(process.env.BONUS_SCALE) : 1;
 /**
  * ボーナスは段階演出（ステップアップ）経由に一本化されているので、
  * `BONUS_MULT`（通常抽選の倍率）はもう機械割に効かない。設定差を載せ直す先の
@@ -345,8 +352,9 @@ function runChapter(
       : setting
         ? applySetting(baseYaku, setting)
         : baseYaku;
+  const scaled = BONUS_SCALE !== 1 ? scaleBonusRate(withSetting, BONUS_SCALE) : withSetting;
   const withOkawari =
-    OKAWARI_MULT !== 1 ? scaleOkawariRate(withSetting, OKAWARI_MULT) : withSetting;
+    OKAWARI_MULT !== 1 ? scaleOkawariRate(scaled, OKAWARI_MULT) : scaled;
   const yakuList: YakuList = REMIX_MODE ? applyRemixBoost(withOkawari) : withOkawari;
   const reelCfg = ReelConfigSchema.parse(readJson(`${DATA}/reels/${chapter}.json`));
   const payout: Payout = PayoutSchema.parse(readJson(`${DATA}/payouts/default.json`));
@@ -411,6 +419,8 @@ function runChapter(
   });
 
   const reels = reelCfg.reels.map((r) => r.cells);
+  /** 狙い所（目印のある島の小役・チェリー・目印揃い）。打ち手は役の図柄ではなくここを狙う */
+  const anchors = aimAnchors(yakuList, reels);
   const N = reels[0].length;
   const allYaku: Yaku[] = [
     ...yakuList.coreYaku,
@@ -706,6 +716,7 @@ function runChapter(
     // （初心者は2割しか気づけず、フラグを抱えたまま1900ゲーム打ち続けていた）。
     const carriedNoticed = true;
     let escalated = false;
+    let shisaMissed = false;
     let stopN = 0;
     for (const idx of seq) {
       stopOrder.push(idx);
@@ -762,9 +773,19 @@ function runChapter(
         const row: Vertical = 'top';
         const start = Math.floor(rng() * N);
         let intended = start;
-        for (let d = 0; d < N; d++) {
-          const p = (start + d) % N;
-          if (visibleAt(cells, p, row) === sym) { intended = p; break; }
+        // 目印のある島の小役・チェリー・目印揃いは**狙い所**（BIG1・BIG2・目印）を中段に
+        // 狙う（2026-10-16・AUTO と同じ）。配列が保証しているのはこちらの押し方
+        const anc = aimYaku ? anchors.get(aimYaku.id)?.at[idx] : undefined;
+        if (anc && anc.length > 0) {
+          const nextAt = anc
+            .map((i) => ({ i, d: (((i - start) % N) + N) % N }))
+            .sort((x, y) => x.d - y.d)[0];
+          intended = nextAt.i;
+        } else {
+          for (let d = 0; d < N; d++) {
+            const p = (start + d) % N;
+            if (visibleAt(cells, p, row) === sym) { intended = p; break; }
+          }
         }
         // 引き込みは**前方向にしか効かない**ので、狙い位置ちょうどを狙うと
         // 押し遅れが構造的に一切救済されない。ゲーム本体のAUTOと同じく
@@ -792,11 +813,14 @@ function runChapter(
       stopN++;
       // 示唆→「狙え！」への発展：最終停止より前に内部役の図柄が**窓のどこかへ**来たか。
       // main.ts と同じ条件。中段限定だと発展しない時に腕と無関係にほぼ落とすため緩めてある。
-      if (effect === 'shisa' && !escalated && stopN < 3 && shownYaku) {
+      // 窓に来なかった停止があれば、その時点でハズレを出して発展は打ち切る（main.ts と同じ）。
+      if (effect === 'shisa' && !escalated && !shisaMissed && stopN < 3 && shownYaku) {
         const sy = shownYaku.symbols[idx];
         const v = stopped[idx]!;
         if (sy !== undefined && (v.top === sy || v.middle === sy || v.bottom === sy)) {
           escalated = true;
+        } else {
+          shisaMissed = true;
         }
       }
     }

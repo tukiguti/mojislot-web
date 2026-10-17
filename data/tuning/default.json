@@ -22,8 +22,8 @@
   },
   "rescueMissThreshold": 30,
   "bonus": {
-    "spinsPerBig": 10,
-    "spinsPerReg": 5,
+    "spinsPerBig": 18,
+    "spinsPerReg": 9,
     "okawariSpinsBig": 5,
     "okawariSpinsReg": 3,
     "bitaChanceRate": 0.15,
@@ -95,8 +95,8 @@
     "bigRatio": 0.3,
     "delayMs": 900
   },
-  "reelSpeed": 24,
-  "motionBlurStrength": 0.34,
+  "reelSpeed": 28,
+  "motionBlurStrength": 0.1,
   "entryChargeMs": 650,
   "delay": {
     "ms": 400,
@@ -122,7 +122,7 @@
     }
   },
   "stepUp": {
-    "entryRate": 0.055,
+    "entryRate": 0.099,
     "triggerMinPayout": 5,
     "colors": {
       "blue": { "rate": 0.45, "bonusRate": 0.12, "bigRate": 0.15, "chain": { "second": 0, "third": 0 } },

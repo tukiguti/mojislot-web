@@ -74,6 +74,17 @@ const PAYLINE_Y = CELL_HEIGHT * 1.5;
 export const REEL_PEEK = CELL_HEIGHT * 0.1;
 /** バックライト消灯の暗さ（暗幕の不透明度）。図柄が読める範囲に留める。 */
 const BACKLIGHT_OFF_ALPHA = 0.62;
+/** ボーナス図柄の後ろの板の明るさ（役の色に掛ける）と、板の金の枠。 */
+const BONUS_PLATE_SHADE = 0.55;
+const BONUS_PLATE_FRAME = 0xe8b034;
+
+/** 役の色を暗くした板の色。赤い BIG なら暗い赤、青い BIG2 なら暗い青になる。 */
+function bonusPlateColor(color: number): number {
+  const r = Math.round(((color >> 16) & 0xff) * BONUS_PLATE_SHADE);
+  const g = Math.round(((color >> 8) & 0xff) * BONUS_PLATE_SHADE);
+  const b = Math.round((color & 0xff) * BONUS_PLATE_SHADE);
+  return (r << 16) | (g << 8) | b;
+}
 /**
  * 図柄（チラ見せ含む）と金枠の線の間に挟む黒余白（px）。枠(bg)を図柄表示範囲より FRAME_PAD
  * 分だけ外側に描くことで、図柄が枠線に接触して色が混じるのを防ぐ。
@@ -101,7 +112,7 @@ const SLIP_BADGE_H = 20;
  * 強さは「1フレームで進むピクセル数」に比例させる（速いほど強く滲む）。
  * 60fps 想定で pxPerFrame = speed(コマ/秒) × CELL_HEIGHT ÷ 60。
  */
-const MOTION_BLUR_K = 0.34;
+const MOTION_BLUR_K = 0.1;
 /**
  * 実効のブラー係数。data/tuning の既定値を main.ts が流し込み、設定モーダルから変更できる
  * （体感で決める値なので、ビルドし直さずに比べられるようにしている）。0 でブラー無し。
@@ -109,6 +120,14 @@ const MOTION_BLUR_K = 0.34;
 let motionBlurStrength = MOTION_BLUR_K;
 export function setMotionBlurStrength(k: number): void {
   motionBlurStrength = Math.max(0, k);
+}
+/**
+ * リールの地の色（2026-10-14・設定の「リールの地」）。既定は暗い灰（2026-10-16 に灰→白→明るい灰→暗い灰）。図柄の外の縁は黒で焼いてあるので、
+ * 灰や白の地でも輪郭は残る。各リールは毎フレーム自分の塗った色と比べて、変わっていれば塗り直す。
+ */
+let reelBackground = 0x76767e;
+export function setReelBackground(color: number): void {
+  reelBackground = color;
 }
 /** これ未満の速度ではブラーをかけない（停止直前のチラつき防止） */
 const MOTION_BLUR_MIN_SPEED = 2;
@@ -160,6 +179,9 @@ export class ReelView {
   /** 滑りコマ数の表示（停止済みリールのSTOPをもう一度押した時だけ出す） */
   private readonly slipBadge: Container;
   private readonly slipBadgeText: Text;
+  /** いま塗ってあるリールの地の色と、枠の色・太さ（地だけ塗り直す時に使う）。 */
+  private paintedBg = -1;
+  private lastStroke: [number, number] = [0xffd700, 0];
   /** バックライト消灯（予兆）の暗幕。図柄の上に重ねて窓ごと暗くする。 */
   private readonly backlightShade: Graphics;
   /** 停止バウンス用：振動オフセット（px） */
@@ -179,7 +201,7 @@ export class ReelView {
     this.container = new Container();
 
     this.bg = new Graphics();
-    this.redrawBg(0xffd700, 3);
+    this.redrawBg(0xffd700, 0);
     this.container.addChild(this.bg);
 
     // 中央セル（ペイライン上）のハイライトグロー
@@ -241,6 +263,20 @@ export class ReelView {
         glyph.scale.set(scale);
         glyph.x = CELL_WIDTH / 2;
         glyph.y = 0;
+        if (tier === 'premium' || tier === 'bonus') {
+          // 〔2026-10-14〕ボーナス図柄の後ろに**役の色を暗くした板と金の枠**を敷く。
+          // 一画の字（寿司の「し」）は色の面積が小さく、形の似た小役の中に埋もれていた。
+          // 灰の板を tint で染める形だと赤の後ろが黒に近くなって見えず、生成りの板は
+          // 暗いリールの中で浮きすぎた。色はここで計算し、tint はしない。
+          const w = glyphTexture.width;
+          const h = glyphTexture.height;
+          const plate = new Graphics();
+          plate
+            .roundRect(-w / 2 + 3, -h / 2 + 2, w - 7, h - 5, 6)
+            .fill({ color: bonusPlateColor(originalColor) })
+            .stroke({ color: BONUS_PLATE_FRAME, width: 2 });
+          glyph.addChild(plate);
+        }
         const base = new Sprite(glyphTexture);
         base.anchor.set(0.5);
         // 灰の濃淡へ役色を掛ける＝**文字の中だけが色づく**。外の縁と影は黒のままなので
@@ -356,6 +392,7 @@ export class ReelView {
 
   update(nowMs?: number): void {
     const now = nowMs ?? performance.now();
+    if (this.paintedBg !== reelBackground) this.redrawBg(...this.lastStroke);
     // 止めた直後は滑りの途中を描く（ReelEngine.displayPosition）
     const pos = this.engine.displayPosition(now);
     const total = this.engine.strip.cells.length;
@@ -520,7 +557,7 @@ export class ReelView {
   stopTenpaiFlash(): void {
     this.tenpaiAnimMs = 0;
     this.tenpaiReach = false;
-    this.redrawBg(0xffd700, 3);
+    this.redrawBg(0xffd700, 0);
   }
 
   private redrawBg(strokeColor: number, strokeWidth: number): void {
@@ -533,8 +570,11 @@ export class ReelView {
       CELL_WIDTH,
       VIEW_HEIGHT + REEL_PEEK * 2 + FRAME_PAD * 2,
     );
-    this.bg.fill({ color: 0x000000 });
-    this.bg.stroke({ width: strokeWidth, color: strokeColor });
+    this.bg.fill({ color: reelBackground });
+    // 普段は縁を描かない（2026-10-16 に金の線を外した）。テンパイ・リーチ目の脈動の間だけ光らせる。
+    if (strokeWidth > 0) this.bg.stroke({ width: strokeWidth, color: strokeColor });
+    this.paintedBg = reelBackground;
+    this.lastStroke = [strokeColor, strokeWidth];
   }
 
   /**

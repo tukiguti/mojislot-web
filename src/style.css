@@ -5293,3 +5293,25 @@ to {
     font-size: clamp(8px, 2.2cqw, 12px);
   }
 }
+
+/* 設定：リールの地の色（2026-10-14） */
+.reel-bg-choices {
+  display: flex;
+  gap: 6px;
+}
+.reel-bg-choices button {
+  flex: 1;
+  padding: 6px 4px;
+  font-size: 12px;
+  font-family: inherit;
+  color: #ccc;
+  background: rgba(80, 80, 80, 0.4);
+  border: 1px solid #555;
+  border-radius: 4px;
+  cursor: pointer;
+}
+.reel-bg-choices button.on {
+  color: #fff;
+  border-color: #ffd700;
+  background: rgba(255, 215, 0, 0.18);
+}
