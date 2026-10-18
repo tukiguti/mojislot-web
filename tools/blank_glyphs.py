@@ -38,7 +38,7 @@ BLANKS: dict[str, dict[str, str]] = {
 W, H = CW * SS, CH * SS
 #: 絵の大きさ（セルに対する倍率）。文字の図柄より控えめに見せる（2026-10-19 ユーザー指示で縮小）
 GLYPH_SCALE = 0.75
-LW = int(SS * 1.6 / GLYPH_SCALE)  # 線の太さ。縮めた後にドットで約1.6になるよう先に太く描く
+LW = int(SS * 1.6)  # 線の太さ（描く時にドットで約1.6・縮めると一緒に細くなる）
 
 
 def _rot(points, ang, cx=W / 2, cy=H / 2):
