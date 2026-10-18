@@ -3633,7 +3633,12 @@ export async function bootstrap() {
   const autoStopSequence = (): number[] => [0, 1, 2];
 
   const setupAutoTarget = () => {
-    if (announcedBonus && announcedRole) {
+    // ビタチャンス（演出は none 固定）：目印揃いの役を狙い役にして、目印をぴったり中段で押す
+    // （scheduleAimedStop）。演出が無いので、これが無いと AUTO は適当に押していた（2026-10-19）
+    const bitaYaku = bitaChance && landmarkNow() !== null ? yakuList.chanceYaku[0] : undefined;
+    if (bitaYaku) {
+      autoTargetYaku = bitaYaku;
+    } else if (announcedBonus && announcedRole) {
       // 確定告知ランプ点灯中（演出は none 固定）：固定した確定役を AUTO でも全リール狙う。
       autoTargetYaku = announcedRole;
     } else if (currentEffect !== 'none') {
@@ -3672,10 +3677,16 @@ export async function bootstrap() {
     // 狙うコマ：目印のある島の小役・チェリー・目印揃いは**狙い所**（BIG1・BIG2・目印。
     // 2026-10-16）。配列が保証しているのは狙い所を狙った押し方で、役の図柄そのものを
     // 狙うと押し順によってまれに取りこぼす。ボーナス役と目印の無い島は役の図柄を狙う。
-    const anchor = aimAnchors(yakuList, engines.map((e) => e.strip.cells)).get(autoTargetYaku.id);
-    const aimCells = anchor
-      ? anchor.at[reelIdx]
-      : cells.flatMap((c, i) => (c === targetSymbol ? [i] : []));
+    // ビタチャンスは目印のコマそのもの。滑り0で中段に止めた時だけ揃いになる
+    const mark = bitaChance ? landmarkNow() : null;
+    const anchor = mark
+      ? undefined
+      : aimAnchors(yakuList, engines.map((e) => e.strip.cells)).get(autoTargetYaku.id);
+    const aimCells = mark
+      ? cells.flatMap((c, i) => (c === mark ? [i] : []))
+      : anchor
+        ? anchor.at[reelIdx]
+        : cells.flatMap((c, i) => (c === targetSymbol ? [i] : []));
     // 順方向で次に狙うコマが来る距離（コマ単位）
     let bestDist = Infinity;
     for (const i of aimCells) {
@@ -3695,7 +3706,9 @@ export async function bootstrap() {
       isAimLikeEffect() || shisaTargetsBonus() || announcedBonus
         ? AUTO_AIM_MARGIN
         : 0;
-    const stopDist = Math.max(0, bestDist - aimMargin);
+    // ビタは押下位置（位置の切り上げ）が目印になる1コマ幅の真ん中を狙う。タイマーの
+    // 遅れが半コマ未満なら滑り0で目印が中段に止まる
+    const stopDist = mark ? Math.max(0, bestDist - 0.5) : Math.max(0, bestDist - aimMargin);
     const msToWait = (stopDist / speed) * 1000;
     aimPending.add(reelIdx);
     window.setTimeout(() => {
