@@ -36,7 +36,9 @@ BLANKS: dict[str, dict[str, str]] = {
 }
 
 W, H = CW * SS, CH * SS
-LW = int(SS * 1.6)  # 線の太さ（ドットで約1.6）
+#: 絵の大きさ（セルに対する倍率）。文字の図柄より控えめに見せる（2026-10-19 ユーザー指示で縮小）
+GLYPH_SCALE = 0.75
+LW = int(SS * 1.6 / GLYPH_SCALE)  # 線の太さ。縮めた後にドットで約1.6になるよう先に太く描く
 
 
 def _rot(points, ang, cx=W / 2, cy=H / 2):
@@ -229,6 +231,14 @@ def _grow(m: list[list[int]]) -> list[list[int]]:
              for x in range(w)] for y in range(h)]
 
 
+def _shrink(img: Image.Image) -> Image.Image:
+    """描いた絵を GLYPH_SCALE 倍にしてセルの中央に置き直す。"""
+    w, h = round(W * GLYPH_SCALE), round(H * GLYPH_SCALE)
+    out = Image.new("L", (W, H), 0)
+    out.paste(img.resize((w, h), Image.LANCZOS), ((W - w) // 2, (H - h) // 2))
+    return out
+
+
 def blank_name(chapter: str, ch: str) -> str | None:
     """その島でハズレ図柄なら絵の名前、違えば None。"""
     return BLANKS.get(chapter, {}).get(ch)
@@ -236,7 +246,7 @@ def blank_name(chapter: str, ch: str) -> str | None:
 
 def blank_glyph(chapter: str, ch: str) -> tuple[Image.Image, Image.Image]:
     """(地, 艶)。地に色を焼き込み、艶は空（表示側は tint を白にする）。"""
-    fill, line = DRAW[BLANKS[chapter][ch]]()
+    fill, line = (_shrink(im) for im in DRAW[BLANKS[chapter][ch]]())
     f = _dots(fill, 110)
     ln = _dots(line, 70)
     shape = [[f[y][x] or ln[y][x] for x in range(CW)] for y in range(CH)]
