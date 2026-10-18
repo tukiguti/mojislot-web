@@ -72,17 +72,6 @@ export interface StopRequest {
   flagKey?: string | null;
   /** フリーズ演出中（制御を無効化して押下位置へスナップ）。 */
   freeze?: boolean;
-  /**
-   * ビタチャンス中の目印の図柄（2026-10-02）。**押した瞬間に中段がこの図柄なら滑らせない**。
-   * それ以外の押し方は普段どおりの制御。目印は滑りで寄ってこないので、
-   * 3つ揃えるには3リールともぴったり押すしかない。
-   */
-  bitaMark?: string | null;
-  /**
-   * ビタチャンスで**ぴったり押しても目印を滑らせる**（2026-10-12・矛盾 5.3）。
-   * ボーナスの再当選がある回だけ立てる。正しく押したのに滑った＝上乗せの合図。
-   */
-  bitaRefuse?: boolean;
 }
 
 export interface StopControllerDeps {
@@ -106,8 +95,6 @@ export class StopController {
   private readonly stopTable: StopTableLookup | null;
   private readonly pullInCells: number;
   private readonly guard: PullInGuard;
-  /** 目印揃いの役ID（ビタの判定で出てよい役に数える）。 */
-  private readonly chanceIds: string[];
   /** ボーナスを持つ内部役ID（BIG・REG と、ボーナスを `carry` に持つチャンス目）。リーチ目を出す。 */
   private readonly bonusRoleIds: Set<string>;
   /** ボーナスの役ID。許可リストにこれがあればボーナスのフラグがある。 */
@@ -127,7 +114,6 @@ export class StopController {
     this.stopTable = deps.stopTable ?? null;
     this.pullInCells = deps.pullInCells;
     this.guard = new PullInGuard(deps.yakuList, deps.reels, deps.pullInCells);
-    this.chanceIds = deps.yakuList.chanceYaku.map((y) => y.id);
     this.bonusRoleIds = new Set(
       deps.yakuList.internalRoles
         .filter((r) => r.kind === 'big' || r.kind === 'reg' || r.carry)
@@ -142,27 +128,7 @@ export class StopController {
   resolveSlip(req: StopRequest): number {
     // フリーズ中は制御しない（強制セット位置へそのまま止める）。
     if (req.freeze) return 0;
-    // ビタチャンスで目印をぴったり押した時は、ビタの判定をそのまま返す（リーチ目の寄せをかけない）
-    if (req.bitaMark && req.strip.cells[req.basePosition] === req.bitaMark) {
-      return this.bitaSlip(req);
-    }
     return this.reachEye(req, this.baseSlip(req));
-  }
-
-  private bitaSlip(req: StopRequest): number {
-    // ビタの拒否（矛盾 5.3）：ぴったり押されても滑らせる。普段の制御が0を選ぶなら、
-    // 許可外の役が揃わない一番近い滑りへずらす
-    if (req.bitaMark && req.bitaRefuse && req.strip.cells[req.basePosition] === req.bitaMark) {
-      const base = this.baseSlip({ ...req, bitaMark: null });
-      if (base > 0) return base;
-      const ctx = this.ctxOf(req);
-      const n = req.strip.cells.length;
-      for (let s = 1; s <= this.pullInCells; s++) {
-        if (!this.slip.locksNonFlagAt(ctx, (req.basePosition + s) % n)) return s;
-      }
-      return base;
-    }
-    return this.baseSlip(req);
   }
 
   private ctxOf(req: StopRequest): SlipContext {
@@ -175,7 +141,7 @@ export class StopController {
     };
   }
 
-  /** 普段の制御（ビタの拒否をかける前）。 */
+  /** 普段の制御（リーチ目の寄せをかける前）。 */
   private baseSlip(req: StopRequest): number {
 
     const ctx: SlipContext = {
@@ -185,23 +151,6 @@ export class StopController {
       stoppedVisibles: req.stoppedVisibles,
       exceptYakuIds: req.flagYakuIds,
     };
-
-    // ビタチャンス：目印をぴったり押したら、当選役の引き込みより優先してそのまま止める。
-    // 小役を取りに行くか目印を狙うかは打ち手が選ぶ（両方は取れないことがある）。
-    // ただし**出目＝フラグは崩さない**——止めると許可外の役が揃う位置なら普段の制御に戻す。
-    if (
-      req.bitaMark &&
-      req.strip.cells[req.basePosition] === req.bitaMark &&
-      // 目印揃い（リーチ目・チャンス目）は出てよい役に数える。ビタは目印を揃える場面そのもの
-      // なので、これを許さないと3つ目を止めた時に必ず拒まれる（2026-10-13 に実測で成功0%）。
-      // 払い出しはフラグで決まる（RoundResolver）ので、ここで許しても配当は増えない
-      !this.slip.locksNonFlagAt(
-        { ...ctx, exceptYakuIds: [...(ctx.exceptYakuIds ?? []), ...this.chanceIds] },
-        req.basePosition,
-      )
-    ) {
-      return 0;
-    }
 
     // 第1停止は停止テーブルを引く（まだどの役もロックし得ない＝出目の設計点）。
     const noneStopped = req.stoppedVisibles.every((v) => v === null);

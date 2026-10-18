@@ -1242,12 +1242,14 @@ export async function bootstrap() {
   };
 
   /**
-   * ビタチャンス（2026-10-02）。ボーナス中のレバーONで抽選し、出たゲームは目印を
-   * ぴったり押したリールが滑らない（StopController の bitaMark）。3つ揃えば上乗せ。
-   * 1回のボーナスで乗る回数には上限がある（腕のいい人ほど揃うので、無いと終わらない）。
+   * 目印狙い（2026-10-19）。ボーナス中のレバーONで抽選し、
+   * 出たゲームは内部役を目印揃い（ボーナス無しの chance）にして「目印揃いを狙え」を出す。
+   * 引き込みは普段どおり。揃えたら**次のゲームのレバー**で上乗せの演出を出して足す。
+   * 1回のボーナスで乗る回数には上限がある（tuning.bonus.markMaxPerBonus）。
    */
-  let bitaChance = false;
-  let bitaThisBonus = 0;
+  let markAimGame = false;
+  let markThisBonus = 0;
+  let markAddOnNextLever = false;
   const landmarkNow = (): string | null => reelConfig.landmark ?? null;
   /**
    * 狙えに出す役名。目印揃いの役は「目印揃い」とだけ出す。リーチ目・チャンス目は
@@ -1264,16 +1266,25 @@ export async function bootstrap() {
     /** 狙え・クイズの対象を内部役の表示役から差し替える（チャンス目のあとの外れの形）。 */
     targetOverride: Yaku | null = null,
   ) => {
-    const mark = landmarkNow();
-    bitaChance =
+    // 目印狙い。ボーナスの再当選・フリーズの回は崩さない。上乗せは次のゲームのレバーで
+    // 出すので、残り1ゲーム（このゲームで終わる）では出さない
+    const markRole =
       bonusSession.spinActive &&
-      mark !== null &&
+      landmarkNow() !== null &&
       source === 'lottery' &&
-      bitaThisBonus < tuning.bonus.bitaMaxPerBonus &&
-      Math.random() < tuning.bonus.bitaChanceRate;
-    // ビタチャンスのゲームは他の演出を出さない。目印と役の両方は狙えないので、
-    // どちらを狙うかを打ち手に選ばせる（演出が役を教えていると選択にならない）。
-    if (bitaChance) effect = 'none';
+      role.kind !== 'big' &&
+      role.kind !== 'reg' &&
+      !role.freeze &&
+      markThisBonus < tuning.bonus.markMaxPerBonus &&
+      bonusZone.remaining.get() > 1 &&
+      Math.random() < tuning.bonus.markAimRate
+        ? internalRoleLottery.forRoleId('chance')
+        : null;
+    markAimGame = markRole !== null;
+    if (markRole) {
+      role = markRole;
+      effect = 'aim';
+    }
     const yaku = internalRoleLottery.yakuFor(role);
     // 回転中の差し替えを廃したので、レバーONごとに必ず新しい番号になる
     // （以前はデバッグの即時差し替えだけが同じ番号を使い回していた）。
@@ -1312,21 +1323,6 @@ export async function bootstrap() {
         ? eligibility.candidatesFor(shisaTier, activeInternalRoleState())
         : undefined,
     });
-    if (bitaChance && mark !== null) {
-      showAimNotice({
-        symbols: [mark, mark, mark],
-        colors: ['#ffd84a', '#ffd84a', '#ffd84a'],
-        yakuName: `ビタチャンス！ 目印「${mark}」`,
-        imageUrl: `${ART_BASE}ui/aim.png`,
-        hasPremium: true,
-        reelCentersXFrac: [0, 1, 2].map(
-          (i) => (startX + i * (CELL_WIDTH + REEL_GAP) + CELL_WIDTH / 2) / CANVAS_W,
-        ),
-        reelTopYFrac: reelY / CANVAS_H,
-        arrowReels: [true, true, true],
-      });
-      sfx.shisa();
-    }
   };
 
   /**
@@ -1959,11 +1955,14 @@ export async function bootstrap() {
     updateComboSide();
   };
   bonusZone.active.subscribe(updateBonusUI);
-  // 新しいボーナスに入ったら、ビタ揃いの回数（上限つき）を数え直す。
+  // 新しいボーナスに入ったら、目印狙いの上乗せの回数（上限つき）を数え直す。
   // Observable は同じ値でも通知する（おかわりで true が再送される）ので、切り替わりだけ見る。
   let wasBonus = bonusZone.active.get();
   bonusZone.active.subscribe((on) => {
-    if (on && !wasBonus) bitaThisBonus = 0;
+    if (on && !wasBonus) {
+      markThisBonus = 0;
+      markAddOnNextLever = false;
+    }
     wasBonus = on;
   });
   bonusZone.remaining.subscribe(updateBonusUI);
@@ -2235,6 +2234,17 @@ export async function bootstrap() {
     if (lampOnNextLever) {
       lampOnNextLever = false;
       lightHeldLamp();
+    }
+    // 前のゲームで目印狙いの目印揃いを揃えた：このレバーで上乗せ（2026-10-19）
+    if (markAddOnNextLever) {
+      markAddOnNextLever = false;
+      if (bonusZone.isActive()) {
+        bonusZone.extend(tuning.bonus.markAddSpins);
+        showResult(`上乗せ +${tuning.bonus.markAddSpins}G`, 'premium');
+        sfx.winMulti(4);
+        flashScreen({ color: '#ffd84a', alpha: 0.7, durMs: 320 });
+        spawnConfetti(60);
+      }
     }
 
     /**
@@ -2730,7 +2740,6 @@ export async function bootstrap() {
     const flagKey = lamp
       ? (allRolesFlat.find((r) => r.displayYakuId === lamp.id)?.id ?? null)
       : (currentRound?.internalRole.roleId ?? null);
-    const role = currentRound?.internalRole ?? null;
     return stopController.resolveSlip({
       reelIndex: idx,
       basePosition: basePos,
@@ -2740,9 +2749,6 @@ export async function bootstrap() {
       flagYakuIds,
       flagKey,
       freeze: freezeActive,
-      bitaMark: bitaChance ? landmarkNow() : null,
-      // 矛盾 5.3：ボーナスの再当選がある回は、ぴったり押しても目印を滑らせる
-      bitaRefuse: bitaChance && (role?.kind === 'big' || role?.kind === 'reg'),
     });
   };
 
@@ -3046,7 +3052,8 @@ export async function bootstrap() {
         const isBig = carryYaku.category === 'premium';
         if (outcome.chanceEye) {
           const follow = pickChanceFollow(carryYaku);
-          if (follow === 'lamp') fireMissLamp(isBig);
+          // 揃えたゲームでは何も言わない。確定ランプも次のゲームのレバーで点ける（2026-10-19）
+          if (follow === 'lamp') lampOnNextLever = true;
           else chanceFollow = follow;
         } else {
           fireMissLamp(isBig);
@@ -3318,22 +3325,13 @@ export async function bootstrap() {
         }
       }
 
-      // ビタ揃い：3リールとも目印を中段に、**滑り0で**止めた（チャンス中だけ有効）。
-      // 役の結果より後に出す——上乗せの方がこのゲームの主役なので、表示を上書きしてよい。
-      if (bitaChance) {
-        const mark = landmarkNow();
-        const lined = engines.every(
-          (e, r) => lastSlipCells[r] === 0 && getVisibleCell(e, 'middle') === mark,
-        );
-        if (lined) {
-          bitaThisBonus++;
-          bonusZone.extend(tuning.bonus.bitaAddSpins);
-          showResult(`ビタ揃い！ 上乗せ +${tuning.bonus.bitaAddSpins}G`, 'premium');
-          sfx.winMulti(4);
-          flashScreen({ color: '#ffd84a', alpha: 0.7, durMs: 320 });
-          spawnConfetti(60);
+      // 目印狙いで目印揃いを揃えた：上乗せは次のゲームのレバーで出す（2026-10-19）
+      if (markAimGame) {
+        if (outcome.chanceEye) {
+          markThisBonus++;
+          markAddOnNextLever = true;
         }
-        bitaChance = false;
+        markAimGame = false;
       }
 
       // 残数消費・獲得集計・終了判定はまとめて BonusSession に任せる。

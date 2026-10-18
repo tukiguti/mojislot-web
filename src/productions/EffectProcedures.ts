@@ -18,7 +18,6 @@ export type ProcedureId =
   | 'shisa'
   | 'quiz'
   | 'aim'
-  | 'bitaChance'
   | 'stepUp'
   | 'omenSilence'
   | 'omenBacklight'
@@ -54,11 +53,6 @@ export const EFFECT_PROCEDURES: Record<ProcedureId, ProcedureDef> = {
     label: '狙え！',
     inBonus: 'aimable',
     why: '当選役の3文字をリールの真上に出す',
-  },
-  bitaChance: {
-    label: 'ビタチャンス',
-    inBonus: 'aimable',
-    why: '目印を中段にぴったり押せば揃う。目印は全島共通で画面に見えている',
   },
   stepUp: {
     label: 'ステップアップ',

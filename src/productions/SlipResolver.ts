@@ -145,7 +145,7 @@ export class SlipResolver {
 
   /**
    * このリールを position に止めると、**出目に出てはいけない役**（許可リスト外）が
-   * 揃ってしまうか。ビタチャンスで「押した位置のまま止める」前の確認に使う。
+   * 揃ってしまうか。
    */
   locksNonFlagAt(ctx: SlipContext, position: number): boolean {
     const exceptIds = new Set(ctx.exceptYakuIds ?? []);

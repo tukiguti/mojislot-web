@@ -105,8 +105,8 @@
       "kind": "miss",
       "displayYakuId": null,
       "rate": {
-        "default": 0.4279506244,
-        "rescue": 0.3283272834,
+        "default": 0.4289506244,
+        "rescue": 0.3293272834,
         "bonus": 0.0
       }
     },
@@ -240,8 +240,8 @@
       "displayYakuId": "chance_eye",
       "carry": null,
       "rate": {
-        "default": 0.002,
-        "rescue": 0.002,
+        "default": 0.001,
+        "rescue": 0.001,
         "bonus": 0.0
       }
     }

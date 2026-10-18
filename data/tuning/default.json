@@ -26,9 +26,9 @@
     "spinsPerReg": 9,
     "okawariSpinsBig": 5,
     "okawariSpinsReg": 3,
-    "bitaChanceRate": 0.15,
-    "bitaAddSpins": 2,
-    "bitaMaxPerBonus": 3
+    "markAimRate": 0.1,
+    "markAddSpins": 2,
+    "markMaxPerBonus": 3
   },
   "assist": {
     "pullInCells": 4,
