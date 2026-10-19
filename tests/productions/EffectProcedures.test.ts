@@ -11,7 +11,7 @@ const ALL = Object.keys(EFFECT_PROCEDURES) as ProcedureId[];
 describe('ボーナス中に出せる演出（ユーザーの指示・2026-10-14）', () => {
   it('ボーナス中に出せるのは、狙う役・図柄が画面に出ていて見て揃えられるものだけ', () => {
     const inBonus = ALL.filter(allowedInBonus).sort();
-    expect(inBonus).toEqual(['aim', 'bitaChance', 'quiz', 'shisa']);
+    expect(inBonus).toEqual(['aim', 'quiz', 'shisa']);
   });
 
   it('予兆・ステップアップ・遅れ・フリーズ（ブラックアウト）はボーナス中に出さない', () => {
