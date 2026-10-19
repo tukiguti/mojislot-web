@@ -585,7 +585,7 @@ const StepColorTuningSchema = z.object({
  * `productions/StepUp.ts` の冒頭。1回のステップアップから出るボーナスは 0.3855。
  */
 const DEFAULT_STEP_UP = {
-  entryRate: 0.099,
+  entryRate: 0.055,
   triggerMinPayout: 5,
   colors: {
     blue: { rate: 0.45, bonusRate: 0.12, bigRate: 0.15, chain: { second: 0, third: 0 } },
@@ -618,8 +618,8 @@ export const TuningSchema = z.object({
   /** ボーナス区間の継続スピン数と、ボーナス中だけ差し替える示唆tier。 */
   bonus: z
     .object({
-      spinsPerBig: z.number().int().positive().default(18),
-      spinsPerReg: z.number().int().positive().default(9),
+      spinsPerBig: z.number().int().positive().default(10),
+      spinsPerReg: z.number().int().positive().default(5),
       /**
        * おかわり（消化中の再当選）で足すゲーム数。**新規突入より薄い**——
        * 当選率を上げて何度も乗せる形にしてあるので、突入と同じ量を足すと
@@ -628,12 +628,12 @@ export const TuningSchema = z.object({
       okawariSpinsBig: z.number().int().nonnegative().default(5),
       okawariSpinsReg: z.number().int().nonnegative().default(3),
       /**
-       * **目印狙い**（2026-10-19）。ボーナス中のレバーONでこの率で、そのゲームの内部役を
+       * **目印狙い**（2026-10-19）。ボーナス中のレバーONでこの率（2%）で、そのゲームの内部役を
        * 目印揃い（ボーナス無しの chance）にして「目印揃いを狙え」を出す。引き込みは普段どおり
        * （目印を3コマ手前〜下段で押せば揃う）。揃えたら**次のゲームのレバー**で上乗せ
        * （markAddSpins）の演出を出す。1回のボーナスで乗る回数に上限（markMaxPerBonus）。
        */
-      markAimRate: z.number().min(0).max(1).default(0.1),
+      markAimRate: z.number().min(0).max(1).default(0.02),
       markAddSpins: z.number().int().nonnegative().default(2),
       markMaxPerBonus: z.number().int().nonnegative().default(3),
       /**
@@ -644,11 +644,11 @@ export const TuningSchema = z.object({
       shisaTiers: z.array(ShisaTierSchema).min(1).optional(),
     })
     .default({
-      spinsPerBig: 18,
-      spinsPerReg: 9,
+      spinsPerBig: 10,
+      spinsPerReg: 5,
       okawariSpinsBig: 5,
       okawariSpinsReg: 3,
-      markAimRate: 0.1,
+      markAimRate: 0.02,
       markAddSpins: 2,
       markMaxPerBonus: 3,
     }),

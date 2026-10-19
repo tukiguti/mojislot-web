@@ -22,11 +22,11 @@
   },
   "rescueMissThreshold": 30,
   "bonus": {
-    "spinsPerBig": 18,
-    "spinsPerReg": 9,
+    "spinsPerBig": 10,
+    "spinsPerReg": 5,
     "okawariSpinsBig": 5,
     "okawariSpinsReg": 3,
-    "markAimRate": 0.1,
+    "markAimRate": 0.02,
     "markAddSpins": 2,
     "markMaxPerBonus": 3
   },
@@ -122,7 +122,7 @@
     }
   },
   "stepUp": {
-    "entryRate": 0.099,
+    "entryRate": 0.055,
     "triggerMinPayout": 5,
     "colors": {
       "blue": { "rate": 0.45, "bonusRate": 0.12, "bigRate": 0.15, "chain": { "second": 0, "third": 0 } },

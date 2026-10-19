@@ -1834,7 +1834,7 @@ export async function bootstrap() {
     // レバーONの瞬間に起きること（遅れ・フリーズ）を見る前に通り過ぎてしまう。
     triggerNextBonusFlag: (kind: 'big' | 'reg') => {
       // 次のレバーでBIG/REGの内部役を強制する。ボーナス中に押せばおかわりの確認になる。
-      // 素の抽選ではボーナス中のBIGが1/1981（BIG18Gで0.9%）で、まず引けないため。
+      // 素の抽選ではボーナス中のBIGが1/1981（BIG10Gで0.5%）で、まず引けないため。
       const yaku =
         kind === 'big' ? yakuList.premiumYaku[0] : yakuList.bonusYaku[0];
       if (!yaku) return;
