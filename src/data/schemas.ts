@@ -585,7 +585,7 @@ const StepColorTuningSchema = z.object({
  * `productions/StepUp.ts` の冒頭。1回のステップアップから出るボーナスは 0.3855。
  */
 const DEFAULT_STEP_UP = {
-  entryRate: 0.099,
+  entryRate: 0.055,
   triggerMinPayout: 5,
   colors: {
     blue: { rate: 0.45, bonusRate: 0.12, bigRate: 0.15, chain: { second: 0, third: 0 } },
@@ -618,8 +618,8 @@ export const TuningSchema = z.object({
   /** ボーナス区間の継続スピン数と、ボーナス中だけ差し替える示唆tier。 */
   bonus: z
     .object({
-      spinsPerBig: z.number().int().positive().default(18),
-      spinsPerReg: z.number().int().positive().default(9),
+      spinsPerBig: z.number().int().positive().default(10),
+      spinsPerReg: z.number().int().positive().default(5),
       /**
        * おかわり（消化中の再当選）で足すゲーム数。**新規突入より薄い**——
        * 当選率を上げて何度も乗せる形にしてあるので、突入と同じ量を足すと
@@ -628,15 +628,14 @@ export const TuningSchema = z.object({
       okawariSpinsBig: z.number().int().nonnegative().default(5),
       okawariSpinsReg: z.number().int().nonnegative().default(3),
       /**
-       * **ビタチャンス**（2026-10-02）。ボーナス中のレバーONでこの率で発生し、そのゲームは
-       * 目印をぴったり押したリールが滑らない。3つ揃えば上乗せ（bitaAddSpins）。
-       * 揃う確率は腕で大きく違う（試算で初心者1%・中級6%・上級32%・神96%）ので、
-       * 1回のボーナスで乗る回数に上限（bitaMaxPerBonus）を置く——上限が無いと神の
-       * 1ゲームあたりの期待上乗せが1を超え、ボーナスが終わらなくなる。
+       * **目印狙い**（2026-10-19）。ボーナス中のレバーONでこの率（2%）で、そのゲームの内部役を
+       * 目印揃い（ボーナス無しの chance）にして「目印揃いを狙え」を出す。引き込みは普段どおり
+       * （目印を3コマ手前〜下段で押せば揃う）。揃えたら**次のゲームのレバー**で上乗せ
+       * （markAddSpins）の演出を出す。1回のボーナスで乗る回数に上限（markMaxPerBonus）。
        */
-      bitaChanceRate: z.number().min(0).max(1).default(0.15),
-      bitaAddSpins: z.number().int().nonnegative().default(2),
-      bitaMaxPerBonus: z.number().int().nonnegative().default(3),
+      markAimRate: z.number().min(0).max(1).default(0.02),
+      markAddSpins: z.number().int().nonnegative().default(2),
+      markMaxPerBonus: z.number().int().nonnegative().default(3),
       /**
        * ボーナス中の示唆tier（省略時は assist.shisaTiers を流用）。
        * ボーナス中は演出100%なので、通常と同じ赤6%/金2%だと「おかわり」が毎セット当たって
@@ -645,13 +644,13 @@ export const TuningSchema = z.object({
       shisaTiers: z.array(ShisaTierSchema).min(1).optional(),
     })
     .default({
-      spinsPerBig: 18,
-      spinsPerReg: 9,
+      spinsPerBig: 10,
+      spinsPerReg: 5,
       okawariSpinsBig: 5,
       okawariSpinsReg: 3,
-      bitaChanceRate: 0.15,
-      bitaAddSpins: 2,
-      bitaMaxPerBonus: 3,
+      markAimRate: 0.02,
+      markAddSpins: 2,
+      markMaxPerBonus: 3,
     }),
   /**
    * 引き込み（目押し補助）。実機同様、**引き込み窓は内部役だけで決まり演出では変わらない**。
@@ -753,7 +752,8 @@ export const TuningSchema = z.object({
     })
     .default({ rate: 0.05, bigRatio: 0.3, delayMs: 900 }),
   /**
-   * 目印揃いのあと（2026-10-12・drafts/reach-eye-redesign）。リーチ目は必ずその場で確定ランプ。
+   * 目印揃いのあと（2026-10-12・drafts/reach-eye-redesign）。揃えたゲームでは何も言わず、
+   * 2026-10-19 から確定ランプも次のゲームのレバーで点ける。
    * ボーナスを伴うチャンス目は、確定ランプ・次ゲームの狙え・次ゲームのクイズへ振り分ける
    * （重みの比。狙え・クイズが出せない役なら残りで振り分け直す）。
    */
