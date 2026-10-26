@@ -75,7 +75,7 @@ describe('BonusSession', () => {
     expect(end).toEqual({ payout: 4, kind: 'big' });
   });
 
-  it('REG区間中のBIGは区間をBIGへ昇格させる', () => {
+  it('REG区間中のBIGはゲーム数を足すだけで、区間はREGのまま', () => {
     const s = newSession();
     playSpin(s, 0, 'reg'); // 残り2G
     const end = playSpin(s, 7, 'big'); // 上乗せ+2G、この1Gも消費 → 残り3G
@@ -83,7 +83,7 @@ describe('BonusSession', () => {
     // おかわりGの払い出しは（突入Gではないので）集計に入る
     let last = null;
     for (let i = 0; i < 3; i++) last = playSpin(s, 0);
-    expect(last).toEqual({ payout: 7, kind: 'big' });
+    expect(last).toEqual({ payout: 7, kind: 'reg' });
   });
 
   it('ボーナス扱いはBET時に固定され、最終ゲームも最後までボーナス扱い', () => {

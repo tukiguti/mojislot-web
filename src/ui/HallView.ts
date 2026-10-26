@@ -17,6 +17,7 @@ import {
 } from '../data/machines';
 import { lineColorOf, themeVars } from '../data/islandThemes';
 import { PayoutSchema, TuningSchema, YakuListSchema, type YakuList } from '../data/schemas';
+import { REMIX } from '../productions/RemixBoost';
 import { hallPolicyFor, type HallPolicy } from '../productions/HallPolicy';
 import { getMemberName } from '../productions/Member';
 import { RUN_RULESET_VERSION, loadRunHistory } from '../productions/RunHistory';
@@ -1152,6 +1153,10 @@ export function mountHallView(cb: HallViewCallbacks): HallViewHandle {
     const day = readMachineDay(m.id, now());
     const v = viewOf(m, day);
     const y = islandYaku(v.island, m.seat);
+    // ボーナスは枚数ではなくゲーム数を受け取る役なので、配当表にはゲーム数だけ出す（リミックスは長い）
+    const spins = isRemixMachine(m)
+      ? { big: REMIX.spinsPerBig, reg: REMIX.spinsPerReg }
+      : { big: tuning.bonus.spinsPerBig, reg: tuning.bonus.spinsPerReg };
     const wip = closed(v.island);
     const rate = bonusRate(day);
     const eff = effectRate(day);
@@ -1208,12 +1213,12 @@ export function mountHallView(cb: HallViewCallbacks): HallViewHandle {
                 <div class="hall-pay-line">
                   <span class="hall-pay-kind">BIG</span>
                   <span class="hall-pay-word big">${esc(y.big.join('・'))}</span>
-                  <span class="hall-pay-mai">${payout.baseMultiplier.premium}枚 ＋ ${tuning.bonus.spinsPerBig}ゲーム</span>
+                  <span class="hall-pay-mai">${spins.big}ゲーム</span>
                 </div>
                 <div class="hall-pay-line">
                   <span class="hall-pay-kind">REG</span>
                   <span class="hall-pay-word">${esc(y.reg)}</span>
-                  <span class="hall-pay-mai">${payout.baseMultiplier.bonus}枚 ＋ ${tuning.bonus.spinsPerReg}ゲーム</span>
+                  <span class="hall-pay-mai">${spins.reg}ゲーム</span>
                 </div>
                 <div class="hall-pay-line">
                   <span class="hall-pay-kind">チェリー</span>

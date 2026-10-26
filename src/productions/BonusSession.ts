@@ -9,7 +9,7 @@ import type { BonusKind, BonusZone } from './BonusZone';
  *
  * 実機の BIG/REG と同じく、次の3点が扱いの要になる：
  *  - **突入役そのものの払い出しは区間の獲得に含めない**（通常時に引いた分なので）
- *  - **種別は昇格のみ**（BIG中にREGを引いても区間はBIGのまま）
+ *  - **種別は突入した時のまま**（REG中にBIGを引いてもREG、BIG中にREGを引いてもBIG）
  *  - **残数の消費はそのゲームの演出・配当・上乗せ判定がすべて終わってから**
  *    （BET時に減らすと最終ゲームだけボーナス扱いから外れる）
  *
@@ -68,7 +68,7 @@ export class BonusSession {
 
   /**
    * ボーナス役成立。新規突入なら区間を開始し、区間中なら残数を上乗せする。
-   * 種別は昇格のみ（BIG中にREGを引いても区間はBIGのまま）。
+   * 種別は突入した時のまま（昇格も降格もしない）。
    */
   enter(kind: BonusKind): BonusEntry {
     const isAddition = this.runActive;
@@ -77,8 +77,8 @@ export class BonusSession {
       this.runPayout = 0;
       this.enteredThisSpin = true;
     }
-    // big は常に採用（＝昇格）、reg は新規突入の時だけ。これで降格が起きない。
-    if (kind === 'big' || !isAddition) this.runKind = kind;
+    // 種別は新規突入の時だけ決める。おかわりはゲーム数を足すだけで、昇格も降格もしない。
+    if (!isAddition) this.runKind = kind;
     this.zone.trigger(kind);
     // 上乗せ表示に出す数。**おかわりは突入より薄い**ので、どちらで入ったかで変わる。
     const cfg = this.zone.config;
