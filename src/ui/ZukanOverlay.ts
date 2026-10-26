@@ -236,14 +236,14 @@ export class ZukanOverlay {
           const done = c > 0;
           const name = done ? y.name : '？？？';
           const symbols = done ? y.symbols.join(' ') : '? ? ?';
-          // ボーナスは枚数だけ出すと小役より安く見える。恩恵は区間なのでゲーム数も添える。
+          // ボーナスの恩恵は区間なので、ゲーム数だけ出す（枚数を並べると小役より安く見える）。
           const pay =
             y.payout !== undefined
               ? `${y.payout}枚`
               : y.category === 'premium'
-                ? `${bp.premium}枚＋${bp.spinsPerBig}G`
+                ? `${bp.spinsPerBig}G`
                 : y.category === 'bonus'
-                  ? `${bp.bonus}枚＋${bp.spinsPerReg}G`
+                  ? `${bp.spinsPerReg}G`
                   : y.category === 'cherry'
                     ? `${bp.cherry}枚`
                     : '—';

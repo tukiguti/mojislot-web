@@ -15,9 +15,12 @@ import type { InternalRole, InternalRoleState, YakuList } from '../data/schemas'
 export const REMIX = {
   /** ボーナス確率の倍率。設定差（0.93〜1.09）より大きく、はっきり分かる幅にする。 */
   bonusRateMultiplier: 1.15,
-  /** ボーナスのゲーム数（他島は BIG 18 / REG 8）。 */
-  spinsPerBig: 22,
-  spinsPerReg: 9,
+  /**
+   * ボーナスのゲーム数（他島は BIG 10 / REG 5）。他島より2割ほど長くする。
+   * 他島が BIG 18 / REG 8 だった頃に決めた 22 / 9 の比率を、10 / 5 へ戻した後に当て直した（2026-10-26）。
+   */
+  spinsPerBig: 12,
+  spinsPerReg: 6,
 } as const;
 
 const isBonusRole = (r: InternalRole): boolean =>
