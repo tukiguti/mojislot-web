@@ -61,8 +61,8 @@ export class BonusZone {
    * ボーナス発動 or 残り回数の上乗せ（おかわり）。
    * kind='big' はプレミアム役、'reg' はレギュラー役で短め。
    * 既に active 中の再トリガーは、残り回数に spins を加算（上乗せ）する。
-   * 種別は **昇格のみ**（reg 中に big を引いたら big へ昇格／big 中に reg を引いても
-   * big のまま降格しない）。区間の identity は最初に引いた BIG を保つ。
+   * 種別は **突入した時のまま**（reg 中に big を引いても reg のまま、big 中に reg を引いても big のまま）。
+   * 昇格は無い（2026-10-26）。おかわりはゲーム数を足すだけ。
    */
   trigger(kind: BonusKind = 'big'): void {
     const wasActive = this.active.get();
@@ -76,8 +76,8 @@ export class BonusZone {
         ? this.config.spinsPerReg
         : this.config.spinsPerBonus;
     this.remaining.set(wasActive ? this.remaining.get() + spins : spins);
-    // 既に big の区間中は big を維持（reg では降格させない）。それ以外は引いた種別。
-    const nextKind: BonusKind = wasActive && this.kind.get() === 'big' ? 'big' : kind;
+    // 区間中は突入した種別を保つ（昇格も降格もしない）。新規突入だけ引いた種別。
+    const nextKind: BonusKind = wasActive ? (this.kind.get() ?? kind) : kind;
     this.kind.set(nextKind);
     this.active.set(true);
   }

@@ -33,12 +33,12 @@ describe('BonusZone.trigger', () => {
     expect(z.remaining.get()).toBe(15);
   });
 
-  it('reg 中に big を引くと big へ昇格＋加算', () => {
+  it('reg 中に big を引いても reg のまま（昇格しない）＋加算', () => {
     const z = new BonusZone(CONFIG);
     z.trigger('reg'); // 5, reg
-    z.trigger('big'); // +5 = 10, big へ昇格
+    z.trigger('big'); // +5 = 10, reg のまま
     expect(z.remaining.get()).toBe(10);
-    expect(z.kind.get()).toBe('big');
+    expect(z.kind.get()).toBe('reg');
   });
 
   it('big 中に reg を引いても種別は降格しない（big 維持）＋加算', () => {
