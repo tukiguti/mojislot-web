@@ -2011,6 +2011,8 @@ export async function bootstrap() {
     resultEl.className = '';
     resultEl.classList.add('visible');
     if (cls !== 'none') resultEl.classList.add(cls);
+    // クイズの吹き出しは液晶いっぱいに出るので、出ている間は札を液晶の下端へ寄せて問題文に重ねない
+    if (quizState.phase.get() !== 'inactive') resultEl.classList.add('below');
     resultTimer = window.setTimeout(() => {
       resultEl.classList.remove('visible');
     }, 2500);
