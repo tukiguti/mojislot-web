@@ -24,8 +24,14 @@ const MAX_CHARS_PER_LINE = 14;
  * 日本語の出題文を「一定の文字数」で折り返す。
  * - 区切り（、。）が行末付近なら、そこで折り返して語尾が不自然に切れないようにする
  * - 英数の語（`--help` `8GB` など）の途中では折り返さない（最大 max+6 まで伸ばす）
+ * - 行頭禁則：「？」「、」「」」「ー」や小さい仮名を次の行の頭に置かず、前の行に入れる
+ *   （「…小動物は」の次の行が「？」だけになっていた）
  */
-function wrapJapanese(text: string, max: number): string {
+const NO_LINE_START = /[？！?!、。，,．.・：:；;」』）)\]】〉》ー〜…ぁぃぅぇぉっゃゅょゎァィゥェォッャュョヮヵヶ]/;
+/** 行の終わりに置かない文字（開きかっこ）。次の行の頭へ送る。 */
+const NO_LINE_END = /[「『（(\[【〈《]/;
+
+export function wrapJapanese(text: string, max: number): string {
   const chars = [...text];
   const isAsciiWord = (c: string | undefined): boolean =>
     c !== undefined && /[0-9A-Za-z\-_/.]/.test(c);
@@ -38,8 +44,19 @@ function wrapJapanese(text: string, max: number): string {
     const insideAsciiWord = isAsciiWord(ch) && isAsciiWord(chars[i + 1]);
     const reachedLimit = line.length >= max && !insideAsciiWord;
     if (reachedLimit || line.length >= max + 6 || (atPunctuation && line.length >= max - 5)) {
+      // 次の文字が行の頭に置けないものなら、この行に入れてから折り返す
+      while (i + 1 < chars.length && NO_LINE_START.test(chars[i + 1])) {
+        i++;
+        line += chars[i];
+      }
+      // 行末禁則：開きかっこで行を終えず、次の行の頭へ送る
+      let carry = '';
+      while (line.length > 1 && NO_LINE_END.test(line[line.length - 1])) {
+        carry = line[line.length - 1] + carry;
+        line = line.slice(0, -1);
+      }
       lines.push(line);
-      line = '';
+      line = carry;
     }
   }
   if (line) lines.push(line);

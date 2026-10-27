@@ -2403,6 +2403,10 @@ body.shake {
 #result-display.visible {
   opacity: 1;
 }
+/* クイズの吹き出しが出ている間は、液晶の下端（リールのすぐ上）に寄せる */
+#result-display.below {
+  top: calc(var(--reel-top, 0.47) * 100% - 3.2cqw);
+}
 #result-display.win {
   color: #fff;
   background: rgba(255, 165, 0, 0.92);
