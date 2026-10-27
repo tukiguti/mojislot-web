@@ -211,6 +211,479 @@
         "inko",
         "sai"
       ]
+    },
+    {
+      "id": "q_usagi_5",
+      "question": "英語では「ラビット」や「バニー」と呼ばれる、耳の長い小さな動物は？",
+      "answerYakuId": "usagi",
+      "decoyYakuIds": [
+        "tanuki",
+        "kirin",
+        "inko"
+      ],
+      "type": "alias"
+    },
+    {
+      "id": "q_usagi_6",
+      "question": "大急ぎで逃げる様子を表す「脱兎のごとく」の「兎」は何の動物？",
+      "answerYakuId": "usagi",
+      "decoyYakuIds": [
+        "tanuki",
+        "tokage",
+        "kirin"
+      ],
+      "type": "phrase"
+    },
+    {
+      "id": "q_usagi_7",
+      "question": "鳥の「鵜（う）」と鳥の「鷺（さぎ）」を並べると、どんな動物になる？",
+      "answerYakuId": "usagi",
+      "decoyYakuIds": [
+        "inko",
+        "tanuki",
+        "sai"
+      ],
+      "type": "riddle"
+    },
+    {
+      "id": "q_usagi_8",
+      "question": "細長い魚の「ウナギ」の「ナ」を「サ」に変えると、どんな動物になる？",
+      "answerYakuId": "usagi",
+      "decoyYakuIds": [
+        "namazu",
+        "tanuki",
+        "tokage"
+      ],
+      "type": "riddle"
+    },
+    {
+      "id": "q_usagi_9",
+      "question": "鳥ではないのに、昔から「一羽、二羽」と数えることがある動物は？",
+      "answerYakuId": "usagi",
+      "decoyYakuIds": [
+        "inko",
+        "tanuki",
+        "kirin"
+      ],
+      "type": "describe"
+    },
+    {
+      "id": "q_usagi_10",
+      "question": "日本の神話「因幡の白兎」で、ワニをだまして海を渡った動物は？",
+      "answerYakuId": "usagi",
+      "decoyYakuIds": [
+        "tanuki",
+        "tokage",
+        "namazu"
+      ],
+      "type": "describe"
+    },
+    {
+      "id": "q_kirin_5",
+      "question": "漢字では伝説の霊獣と同じ「麒麟」と書かれる、首の長い動物は？",
+      "answerYakuId": "kirin",
+      "decoyYakuIds": [
+        "sai",
+        "usagi",
+        "tanuki"
+      ],
+      "type": "alias"
+    },
+    {
+      "id": "q_kirin_6",
+      "question": "英語で「ジラフ」と呼ばれる、アフリカのサバンナにすむ動物は？",
+      "answerYakuId": "kirin",
+      "decoyYakuIds": [
+        "sai",
+        "tokage",
+        "usagi"
+      ],
+      "type": "alias"
+    },
+    {
+      "id": "q_kirin_7",
+      "question": "すぐれた者も年をとれば衰える意味の「〜も老いては駑馬に劣る」の〜は？",
+      "answerYakuId": "kirin",
+      "decoyYakuIds": [
+        "sai",
+        "usagi",
+        "tanuki"
+      ],
+      "type": "phrase"
+    },
+    {
+      "id": "q_kirin_8",
+      "question": "四十センチ以上にもなる黒っぽい舌で、枝の葉を巻き取って食べる動物は？",
+      "answerYakuId": "kirin",
+      "decoyYakuIds": [
+        "sai",
+        "tokage",
+        "usagi"
+      ],
+      "type": "describe"
+    },
+    {
+      "id": "q_kirin_9",
+      "question": "頭の上に、皮ふと毛におおわれた短い角を二本以上持つ、首の長い動物は？",
+      "answerYakuId": "kirin",
+      "decoyYakuIds": [
+        "sai",
+        "usagi",
+        "tanuki"
+      ],
+      "type": "describe"
+    },
+    {
+      "id": "q_kirin_10",
+      "question": "「木（き）」に鈴の音の「リン」をつなげると、どんな動物になる？",
+      "answerYakuId": "kirin",
+      "decoyYakuIds": [
+        "inko",
+        "usagi",
+        "sai"
+      ],
+      "type": "riddle"
+    },
+    {
+      "id": "q_tanuki_5",
+      "question": "漢字一文字で「狸」と書く、日本の昔話によく出てくる動物は？",
+      "answerYakuId": "tanuki",
+      "decoyYakuIds": [
+        "usagi",
+        "namazu",
+        "tokage"
+      ],
+      "type": "alias"
+    },
+    {
+      "id": "q_tanuki_6",
+      "question": "英語で「ラクーンドッグ」と呼ばれる、イヌの仲間の動物は？",
+      "answerYakuId": "tanuki",
+      "decoyYakuIds": [
+        "usagi",
+        "kirin",
+        "sai"
+      ],
+      "type": "alias"
+    },
+    {
+      "id": "q_tanuki_7",
+      "question": "ずる賢くてしたたかな年配の男性を「〜親父」と呼ぶ。〜に入る動物は？",
+      "answerYakuId": "tanuki",
+      "decoyYakuIds": [
+        "kirin",
+        "usagi",
+        "tokage"
+      ],
+      "type": "phrase"
+    },
+    {
+      "id": "q_tanuki_8",
+      "question": "文の中から「た」の字を抜いて読む暗号に、よく描かれる動物は？",
+      "answerYakuId": "tanuki",
+      "decoyYakuIds": [
+        "usagi",
+        "kirin",
+        "tokage"
+      ],
+      "type": "riddle"
+    },
+    {
+      "id": "q_tanuki_9",
+      "question": "関東で、揚げ玉をのせたそばを「〜そば」と呼ぶ。〜に入る動物は？",
+      "answerYakuId": "tanuki",
+      "decoyYakuIds": [
+        "usagi",
+        "namazu",
+        "kirin"
+      ],
+      "type": "phrase"
+    },
+    {
+      "id": "q_tanuki_10",
+      "question": "滋賀県の信楽焼で、笠をかぶり徳利を持った置物が有名な動物は？",
+      "answerYakuId": "tanuki",
+      "decoyYakuIds": [
+        "usagi",
+        "kirin",
+        "namazu"
+      ],
+      "type": "describe"
+    },
+    {
+      "id": "q_tokage_5",
+      "question": "漢字では虫へんの字を二つ並べて「蜥蜴」と書く生き物は？",
+      "answerYakuId": "tokage",
+      "decoyYakuIds": [
+        "namazu",
+        "reg",
+        "sai"
+      ],
+      "type": "alias"
+    },
+    {
+      "id": "q_tokage_6",
+      "question": "子どものうちは尾があざやかな青色をしている、日本の野山の爬虫類は？",
+      "answerYakuId": "tokage",
+      "decoyYakuIds": [
+        "inko",
+        "namazu",
+        "usagi"
+      ],
+      "type": "describe"
+    },
+    {
+      "id": "q_tokage_7",
+      "question": "家の「戸（と）」と、光が当たってできる「影」を合わせると何になる？",
+      "answerYakuId": "tokage",
+      "decoyYakuIds": [
+        "tanuki",
+        "kirin",
+        "sai"
+      ],
+      "type": "riddle"
+    },
+    {
+      "id": "q_tokage_8",
+      "question": "責任を下の者に押しつけて逃げる「〜の尻尾切り」の〜に入る生き物は？",
+      "answerYakuId": "tokage",
+      "decoyYakuIds": [
+        "tanuki",
+        "usagi",
+        "namazu"
+      ],
+      "type": "phrase"
+    },
+    {
+      "id": "q_tokage_9",
+      "question": "首のまわりの大きなひだを広げて敵をおどす「エリマキ〜」の〜は？",
+      "answerYakuId": "tokage",
+      "decoyYakuIds": [
+        "inko",
+        "kirin",
+        "sai"
+      ],
+      "type": "describe"
+    },
+    {
+      "id": "q_tokage_10",
+      "question": "「ニホンカナヘビ」は名前にヘビとつくが、本当は何の仲間？",
+      "answerYakuId": "tokage",
+      "decoyYakuIds": [
+        "namazu",
+        "reg",
+        "tanuki"
+      ],
+      "type": "describe"
+    },
+    {
+      "id": "q_sai_3",
+      "question": "漢字一文字で「犀」と書く、鼻に角を持つ大きな動物は？",
+      "answerYakuId": "sai",
+      "decoyYakuIds": [
+        "kirin",
+        "tanuki",
+        "tokage"
+      ],
+      "type": "alias"
+    },
+    {
+      "id": "q_sai_4",
+      "question": "「サイコロ」や「サイフ」の頭の二文字に隠れている動物は？",
+      "answerYakuId": "sai",
+      "decoyYakuIds": [
+        "kirin",
+        "usagi",
+        "inko"
+      ],
+      "type": "riddle"
+    },
+    {
+      "id": "q_sai_5",
+      "question": "仏教の古い言葉「〜の角のようにただ独り歩め」の〜に入る動物は？",
+      "answerYakuId": "sai",
+      "decoyYakuIds": [
+        "kirin",
+        "usagi",
+        "tanuki"
+      ],
+      "type": "phrase"
+    },
+    {
+      "id": "q_sai_6",
+      "question": "鼻の角が骨ではなく、髪の毛やつめと同じ成分でできている動物は？",
+      "answerYakuId": "sai",
+      "decoyYakuIds": [
+        "kirin",
+        "tanuki",
+        "usagi"
+      ],
+      "type": "describe"
+    },
+    {
+      "id": "q_reg_2",
+      "question": "漢字では「海の鼠（ねずみ）」と書く、海の底にすむ細長い生き物は？",
+      "answerYakuId": "reg",
+      "decoyYakuIds": [
+        "namazu",
+        "tokage",
+        "usagi"
+      ],
+      "type": "alias"
+    },
+    {
+      "id": "q_reg_3",
+      "question": "種類によっては、襲われると内臓を吐き出して後で元に戻す海の生き物は？",
+      "answerYakuId": "reg",
+      "decoyYakuIds": [
+        "namazu",
+        "tokage",
+        "inko"
+      ],
+      "type": "describe"
+    },
+    {
+      "id": "q_reg_4",
+      "question": "腸を塩漬けにした珍味「このわた」の材料になる、海にすむ生き物は？",
+      "answerYakuId": "reg",
+      "decoyYakuIds": [
+        "namazu",
+        "tokage",
+        "sai"
+      ],
+      "type": "describe"
+    },
+    {
+      "id": "q_reg_5",
+      "question": "ひげのある魚「ナマズ」の最後の一文字を「コ」に変えると何になる？",
+      "answerYakuId": "reg",
+      "decoyYakuIds": [
+        "namazu",
+        "inko",
+        "tanuki"
+      ],
+      "type": "riddle"
+    },
+    {
+      "id": "q_reg_6",
+      "question": "ウニやヒトデと同じ棘皮動物の仲間で、海の底をゆっくり動く生き物は？",
+      "answerYakuId": "reg",
+      "decoyYakuIds": [
+        "namazu",
+        "tokage",
+        "inko"
+      ],
+      "type": "describe"
+    },
+    {
+      "id": "q_namazu_2",
+      "question": "漢字では魚へんに「念」と書く、長いひげを持つ川や沼の魚は？",
+      "answerYakuId": "namazu",
+      "decoyYakuIds": [
+        "reg",
+        "tokage",
+        "inko"
+      ],
+      "type": "alias"
+    },
+    {
+      "id": "q_namazu_3",
+      "question": "英語で「キャットフィッシュ」と呼ばれる、ひげの目立つ魚は？",
+      "answerYakuId": "namazu",
+      "decoyYakuIds": [
+        "reg",
+        "tanuki",
+        "usagi"
+      ],
+      "type": "alias"
+    },
+    {
+      "id": "q_namazu_4",
+      "question": "つかみどころがないたとえ「瓢箪で〜を押さえる」の〜に入る魚は？",
+      "answerYakuId": "namazu",
+      "decoyYakuIds": [
+        "reg",
+        "tokage",
+        "usagi"
+      ],
+      "type": "phrase"
+    },
+    {
+      "id": "q_namazu_5",
+      "question": "「生（なま）」に地図の「図（ず）」をつけると、どんな魚になる？",
+      "answerYakuId": "namazu",
+      "decoyYakuIds": [
+        "reg",
+        "inko",
+        "sai"
+      ],
+      "type": "riddle"
+    },
+    {
+      "id": "q_namazu_6",
+      "question": "うろこがなく、ぬるぬるした体で川や沼の底にすむ、夜に活動する魚は？",
+      "answerYakuId": "namazu",
+      "decoyYakuIds": [
+        "reg",
+        "tokage",
+        "inko"
+      ],
+      "type": "describe"
+    },
+    {
+      "id": "q_inko_2",
+      "question": "漢字では「鸚哥」と書く、色あざやかな羽を持つ飼い鳥は？",
+      "answerYakuId": "inko",
+      "decoyYakuIds": [
+        "usagi",
+        "namazu",
+        "sai"
+      ],
+      "type": "alias"
+    },
+    {
+      "id": "q_inko_3",
+      "question": "文字を書く「インク」の「ク」を「コ」に変えると、どんな鳥になる？",
+      "answerYakuId": "inko",
+      "decoyYakuIds": [
+        "kirin",
+        "usagi",
+        "namazu"
+      ],
+      "type": "riddle"
+    },
+    {
+      "id": "q_inko_4",
+      "question": "足の指が前に二本、後ろに二本あり、枝をしっかりつかむ小さな飼い鳥は？",
+      "answerYakuId": "inko",
+      "decoyYakuIds": [
+        "usagi",
+        "tokage",
+        "kirin"
+      ],
+      "type": "describe"
+    },
+    {
+      "id": "q_inko_5",
+      "question": "曲がった太いくちばしで、硬い種の殻を割って食べるのが得意な飼い鳥は？",
+      "answerYakuId": "inko",
+      "decoyYakuIds": [
+        "usagi",
+        "namazu",
+        "tokage"
+      ],
+      "type": "describe"
+    },
+    {
+      "id": "q_inko_6",
+      "question": "つがいの仲がよく英語で「ラブバード」と呼ばれる「ボタン〜」の〜は？",
+      "answerYakuId": "inko",
+      "decoyYakuIds": [
+        "usagi",
+        "namazu",
+        "kirin"
+      ],
+      "type": "alias"
     }
   ]
 }

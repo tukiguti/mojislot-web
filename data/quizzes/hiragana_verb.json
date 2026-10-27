@@ -211,6 +211,479 @@
         "yasumu",
         "oyogu"
       ]
+    },
+    {
+      "id": "q_utau_5",
+      "question": "「憲法に平和主義を〇〇〇」のように、はっきり示す意味でも使う言葉は？",
+      "answerYakuId": "utau",
+      "decoyYakuIds": [
+        "hanasu",
+        "ikiru",
+        "asobu"
+      ],
+      "type": "phrase"
+    },
+    {
+      "id": "q_utau_6",
+      "question": "英語で「sing（シング）」という動作を、ひらがな3文字で何という？",
+      "answerYakuId": "utau",
+      "decoyYakuIds": [
+        "hanasu",
+        "asobu",
+        "oyogu"
+      ],
+      "type": "alias"
+    },
+    {
+      "id": "q_utau_7",
+      "question": "「唄」や「謳」の字を当てることもある、声で節をつける動作は？",
+      "answerYakuId": "utau",
+      "decoyYakuIds": [
+        "hanasu",
+        "asobu",
+        "reg"
+      ],
+      "type": "alias"
+    },
+    {
+      "id": "q_utau_8",
+      "question": "「う」で始まり「う」で終わり、真ん中に「た」が入る動作は何？",
+      "answerYakuId": "utau",
+      "decoyYakuIds": [
+        "hanasu",
+        "oyogu",
+        "asobu"
+      ],
+      "type": "riddle"
+    },
+    {
+      "id": "q_utau_9",
+      "question": "小鳥がきれいな声でさえずる様子を、人にたとえて何という？",
+      "answerYakuId": "utau",
+      "decoyYakuIds": [
+        "hanasu",
+        "asobu",
+        "neru"
+      ],
+      "type": "describe"
+    },
+    {
+      "id": "q_utau_10",
+      "question": "和歌や詩を作って声に出すことを、「詠」の字を当てて何という？",
+      "answerYakuId": "utau",
+      "decoyYakuIds": [
+        "hanasu",
+        "ikiru",
+        "yasumu"
+      ],
+      "type": "describe"
+    },
+    {
+      "id": "q_asobu_5",
+      "question": "「よく学び、よく〇〇べ」の〇〇べ。この言葉のもとの形は？",
+      "answerYakuId": "asobu",
+      "decoyYakuIds": [
+        "yasumu",
+        "utau",
+        "oyogu"
+      ],
+      "type": "phrase"
+    },
+    {
+      "id": "q_asobu_6",
+      "question": "土地や機械を使わずにおくことを「〇〇ばせておく」と言う。その動詞は？",
+      "answerYakuId": "asobu",
+      "decoyYakuIds": [
+        "yasumu",
+        "neru",
+        "ikiru"
+      ],
+      "type": "phrase"
+    },
+    {
+      "id": "q_asobu_7",
+      "question": "英語の「play」のうち、楽器や劇ではなく楽しむ方を表す動詞は？",
+      "answerYakuId": "asobu",
+      "decoyYakuIds": [
+        "utau",
+        "oyogu",
+        "yasumu"
+      ],
+      "type": "alias"
+    },
+    {
+      "id": "q_asobu_8",
+      "question": "「そ」の字を「あ」と「ぶ」ではさむと、子どもの大好きな何になる？",
+      "answerYakuId": "asobu",
+      "decoyYakuIds": [
+        "oyogu",
+        "utau",
+        "hanasu"
+      ],
+      "type": "riddle"
+    },
+    {
+      "id": "q_asobu_9",
+      "question": "「あそこ」の最後の「こ」を「ぶ」に入れかえると、どんな動作に？",
+      "answerYakuId": "asobu",
+      "decoyYakuIds": [
+        "oyogu",
+        "yasumu",
+        "utau"
+      ],
+      "type": "riddle"
+    },
+    {
+      "id": "q_asobu_10",
+      "question": "ハンドルやブレーキの少しの余裕を、この動詞の名詞形で呼ぶ。動詞は？",
+      "answerYakuId": "asobu",
+      "decoyYakuIds": [
+        "yasumu",
+        "oyogu",
+        "ikiru"
+      ],
+      "type": "describe"
+    },
+    {
+      "id": "q_oyogu_5",
+      "question": "うそを見抜かれそうで視線が定まらない様子を「目が〇〇〇」という？",
+      "answerYakuId": "oyogu",
+      "decoyYakuIds": [
+        "asobu",
+        "neru",
+        "yasumu"
+      ],
+      "type": "phrase"
+    },
+    {
+      "id": "q_oyogu_6",
+      "question": "英語の「swim（スイム）」を、ひらがな3文字の動詞にすると何？",
+      "answerYakuId": "oyogu",
+      "decoyYakuIds": [
+        "asobu",
+        "utau",
+        "yasumu"
+      ],
+      "type": "alias"
+    },
+    {
+      "id": "q_oyogu_7",
+      "question": "「水泳」の二文字目「泳」を、訓読みの動詞として読むと何になる？",
+      "answerYakuId": "oyogu",
+      "decoyYakuIds": [
+        "asobu",
+        "ikiru",
+        "hanasu"
+      ],
+      "type": "alias"
+    },
+    {
+      "id": "q_oyogu_8",
+      "question": "泣き声の「およよ」の最後の「よ」を「ぐ」にかえると、何の動作？",
+      "answerYakuId": "oyogu",
+      "decoyYakuIds": [
+        "asobu",
+        "utau",
+        "yasumu"
+      ],
+      "type": "riddle"
+    },
+    {
+      "id": "q_oyogu_9",
+      "question": "「およそ」の最後の「そ」を「ぐ」にかえると、プールでする何に？",
+      "answerYakuId": "oyogu",
+      "decoyYakuIds": [
+        "asobu",
+        "yasumu",
+        "utau"
+      ],
+      "type": "riddle"
+    },
+    {
+      "id": "q_oyogu_10",
+      "question": "空を飛べないペンギンが、翼を使って水の中で上手にする動作は？",
+      "answerYakuId": "oyogu",
+      "decoyYakuIds": [
+        "asobu",
+        "neru",
+        "yasumu"
+      ],
+      "type": "describe"
+    },
+    {
+      "id": "q_hanasu_5",
+      "question": "「〇〇せば分かる」は、言葉で伝え合えば通じるという意味。もとの動詞は？",
+      "answerYakuId": "hanasu",
+      "decoyYakuIds": [
+        "utau",
+        "asobu",
+        "yasumu"
+      ],
+      "type": "phrase"
+    },
+    {
+      "id": "q_hanasu_6",
+      "question": "「小さな子どもから目を〇〇〇な」の〇〇〇に入る、3文字の言葉は？",
+      "answerYakuId": "hanasu",
+      "decoyYakuIds": [
+        "yasumu",
+        "asobu",
+        "neru"
+      ],
+      "type": "phrase"
+    },
+    {
+      "id": "q_hanasu_7",
+      "question": "言葉を伝える、手をゆるめる、間をあける。全部同じ読みの動詞は？",
+      "answerYakuId": "hanasu",
+      "decoyYakuIds": [
+        "utau",
+        "yasumu",
+        "asobu"
+      ],
+      "type": "riddle"
+    },
+    {
+      "id": "q_hanasu_8",
+      "question": "英語の「speak」や「talk」にあたる、口で言葉を伝える動詞は？",
+      "answerYakuId": "hanasu",
+      "decoyYakuIds": [
+        "utau",
+        "asobu",
+        "oyogu"
+      ],
+      "type": "alias"
+    },
+    {
+      "id": "q_hanasu_9",
+      "question": "インコや九官鳥の中には、人の言葉をまねて何をするものもいる？",
+      "answerYakuId": "hanasu",
+      "decoyYakuIds": [
+        "utau",
+        "asobu",
+        "oyogu"
+      ],
+      "type": "describe"
+    },
+    {
+      "id": "q_hanasu_10",
+      "question": "「会話」や「電話」に使う「話」の字を、訓読みの動詞にすると何？",
+      "answerYakuId": "hanasu",
+      "decoyYakuIds": [
+        "utau",
+        "asobu",
+        "neru"
+      ],
+      "type": "alias"
+    },
+    {
+      "id": "q_neru_3",
+      "question": "よく眠る子は元気に大きくなる、という意味の「〇〇子は育つ」。〇〇は？",
+      "answerYakuId": "neru",
+      "decoyYakuIds": [
+        "yasumu",
+        "asobu",
+        "ikiru"
+      ],
+      "type": "phrase"
+    },
+    {
+      "id": "q_neru_4",
+      "question": "「果報は〇〇て待て」の〇〇て。この言葉のもとの形は何という？",
+      "answerYakuId": "neru",
+      "decoyYakuIds": [
+        "yasumu",
+        "asobu",
+        "reg"
+      ],
+      "type": "phrase"
+    },
+    {
+      "id": "q_neru_5",
+      "question": "布団に入ることも、粉をこね回すことも同じ読み。2文字の動詞は？",
+      "answerYakuId": "neru",
+      "decoyYakuIds": [
+        "yasumu",
+        "hanasu",
+        "asobu"
+      ],
+      "type": "riddle"
+    },
+    {
+      "id": "q_neru_6",
+      "question": "英語の「go to bed」にあたる、ひらがな2文字の動詞は何？",
+      "answerYakuId": "neru",
+      "decoyYakuIds": [
+        "yasumu",
+        "asobu",
+        "oyogu"
+      ],
+      "type": "alias"
+    },
+    {
+      "id": "q_reg_2",
+      "question": "赤ちゃんが生まれるとき、お母さんがお腹にぐっと力を入れることは？",
+      "answerYakuId": "reg",
+      "decoyYakuIds": [
+        "ikiru",
+        "yasumu",
+        "neru"
+      ],
+      "type": "describe"
+    },
+    {
+      "id": "q_reg_3",
+      "question": "漢字で「息む」と書き、息を詰めて体に力を込める意味の言葉は？",
+      "answerYakuId": "reg",
+      "decoyYakuIds": [
+        "ikiru",
+        "yasumu",
+        "hanasu"
+      ],
+      "type": "alias"
+    },
+    {
+      "id": "q_reg_4",
+      "question": "「いきる」の最後の「る」を「む」にかえると、力を込める言葉に。何？",
+      "answerYakuId": "reg",
+      "decoyYakuIds": [
+        "ikiru",
+        "yasumu",
+        "asobu"
+      ],
+      "type": "riddle"
+    },
+    {
+      "id": "q_reg_5",
+      "question": "「気張る（きばる）」とほぼ同じ意味の、息を詰めて力む3文字の言葉は？",
+      "answerYakuId": "reg",
+      "decoyYakuIds": [
+        "ikiru",
+        "yasumu",
+        "hanasu"
+      ],
+      "type": "alias"
+    },
+    {
+      "id": "q_reg_6",
+      "question": "お産で力を入れたくなるのを逃す「〇〇〇逃し」。もとの動詞は？",
+      "answerYakuId": "reg",
+      "decoyYakuIds": [
+        "ikiru",
+        "yasumu",
+        "neru"
+      ],
+      "type": "phrase"
+    },
+    {
+      "id": "q_ikiru_2",
+      "question": "「人はパンのみにて生くるにあらず」の「生くる」を今の言葉にすると？",
+      "answerYakuId": "ikiru",
+      "decoyYakuIds": [
+        "reg",
+        "yasumu",
+        "asobu"
+      ],
+      "type": "phrase"
+    },
+    {
+      "id": "q_ikiru_3",
+      "question": "命がけの勝負を表す「〇〇〇か死ぬか」。〇〇〇に入る言葉は？",
+      "answerYakuId": "ikiru",
+      "decoyYakuIds": [
+        "reg",
+        "yasumu",
+        "oyogu"
+      ],
+      "type": "phrase"
+    },
+    {
+      "id": "q_ikiru_4",
+      "question": "「いく」と「きる」を、「き」を重ねてつなげると何という言葉になる？",
+      "answerYakuId": "ikiru",
+      "decoyYakuIds": [
+        "reg",
+        "yasumu",
+        "neru"
+      ],
+      "type": "riddle"
+    },
+    {
+      "id": "q_ikiru_5",
+      "question": "英語の「live」を、命を保って暮らす意味のひらがな3文字の動詞にすると？",
+      "answerYakuId": "ikiru",
+      "decoyYakuIds": [
+        "reg",
+        "yasumu",
+        "asobu"
+      ],
+      "type": "alias"
+    },
+    {
+      "id": "q_ikiru_6",
+      "question": "長寿で知られるゾウガメは、100年以上も何をすることがあるという？",
+      "answerYakuId": "ikiru",
+      "decoyYakuIds": [
+        "reg",
+        "yasumu",
+        "oyogu"
+      ],
+      "type": "describe"
+    },
+    {
+      "id": "q_yasumu_2",
+      "question": "ことわざ「下手の考え〇〇〇に似たり」の〇〇〇に入る言葉は？",
+      "answerYakuId": "yasumu",
+      "decoyYakuIds": [
+        "neru",
+        "asobu",
+        "ikiru"
+      ],
+      "type": "phrase"
+    },
+    {
+      "id": "q_yasumu_3",
+      "question": "「〇〇〇間もなく働く」は、少しも手を止めずに働き続けること。〇〇〇は？",
+      "answerYakuId": "yasumu",
+      "decoyYakuIds": [
+        "neru",
+        "asobu",
+        "reg"
+      ],
+      "type": "phrase"
+    },
+    {
+      "id": "q_yasumu_4",
+      "question": "英語の「rest」や「take a break」にあたる、ひと息つく動詞は？",
+      "answerYakuId": "yasumu",
+      "decoyYakuIds": [
+        "neru",
+        "asobu",
+        "ikiru"
+      ],
+      "type": "alias"
+    },
+    {
+      "id": "q_yasumu_5",
+      "question": "「や」と「すむ」をくっつけると、ひと息つく言葉に。何という？",
+      "answerYakuId": "yasumu",
+      "decoyYakuIds": [
+        "neru",
+        "ikiru",
+        "reg"
+      ],
+      "type": "riddle"
+    },
+    {
+      "id": "q_yasumu_6",
+      "question": "長く歩いたあと、ベンチに腰かけて疲れをとることを何という？",
+      "answerYakuId": "yasumu",
+      "decoyYakuIds": [
+        "neru",
+        "asobu",
+        "reg"
+      ],
+      "type": "describe"
     }
   ]
 }

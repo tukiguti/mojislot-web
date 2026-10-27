@@ -211,6 +211,479 @@
         "reg",
         "hack"
       ]
+    },
+    {
+      "id": "q_hack_5",
+      "question": "開発イベント「ハッカソン」は、マラソンと何という言葉を組み合わせた造語？",
+      "answerYakuId": "hack",
+      "decoyYakuIds": [
+        "shell",
+        "dump",
+        "spy"
+      ],
+      "type": "describe"
+    },
+    {
+      "id": "q_hack_6",
+      "question": "英語では「hack」と書き、もとは斧などでたたき切るという意味だった言葉は？",
+      "answerYakuId": "hack",
+      "decoyYakuIds": [
+        "shell",
+        "salt",
+        "dump"
+      ],
+      "type": "alias"
+    },
+    {
+      "id": "q_hack_7",
+      "question": "くしゃみの音「ハックション」から「ション」を取ると残る言葉は何？",
+      "answerYakuId": "hack",
+      "decoyYakuIds": [
+        "bug",
+        "dump",
+        "salt"
+      ],
+      "type": "riddle"
+    },
+    {
+      "id": "q_hack_8",
+      "question": "小さな工夫で事業を一気に伸ばす手法を「グロース◯◯」という。◯◯は？",
+      "answerYakuId": "hack",
+      "decoyYakuIds": [
+        "spy",
+        "dump",
+        "shell"
+      ],
+      "type": "phrase"
+    },
+    {
+      "id": "q_hack_9",
+      "question": "「バック」の「バ」から濁点を取るとできる、不正な侵入を表す言葉は？",
+      "answerYakuId": "hack",
+      "decoyYakuIds": [
+        "bug",
+        "spy",
+        "dump"
+      ],
+      "type": "riddle"
+    },
+    {
+      "id": "q_hack_10",
+      "question": "敵を次々に倒して進むゲームの分類「◯◯アンドスラッシュ」の◯◯は何？",
+      "answerYakuId": "hack",
+      "decoyYakuIds": [
+        "dump",
+        "shell",
+        "worm"
+      ],
+      "type": "phrase"
+    },
+    {
+      "id": "q_salt_5",
+      "question": "英語ではsalt、日本語では「塩」と呼ばれる、ハッシュ化の前に足す乱数は？",
+      "answerYakuId": "salt",
+      "decoyYakuIds": [
+        "shell",
+        "dump",
+        "hack"
+      ],
+      "type": "alias"
+    },
+    {
+      "id": "q_salt_6",
+      "question": "ドレミの「ソ」に、「ルート」から伸ばす音を抜いたものをつなげた言葉は？",
+      "answerYakuId": "salt",
+      "decoyYakuIds": [
+        "shell",
+        "dump",
+        "spy"
+      ],
+      "type": "riddle"
+    },
+    {
+      "id": "q_salt_7",
+      "question": "お風呂に溶かして香りなどを楽しむ入浴剤「バス◯◯」の◯◯に入る言葉は？",
+      "answerYakuId": "salt",
+      "decoyYakuIds": [
+        "shell",
+        "dump",
+        "reg"
+      ],
+      "type": "phrase"
+    },
+    {
+      "id": "q_salt_8",
+      "question": "サーバーだけが隠す値「ペッパー」と対で語られ、こちらは秘密にしない乱数は？",
+      "answerYakuId": "salt",
+      "decoyYakuIds": [
+        "hack",
+        "dump",
+        "shell"
+      ],
+      "type": "describe"
+    },
+    {
+      "id": "q_salt_9",
+      "question": "アメリカのユタ州の州都「◯◯レークシティ」の◯◯に入るカタカナ3文字は？",
+      "answerYakuId": "salt",
+      "decoyYakuIds": [
+        "spy",
+        "worm",
+        "shell"
+      ],
+      "type": "describe"
+    },
+    {
+      "id": "q_salt_10",
+      "question": "胴体だけを表した彫像「トルソ」を、後ろから逆さに読むとできる言葉は？",
+      "answerYakuId": "salt",
+      "decoyYakuIds": [
+        "shell",
+        "dump",
+        "hack"
+      ],
+      "type": "riddle"
+    },
+    {
+      "id": "q_dump_5",
+      "question": "荷台を傾けて土砂をどさっと降ろす大型トラック「◯◯カー」の◯◯は？",
+      "answerYakuId": "dump",
+      "decoyYakuIds": [
+        "shell",
+        "salt",
+        "worm"
+      ],
+      "type": "alias"
+    },
+    {
+      "id": "q_dump_6",
+      "question": "英語で「どさっと降ろす」「投げ捨てる」を意味し、データの書き出しも指す語は？",
+      "answerYakuId": "dump",
+      "decoyYakuIds": [
+        "hack",
+        "shell",
+        "salt"
+      ],
+      "type": "alias"
+    },
+    {
+      "id": "q_dump_7",
+      "question": "「ダンス」の最後の「ス」を「プ」に取り替えるとできる言葉は何？",
+      "answerYakuId": "dump",
+      "decoyYakuIds": [
+        "shell",
+        "salt",
+        "spy"
+      ],
+      "type": "riddle"
+    },
+    {
+      "id": "q_dump_8",
+      "question": "ファイルの中身を16進数で並べて見せる表示を「ヘックス◯◯」という。◯◯は？",
+      "answerYakuId": "dump",
+      "decoyYakuIds": [
+        "hack",
+        "shell",
+        "salt"
+      ],
+      "type": "phrase"
+    },
+    {
+      "id": "q_dump_9",
+      "question": "通信のパケットを取り込んで中身を表示する定番コマンド「tcp◯◯」の◯◯は？",
+      "answerYakuId": "dump",
+      "decoyYakuIds": [
+        "shell",
+        "hack",
+        "spy"
+      ],
+      "type": "describe"
+    },
+    {
+      "id": "q_dump_10",
+      "question": "小麦粉の生地で包んだ団子「ダンプリング」から「リング」を除いた言葉は？",
+      "answerYakuId": "dump",
+      "decoyYakuIds": [
+        "salt",
+        "shell",
+        "bug"
+      ],
+      "type": "riddle"
+    },
+    {
+      "id": "q_shell_5",
+      "question": "英語の早口言葉「She sells sea ◯◯s」の◯◯をカタカナで言うと？",
+      "answerYakuId": "shell",
+      "decoyYakuIds": [
+        "salt",
+        "spy",
+        "dump"
+      ],
+      "type": "phrase"
+    },
+    {
+      "id": "q_shell_6",
+      "question": "コマンドを並べてファイルに書き、まとめて実行するものを「◯◯スクリプト」という。何？",
+      "answerYakuId": "shell",
+      "decoyYakuIds": [
+        "hack",
+        "dump",
+        "salt"
+      ],
+      "type": "phrase"
+    },
+    {
+      "id": "q_shell_7",
+      "question": "海辺で拾う「貝殻」や卵の「殻」を英語で言うと、何という言葉になる？",
+      "answerYakuId": "shell",
+      "decoyYakuIds": [
+        "salt",
+        "worm",
+        "bug"
+      ],
+      "type": "alias"
+    },
+    {
+      "id": "q_shell_8",
+      "question": "避難場所を表す「シェルター」から「ター」を取ると残る言葉は何？",
+      "answerYakuId": "shell",
+      "decoyYakuIds": [
+        "salt",
+        "dump",
+        "spy"
+      ],
+      "type": "riddle"
+    },
+    {
+      "id": "q_shell_9",
+      "question": "黒い画面に「$」などの記号を出して、利用者のコマンド入力を待つプログラムは？",
+      "answerYakuId": "shell",
+      "decoyYakuIds": [
+        "hack",
+        "dump",
+        "worm"
+      ],
+      "type": "describe"
+    },
+    {
+      "id": "q_shell_10",
+      "question": "フランス語で空を表す「シエル」の「エ」を小さく書くとできる言葉は？",
+      "answerYakuId": "shell",
+      "decoyYakuIds": [
+        "salt",
+        "spy",
+        "worm"
+      ],
+      "type": "riddle"
+    },
+    {
+      "id": "q_bug_3",
+      "question": "抱きしめることを表す「ハグ」の「ハ」に濁点を付けるとできる言葉は？",
+      "answerYakuId": "bug",
+      "decoyYakuIds": [
+        "hack",
+        "worm",
+        "dump"
+      ],
+      "type": "riddle"
+    },
+    {
+      "id": "q_bug_4",
+      "question": "プログラムの不具合を探して取り除く作業を「デ◯◯」と呼ぶ。◯◯に入る言葉は？",
+      "answerYakuId": "bug",
+      "decoyYakuIds": [
+        "hack",
+        "dump",
+        "worm"
+      ],
+      "type": "phrase"
+    },
+    {
+      "id": "q_bug_5",
+      "question": "テントウムシはアメリカ英語で「レディ◯◯」。この◯◯に入る短い言葉は？",
+      "answerYakuId": "bug",
+      "decoyYakuIds": [
+        "worm",
+        "spy",
+        "hack"
+      ],
+      "type": "alias"
+    },
+    {
+      "id": "q_bug_6",
+      "question": "不具合を見つけて知らせた人に報奨金を払う制度「◯◯バウンティ」の◯◯は？",
+      "answerYakuId": "bug",
+      "decoyYakuIds": [
+        "hack",
+        "worm",
+        "spy"
+      ],
+      "type": "describe"
+    },
+    {
+      "id": "q_reg_2",
+      "question": "缶詰肉の商品名が、コントで連呼された場面から迷惑メールの意味になった言葉は？",
+      "answerYakuId": "reg",
+      "decoyYakuIds": [
+        "spy",
+        "worm",
+        "bug"
+      ],
+      "type": "describe"
+    },
+    {
+      "id": "q_reg_3",
+      "question": "ハワイ名物「◯◯むすび」は、四角い缶詰肉を焼いてご飯にのせたもの。◯◯は？",
+      "answerYakuId": "reg",
+      "decoyYakuIds": [
+        "spy",
+        "salt",
+        "dump"
+      ],
+      "type": "describe"
+    },
+    {
+      "id": "q_reg_4",
+      "question": "「スパイ」の最後の「イ」を「ム」に取り替えるとできる、迷惑メールの言葉は？",
+      "answerYakuId": "reg",
+      "decoyYakuIds": [
+        "spy",
+        "worm",
+        "shell"
+      ],
+      "type": "riddle"
+    },
+    {
+      "id": "q_reg_5",
+      "question": "迷惑メールの別名で、ジャンクメールとも呼ばれるものをカタカナ3文字で言うと？",
+      "answerYakuId": "reg",
+      "decoyYakuIds": [
+        "spy",
+        "worm",
+        "dump"
+      ],
+      "type": "alias"
+    },
+    {
+      "id": "q_reg_6",
+      "question": "迷惑メールを自動で別のフォルダへ分ける機能を「◯◯フィルター」という。◯◯は？",
+      "answerYakuId": "reg",
+      "decoyYakuIds": [
+        "spy",
+        "worm",
+        "salt"
+      ],
+      "type": "phrase"
+    },
+    {
+      "id": "q_spy_2",
+      "question": "「間者」や「密偵」とも呼ばれ、相手の秘密をこっそり探り出す者を何という？",
+      "answerYakuId": "spy",
+      "decoyYakuIds": [
+        "reg",
+        "worm",
+        "hack"
+      ],
+      "type": "alias"
+    },
+    {
+      "id": "q_spy_3",
+      "question": "料理の香辛料を表す「スパイス」から、最後の「ス」を取るとできる言葉は？",
+      "answerYakuId": "spy",
+      "decoyYakuIds": [
+        "reg",
+        "worm",
+        "salt"
+      ],
+      "type": "riddle"
+    },
+    {
+      "id": "q_spy_4",
+      "question": "よその会社の技術や秘密を盗み出す者を「産業◯◯」という。◯◯に入る言葉は？",
+      "answerYakuId": "spy",
+      "decoyYakuIds": [
+        "hack",
+        "reg",
+        "worm"
+      ],
+      "type": "phrase"
+    },
+    {
+      "id": "q_spy_5",
+      "question": "コードネーム007で知られるジェームズ・ボンドの職業をカタカナ3文字で言うと？",
+      "answerYakuId": "spy",
+      "decoyYakuIds": [
+        "hack",
+        "reg",
+        "shell"
+      ],
+      "type": "describe"
+    },
+    {
+      "id": "q_spy_6",
+      "question": "米国ドラマ「ミッション：インポッシブル」の昔の邦題「◯◯大作戦」の◯◯は？",
+      "answerYakuId": "spy",
+      "decoyYakuIds": [
+        "reg",
+        "worm",
+        "hack"
+      ],
+      "type": "phrase"
+    },
+    {
+      "id": "q_worm_2",
+      "question": "英語でミミズや芋虫のような、脚のない細長い虫を指す言葉をカタカナで言うと？",
+      "answerYakuId": "worm",
+      "decoyYakuIds": [
+        "bug",
+        "spy",
+        "reg"
+      ],
+      "type": "alias"
+    },
+    {
+      "id": "q_worm_3",
+      "question": "時空の離れた2点を結ぶとされる、仮説上の抜け道「◯◯ホール」の◯◯は？",
+      "answerYakuId": "worm",
+      "decoyYakuIds": [
+        "bug",
+        "spy",
+        "shell"
+      ],
+      "type": "phrase"
+    },
+    {
+      "id": "q_worm_4",
+      "question": "仕事を表す「ワーク」の最後の「ク」を「ム」に取り替えるとできる言葉は？",
+      "answerYakuId": "worm",
+      "decoyYakuIds": [
+        "reg",
+        "spy",
+        "hack"
+      ],
+      "type": "riddle"
+    },
+    {
+      "id": "q_worm_5",
+      "question": "1988年に米国で広がり、多くの計算機を止めた「モリス・◯◯」の◯◯は？",
+      "answerYakuId": "worm",
+      "decoyYakuIds": [
+        "bug",
+        "spy",
+        "reg"
+      ],
+      "type": "describe"
+    },
+    {
+      "id": "q_worm_6",
+      "question": "読書好きの「本の虫」を、英語では「ブック◯◯」という。◯◯に入る言葉は？",
+      "answerYakuId": "worm",
+      "decoyYakuIds": [
+        "bug",
+        "spy",
+        "reg"
+      ],
+      "type": "phrase"
     }
   ]
 }

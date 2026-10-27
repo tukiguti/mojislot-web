@@ -211,6 +211,479 @@
         "puramu",
         "moyashi"
       ]
+    },
+    {
+      "id": "q_okura_5",
+      "question": "数の単位の『億』の後ろに『ラ』を付けると、何という夏野菜になる？",
+      "answerYakuId": "okura",
+      "decoyYakuIds": [
+        "raichi",
+        "puramu",
+        "moyashi"
+      ],
+      "type": "riddle"
+    },
+    {
+      "id": "q_okura_6",
+      "question": "英語では『レディースフィンガー』とも呼ばれる、細長いさやの野菜は？",
+      "answerYakuId": "okura",
+      "decoyYakuIds": [
+        "serori",
+        "moyashi",
+        "nasu"
+      ],
+      "type": "alias"
+    },
+    {
+      "id": "q_okura_7",
+      "question": "和名を『アメリカネリ』という、夏に旬を迎える緑のさやの野菜は？",
+      "answerYakuId": "okura",
+      "decoyYakuIds": [
+        "serori",
+        "retasu",
+        "nasu"
+      ],
+      "type": "alias"
+    },
+    {
+      "id": "q_okura_8",
+      "question": "アオイ科の仲間で、ハイビスカスに似た花を咲かせる夏野菜は？",
+      "answerYakuId": "okura",
+      "decoyYakuIds": [
+        "nasu",
+        "serori",
+        "raichi"
+      ],
+      "type": "describe"
+    },
+    {
+      "id": "q_okura_9",
+      "question": "作品が公開されずにしまい込まれる『〇〇〇入り』と同じ音の野菜は？",
+      "answerYakuId": "okura",
+      "decoyYakuIds": [
+        "moyashi",
+        "retasu",
+        "serori"
+      ],
+      "type": "phrase"
+    },
+    {
+      "id": "q_okura_10",
+      "question": "塩をまぶしてこする『板ずり』でうぶ毛を取ってから調理する緑のさやの野菜は？",
+      "answerYakuId": "okura",
+      "decoyYakuIds": [
+        "serori",
+        "moyashi",
+        "nasu"
+      ],
+      "type": "describe"
+    },
+    {
+      "id": "q_moyashi_5",
+      "question": "頭の一文字を取ると、南の島に生える木『ヤシ』になる食材は？",
+      "answerYakuId": "moyashi",
+      "decoyYakuIds": [
+        "okura",
+        "raichi",
+        "retasu"
+      ],
+      "type": "riddle"
+    },
+    {
+      "id": "q_moyashi_6",
+      "question": "漢字で『萌やし』と書き、芽が萌え出ることが名前の由来の食材は？",
+      "answerYakuId": "moyashi",
+      "decoyYakuIds": [
+        "okura",
+        "serori",
+        "retasu"
+      ],
+      "type": "alias"
+    },
+    {
+      "id": "q_moyashi_7",
+      "question": "大豆から作ると、頭に黄色い豆がついたままの『豆〇〇〇』になる食材は？",
+      "answerYakuId": "moyashi",
+      "decoyYakuIds": [
+        "okura",
+        "serori",
+        "nasu"
+      ],
+      "type": "phrase"
+    },
+    {
+      "id": "q_moyashi_8",
+      "question": "韓国料理のナムルやビビンバによく使われる、白くて細い食材は？",
+      "answerYakuId": "moyashi",
+      "decoyYakuIds": [
+        "serori",
+        "retasu",
+        "okura"
+      ],
+      "type": "describe"
+    },
+    {
+      "id": "q_moyashi_9",
+      "question": "『燃やし』と同じ読み方をする、炒め物やラーメンでおなじみの食材は？",
+      "answerYakuId": "moyashi",
+      "decoyYakuIds": [
+        "okura",
+        "retasu",
+        "serori"
+      ],
+      "type": "riddle"
+    },
+    {
+      "id": "q_moyashi_10",
+      "question": "調理の前に細い根の『ひげ根』を取ると、見た目と食感がよくなる食材は？",
+      "answerYakuId": "moyashi",
+      "decoyYakuIds": [
+        "okura",
+        "serori",
+        "retasu"
+      ],
+      "type": "describe"
+    },
+    {
+      "id": "q_serori_5",
+      "question": "和名を『オランダミツバ』という、セリ科の香りの強い野菜は？",
+      "answerYakuId": "serori",
+      "decoyYakuIds": [
+        "retasu",
+        "okura",
+        "moyashi"
+      ],
+      "type": "alias"
+    },
+    {
+      "id": "q_serori_6",
+      "question": "春の七草『セリ』の真ん中に『ロ』を入れると、何という野菜になる？",
+      "answerYakuId": "serori",
+      "decoyYakuIds": [
+        "retasu",
+        "okura",
+        "moyashi"
+      ],
+      "type": "riddle"
+    },
+    {
+      "id": "q_serori_7",
+      "question": "玉ねぎやにんじんと刻んで炒め、西洋料理の香りの土台にする茎の野菜は？",
+      "answerYakuId": "serori",
+      "decoyYakuIds": [
+        "retasu",
+        "okura",
+        "nasu"
+      ],
+      "type": "describe"
+    },
+    {
+      "id": "q_serori_8",
+      "question": "山崎まさよしが作り、SMAPも歌ってヒットした曲の題名になった野菜は？",
+      "answerYakuId": "serori",
+      "decoyYakuIds": [
+        "retasu",
+        "moyashi",
+        "raichi"
+      ],
+      "type": "describe"
+    },
+    {
+      "id": "q_serori_9",
+      "question": "『セロ弾きのゴーシュ』のセロの後ろに『リ』を付けると何の野菜？",
+      "answerYakuId": "serori",
+      "decoyYakuIds": [
+        "retasu",
+        "okura",
+        "moyashi"
+      ],
+      "type": "riddle"
+    },
+    {
+      "id": "q_serori_10",
+      "question": "農林水産省の統計などで『セルリー』と書かれる、香りの強い野菜は？",
+      "answerYakuId": "serori",
+      "decoyYakuIds": [
+        "retasu",
+        "okura",
+        "moyashi"
+      ],
+      "type": "alias"
+    },
+    {
+      "id": "q_retasu_5",
+      "question": "ベーコン・トマトと一緒に挟むBLTサンドの『L』が表す野菜は？",
+      "answerYakuId": "retasu",
+      "decoyYakuIds": [
+        "serori",
+        "okura",
+        "moyashi"
+      ],
+      "type": "alias"
+    },
+    {
+      "id": "q_retasu_6",
+      "question": "シーザーサラダによく使う、葉が縦に長い『ロメイン〇〇〇』の〇〇〇は？",
+      "answerYakuId": "retasu",
+      "decoyYakuIds": [
+        "serori",
+        "okura",
+        "moyashi"
+      ],
+      "type": "phrase"
+    },
+    {
+      "id": "q_retasu_7",
+      "question": "頭の一文字を取ると、算数の『たす』になる葉っぱの野菜は？",
+      "answerYakuId": "retasu",
+      "decoyYakuIds": [
+        "serori",
+        "raichi",
+        "okura"
+      ],
+      "type": "riddle"
+    },
+    {
+      "id": "q_retasu_8",
+      "question": "キャベツに見た目が似ているが、実はキク科の仲間である葉野菜は？",
+      "answerYakuId": "retasu",
+      "decoyYakuIds": [
+        "serori",
+        "moyashi",
+        "okura"
+      ],
+      "type": "describe"
+    },
+    {
+      "id": "q_retasu_9",
+      "question": "焼肉を包んで食べる『サンチュ』も、実はこの野菜の仲間。何という？",
+      "answerYakuId": "retasu",
+      "decoyYakuIds": [
+        "serori",
+        "moyashi",
+        "okura"
+      ],
+      "type": "alias"
+    },
+    {
+      "id": "q_retasu_10",
+      "question": "逆さまから読むと『すたれ』になる、サラダでおなじみの葉野菜は？",
+      "answerYakuId": "retasu",
+      "decoyYakuIds": [
+        "serori",
+        "moyashi",
+        "nasu"
+      ],
+      "type": "riddle"
+    },
+    {
+      "id": "q_nasubi_3",
+      "question": "『秋〇〇は嫁に食わすな』ということわざの〇〇に入る野菜は？",
+      "answerYakuId": "nasu",
+      "decoyYakuIds": [
+        "okura",
+        "retasu",
+        "serori"
+      ],
+      "type": "phrase"
+    },
+    {
+      "id": "q_nasubi_4",
+      "question": "『親の意見と〇〇の花は千に一つも無駄がない』の〇〇に入る野菜は？",
+      "answerYakuId": "nasu",
+      "decoyYakuIds": [
+        "okura",
+        "serori",
+        "moyashi"
+      ],
+      "type": "phrase"
+    },
+    {
+      "id": "q_nasubi_5",
+      "question": "『瓜のつるに〇〇はならぬ』の〇〇に入る、紫色の夏野菜は？",
+      "answerYakuId": "nasu",
+      "decoyYakuIds": [
+        "okura",
+        "retasu",
+        "serori"
+      ],
+      "type": "phrase"
+    },
+    {
+      "id": "q_nasubi_6",
+      "question": "お盆に、きゅうりで作る馬と並べて飾る『牛』に使われる野菜は？",
+      "answerYakuId": "nasu",
+      "decoyYakuIds": [
+        "okura",
+        "serori",
+        "moyashi"
+      ],
+      "type": "describe"
+    },
+    {
+      "id": "q_reg_2",
+      "question": "チャップリンの映画の題名『〇〇〇ライト』の〇〇〇に入る言葉は？",
+      "answerYakuId": "reg",
+      "decoyYakuIds": [
+        "raichi",
+        "puramu",
+        "retasu"
+      ],
+      "type": "phrase"
+    },
+    {
+      "id": "q_reg_3",
+      "question": "ラップで韻を踏むことを指す言葉と同じ音の、緑色の柑橘は？",
+      "answerYakuId": "reg",
+      "decoyYakuIds": [
+        "raichi",
+        "puramu",
+        "serori"
+      ],
+      "type": "riddle"
+    },
+    {
+      "id": "q_reg_4",
+      "question": "アメリカのフロリダ州名物のパイ『キー〇〇〇パイ』に入る果物は？",
+      "answerYakuId": "reg",
+      "decoyYakuIds": [
+        "puramu",
+        "raichi",
+        "retasu"
+      ],
+      "type": "phrase"
+    },
+    {
+      "id": "q_reg_5",
+      "question": "黄緑に近い明るい緑を表す色の名前『〇〇〇グリーン』に入る言葉は？",
+      "answerYakuId": "reg",
+      "decoyYakuIds": [
+        "puramu",
+        "raichi",
+        "serori"
+      ],
+      "type": "phrase"
+    },
+    {
+      "id": "q_reg_6",
+      "question": "ベトナムのフォーやメキシコのタコスに絞って添えられる緑の柑橘は？",
+      "answerYakuId": "reg",
+      "decoyYakuIds": [
+        "raichi",
+        "puramu",
+        "serori"
+      ],
+      "type": "describe"
+    },
+    {
+      "id": "q_raichi_2",
+      "question": "漢字で『茘枝』と書き、レイシとも読まれる南国の果物は？",
+      "answerYakuId": "raichi",
+      "decoyYakuIds": [
+        "puramu",
+        "reg",
+        "okura"
+      ],
+      "type": "alias"
+    },
+    {
+      "id": "q_raichi_3",
+      "question": "ライオンの頭の二文字に、チーターの頭の一文字を足すと何の果物？",
+      "answerYakuId": "raichi",
+      "decoyYakuIds": [
+        "reg",
+        "puramu",
+        "retasu"
+      ],
+      "type": "riddle"
+    },
+    {
+      "id": "q_raichi_4",
+      "question": "中国南部が原産で、ムクロジ科に属する甘い香りの果物は？",
+      "answerYakuId": "raichi",
+      "decoyYakuIds": [
+        "puramu",
+        "reg",
+        "nasu"
+      ],
+      "type": "describe"
+    },
+    {
+      "id": "q_raichi_5",
+      "question": "でこぼこした赤い皮ごと凍らせ、シャーベットのように食べる果物は？",
+      "answerYakuId": "raichi",
+      "decoyYakuIds": [
+        "puramu",
+        "reg",
+        "nasu"
+      ],
+      "type": "describe"
+    },
+    {
+      "id": "q_raichi_6",
+      "question": "英語でlycheeと綴られる、白く半透明の果肉を持つ果物は？",
+      "answerYakuId": "raichi",
+      "decoyYakuIds": [
+        "puramu",
+        "reg",
+        "okura"
+      ],
+      "type": "alias"
+    },
+    {
+      "id": "q_puramu_2",
+      "question": "『くるみ割り人形』の金平糖の精は英語でシュガー〇〇〇の精。〇〇〇は？",
+      "answerYakuId": "puramu",
+      "decoyYakuIds": [
+        "raichi",
+        "reg",
+        "retasu"
+      ],
+      "type": "phrase"
+    },
+    {
+      "id": "q_puramu_3",
+      "question": "漢字で『李』と書く果物を、英語から来たカタカナの名前で言うと？",
+      "answerYakuId": "puramu",
+      "decoyYakuIds": [
+        "raichi",
+        "reg",
+        "nasu"
+      ],
+      "type": "alias"
+    },
+    {
+      "id": "q_puramu_4",
+      "question": "羊の肉『ラム』の前に『プ』を付けると、何の果物になる？",
+      "answerYakuId": "puramu",
+      "decoyYakuIds": [
+        "reg",
+        "raichi",
+        "okura"
+      ],
+      "type": "riddle"
+    },
+    {
+      "id": "q_puramu_5",
+      "question": "ソルダムや大石早生などの品種がある、夏に出回る甘酸っぱい果物は？",
+      "answerYakuId": "puramu",
+      "decoyYakuIds": [
+        "raichi",
+        "reg",
+        "nasu"
+      ],
+      "type": "describe"
+    },
+    {
+      "id": "q_puramu_6",
+      "question": "梅は英語で『ジャパニーズ〇〇〇』と訳されることがある。〇〇〇は？",
+      "answerYakuId": "puramu",
+      "decoyYakuIds": [
+        "raichi",
+        "reg",
+        "okura"
+      ],
+      "type": "alias"
     }
   ]
 }
