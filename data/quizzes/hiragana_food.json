@@ -6,127 +6,684 @@
       "id": "q_iwashi_1",
       "question": "群れで泳ぐ小型の青魚で、干せば目刺しや煮干しになる、漢字で「弱い魚」と書く魚は？",
       "answerYakuId": "iwashi",
-      "decoyYakuIds": ["sanma", "katsuo", "maguro"]
+      "decoyYakuIds": [
+        "sanma",
+        "katsuo",
+        "maguro"
+      ]
     },
     {
       "id": "q_iwashi_2",
       "question": "節分に柊の枝と一緒に玄関へ飾り、鬼を追い払うのに使われる魚は？",
       "answerYakuId": "iwashi",
-      "decoyYakuIds": ["sanma", "shake", "ebi"]
+      "decoyYakuIds": [
+        "sanma",
+        "shake",
+        "ebi"
+      ]
     },
     {
       "id": "q_iwashi_3",
       "question": "稚魚を釜揚げにすると「しらす」になる、背が青く腹が銀色の小魚は？",
       "answerYakuId": "iwashi",
-      "decoyYakuIds": ["katsuo", "maguro", "tarako"]
+      "decoyYakuIds": [
+        "katsuo",
+        "maguro",
+        "tarako"
+      ]
     },
     {
       "id": "q_iwashi_4",
       "question": "大群で泳ぎ、多くの魚や鳥や鯨に食べられて海の食物連鎖を支えている小魚は？",
       "answerYakuId": "iwashi",
-      "decoyYakuIds": ["sanma", "ebi", "reg"]
+      "decoyYakuIds": [
+        "sanma",
+        "ebi",
+        "reg"
+      ]
     },
     {
       "id": "q_sanma_1",
       "question": "秋に脂がのり、塩焼きに大根おろしを添えて食べる細長い青魚は？",
       "answerYakuId": "sanma",
-      "decoyYakuIds": ["iwashi", "katsuo", "shake"]
+      "decoyYakuIds": [
+        "iwashi",
+        "katsuo",
+        "shake"
+      ]
     },
     {
       "id": "q_sanma_2",
       "question": "漢字で「秋」「刀」「魚」と書く、秋の味覚を代表する魚は？",
       "answerYakuId": "sanma",
-      "decoyYakuIds": ["iwashi", "maguro", "tarako"]
+      "decoyYakuIds": [
+        "iwashi",
+        "maguro",
+        "tarako"
+      ]
     },
     {
       "id": "q_sanma_3",
       "question": "目黒を舞台にした落語で、殿様が炭火焼きの味を絶賛したことで知られる魚は？",
       "answerYakuId": "sanma",
-      "decoyYakuIds": ["katsuo", "shake", "reg"]
+      "decoyYakuIds": [
+        "katsuo",
+        "shake",
+        "reg"
+      ]
     },
     {
       "id": "q_sanma_4",
       "question": "内臓のほろ苦さも味わいのうちとされる、体が細長く銀色に光る秋の魚は？",
       "answerYakuId": "sanma",
-      "decoyYakuIds": ["iwashi", "maguro", "ebi"]
+      "decoyYakuIds": [
+        "iwashi",
+        "maguro",
+        "ebi"
+      ]
     },
     {
       "id": "q_katsuo_1",
       "question": "削って出汁をとる「節」に加工される、赤身の回遊魚は？",
       "answerYakuId": "katsuo",
-      "decoyYakuIds": ["maguro", "iwashi", "shake"]
+      "decoyYakuIds": [
+        "maguro",
+        "iwashi",
+        "shake"
+      ]
     },
     {
       "id": "q_katsuo_2",
       "question": "藁で表面を炙った「たたき」が高知の名物になっている魚は？",
       "answerYakuId": "katsuo",
-      "decoyYakuIds": ["maguro", "sanma", "tarako"]
+      "decoyYakuIds": [
+        "maguro",
+        "sanma",
+        "tarako"
+      ]
     },
     {
       "id": "q_katsuo_3",
       "question": "初夏に黒潮にのって北上するものを「初〜」と呼んで珍重する魚は？",
       "answerYakuId": "katsuo",
-      "decoyYakuIds": ["sanma", "shake", "ebi"]
+      "decoyYakuIds": [
+        "sanma",
+        "shake",
+        "ebi"
+      ]
     },
     {
       "id": "q_katsuo_4",
       "question": "背の縞模様が興奮すると浮き出る、たたきで知られる赤身の回遊魚は？",
       "answerYakuId": "katsuo",
-      "decoyYakuIds": ["iwashi", "maguro", "reg"]
+      "decoyYakuIds": [
+        "iwashi",
+        "maguro",
+        "reg"
+      ]
     },
     {
       "id": "q_maguro_1",
       "question": "寿司ネタで最も人気が高い、外洋を回遊する大型の赤身魚は？",
       "answerYakuId": "maguro",
-      "decoyYakuIds": ["katsuo", "shake", "sanma"]
+      "decoyYakuIds": [
+        "katsuo",
+        "shake",
+        "sanma"
+      ]
     },
     {
       "id": "q_maguro_2",
       "question": "腹の脂がのった部分を「とろ」と呼んで珍重する、大型の回遊魚は？",
       "answerYakuId": "maguro",
-      "decoyYakuIds": ["katsuo", "shake", "tarako"]
+      "decoyYakuIds": [
+        "katsuo",
+        "shake",
+        "tarako"
+      ]
     },
     {
       "id": "q_maguro_3",
       "question": "豊洲市場の初競りで一匹に億単位の値がつくことで知られる大型の魚は？",
       "answerYakuId": "maguro",
-      "decoyYakuIds": ["katsuo", "iwashi", "ebi"]
+      "decoyYakuIds": [
+        "katsuo",
+        "iwashi",
+        "ebi"
+      ]
     },
     {
       "id": "q_maguro_4",
       "question": "赤身・中とろ・大とろと部位で呼び分けて味わう、寿司屋の看板になる魚は？",
       "answerYakuId": "maguro",
-      "decoyYakuIds": ["shake", "sanma", "reg"]
+      "decoyYakuIds": [
+        "shake",
+        "sanma",
+        "reg"
+      ]
     },
     {
       "id": "q_ebi_1",
       "question": "曲がった背と長いひげを長寿に見立て、縁起物としておせちに入れる甲殻類は？",
       "answerYakuId": "ebi",
-      "decoyYakuIds": ["reg", "iwashi", "katsuo"]
+      "decoyYakuIds": [
+        "reg",
+        "iwashi",
+        "katsuo"
+      ]
     },
     {
       "id": "q_ebi_2",
       "question": "天ぷらでも寿司でも定番で、加熱すると鮮やかな赤色に変わる甲殻類は？",
       "answerYakuId": "ebi",
-      "decoyYakuIds": ["reg", "maguro", "tarako"]
+      "decoyYakuIds": [
+        "reg",
+        "maguro",
+        "tarako"
+      ]
     },
     {
       "id": "q_shake_1",
       "question": "川で生まれて海で育ち、産卵のため生まれた川へ戻ってくる、身が橙色の魚は？",
       "answerYakuId": "shake",
-      "decoyYakuIds": ["maguro", "katsuo", "sanma"]
+      "decoyYakuIds": [
+        "maguro",
+        "katsuo",
+        "sanma"
+      ]
     },
     {
       "id": "q_tarako_1",
       "question": "すけとうだらの卵巣を塩漬けにした、おにぎりの具の定番は？",
       "answerYakuId": "tarako",
-      "decoyYakuIds": ["ebi", "reg", "iwashi"]
+      "decoyYakuIds": [
+        "ebi",
+        "reg",
+        "iwashi"
+      ]
     },
     {
       "id": "q_reg_1",
       "question": "江戸前寿司の種で、茹でると紫がかった色になる、海老に似た形の甲殻類は？",
       "answerYakuId": "reg",
-      "decoyYakuIds": ["ebi", "tarako", "shake"]
+      "decoyYakuIds": [
+        "ebi",
+        "tarako",
+        "shake"
+      ]
+    },
+    {
+      "id": "q_iwashi_5",
+      "question": "ことわざ「〇〇の頭も信心から」の〇〇に入る、群れで泳ぐ小魚は？",
+      "answerYakuId": "iwashi",
+      "decoyYakuIds": [
+        "sanma",
+        "katsuo",
+        "tarako"
+      ],
+      "type": "phrase"
+    },
+    {
+      "id": "q_iwashi_6",
+      "question": "英語で「サーディン」と呼ばれ、オイル漬けの缶詰でもおなじみの小魚は？",
+      "answerYakuId": "iwashi",
+      "decoyYakuIds": [
+        "sanma",
+        "maguro",
+        "katsuo"
+      ],
+      "type": "alias"
+    },
+    {
+      "id": "q_iwashi_7",
+      "question": "石の大きな塊「いわ」の後ろに「し」を足すとできる、群れで泳ぐ青魚は？",
+      "answerYakuId": "iwashi",
+      "decoyYakuIds": [
+        "sanma",
+        "shake",
+        "katsuo"
+      ],
+      "type": "riddle"
+    },
+    {
+      "id": "q_iwashi_8",
+      "question": "秋の空に小さな雲が群れのように広がる「〇〇雲」。〇〇に入る魚は？",
+      "answerYakuId": "iwashi",
+      "decoyYakuIds": [
+        "sanma",
+        "maguro",
+        "shake"
+      ],
+      "type": "phrase"
+    },
+    {
+      "id": "q_iwashi_9",
+      "question": "おせち料理の田作りは、この魚の幼魚を干して甘辛く炒ったもの。何の魚？",
+      "answerYakuId": "iwashi",
+      "decoyYakuIds": [
+        "ebi",
+        "sanma",
+        "tarako"
+      ],
+      "type": "describe"
+    },
+    {
+      "id": "q_iwashi_10",
+      "question": "マ、カタクチ、ウルメと頭に名前を添えて種類を呼び分ける、青く小さな魚は？",
+      "answerYakuId": "iwashi",
+      "decoyYakuIds": [
+        "maguro",
+        "sanma",
+        "katsuo"
+      ],
+      "type": "describe"
+    },
+    {
+      "id": "q_sanma_5",
+      "question": "「〇〇が出ると按摩が引っ込む」ということわざで、〇〇に入る秋の魚は？",
+      "answerYakuId": "sanma",
+      "decoyYakuIds": [
+        "iwashi",
+        "katsuo",
+        "shake"
+      ],
+      "type": "phrase"
+    },
+    {
+      "id": "q_sanma_6",
+      "question": "数字の「三（さん）」と、すきまの「間（ま）」をつなげて読むとできる魚は？",
+      "answerYakuId": "sanma",
+      "decoyYakuIds": [
+        "maguro",
+        "iwashi",
+        "shake"
+      ],
+      "type": "riddle"
+    },
+    {
+      "id": "q_sanma_7",
+      "question": "英語で「パシフィック・ソーリー」と呼ばれる、細長く銀色に光る秋の魚は？",
+      "answerYakuId": "sanma",
+      "decoyYakuIds": [
+        "iwashi",
+        "shake",
+        "maguro"
+      ],
+      "type": "alias"
+    },
+    {
+      "id": "q_sanma_8",
+      "question": "体の中に胃を持たない魚として知られる、塩焼きが秋の定番の細長い魚は？",
+      "answerYakuId": "sanma",
+      "decoyYakuIds": [
+        "iwashi",
+        "katsuo",
+        "maguro"
+      ],
+      "type": "describe"
+    },
+    {
+      "id": "q_sanma_9",
+      "question": "紀州など関西の一部では「さいら」という別名で呼ばれてきた秋の魚は？",
+      "answerYakuId": "sanma",
+      "decoyYakuIds": [
+        "iwashi",
+        "shake",
+        "katsuo"
+      ],
+      "type": "alias"
+    },
+    {
+      "id": "q_sanma_10",
+      "question": "紀伊半島の熊野地方で、開いて酢でしめ、姿のまま寿司にする秋の魚は？",
+      "answerYakuId": "sanma",
+      "decoyYakuIds": [
+        "iwashi",
+        "maguro",
+        "shake"
+      ],
+      "type": "describe"
+    },
+    {
+      "id": "q_katsuo_5",
+      "question": "油断できない状況のたとえ「猫に〇〇節」。〇〇に入る魚は？",
+      "answerYakuId": "katsuo",
+      "decoyYakuIds": [
+        "maguro",
+        "iwashi",
+        "sanma"
+      ],
+      "type": "phrase"
+    },
+    {
+      "id": "q_katsuo_6",
+      "question": "勝負に「勝つ」の後ろに「お」をつけると現れる、赤身の回遊魚は？",
+      "answerYakuId": "katsuo",
+      "decoyYakuIds": [
+        "maguro",
+        "sanma",
+        "shake"
+      ],
+      "type": "riddle"
+    },
+    {
+      "id": "q_katsuo_7",
+      "question": "英語で「スキップジャック」と呼ばれ、黒潮にのって回遊する魚は？",
+      "answerYakuId": "katsuo",
+      "decoyYakuIds": [
+        "maguro",
+        "iwashi",
+        "sanma"
+      ],
+      "type": "alias"
+    },
+    {
+      "id": "q_katsuo_8",
+      "question": "縁起を担いで「勝男武士」という字を当てることもある、節の材料の魚は？",
+      "answerYakuId": "katsuo",
+      "decoyYakuIds": [
+        "maguro",
+        "sanma",
+        "iwashi"
+      ],
+      "type": "alias"
+    },
+    {
+      "id": "q_katsuo_9",
+      "question": "鹿児島県の枕崎市が、節の産地として全国に名を知られている魚は？",
+      "answerYakuId": "katsuo",
+      "decoyYakuIds": [
+        "maguro",
+        "iwashi",
+        "sanma"
+      ],
+      "type": "describe"
+    },
+    {
+      "id": "q_katsuo_10",
+      "question": "秋に南へ下る脂ののったものを「戻り〇〇」と呼んで喜ぶ魚は？",
+      "answerYakuId": "katsuo",
+      "decoyYakuIds": [
+        "sanma",
+        "maguro",
+        "shake"
+      ],
+      "type": "phrase"
+    },
+    {
+      "id": "q_maguro_5",
+      "question": "葱と一緒に煮る江戸の鍋「ねぎま」。その「ま」は何という魚のこと？",
+      "answerYakuId": "maguro",
+      "decoyYakuIds": [
+        "katsuo",
+        "iwashi",
+        "sanma"
+      ],
+      "type": "phrase"
+    },
+    {
+      "id": "q_maguro_6",
+      "question": "「まくろ」の二文字目の「く」に濁点をつけると現れる大型の魚は？",
+      "answerYakuId": "maguro",
+      "decoyYakuIds": [
+        "katsuo",
+        "sanma",
+        "shake"
+      ],
+      "type": "riddle"
+    },
+    {
+      "id": "q_maguro_7",
+      "question": "英語で「ツナ」、ハワイでは「アヒ」とも呼ばれる大型の赤身魚は？",
+      "answerYakuId": "maguro",
+      "decoyYakuIds": [
+        "katsuo",
+        "shake",
+        "sanma"
+      ],
+      "type": "alias"
+    },
+    {
+      "id": "q_maguro_8",
+      "question": "古くは「しび」という名でも呼ばれていた、寿司で人気の大型の赤身魚は？",
+      "answerYakuId": "maguro",
+      "decoyYakuIds": [
+        "katsuo",
+        "shake",
+        "iwashi"
+      ],
+      "type": "alias"
+    },
+    {
+      "id": "q_maguro_9",
+      "question": "酢飯の上に赤身の切り身をすき間なく並べた「鉄火丼」に使う魚は？",
+      "answerYakuId": "maguro",
+      "decoyYakuIds": [
+        "katsuo",
+        "shake",
+        "tarako"
+      ],
+      "type": "describe"
+    },
+    {
+      "id": "q_maguro_10",
+      "question": "近畿大学が卵から育てる完全養殖に世界で初めて成功した大型の魚は？",
+      "answerYakuId": "maguro",
+      "decoyYakuIds": [
+        "katsuo",
+        "shake",
+        "iwashi"
+      ],
+      "type": "describe"
+    },
+    {
+      "id": "q_ebi_3",
+      "question": "少しの元手で大きな得をするたとえ「〇〇で鯛を釣る」の〇〇は？",
+      "answerYakuId": "ebi",
+      "decoyYakuIds": [
+        "iwashi",
+        "reg",
+        "tarako"
+      ],
+      "type": "phrase"
+    },
+    {
+      "id": "q_ebi_4",
+      "question": "あいうえおの「え」と、ビー玉の「び」を並べてできる海の生き物は？",
+      "answerYakuId": "ebi",
+      "decoyYakuIds": [
+        "reg",
+        "iwashi",
+        "tarako"
+      ],
+      "type": "riddle"
+    },
+    {
+      "id": "q_ebi_5",
+      "question": "英語で「シュリンプ」や「プローン」と呼ばれる、殻をむいて食べる生き物は？",
+      "answerYakuId": "ebi",
+      "decoyYakuIds": [
+        "reg",
+        "tarako",
+        "shake"
+      ],
+      "type": "alias"
+    },
+    {
+      "id": "q_ebi_6",
+      "question": "体を後ろへ大きく弓なりに反らす姿勢を「〇〇反り」と言う。〇〇は？",
+      "answerYakuId": "ebi",
+      "decoyYakuIds": [
+        "reg",
+        "katsuo",
+        "sanma"
+      ],
+      "type": "phrase"
+    },
+    {
+      "id": "q_reg_2",
+      "question": "英語で「マンティス・シュリンプ」、カマキリの海老と呼ばれる甲殻類は？",
+      "answerYakuId": "reg",
+      "decoyYakuIds": [
+        "ebi",
+        "tarako",
+        "shake"
+      ],
+      "type": "alias"
+    },
+    {
+      "id": "q_reg_3",
+      "question": "車をしまっておく建物の「車庫」と同じ読み方をする、寿司種の甲殻類は？",
+      "answerYakuId": "reg",
+      "decoyYakuIds": [
+        "ebi",
+        "shake",
+        "tarako"
+      ],
+      "type": "riddle"
+    },
+    {
+      "id": "q_reg_4",
+      "question": "「しゃけ」の最後の一文字を「こ」に入れ替えると現れる甲殻類は？",
+      "answerYakuId": "reg",
+      "decoyYakuIds": [
+        "shake",
+        "tarako",
+        "ebi"
+      ],
+      "type": "riddle"
+    },
+    {
+      "id": "q_reg_5",
+      "question": "鎌のような前脚をすばやく繰り出し、貝殻を割るほどの力で獲物を打つ甲殻類は？",
+      "answerYakuId": "reg",
+      "decoyYakuIds": [
+        "ebi",
+        "tarako",
+        "shake"
+      ],
+      "type": "describe"
+    },
+    {
+      "id": "q_reg_6",
+      "question": "漢字では「蝦蛄」と書く、海底の砂や泥に穴を掘ってすむ甲殻類は？",
+      "answerYakuId": "reg",
+      "decoyYakuIds": [
+        "ebi",
+        "shake",
+        "tarako"
+      ],
+      "type": "alias"
+    },
+    {
+      "id": "q_shake_2",
+      "question": "英語では「サーモン」と呼ばれ、塩焼きやおにぎりの具でおなじみの魚は？",
+      "answerYakuId": "shake",
+      "decoyYakuIds": [
+        "maguro",
+        "tarako",
+        "sanma"
+      ],
+      "type": "alias"
+    },
+    {
+      "id": "q_shake_3",
+      "question": "北海道では秋に獲れるものを「秋味（あきあじ）」と呼んで喜ぶ魚は？",
+      "answerYakuId": "shake",
+      "decoyYakuIds": [
+        "sanma",
+        "katsuo",
+        "tarako"
+      ],
+      "type": "alias"
+    },
+    {
+      "id": "q_shake_4",
+      "question": "「しゃこ」の最後の一文字を「け」に入れ替えると現れる魚は？",
+      "answerYakuId": "shake",
+      "decoyYakuIds": [
+        "reg",
+        "tarako",
+        "ebi"
+      ],
+      "type": "riddle"
+    },
+    {
+      "id": "q_shake_5",
+      "question": "その卵を一粒ずつほぐして醤油などに漬けると「いくら」になる魚は？",
+      "answerYakuId": "shake",
+      "decoyYakuIds": [
+        "tarako",
+        "maguro",
+        "katsuo"
+      ],
+      "type": "describe"
+    },
+    {
+      "id": "q_shake_6",
+      "question": "年末の贈り物の定番「新巻〇〇」。塩をして丸ごと届けられる〇〇は？",
+      "answerYakuId": "shake",
+      "decoyYakuIds": [
+        "maguro",
+        "tarako",
+        "sanma"
+      ],
+      "type": "phrase"
+    },
+    {
+      "id": "q_tarako_2",
+      "question": "唐辛子などで味をつけると「明太子」と呼ばれるようになる魚卵は？",
+      "answerYakuId": "tarako",
+      "decoyYakuIds": [
+        "shake",
+        "ebi",
+        "reg"
+      ],
+      "type": "alias"
+    },
+    {
+      "id": "q_tarako_3",
+      "question": "冬が旬の魚「鱈（たら）」の後ろに「子」をつけて読む、粒々の食べ物は？",
+      "answerYakuId": "tarako",
+      "decoyYakuIds": [
+        "shake",
+        "reg",
+        "ebi"
+      ],
+      "type": "riddle"
+    },
+    {
+      "id": "q_tarako_4",
+      "question": "「こらた」を後ろから逆さに読むと現れる、粒々のおにぎりの具は？",
+      "answerYakuId": "tarako",
+      "decoyYakuIds": [
+        "reg",
+        "shake",
+        "ebi"
+      ],
+      "type": "riddle"
+    },
+    {
+      "id": "q_tarako_5",
+      "question": "バターや海苔と和えて、和風スパゲッティの定番になる粒々の魚卵は？",
+      "answerYakuId": "tarako",
+      "decoyYakuIds": [
+        "shake",
+        "ebi",
+        "reg"
+      ],
+      "type": "describe"
+    },
+    {
+      "id": "q_tarako_6",
+      "question": "赤く色づけたものは「もみじこ（紅葉子）」とも呼ばれる、塩漬けの魚卵は？",
+      "answerYakuId": "tarako",
+      "decoyYakuIds": [
+        "shake",
+        "reg",
+        "ebi"
+      ],
+      "type": "alias"
     }
   ]
 }

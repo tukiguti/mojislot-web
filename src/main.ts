@@ -122,6 +122,7 @@ import { showMissionToast } from './ui/MissionToast';
 import { SettingsOverlay, REEL_SPEED_KEY, clampReelSpeed } from './ui/SettingsOverlay';
 import { QUIZMASTER_SCALE, QuizmasterView } from './render/QuizmasterView';
 import { LcdBackground } from './render/LcdBackground';
+import { QuizPicker } from './productions/QuizPicker';
 import { pickLine, quizmasterFor, type Quizmaster } from './data/quizmasters';
 import { VoiceEngine } from './audio/VoiceEngine';
 import { sampleBank } from './audio/SampleBank';
@@ -382,6 +383,8 @@ export async function bootstrap() {
   let yakuList = buildYakuList(chapter.yakuData);
   const payout = PayoutSchema.parse(payoutDataRaw);
   let quizList = QuizListSchema.parse(chapter.quizData);
+  // 役ごとに問題を出し切るまで繰り返さない出題順（島を変えたら作り直す）
+  let quizPicker = new QuizPicker(quizList.quizzes);
   // 停止テーブル（第1停止＝実機のリール制御表）。手編集可・無ければ既定制御へフォールバック。
   let stopTable = new StopTableLookup(StopTableSchema.parse(chapter.stopData));
   // 演出レート・補助・フリーズ等の調整値（散在していた定数を集約）。data/tuning/default.json。
@@ -1164,7 +1167,7 @@ export async function bootstrap() {
       // 回答操作なし方式：まず問題だけを出し、答えの役を引き込み対象にする（操作はaim相当）。
       // 答えと成立結果は全停止後に QuizState.resolve() で表示する。
       const quiz = options.targetYaku
-        ? quizList.quizzes.find((q) => q.answerYakuId === options.targetYaku?.id)
+        ? quizPicker.pick(options.targetYaku.id)
         : null;
       if (quiz) quizState.reveal(quiz, yakuList);
       sfx.quiz();
@@ -2008,6 +2011,8 @@ export async function bootstrap() {
     resultEl.className = '';
     resultEl.classList.add('visible');
     if (cls !== 'none') resultEl.classList.add(cls);
+    // クイズの吹き出しは液晶いっぱいに出るので、出ている間は札を液晶の下端へ寄せて問題文に重ねない
+    if (quizState.phase.get() !== 'inactive') resultEl.classList.add('below');
     resultTimer = window.setTimeout(() => {
       resultEl.classList.remove('visible');
     }, 2500);
@@ -2630,6 +2635,7 @@ export async function bootstrap() {
     // 設定とリミックス上乗せは初回起動と同じ手順を通す（片方だけ抜けると静かにずれる）。
     yakuList = buildYakuList(chapter.yakuData);
     quizList = QuizListSchema.parse(chapter.quizData);
+    quizPicker = new QuizPicker(quizList.quizzes);
     stopTable = new StopTableLookup(StopTableSchema.parse(chapter.stopData));
     allRolesFlat = yakuList.internalRoles;
 

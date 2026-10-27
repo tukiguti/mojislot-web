@@ -359,6 +359,8 @@ export const QuizSchema = z.object({
   question: z.string(),
   answerYakuId: z.string(),
   decoyYakuIds: z.array(z.string()).length(3),
+  /** 問題の種類（説明・なぞなぞ・穴埋めとことわざ・英語や別名）。出題には使わない、作る時の目安 */
+  type: z.enum(['describe', 'riddle', 'phrase', 'alias']).optional(),
 });
 
 export const QuizListSchema = z.object({
