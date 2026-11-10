@@ -123,6 +123,7 @@ import { SettingsOverlay, REEL_SPEED_KEY, clampReelSpeed } from './ui/SettingsOv
 import { QUIZMASTER_SCALE, QuizmasterView } from './render/QuizmasterView';
 import { LcdBackground } from './render/LcdBackground';
 import { QuizPicker } from './productions/QuizPicker';
+import { forfeitsMissedBonus } from './productions/BonusForfeit';
 import { pickLine, quizmasterFor, type Quizmaster } from './data/quizmasters';
 import { VoiceEngine } from './audio/VoiceEngine';
 import { sampleBank } from './audio/SampleBank';
@@ -513,6 +514,8 @@ export async function bootstrap() {
   let currentShisaTier: ShisaTier | null = null;
   /** 示唆が「狙え！」へ発展済みか（1ゲーム1回だけ発展させる）。 */
   let shisaEscalated = false;
+  /** 示唆の吹き出しに並べた候補の数（1つなら狙う役が分かっている）。 */
+  let shisaCandidateCount = 0;
   /** 示唆が外れたことを既に伝えたか（1ゲーム1回だけ）。 */
   let shisaMissShown = false;
 
@@ -1319,12 +1322,14 @@ export async function bootstrap() {
     effectTargetYaku = effect === 'none' ? null : shown;
     const shisaTier =
       effect === 'shisa' && shown ? eligibility.pickTier(shown, Math.random) : null;
+    const shisaCandidates = shisaTier
+      ? eligibility.candidatesFor(shisaTier, activeInternalRoleState())
+      : undefined;
+    shisaCandidateCount = shisaCandidates?.length ?? 0;
     applyEffect(effect, {
       targetYaku: shown,
       shisaTier,
-      shisaCandidates: shisaTier
-        ? eligibility.candidatesFor(shisaTier, activeInternalRoleState())
-        : undefined,
+      shisaCandidates,
     });
   };
 
@@ -2975,23 +2980,37 @@ export async function bootstrap() {
           flagged &&
           (flagged.category === 'premium' || flagged.category === 'bonus')
         ) {
-          // 〔2026-09-09〕**演出の有無によらず持ち越す。** 実機のAタイプは
-          // ボーナスフラグが消えない——揃うまで持ち続ける。以前は演出の出ていた
-          // ゲームでこぼしたら権利ごと消していた（技術介入を出玉へ出すため）が、
-          // 機械の振る舞いとして無理があった。
-          heldBonusYaku = flagged;
-          // 〔2026-08-30〕**こぼした時点で確定ランプを点ける**（第3停止の少し後）。
-          // ボーナスフラグがあったのに揃わなかった＝取りこぼしたという事実は、
-          // その場で分かってよい。以前は無告知のまま持ち越し、リーチ目を読める人だけが
-          // 察知する形だったが、読めない人はフラグを抱えたまま延々と気づかなかった
-          // （初心者の持ち越しが1900ゲーム続いていた）。
-          //
-          // ただし**演出が出ていたゲームは抽選**（既定50%）。「何を狙えばいいか」は
-          // もう教えてあるので、そこへランプを重ねると告知が二重になる。
-          const announce =
-            currentEffect === 'none' ||
-            Math.random() < tuning.announceLamp.missAnnounceWithEffect;
-          if (announce) fireMissLamp(flagged.category === 'premium');
+          // 〔2026-11-10〕**狙う役を1つに絞って教えたのにこぼしたら、持ち越さない。**
+          // 狙え・クイズ、発展した示唆（候補1つの示唆も）で、その役が本当のフラグだった時。
+          // 持ち越すのは、無演出・候補が複数のまま発展しなかった示唆（BIG1・BIG2・REG の
+          // どれか分からない）・演出が別の役を指していた（矛盾）ゲームだけ。
+          // 判定は productions/BonusForfeit（シミュレーターと共通）。
+          // 〔2026-09-09〜11-10〕は演出の有無によらず持ち越していた。
+          const forfeit = forfeitsMissedBonus({
+            effect: currentEffect,
+            shownYakuId: effectTargetYaku?.id ?? null,
+            flaggedYakuId: flagged.id,
+            shisaEscalated,
+            shisaCandidateCount,
+          });
+          if (forfeit) {
+            heldBonusYaku = null;
+            heldBonusSpins = 0;
+          } else {
+            heldBonusYaku = flagged;
+            // 〔2026-08-30〕**こぼした時点で確定ランプを点ける**（第3停止の少し後）。
+            // ボーナスフラグがあったのに揃わなかった＝取りこぼしたという事実は、
+            // その場で分かってよい。以前は無告知のまま持ち越し、リーチ目を読める人だけが
+            // 察知する形だったが、読めない人はフラグを抱えたまま延々と気づかなかった
+            // （初心者の持ち越しが1900ゲーム続いていた）。
+            //
+            // ただし**演出が出ていたゲームは抽選**（既定50%）。候補や役名は出ているので、
+            // そこへランプを重ねると告知が二重になる。
+            const announce =
+              currentEffect === 'none' ||
+              Math.random() < tuning.announceLamp.missAnnounceWithEffect;
+            if (announce) fireMissLamp(flagged.category === 'premium');
+          }
         }
       }
       // 目印揃い（チャンス目・2026-10-12）。目印揃いの内部役でボーナスを

@@ -32,6 +32,7 @@ import { RUN_RULESET_VERSION } from '../../src/productions/RunHistory';
 import { StopTableLookup } from '../../src/core/StopTable';
 import { StopController } from '../../src/core/StopController';
 import { aimAnchors } from '../../src/core/PullInGuard';
+import { forfeitsMissedBonus } from '../../src/productions/BonusForfeit';
 import {
   PAYLINES,
   primaryRowIndexOf,
@@ -265,6 +266,8 @@ interface Result {
   shisaEscalated: number;
   /** 持ち越し中のゲーム数 */
   carriedSpins: number;
+  /** 狙う役を教えたのにボーナスをこぼし、権利が消えた回数 */
+  bonusForfeits: number;
   /** 目印揃いの内部役（リーチ目・チャンス目）を引いたゲーム数 */
   eyeRoles: number;
   /** そのうち目印が実際に揃ったゲーム数 */
@@ -477,7 +480,7 @@ function runChapter(
     loss: new Map<string, [number, number, number]>(),
     entryBy: new Map<string, number>(),
     shisaSpins: 0, shisaEscalated: 0, lampBonus: 0, cherryBonus: 0,
-    carriedSpins: 0, eyeRoles: 0, eyeHits: 0, eyeBonus: 0,
+    carriedSpins: 0, eyeRoles: 0, eyeHits: 0, eyeBonus: 0, bonusForfeits: 0,
   };
 
   let missStreak = 0;
@@ -718,8 +721,10 @@ function runChapter(
     // 示唆は「どれかな…？」＝プレイヤーは候補から1つを選んで狙う（正解は知らない）。
     // 発展（内部役の図柄が中段に来る）以降は、明かされた役を狙える。
     let shisaGuess: Yaku | null = null;
+    let shisaCandidateCount = 0;
     if (effect === 'shisa' && shisaTier && yaku) {
       const cands = eligibility.candidatesFor(shisaTier, state);
+      shisaCandidateCount = cands.length;
       shisaGuess = cands.length > 0 ? cands[Math.floor(rng() * cands.length)] : yaku;
     }
     // 〔2026-08-30〕**持ち越しは必ず気づく。** こぼした時点で確定ランプが点くので、
@@ -904,9 +909,19 @@ function runChapter(
       heldBonusYaku = null;
     } else if (!pendingBonus && !bonusActive && yaku &&
                (yaku.category === 'premium' || yaku.category === 'bonus')) {
-      // 〔2026-09-09〕**演出の有無によらず持ち越す**（main.ts と同じ）。実機の
-      // Aタイプはボーナスフラグが消えない。以前は演出の出ていたゲームでこぼしたら
-      // 権利ごと消していたので、ここも合わせて変えてある。
+      // 〔2026-11-10〕狙う役を1つに絞って教えたのにこぼしたら持ち越さない（main.ts と同じ・
+      // productions/BonusForfeit）。持ち越すのは無演出・候補が複数の示唆・矛盾のゲームだけ。
+      const forfeit = forfeitsMissedBonus({
+        effect,
+        shownYakuId: effect === 'none' ? null : (shownYaku?.id ?? null),
+        flaggedYakuId: yaku.id,
+        shisaEscalated: escalated,
+        shisaCandidateCount,
+      });
+      if (forfeit) {
+        heldBonusYaku = null;
+        res.bonusForfeits++;
+      } else {
       heldBonusYaku = yaku;
       heldSource = silent
         ? '後告知｜ランプ単独（第3停止の後）'
@@ -915,6 +930,7 @@ function runChapter(
           : delayed
             ? '後告知｜遅れが出てこぼした（ランプ）'
             : '後告知｜無演出でこぼした（ランプ）';
+      }
     }
     // チェリー重複：チェリーが実際に揃った時だけ抽選し、次ゲーム以降ボーナス確定。
     if (
@@ -1052,7 +1068,7 @@ describe.skipIf(!RUN)('出玉シミュレーション（新モデル）', () => 
       let bspins = 0, bigPay = 0, regPay = 0;
       let spins = 0;
       let shisaSpins = 0, shisaEsc = 0, lampB = 0, cherryB = 0, carS = 0, eyeR = 0, eyeH = 0, eyeB = 0;
-      let bMiss = 0, bSpill = 0, markC = 0, markH = 0;
+      let bMiss = 0, bSpill = 0, markC = 0, markH = 0, forfeits = 0;
       const spread: SkillSpread = { spins: 0, netSum: 0, netSqSum: 0, blockNets: [], loss: new Map(), entryBy: new Map() };
       spreads.set(skill.name, spread);
       CHAPTERS.forEach((ch, i) => {
@@ -1069,6 +1085,7 @@ describe.skipIf(!RUN)('出玉シミュレーション（新モデル）', () => 
         }
         bMiss += r.bonusMissSpins; bSpill += r.bonusSpillWins;
         markC += r.markAims; markH += r.markHits;
+        forfeits += r.bonusForfeits;
         bet += r.totalBet; win += r.totalWin;
         nbet += r.normalBet; nwin += r.normalWin;
         big += r.big; reg += r.reg;
@@ -1096,7 +1113,8 @@ describe.skipIf(!RUN)('出玉シミュレーション（新モデル）', () => 
         `${((eyeB / Math.max(1, big + reg)) * 100).toFixed(0).padStart(6)}% ` +
         `${((bMiss / Math.max(1, bspins)) * 100).toFixed(1).padStart(9)}% ` +
         `${((bSpill / Math.max(1, bMiss)) * 100).toFixed(1).padStart(5)}%` +
-        `  目印狙い ${markC}回中${markH}揃い(${((markH / Math.max(1, markC)) * 100).toFixed(0)}%)`,
+        `  目印狙い ${markC}回中${markH}揃い(${((markH / Math.max(1, markC)) * 100).toFixed(0)}%)` +
+        `  教わってこぼし消滅 ${forfeits}回`,
       );
     }
     console.log('\n===== 出玉シミュレーション（' + (NONE_MULT !== undefined ? 'none×' + NONE_MULT + '・' : '') + (STEP_BONUS_MULT !== 1 ? 'stepB×' + STEP_BONUS_MULT + '・' : '') + (STEP_ENTRY_MULT !== 1 ? 'stepE×' + STEP_ENTRY_MULT + '・' : '') + (BONUS_MULT !== undefined ? 'bonus×' + BONUS_MULT + '・' : '') + (OKAWARI_MULT !== 1 ? 'おかわり×' + OKAWARI_MULT + '・' : '') + (OKAWARI_BIG !== undefined || OKAWARI_REG !== undefined ? 'おかわり+' + (OKAWARI_BIG ?? 10) + 'G/+' + (OKAWARI_REG ?? 5) + 'G・' : '') + (BIG_SPINS !== undefined || REG_SPINS !== undefined ? 'BIG' + (BIG_SPINS ?? 10) + 'G/REG' + (REG_SPINS ?? 5) + 'G・' : '') + (COMBO_STEP > 0 ? COMBO_STEP + '連ごと+' + COMBO_ADD + 'G・' : '') + (ADDON_RATE > 0 ? '上乗せ' + Math.round(ADDON_RATE * 100) + '%(BB+' + ADDON_BIG + 'G/RB+' + ADDON_REG + 'G)・' : '') + (SETTING ? '設定' + SETTING + '・' : '') + SPINS + 'G/腕・全5章）=====\n' + lines.join('\n'));
