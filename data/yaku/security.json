@@ -110,8 +110,8 @@
       "kind": "miss",
       "displayYakuId": null,
       "rate": {
-        "default": 0.4294506244,
-        "rescue": 0.3298272834,
+        "default": 0.4249386244,
+        "rescue": 0.3212990334,
         "bonus": 0.0
       }
     },
@@ -170,8 +170,8 @@
       "kind": "reg",
       "displayYakuId": "reg",
       "rate": {
-        "default": 0.003929,
-        "rescue": 0.007802,
+        "default": 0.00687575,
+        "rescue": 0.0136535,
         "bonus": 0.175
       }
     },
@@ -180,8 +180,8 @@
       "kind": "big",
       "displayYakuId": "spy",
       "rate": {
-        "default": 0.000819,
-        "rescue": 0.00156,
+        "default": 0.00143325,
+        "rescue": 0.00273,
         "bonus": 0.029225
       }
     },
@@ -190,8 +190,8 @@
       "kind": "big",
       "displayYakuId": "spy",
       "rate": {
-        "default": 0.000449,
-        "rescue": 0.000449,
+        "default": 0.00078575,
+        "rescue": 0.00078575,
         "bonus": 0.0
       },
       "freeze": true
@@ -201,8 +201,8 @@
       "kind": "big",
       "displayYakuId": "worm",
       "rate": {
-        "default": 0.000819,
-        "rescue": 0.00156,
+        "default": 0.00143325,
+        "rescue": 0.00273,
         "bonus": 0.029225
       }
     },

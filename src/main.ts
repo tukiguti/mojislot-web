@@ -29,7 +29,6 @@ import { BonusSession } from './productions/BonusSession';
 import {
   applySetting,
   applySettingToEffects,
-  stepBonusMultiplier,
 } from './productions/MachineSetting';
 import { REMIX, applyRemixBoost } from './productions/RemixBoost';
 import { QuizStats } from './productions/QuizStats';
@@ -57,11 +56,7 @@ import { drawSignLamp, isSignLampMilestone, type SignLampLevel } from './product
 import { EffectEligibility } from './productions/EffectEligibility';
 import {
   STEP_LEVEL,
-  isStepTrigger,
-  pickChainLength,
-  pickStepBonus,
-  pickStepColor,
-  stepCapFor,
+  planStepUp,
   stepLevelAfterStop,
   type StepColor,
 } from './productions/StepUp';
@@ -112,7 +107,6 @@ import {
   setBlackoutLevel,
   clearBlackout,
   setStepFx,
-  setStepNext,
   clearFreezeBanner,
   showRankUpBadge,
 } from './ui/Effects';
@@ -989,18 +983,6 @@ export async function bootstrap() {
     spinMarks.add(key);
   };
   /**
-   * 前ゲームで終わったステップアップの帳簿のキー（終了色と連続演出の長さ）。
-   * **予告したゲーム＝このゲームの結果で採点する**ので持ち越す。
-   *
-   * ステップアップはレバーで光り、停止ごとに色が進み、決まった色が指すのは
-   * **次ゲーム**がボーナスかどうか。出たゲームの結果で数えると別の話になる。
-   * 〔2026-10-14〕以前はレバーで控えて同じゲームの全停止で採点しており、
-   * 予告していないゲーム（契機の小役のゲーム）の結果を数えていた。
-   */
-  let pendingStepKeys: string[] = [];
-  /** その持ち越しがデバッグの強制だったか。強制した回は帳簿へ入れない。 */
-  let pendingStepForced = false;
-  /**
    * このゲームでステップアップが走ったか。**演出率の母数に入れる**ために持つ。
    * `currentEffect` は none のままなので、これが無いと「画面いっぱいに色が出た
    * ゲーム」が無演出として数えられる（演出率は設定を読める唯一の数字なので、
@@ -1041,22 +1023,16 @@ export async function bootstrap() {
    */
   const setStep = (step: number) => setStepFx(step);
 
-  /**
-   * 走っているステップアップ。連続演出では複数ゲームにまたがって持ち越す。
-   * `game` は今何ゲーム目か（1始まり）、`length` は何ゲーム続くか。
-   */
+  /** このゲームのステップアップ（当たったゲームの中で完結する・2026-11-10）。 */
   interface StepRun {
+    /** 終了色（第3停止で出る）。 */
     color: StepColor;
-    length: number;
-    game: number;
     /** デバッグの予約で出したか。強制した回は帳簿へ入れない。 */
     forced: boolean;
-    /** 今の段。続いたゲームはここから始める。 */
+    /** 今の段。 */
     level: number;
   }
   let stepRun: StepRun | null = null;
-  /** デバッグ：次のステップアップの連続演出の長さ（null＝抽選どおり）。 */
-  let pendingStepChain: 1 | 2 | 3 | null = null;
   /** デバッグ：次のレバーで出す予兆。内部役は BIG に予約する。 */
   let pendingForcedOmen: OmenKind | null = null;
 
@@ -1071,21 +1047,15 @@ export async function bootstrap() {
     // 1ゲーム目は青から、続いたゲームは前のゲームで止まった段から始める
     onLever: (run) => setStep(run.level),
     onStop: (run, stopNo) => {
-      // 押した位置や出目では変わらない——チェリーを落としても予告は生きる
-      const next = stepLevelAfterStop(run.level, stopNo, stepCapFor(run.game, run.length, run.color));
+      // 押した位置や出目では変わらない。第3停止まで赤と金は見せない
+      const next = stepLevelAfterStop(run.level, stopNo, run.color);
       if (next <= run.level) return;
       run.level = next;
       setStep(next);
       sfx.stepUp(next);
     },
-    // 続くなら「つづく」を出す。最後のゲームで終了色が出るまで色は決まらない
-    onAllStop: (run) => setStepNext(run.game < run.length),
-    // 終了色は次のレバーまで残す。予告している当のゲームが始まるまで見えていないと、
-    // 何を待っているのか分からなくなる。続くゲームではレバーでもう一度始める
-    onEnd: () => {
-      setStepNext(false);
-      setStep(0);
-    },
+    // 終了色は次のレバーまで残す
+    onEnd: () => setStep(0),
   });
 
   /**
@@ -1328,25 +1298,16 @@ export async function bootstrap() {
     });
   };
 
-  /**
-   * 次ゲームの先読み。**ステップアップの終了色を決めるためだけ**に、
-   * 通常抽選と同じ手順で1ゲーム先の役と演出を引いておく。
-   *
-   * 抽選の順序が1ゲーム早まるだけなので**出玉は変わらない**。使われずに
-   * 捨てられることもあるが（ボーナス突入・デバッグ予約・持ち越しが挟まった時）、
-   * 独立抽選なので捨てても分布は動かない。捨てられた分は予告が外れる側に回る。
-   */
-  interface PreRoll {
+  interface RolledGame {
     role: InternalRoleResult;
     effect: EffectType;
   }
-  let preRoll: PreRoll | null = null;
   /**
-   * ステップアップを経由しない普通のゲーム。**BIG と REG は落とす**——
-   * ボーナスはステップアップ経由でしか出さないので、ここで引くと二重になる。
+   * 普通のゲームの抽選。〔2026-11-10〕通常抽選の BIG と REG を戻した。
+   * その一部はレバーONでステップアップ（目印揃いへ置き換え）に回る。
    */
-  const rollNormalGame = (): PreRoll => {
-    const role = withoutBonus(internalRoleLottery.draw(activeInternalRoleState()));
+  const rollNormalGame = (): RolledGame => {
+    const role = internalRoleLottery.draw(activeInternalRoleState());
     const yaku = internalRoleLottery.yakuFor(role);
     // miss / 1枚役（表示役なし）は none。それ以外は「表現できる演出＋無演出」から
     // レート抽選する。当たっているのに演出が出ない（＝狙えない）ゲームがここで生まれる。
@@ -1358,76 +1319,14 @@ export async function bootstrap() {
     return { role, effect };
   };
 
-  /**
-   * ステップアップの終了色を決める。**次ゲームで狙える形になるか**で見る。
-   *
-   * 「狙え」と「クイズ」は図柄を名指しする演出で、出れば取りこぼしがほぼ無い。
-   * 示唆は色しか出ないので候補が絞れず、ここでは予告の対象に含めない——
-   * 「金が出たのにBIGを落とした」が普通に起きると予告が信用されなくなる。
-   *
-   * どの色にもガセを混ぜる。確定にすると、赤や金が出た瞬間にそのゲームを打つ
-   * 意味が「消化」に変わる（[spec] 出たら意味があるが出なくても否定にならない）。
-   */
-  /**
-   * ステップアップの色と、次ゲームの中身。手続きと根拠は `productions/StepUp.ts`、
-   * 率は `tuning.stepUp`（sim も同じものを読む）。
-   */
+  /** ステップアップの率と色。手続きと根拠は `productions/StepUp.ts`（sim も同じものを読む）。 */
   const stepCfg = tuning.stepUp;
 
-  /**
-   * 通常抽選から BIG と REG を落とす（フリーズ役は残す）。
-   * 落とした分は miss へ回す——`roleFilter` で除くと確率が全役へ再配分されて
-   * 小役が増え、出玉が動く。
-   */
-  const missRole = internalRoleLottery.forRoleId('miss');
-  const withoutBonus = (role: InternalRoleResult): InternalRoleResult => {
-    // **ボーナス中は落とさない。** ここで落とすとおかわり（ボーナス中の再当選）が
-    // 消える。上乗せが出玉の主役なので、消すとBIG平均が半分以下になる。
-    if (bonusSession.spinActive) return role;
-    if (role.freeze) return role;
-    if (role.kind !== 'big' && role.kind !== 'reg') return role;
-    return missRole ?? role;
+  /** ボーナスの役を伴う目印揃いの内部役（ステップアップで置き換える先）。 */
+  const chanceRoleCarrying = (bonusYakuId: string): InternalRoleResult | null => {
+    const r = yakuList.internalRoles.find((x) => x.kind === 'chance' && x.carry === bonusYakuId);
+    return r ? internalRoleLottery.forRoleId(r.id) : null;
   };
-
-  /** 色から次ゲームを作る。 */
-  const buildPreRoll = (color: StepColor): PreRoll => {
-    // 設定差はここに乗る（演出の出方は変えず、繋がる率だけを動かす）。
-    const bonus = pickStepBonus(stepCfg, color, stepBonusMultiplier(machineSetting), Math.random);
-    if (bonus) {
-      const bigs = yakuList.premiumYaku;
-      const yaku =
-        bonus === 'big'
-          ? (bigs[Math.random() < 0.5 ? 0 : 1] ?? bigs[0])
-          : yakuList.bonusYaku[0];
-      if (yaku) {
-        // **ボーナスの告知は従来どおり。** ここで演出を必ず出すと、無演出で引く
-        // ボーナスが無くなって持ち越しが起きず、リーチ目と確定ランプが死ぬ。
-        return {
-          role: internalRoleLottery.forYaku(yaku),
-          effect: scheduler.rollAvailable(eligibility.eligibleEffects(yaku)),
-        };
-      }
-    }
-    // ボーナスでない場合は**必ず演出を出す**。緑や赤が出たのに何も起きずに
-    // 終わると、色を見た意味がなくなる（先告知）。
-    const role = internalRoleLottery.draw(activeInternalRoleState(), {
-      allowMiss: false,
-      roleFilter: (r, y) =>
-        r.kind !== 'big' && r.kind !== 'reg' && !r.freeze && y !== null,
-    });
-    const yaku = internalRoleLottery.yakuFor(role);
-    return {
-      role,
-      effect: yaku ? scheduler.rollForced(eligibility.eligibleEffects(yaku)) : 'none',
-    };
-  };
-
-  /**
-   * ステップアップの契機になる内部役か（チェリーと払い出しの大きい小役）。
-   * ここに入るのは `stepUp.entryRate` の割合だけ——全部で入れるとボーナスが14倍になる。
-   */
-  const stepTrigger = (role: InternalRoleResult): boolean =>
-    isStepTrigger(role.kind, internalRoleLottery.yakuFor(role)?.payout ?? 0, stepCfg);
 
   const drawDebugRole = (effect: ForcedEffect): InternalRoleResult =>
     internalRoleLottery.draw(activeInternalRoleState(), {
@@ -1890,14 +1789,11 @@ export async function bootstrap() {
       views[2].startTenpaiFlash(false);
       window.setTimeout(() => views[2].stopTenpaiFlash(), 2500);
     },
-    triggerNextStepUp: (color: StepColor, chain?: 1 | 2 | 3) => {
-      // 素の出現率はチャンス役の 5.5%、しかも色は 青45/緑35/赤18/金2 なので金は待てない。
-      // 連続演出は赤でも3ゲーム続くのが 1/7 なので、長さも指定できるようにする。
+    triggerNextStepUp: (color: StepColor) => {
+      // 青・緑はチェリー、赤・金はボーナス（目印揃い）のゲームとして出す
       pendingStepColor = color;
-      pendingStepChain = chain ?? null;
       const name = { blue: '青', green: '緑', red: '赤', gold: '金' }[color];
-      const len = chain && chain > 1 ? `・${chain}ゲーム連続` : '';
-      showResult(`ステップアップ（${name}${len}）を次のレバーに予約`, 'win');
+      showResult(`ステップアップ（${name}）を次のレバーに予約`, 'win');
     },
     triggerNextOmen: (kind: OmenKind) => {
       const big = yakuList.premiumYaku[0];
@@ -2281,18 +2177,7 @@ export async function bootstrap() {
     // 消していた（startSpin は下で呼ばれるので、点灯より後になる）。
     director.beginSpin();
 
-    // 連続演出の途中か。続くゲームでは先読み（予告するゲームの中身）を取り出さずに残す。
-    // 最後のゲームを終えた走りは、ここで役目を終える（このゲームが予告の対象）。
-    const stepContinuing = stepRun !== null && stepRun.game < stepRun.length;
-    if (!stepContinuing) stepRun = null;
-
-    // 先読みはここで取り出す。**通常抽選のブランチ以外に入れば捨てられる**——
-    // ボーナス突入やデバッグ予約が挟まった時に古い先読みを使うと、
-    // 予告した内容と実際の内部役が食い違う。
-    const pre = stepContinuing ? null : preRoll;
-    if (!stepContinuing) preRoll = null;
-    /** 連続演出を続けたか。通常抽選のブランチ以外に入ったら、走りごと捨てる。 */
-    let stepContinued = false;
+    stepRun = null;
 
     if (forcedFreezeRole) {
       activateRound(forcedFreezeRole, 'none', 'freeze');
@@ -2371,79 +2256,53 @@ export async function bootstrap() {
       });
       doFreeze = role.freeze;
       activateRound(role, 'none', doFreeze ? 'freeze' : 'lottery');
-    } else if (stepContinuing && stepRun && !bonusSession.spinActive) {
-      // 連続演出の途中のゲーム。予告するゲームはまだ先なので、普段どおり引く
-      // （BIG/REG は落ちる）。**演出は出さない**——ステップアップは画面全体を塗るので、
-      // 示唆と重ねると2つの色が同時に出る（ステップアップは単独で出す）。
-      const role = rollNormalGame().role;
-      doFreeze = role.freeze;
-      activateRound(role, 'none', doFreeze ? 'freeze' : 'lottery');
-      if (!doFreeze) {
-        stepRun.game++;
-        stepContinued = true;
-        stepRan = true;
-        director.start('stepUp', stepRun, { bonusActive: bonusSession.spinActive });
-      }
     } else {
-      // 前ゲームでステップアップが終わっていれば、その時に決めた役と演出をここで使う。
-      // 無ければ普段どおり引く（ただし BIG と REG は落とす——それはステップアップ
-      // 経由でしか出さない）。
-      const rolled = pre ?? rollNormalGame();
-      const role = rolled.role;
+      const rolled = rollNormalGame();
+      let role = rolled.role;
       // フリーズ役を引いた＝その場でBIG確定。演出は出さずフリーズシーケンスへ渡す。
       doFreeze = role.freeze;
 
-      // **チェリーと払い出しの大きい小役から、一部がステップアップへ入る。**
-      // 実機の「チャンス役から前兆」と同じ形。
-      //
-      // ボーナス中は出さない。次ゲームもボーナス中で、そこでは毎ゲーム演出が
-      // 出る（none=0）ので予告するものが無い。
-      // デバッグ予約は契機役かどうかを問わない（狙って出せないと確認にならない）。
-      //
-      // **入るかどうかを演出より先に決める。** 入るならこのゲームの演出は出さない
-      // ——ステップアップは画面全体を色で塗り、示唆も画面全体を色で塗るので、
-      // 重ねると**2つの色が同時に出て、どちらが何の話か読めなくなる**。しかも
-      // 示唆はこのゲーム、ステップアップは次ゲームの話で、軸まで違う。
-      // 遅れで一度やった判断と同じ（無演出のゲームでしか出さない）。
-      //
-      // **入る条件そのものは変えていない。** ここを絞るとステップアップが減り、
-      // BIG/REG はステップアップ経由でしか出ないので出玉ごと動いてしまう。
+      // **ステップアップ**（2026-11-10・productions/StepUp）。チェリーのゲームと、
+      // 通常抽選で BIG / REG を引いたゲームの一部で、このゲームの中で出す。
+      // ボーナスのゲームは内部役をそのボーナスを伴う目印揃いに置き換える——
+      // チェリーを狙うと目印が揃い、BIG を狙えばそのまま BIG も揃う。
+      // ボーナス中・フリーズでは出さない。出すならこのゲームの演出は出さない
+      // （ステップアップと示唆はどちらも画面全体を色で塗るので、重ねると読めない）。
       const forcedStep = pendingStepColor;
       pendingStepColor = null;
-      const forcedChain = pendingStepChain;
-      pendingStepChain = null;
-      const startStep =
-        !doFreeze &&
-        !bonusSession.spinActive &&
-        (forcedStep !== null ||
-          (stepTrigger(role) && Math.random() < stepCfg.entryRate));
+      let stepColor: StepColor | null = null;
+      if (!doFreeze && !bonusSession.spinActive) {
+        if (forcedStep) {
+          // デバッグ：青・緑はチェリー、赤・金はボーナス（金は BIG・赤は REG）のゲームにする
+          stepColor = forcedStep;
+          spinDebugForced = true;
+          if (forcedStep === 'red' || forcedStep === 'gold') {
+            const bonusYaku =
+              forcedStep === 'gold' ? yakuList.premiumYaku[0] : yakuList.bonusYaku[0];
+            const carried = bonusYaku ? chanceRoleCarrying(bonusYaku.id) : null;
+            if (carried) role = carried;
+          } else {
+            const cherry = yakuList.internalRoles.find((r) => r.kind === 'cherry');
+            if (cherry) role = internalRoleLottery.forRoleId(cherry.id) ?? role;
+          }
+        } else {
+          stepColor = planStepUp(stepCfg, role.kind, Math.random);
+          if (stepColor && (role.kind === 'big' || role.kind === 'reg') && role.yakuId) {
+            const carried = chanceRoleCarrying(role.yakuId);
+            if (carried) role = carried;
+            else stepColor = null;
+          }
+        }
+      }
 
-      // 〔2026-11-10〕チャンス目（ボーナスなし）のあとの外れの狙え・クイズは廃止した。
-      // 演出が指したボーナスは、正しく押して揃わなければ必ずボーナスにつながる。
-      const effect: EffectType = doFreeze || startStep ? 'none' : rolled.effect;
+      const effect: EffectType = doFreeze || stepColor ? 'none' : rolled.effect;
       activateRound(role, effect, doFreeze ? 'freeze' : 'lottery');
 
-      if (startStep) {
-        const color = forcedStep ?? pickStepColor(stepCfg, Math.random);
-        if (forcedStep !== null) spinDebugForced = true;
+      if (stepColor) {
         stepRan = true;
-        stepRun = {
-          color,
-          length: forcedChain ?? pickChainLength(stepCfg, color, Math.random),
-          game: 1,
-          forced: forcedStep !== null,
-          level: STEP_LEVEL.blue,
-        };
-        preRoll = buildPreRoll(color);
+        stepRun = { color: stepColor, forced: forcedStep !== null, level: STEP_LEVEL.blue };
         director.start('stepUp', stepRun, { bonusActive: bonusSession.spinActive });
       }
-    }
-
-    // 連続演出の途中で別のブランチ（ボーナス・確定ランプ・持ち越し・デバッグ予約・
-    // フリーズ）に入ったら、走りと先読みを捨てる。予告した相手が消えている
-    if (stepContinuing && !stepContinued) {
-      stepRun = null;
-      preRoll = null;
     }
 
     // 遅れ：レバーを叩いてもリールが回り出さない「間」。ハズレでは出さないので
@@ -2566,9 +2425,10 @@ export async function bootstrap() {
     if (role.kind === 'miss') return [];
     if (role.kind === 'single') return singleYakuIds;
     if (!role.yakuId) return [];
-    return bonusZone.isActive()
-      ? [role.yakuId, ...singleYakuIds]
-      : [role.yakuId];
+    // 目印揃いがボーナスを伴う時は、そのボーナスの役も揃えてよい（2026-11-10）。
+    // ステップアップでボーナスを狙えば、そのゲームで揃えて突入できる。
+    const ids = role.carryYakuId ? [role.yakuId, role.carryYakuId] : [role.yakuId];
+    return bonusZone.isActive() ? [...ids, ...singleYakuIds] : ids;
   };
 
   const currentInternalYaku = (): Yaku | null => {
@@ -3051,7 +2911,8 @@ export async function bootstrap() {
         for (const v of views) v.startTenpaiFlash(false);
         sfx.tenpaiPremium();
       }
-      if (carryYaku && !announcedBonus && !bonusZone.isActive()) {
+      // ボーナスをそのゲームで揃えた（生入り）なら持ち越さない
+      if (carryYaku && !isPremium && !isRegular && !announcedBonus && !bonusZone.isActive()) {
         heldBonusYaku = carryYaku;
         const isBig = carryYaku.category === 'premium';
         if (outcome.chanceEye) {
@@ -3127,23 +2988,6 @@ export async function bootstrap() {
       // 演出の帳簿。**通常時だけ**を母数にする（ボーナス中は必ず何か出るので、
       // 混ぜると率が動く）。デバッグで強制した回は数えない。
       //
-      // ステップアップは前ゲームから持ち越して**このゲームの結果**で採点する。
-      // あれが指しているのは次ゲームだから。ボーナス中に着地したら捨てる
-      // （予告した相手がボーナス消化になっていて、当たり外れを問えない）。
-      const carriedStep = pendingStepKeys;
-      const carriedForced = pendingStepForced;
-      pendingStepKeys = [];
-      pendingStepForced = false;
-      // このゲームで連続演出の最後のゲームを終えたなら、終了色と長さを次ゲームへ渡す
-      if (stepRan && stepRun && stepRun.game >= stepRun.length) {
-        pendingStepKeys = [
-          `step-${stepRun.color}`,
-          ...(stepRun.length >= 2 ? ['chain-2'] : []),
-          ...(stepRun.length >= 3 ? ['chain-3'] : []),
-        ];
-        pendingStepForced = stepRun.forced;
-      }
-
       if (!inBonusSpin) {
         const keys: string[] = [];
         if (!spinDebugForced) {
@@ -3155,9 +2999,16 @@ export async function bootstrap() {
           }
           keys.push(...spinMarks);
         }
-        if (!carriedForced) keys.push(...carriedStep);
         if (keys.length > 0) {
           effectTable.update(recordEffects(keys, isPremium || isRegular));
+        }
+        // ステップアップはこのゲームのボーナスの有無で採点する（揃えたかではなく、
+        // ボーナスを伴う内部役だったか）。
+        if (stepRan && stepRun && !stepRun.forced) {
+          const role = currentRound?.internalRole;
+          const withBonus =
+            !!role && (role.kind === 'big' || role.kind === 'reg' || !!role.carryYakuId);
+          effectTable.update(recordEffects([`step-${stepRun.color}`], withBonus));
         }
       }
 

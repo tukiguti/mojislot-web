@@ -322,25 +322,6 @@ export function setStepFx(step: number): void {
   el.classList.add('bump');
 }
 
-/**
- * 連続演出の「つづく」。ステップアップが次のゲームへ続く時、全停止で出して
- * 次のレバーまで残す。段の色（`setStepFx`）とは別の要素にしてある——段の要素は
- * 段ごとに薄くしてあるので、中に文字を置くと弱い段ほど読めなくなる。
- */
-let stepNextEl: HTMLElement | null = null;
-export function setStepNext(on: boolean): void {
-  if (!on) {
-    stepNextEl?.remove();
-    stepNextEl = null;
-    return;
-  }
-  if (stepNextEl) return;
-  const el = document.createElement('div');
-  el.className = 'step-next';
-  el.textContent = 'つづく';
-  effectHost.appendChild(el);
-  stepNextEl = el;
-}
 
 /**
  * ブラックアウト（筐体まるごとの暗転）。

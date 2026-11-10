@@ -12,18 +12,12 @@ import { YakuJudge } from '../../src/core/YakuJudge';
 import { PayoutCalc } from '../../src/core/PayoutCalc';
 import { RoundResolver } from '../../src/core/RoundResolver';
 import { EffectEligibility } from '../../src/productions/EffectEligibility';
-import {
-  isStepTrigger,
-  pickChainLength,
-  pickStepBonus,
-  pickStepColor,
-} from '../../src/productions/StepUp';
+import { planStepUp } from '../../src/productions/StepUp';
 import {
   applySetting,
   applySettingToEffects,
   scaleNone,
   scaleBonusRate,
-  stepBonusMultiplier,
   SETTINGS,
   type Setting,
 } from '../../src/productions/MachineSetting';
@@ -65,8 +59,6 @@ import {
  */
 
 const RUN = process.env.SIM === '1';
-/** 連続演出（ステップアップが複数ゲームへ続く）を入れて測るか。`CHAIN=0` で切る。 */
-const CHAIN_ON = process.env.CHAIN !== '0';
 /** リミックス島の上乗せを乗せて測る（覚え直しの取りこぼしは再現できないので上限値）。 */
 const REMIX_MODE = process.env.REMIX === '1';
 /**
@@ -89,18 +81,8 @@ const BONUS_MULT = process.env.BONUS_MULT ? Number(process.env.BONUS_MULT) : und
  */
 const BONUS_SCALE = process.env.BONUS_SCALE ? Number(process.env.BONUS_SCALE) : 1;
 /**
- * ボーナスは段階演出（ステップアップ）経由に一本化されているので、
- * `BONUS_MULT`（通常抽選の倍率）はもう機械割に効かない。設定差を載せ直す先の
- * 候補を測るための弁を2つ用意する。
- *
- * - `STEP_BONUS_MULT` … 色ごとのボーナス率（緑30/赤70/金100%）に掛ける。
- *   演出の出方も色の比も変わらず、**結果だけが変わる**
- * - `STEP_ENTRY_MULT` … 段階演出そのものの発生率（5.5%）に掛ける。
- *   分かりやすいが「今日は段階が多い＝高設定」という読み筋が増える
+ * - `STEP_ENTRY_MULT` … ステップアップの発生率（チェリーとボーナスのゲームで出す割合）に掛ける。
  */
-const STEP_BONUS_MULT = process.env.STEP_BONUS_MULT
-  ? Number(process.env.STEP_BONUS_MULT)
-  : 1;
 const STEP_ENTRY_MULT = process.env.STEP_ENTRY_MULT
   ? Number(process.env.STEP_ENTRY_MULT)
   : 1;
@@ -505,16 +487,11 @@ function runChapter(
    */
   // 率と手続きは main.ts と同じ tuning.stepUp / productions/StepUp.ts を読む
   // （以前は値を写していて、片方だけ直すと測っているモデルが実物とずれた）。
-  const stepCfg = tuning.stepUp;
-  const STEP_ENTRY_RATE = stepCfg.entryRate * STEP_ENTRY_MULT;
-  /**
-   * 次ゲームの予約。`bonus` があればそれ、無ければ「必ず演出」の小役ゲーム。
-   * `wait` は連続演出の残りのゲーム数（その間は無演出の普通のゲームで、予約は先へ送る）。
-   */
-  let stepNext: { bonus: 'big' | 'reg' | null; wait: number } | null = null;
-  let stepCount = 0;
-  let stepRed = 0;
-  let stepGold = 0;
+  const stepCfg = {
+    ...tuning.stepUp,
+    cherryRate: Math.min(1, tuning.stepUp.cherryRate * STEP_ENTRY_MULT),
+    bonusRate: Math.min(1, tuning.stepUp.bonusRate * STEP_ENTRY_MULT),
+  };
 
   /** 今の区間（BLOCK ゲーム）の差枚。 */
   let blockNet = 0;
@@ -559,53 +536,35 @@ function runChapter(
     const carried = !heldYaku && !bonusActive ? heldBonusYaku : null;
     const silent = !heldYaku && !carried && !bonusActive ? silentBonus : null;
     silentBonus = null;
-    // ステップアップの予約を消費する（通常抽選のブランチに来た時だけ）。
-    // 連続演出の途中なら予約は先へ送り、このゲームは無演出の普通のゲーム（main.ts と同じ）。
     const normalBranch = !heldYaku && !carried && !silent && !bonusActive;
-    const stepWaiting = normalBranch && stepNext !== null && stepNext.wait > 0;
-    const step = normalBranch && stepNext !== null && stepNext.wait === 0 ? stepNext : null;
-    if (stepWaiting && stepNext) stepNext.wait--;
-    else if (!bonusActive) stepNext = null;
-    /**
-     * ボーナスはステップアップ経由でしか出さないので通常抽選からは落とす（miss へ）。
-     * **ボーナス中は落とさない**——おかわり（ボーナス中の再当選）が消えると
-     * 上乗せが働かず、BIG平均が半分以下になる。
-     */
-    const dropBonus = (r: ReturnType<typeof lottery.draw>) =>
-      !bonusActive && !r.freeze && (r.kind === 'big' || r.kind === 'reg')
-        ? { ...r, roleId: 'miss', kind: 'miss' as const, yakuId: null, yakuName: null }
-        : r;
-    const stepBonusYaku =
-      step?.bonus === 'big'
-        ? (yakuList.premiumYaku[rng() < 0.5 ? 0 : 1] ?? yakuList.premiumYaku[0] ?? null)
-        : step?.bonus === 'reg'
-          ? (yakuList.bonusYaku[0] ?? null)
-          : null;
     let role = heldYaku
       ? lottery.forYaku(heldYaku)
       : carried
         ? lottery.forYaku(carried)
         : silent
           ? lottery.forYaku(silent)
-          : stepBonusYaku
-          ? lottery.forYaku(stepBonusYaku)
-          : step
-            ? // ステップアップの次でボーナスでない＝**必ず演出**が出る小役
-              lottery.draw(state, {
-                allowMiss: false,
-                roleFilter: (r, y) =>
-                  r.kind !== 'big' && r.kind !== 'reg' && !r.freeze && y !== null,
-              })
-            : dropBonus(lottery.draw(state));
-    // 連続演出の途中でフリーズを引いたら走りごと捨てる（main.ts と同じ）
-    if (stepWaiting && role.freeze) stepNext = null;
+          : lottery.draw(state);
+    // ステップアップ（main.ts と同じ・productions/StepUp）。チェリーとボーナスのゲームの一部で
+    // このゲームの中で出す。ボーナスのゲームは内部役をそのボーナスを伴う目印揃いに置き換える。
+    let stepColor: string | null = null;
+    if (normalBranch && !role.freeze) {
+      stepColor = planStepUp(stepCfg, role.kind, rng);
+      if (stepColor && (role.kind === 'big' || role.kind === 'reg') && role.yakuId) {
+        const carriedRole = yakuList.internalRoles.find(
+          (r) => r.kind === 'chance' && r.carry === role.yakuId,
+        );
+        if (carriedRole) role = lottery.forRoleId(carriedRole.id);
+        else stepColor = null;
+      }
+    }
+    const stepBonus = stepColor !== null && role.kind === 'chance';
     // 目印狙い（ボーナス中）：内部役を目印揃い（ボーナス無し）にして狙えを出す。main.ts と同じ規則。
     // 上乗せは次のゲームのレバーなので、残り1ゲームでは出さない
     const landmark = reelCfg.landmark ?? null;
     const markRole =
       bonusActive &&
       landmark !== null &&
-      !heldYaku && !carried && !silent && !stepBonusYaku &&
+      !heldYaku && !carried && !silent && !stepColor &&
       role.kind !== 'big' && role.kind !== 'reg' && !role.freeze &&
       markThisBonus < markMax &&
       bonusRemaining > 1 &&
@@ -627,12 +586,8 @@ function runChapter(
     let effect: 'none' | 'shisa' | 'quiz' | 'aim';
     if (heldYaku || carried || silent) {
       effect = 'none'; // 持ち越し中は無告知（出目＝リーチ目で察知する）
-    } else if (stepWaiting) {
-      effect = 'none'; // 連続演出の途中はステップアップだけを出す（単独で出す）
-    } else if (step && !stepBonusYaku && yaku) {
-      // 先告知：緑や赤が出たのに何も起きずに終わる拍子抜けを防ぐ（none を外す）
-      const cands = eligibility.eligibleEffects(yaku).filter((e) => e !== 'none');
-      effect = cands.length ? pickWeighted(cands, (e) => rates[e]) : 'none';
+    } else if (stepColor) {
+      effect = 'none'; // ステップアップは単独で出す（示唆と重ねない・main.ts と同じ）
     } else if (yaku) {
       // EffectScheduler.rollAvailable と同じ抽選（候補に none を足して重み付き）。
       // 乱数だけ再現性のある rng に差し替えている。
@@ -706,7 +661,9 @@ function runChapter(
       if (role.kind === 'miss') return [];
       if (role.kind === 'single') return singleIds;
       if (!role.yakuId) return [];
-      return bonusActive ? [role.yakuId, ...singleIds] : [role.yakuId];
+      // 目印揃いがボーナスを伴う時は、そのボーナスの役も揃えてよい（main.ts と同じ）
+      const ids = role.carryYakuId ? [role.yakuId, role.carryYakuId] : [role.yakuId];
+      return bonusActive ? [...ids, ...singleIds] : ids;
     };
     const singleSpill = (): boolean => role.kind === 'single';
 
@@ -880,10 +837,11 @@ function runChapter(
       res.eyeRoles++;
       if (hits.some((h) => h.yaku.category === 'chance')) res.eyeHits++;
       const carryYaku = role.carryYakuId ? (yakuById.get(role.carryYakuId) ?? null) : null;
-      if (carryYaku && !pendingBonus && !bonusActive && !heldBonusYaku) {
+      const bonusLinedUp = hits.some((h) => h.yaku.category === 'premium' || h.yaku.category === 'bonus');
+      if (carryYaku && !bonusLinedUp && !pendingBonus && !bonusActive && !heldBonusYaku) {
         heldBonusYaku = carryYaku;
         res.eyeBonus++;
-        heldSource = '先告知｜チャンス目';
+        heldSource = stepBonus ? '先告知｜ステップアップ（目印揃い）' : '先告知｜チャンス目';
       }
     }
     const isPremiumNow = hits.some((h) => h.yaku.category === 'premium');
@@ -927,27 +885,6 @@ function runChapter(
       pendingBonus = rng() < tuning.cherryBonus.bigRatio ? 'big' : 'reg';
       res.cherryBonus++;
       pendingSource = '後告知｜チェリー昇格（ランプ）';
-    }
-
-    // ステップアップ（前兆）へ入るか。契機役の一部だけが入り、色で次ゲームが決まる。
-    // ボーナス中と、すでに予約がある時は出さない。
-    if (!bonusActive && !stepNext && !heldYaku && !carried && !role.freeze) {
-      const trig = isStepTrigger(role.kind, yaku?.payout ?? 0, stepCfg);
-      if (trig && rng() < STEP_ENTRY_RATE) {
-        const color = pickStepColor(stepCfg, rng);
-        stepCount++;
-        if (color === 'red') stepRed++;
-        if (color === 'gold') stepGold++;
-        const bonus = pickStepBonus(
-          stepCfg,
-          color,
-          stepBonusMultiplier(setting) * STEP_BONUS_MULT,
-          rng,
-        );
-        // CHAIN=0 で連続演出を切って測る（乱数の消費も止めるので、切れば以前と同じ列になる）
-        const length = CHAIN_ON ? pickChainLength(stepCfg, color, rng) : 1;
-        stepNext = { bonus, wait: length - 1 };
-      }
     }
 
     streak = streakAfter;
@@ -994,9 +931,7 @@ function runChapter(
               ? '告知なし｜ランプ単独の回に先に揃った'
               : role.freeze
               ? '先告知｜フリーズ'
-              : step && stepBonusYaku
-                ? '先告知｜ステップアップの予告'
-                : effect !== 'none'
+              : effect !== 'none'
                   ? '先告知｜演出（狙え・示唆・クイズ）'
                   : delayed
                     ? '先告知｜遅れ'
@@ -1102,7 +1037,7 @@ describe.skipIf(!RUN)('出玉シミュレーション（新モデル）', () => 
         `  教わってこぼし消滅 ${forfeits}回`,
       );
     }
-    console.log('\n===== 出玉シミュレーション（' + (NONE_MULT !== undefined ? 'none×' + NONE_MULT + '・' : '') + (STEP_BONUS_MULT !== 1 ? 'stepB×' + STEP_BONUS_MULT + '・' : '') + (STEP_ENTRY_MULT !== 1 ? 'stepE×' + STEP_ENTRY_MULT + '・' : '') + (BONUS_MULT !== undefined ? 'bonus×' + BONUS_MULT + '・' : '') + (OKAWARI_MULT !== 1 ? 'おかわり×' + OKAWARI_MULT + '・' : '') + (OKAWARI_BIG !== undefined || OKAWARI_REG !== undefined ? 'おかわり+' + (OKAWARI_BIG ?? 10) + 'G/+' + (OKAWARI_REG ?? 5) + 'G・' : '') + (BIG_SPINS !== undefined || REG_SPINS !== undefined ? 'BIG' + (BIG_SPINS ?? 10) + 'G/REG' + (REG_SPINS ?? 5) + 'G・' : '') + (COMBO_STEP > 0 ? COMBO_STEP + '連ごと+' + COMBO_ADD + 'G・' : '') + (ADDON_RATE > 0 ? '上乗せ' + Math.round(ADDON_RATE * 100) + '%(BB+' + ADDON_BIG + 'G/RB+' + ADDON_REG + 'G)・' : '') + (SETTING ? '設定' + SETTING + '・' : '') + SPINS + 'G/腕・全5章）=====\n' + lines.join('\n'));
+    console.log('\n===== 出玉シミュレーション（' + (NONE_MULT !== undefined ? 'none×' + NONE_MULT + '・' : '') + (STEP_ENTRY_MULT !== 1 ? 'stepE×' + STEP_ENTRY_MULT + '・' : '') + (BONUS_MULT !== undefined ? 'bonus×' + BONUS_MULT + '・' : '') + (OKAWARI_MULT !== 1 ? 'おかわり×' + OKAWARI_MULT + '・' : '') + (OKAWARI_BIG !== undefined || OKAWARI_REG !== undefined ? 'おかわり+' + (OKAWARI_BIG ?? 10) + 'G/+' + (OKAWARI_REG ?? 5) + 'G・' : '') + (BIG_SPINS !== undefined || REG_SPINS !== undefined ? 'BIG' + (BIG_SPINS ?? 10) + 'G/REG' + (REG_SPINS ?? 5) + 'G・' : '') + (COMBO_STEP > 0 ? COMBO_STEP + '連ごと+' + COMBO_ADD + 'G・' : '') + (ADDON_RATE > 0 ? '上乗せ' + Math.round(ADDON_RATE * 100) + '%(BB+' + ADDON_BIG + 'G/RB+' + ADDON_REG + 'G)・' : '') + (SETTING ? '設定' + SETTING + '・' : '') + SPINS + 'G/腕・全5章）=====\n' + lines.join('\n'));
 
     // 「引き込みなし＝ビタ押し」の到達度。成立ゲームのうち貢献リールを何本自力で止めたか。
     const bita: string[] = [];
