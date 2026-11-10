@@ -572,28 +572,25 @@ const DEFAULT_DELAY = {
  *  - chain: 連続演出。2ゲーム目へ続く率と、2ゲーム目から3ゲーム目へ続く率。
  *    **強い色ほど続きやすくしてある**ので、続いたこと自体が本当に期待度を上げる
  */
-const StepColorTuningSchema = z.object({
-  rate: z.number().min(0).max(1),
-  bonusRate: z.number().min(0).max(1),
-  bigRate: z.number().min(0).max(1),
-  chain: z.object({
-    second: z.number().min(0).max(1),
-    third: z.number().min(0).max(1),
-  }),
+/** 色の振り分け（合計1）。 */
+const ColorWeightsSchema = z.object({
+  blue: z.number().nonnegative().optional(),
+  green: z.number().nonnegative().optional(),
+  red: z.number().nonnegative().optional(),
+  gold: z.number().nonnegative().optional(),
 });
 
 /**
  * ステップアップの既定。data/tuning が正、ここはフォールバック。値の根拠は
- * `productions/StepUp.ts` の冒頭。1回のステップアップから出るボーナスは 0.3855。
+ * `productions/StepUp.ts` の冒頭。
  */
 const DEFAULT_STEP_UP = {
-  entryRate: 0.055,
-  triggerMinPayout: 5,
-  colors: {
-    blue: { rate: 0.45, bonusRate: 0.12, bigRate: 0.15, chain: { second: 0, third: 0 } },
-    green: { rate: 0.35, bonusRate: 0.53, bigRate: 0.24, chain: { second: 0.1, third: 0.1 } },
-    red: { rate: 0.18, bonusRate: 0.7, bigRate: 0.35, chain: { second: 0.35, third: 0.4 } },
-    gold: { rate: 0.02, bonusRate: 1.0, bigRate: 0.92, chain: { second: 0.6, third: 0.8 } },
+  cherryRate: 0.2,
+  bonusRate: 0.5,
+  cherryColors: { blue: 0.6, green: 0.4 },
+  bonusColors: {
+    big: { red: 0.8, gold: 0.2 },
+    reg: { red: 0.95, gold: 0.05 },
   },
 };
 
@@ -861,22 +858,19 @@ export const TuningSchema = z.object({
     })
     .default(DEFAULT_DELAY),
   /**
-   * ステップアップ（段階演出）と、それを複数ゲームへ延ばす連続演出。
-   *
-   * 契機はチェリーと払い出し `triggerMinPayout` 枚以上の小役で、そのうち `entryRate`
-   * だけが入る。BIG/REG は通常抽選から落としてあり、ここ経由でしか出ない——
-   * **色の率を動かすとボーナス確率がそのまま動く。**
+   * ステップアップ（2026-11-10 に作り直し）。**当たったゲームの中で**、レバーで青、
+   * 第1・第2停止で緑まで、第3停止で終了色が出る。チェリーを狙う演出。
+   *  - cherryRate: チェリーのゲームで出す割合。終了色は cherryColors（青か緑）
+   *  - bonusRate: 通常抽選で BIG / REG を引いたゲームで出す割合。出すゲームは内部役を
+   *    そのボーナスを伴う目印揃い（チャンス目）に置き換え、終了色は bonusColors（赤か金）。
+   *    **赤以上ならボーナス確定。**
    */
   stepUp: z
     .object({
-      entryRate: z.number().min(0).max(1),
-      triggerMinPayout: z.number().int().nonnegative(),
-      colors: z.object({
-        blue: StepColorTuningSchema,
-        green: StepColorTuningSchema,
-        red: StepColorTuningSchema,
-        gold: StepColorTuningSchema,
-      }),
+      cherryRate: z.number().min(0).max(1),
+      bonusRate: z.number().min(0).max(1),
+      cherryColors: ColorWeightsSchema,
+      bonusColors: z.object({ big: ColorWeightsSchema, reg: ColorWeightsSchema }),
     })
     .default(DEFAULT_STEP_UP),
   /**

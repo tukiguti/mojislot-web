@@ -122,13 +122,12 @@
     }
   },
   "stepUp": {
-    "entryRate": 0.085,
-    "triggerMinPayout": 5,
-    "colors": {
-      "blue": { "rate": 0.45, "bonusRate": 0.12, "bigRate": 0.15, "chain": { "second": 0, "third": 0 } },
-      "green": { "rate": 0.35, "bonusRate": 0.53, "bigRate": 0.24, "chain": { "second": 0.1, "third": 0.1 } },
-      "red": { "rate": 0.18, "bonusRate": 0.7, "bigRate": 0.35, "chain": { "second": 0.35, "third": 0.4 } },
-      "gold": { "rate": 0.02, "bonusRate": 1.0, "bigRate": 0.92, "chain": { "second": 0.6, "third": 0.8 } }
+    "cherryRate": 0.2,
+    "bonusRate": 0.5,
+    "cherryColors": { "blue": 0.6, "green": 0.4 },
+    "bonusColors": {
+      "big": { "red": 0.8, "gold": 0.2 },
+      "reg": { "red": 0.95, "gold": 0.05 }
     }
   },
   "omen": {
