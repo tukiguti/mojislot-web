@@ -3174,7 +3174,8 @@ export async function bootstrap() {
         if (reachMiss) {
           sfx.miss();
           showResult('失敗', 'none');
-        } else if (!quizTargetYakuId) {
+        } else if (!quizTargetYakuId && !(stepRun && (stepRun.color === 'red' || stepRun.color === 'gold'))) {
+          // ステップアップで赤・金が出たゲームはボーナス確定なので「ハズレ」と言わない（2026-11-10）
           sfx.miss();
           showResult(win > 0 ? `1枚役 +${win}` : 'ハズレ', 'none');
         }
