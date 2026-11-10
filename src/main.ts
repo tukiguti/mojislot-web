@@ -2425,9 +2425,10 @@ export async function bootstrap() {
     if (role.kind === 'miss') return [];
     if (role.kind === 'single') return singleYakuIds;
     if (!role.yakuId) return [];
-    return bonusZone.isActive()
-      ? [role.yakuId, ...singleYakuIds]
-      : [role.yakuId];
+    // 目印揃いがボーナスを伴う時は、そのボーナスの役も揃えてよい（2026-11-10）。
+    // ステップアップでボーナスを狙えば、そのゲームで揃えて突入できる。
+    const ids = role.carryYakuId ? [role.yakuId, role.carryYakuId] : [role.yakuId];
+    return bonusZone.isActive() ? [...ids, ...singleYakuIds] : ids;
   };
 
   const currentInternalYaku = (): Yaku | null => {
@@ -2910,7 +2911,8 @@ export async function bootstrap() {
         for (const v of views) v.startTenpaiFlash(false);
         sfx.tenpaiPremium();
       }
-      if (carryYaku && !announcedBonus && !bonusZone.isActive()) {
+      // ボーナスをそのゲームで揃えた（生入り）なら持ち越さない
+      if (carryYaku && !isPremium && !isRegular && !announcedBonus && !bonusZone.isActive()) {
         heldBonusYaku = carryYaku;
         const isBig = carryYaku.category === 'premium';
         if (outcome.chanceEye) {

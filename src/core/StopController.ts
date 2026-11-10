@@ -99,6 +99,8 @@ export class StopController {
   private readonly bonusRoleIds: Set<string>;
   /** ボーナスの役ID。許可リストにこれがあればボーナスのフラグがある。 */
   private readonly bonusYakuIds: Set<string>;
+  /** BIG の役（目印テンパイで目印に届かない時に止める図柄の候補）。 */
+  private readonly premiumYakus: readonly Yaku[];
 
   constructor(deps: StopControllerDeps) {
     this.allYakus = [
@@ -122,13 +124,61 @@ export class StopController {
     this.bonusYakuIds = new Set(
       [...deps.yakuList.premiumYaku, ...deps.yakuList.bonusYaku].map((y) => y.id),
     );
+    this.premiumYakus = deps.yakuList.premiumYaku;
   }
 
   /** このリールのスベリコマ数（0..4）。 */
   resolveSlip(req: StopRequest): number {
     // フリーズ中は制御しない（強制セット位置へそのまま止める）。
     if (req.freeze) return 0;
-    return this.reachEye(req, this.baseSlip(req));
+    return this.markFallback(req, this.reachEye(req, this.baseSlip(req)));
+  }
+
+  /**
+   * **目印テンパイからのボーナス図柄**（2026-11-10）。目印揃いとボーナスが一緒に当たっている
+   * （`carry` のある目印揃い）時、最後のリールで目印に届かなければ、テンパイしていたラインに
+   * そのボーナスの図柄を止める。どこで押してもボーナスだと分かる出目にするため
+   * （ステップアップでチェリーを狙った時の右リール）。
+   *
+   * 何かが揃う止め方（目印・ボーナスの引き込み）は変えない。非当選役を揃える位置は選ばない。
+   * 停止テーブルもこの関数を通して焼くので、表を引いた結果に重ねても同じ値が返る。
+   */
+  private markFallback(req: StopRequest, slip: number): number {
+    if (!this.isFinalStop(req)) return slip;
+    const flagged = req.flagYakuIds
+      .map((id) => this.allYakus.find((y) => y.id === id))
+      .filter((y): y is Yaku => y !== undefined);
+    const mark = flagged.find((y) => y.category === 'chance');
+    const bonus = flagged.find((y) => this.bonusYakuIds.has(y.id));
+    if (!mark || !bonus) return slip;
+    const tp = this.tenpai.detect(req.stoppedVisibles);
+    if (!tp || tp.missingReelIndex !== req.reelIndex) return slip;
+    const markLines = tp.lines.filter((l) => l.yaku.id === mark.id);
+    if (markLines.length === 0) return slip;
+    // 止める図柄は、伴っているボーナスの図柄か BIG の図柄（どちらでもボーナスだと分かる）。
+    // 右リールは目印が1枚で、伴っているボーナスの図柄だけでは届かない押し方が多いので、
+    // BIG の図柄を全部候補にして届く押し方を増やす。
+    const syms = new Set(
+      [bonus, ...this.premiumYakus]
+        .map((y) => y.symbols[req.reelIndex])
+        .filter((v): v is string => v !== undefined),
+    );
+    if (syms.size === 0) return slip;
+
+    const ctx = this.ctxOf(req);
+    const n = req.strip.cells.length;
+    const posOf = (s: number) => (req.basePosition + s) % n;
+    // すでに当選役が揃う止め方なら触らない
+    if (this.slip.locksNonFlagAt({ ...ctx, exceptYakuIds: [] }, posOf(slip))) return slip;
+    const landsBonus = (pos: number) =>
+      markLines.some((l) => syms.has(visibleAt(req.strip.cells, pos, l.vertical)));
+    if (landsBonus(posOf(slip))) return slip;
+    for (let s = 0; s <= this.pullInCells; s++) {
+      const pos = posOf(s);
+      if (this.slip.locksNonFlagAt(ctx, pos)) continue;
+      if (landsBonus(pos)) return s;
+    }
+    return slip;
   }
 
   private ctxOf(req: StopRequest): SlipContext {

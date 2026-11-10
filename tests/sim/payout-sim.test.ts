@@ -661,7 +661,9 @@ function runChapter(
       if (role.kind === 'miss') return [];
       if (role.kind === 'single') return singleIds;
       if (!role.yakuId) return [];
-      return bonusActive ? [role.yakuId, ...singleIds] : [role.yakuId];
+      // 目印揃いがボーナスを伴う時は、そのボーナスの役も揃えてよい（main.ts と同じ）
+      const ids = role.carryYakuId ? [role.yakuId, role.carryYakuId] : [role.yakuId];
+      return bonusActive ? [...ids, ...singleIds] : ids;
     };
     const singleSpill = (): boolean => role.kind === 'single';
 
@@ -835,7 +837,8 @@ function runChapter(
       res.eyeRoles++;
       if (hits.some((h) => h.yaku.category === 'chance')) res.eyeHits++;
       const carryYaku = role.carryYakuId ? (yakuById.get(role.carryYakuId) ?? null) : null;
-      if (carryYaku && !pendingBonus && !bonusActive && !heldBonusYaku) {
+      const bonusLinedUp = hits.some((h) => h.yaku.category === 'premium' || h.yaku.category === 'bonus');
+      if (carryYaku && !bonusLinedUp && !pendingBonus && !bonusActive && !heldBonusYaku) {
         heldBonusYaku = carryYaku;
         res.eyeBonus++;
         heldSource = stepBonus ? '先告知｜ステップアップ（目印揃い）' : '先告知｜チャンス目';

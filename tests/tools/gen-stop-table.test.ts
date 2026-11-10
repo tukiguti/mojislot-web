@@ -66,7 +66,9 @@ export function flagYakusFor(yakuList: YakuList, flagKey: string): Yaku[] {
   const role = yakuList.internalRoles.find((r) => r.id === flagKey);
   const id = role?.displayYakuId ?? flagKey;
   const y = all.find((v) => v.id === id);
-  return y ? [y] : [];
+  // 目印揃いがボーナスを伴う時は、そのボーナスの役も揃えてよい（main.ts と同じ・2026-11-10）
+  const carry = role?.carry ? all.find((v) => v.id === role.carry) : undefined;
+  return [y, carry].filter((v): v is Yaku => v !== undefined);
 }
 
 /**
@@ -222,11 +224,16 @@ export function buildFirstStopTable(
       return Array.from({ length: n }, (_, press) => {
         // 引き込み保証を最優先し、同じ保証度なら段の振り分け順で選ぶ。
         const order = ORDERS_G[press % ORDERS_G.length];
-        const sym0 = targets[0]?.symbols[reel];
+        // 段の振り分けは候補の役すべてで見る（目印揃い＋ボーナスのように2役ある時、
+        // 1つ目だけで見るともう一方の役を普通の当選と違う段に止めてしまう・2026-11-10）
         const prefer = (s: number): number => {
-          const r = rowOfSlip(reel, press, s, sym0);
-          const i = r === null ? order.length : order.indexOf(r);
-          return i < 0 ? order.length : i;
+          let best = order.length;
+          for (const t of targets) {
+            const r = rowOfSlip(reel, press, s, t.symbols[reel]);
+            const i = r === null ? order.length : order.indexOf(r);
+            if (i >= 0 && i < best) best = i;
+          }
+          return best;
         };
         const stops0: (number | null)[] = [null, null, null];
         const guarded =
