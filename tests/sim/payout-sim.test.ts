@@ -512,8 +512,6 @@ function runChapter(
    * `wait` は連続演出の残りのゲーム数（その間は無演出の普通のゲームで、予約は先へ送る）。
    */
   let stepNext: { bonus: 'big' | 'reg' | null; wait: number } | null = null;
-  /** ボーナスの無いチャンス目のあと、次ゲームで外れの狙え（BIG）を出すか（main.ts の fakeFollow）。 */
-  let fakeNext = false;
   let stepCount = 0;
   let stepRed = 0;
   let stepGold = 0;
@@ -649,15 +647,9 @@ function runChapter(
     if (markRole) effect = 'aim';
     // 狙えの対象の差し替え（main.ts と同じ）。打ち手は差し替えた役を狙うので、本当の
     // フラグの役を取りこぼすことがある。
-    //  - チャンス目（ボーナスなし）のあとの外れの狙え：対象は BIG（クイズも狙え扱い）
     //  - 矛盾 5.1：通常時のボーナスのゲームの演出（狙え・示唆・クイズ）の一部は、小役を指す
     let decoyAim: Yaku | null = null;
-    const fakeNow = fakeNext;
-    fakeNext = false;
-    if (fakeNow && !heldYaku && !carried && !step && !stepWaiting && !bonusActive) {
-      effect = 'aim';
-      decoyAim = yakuList.premiumYaku[0] ?? null;
-    } else if (
+    if (
       effect !== 'none' && yaku && !bonusActive &&
       (yaku.category === 'premium' || yaku.category === 'bonus') &&
       rng() < tuning.contradiction.decoyRate
@@ -892,13 +884,6 @@ function runChapter(
         heldBonusYaku = carryYaku;
         res.eyeBonus++;
         heldSource = '先告知｜チャンス目';
-      }
-      if (
-        !carryYaku && !pendingBonus && !bonusActive && !heldBonusYaku &&
-        hits.some((h) => h.yaku.category === 'chance') &&
-        rng() < tuning.chanceEye.fakeFollowRate
-      ) {
-        fakeNext = true;
       }
     }
     const isPremiumNow = hits.some((h) => h.yaku.category === 'premium');
