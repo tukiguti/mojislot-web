@@ -123,6 +123,7 @@ import { SettingsOverlay, REEL_SPEED_KEY, clampReelSpeed } from './ui/SettingsOv
 import { QUIZMASTER_SCALE, QuizmasterView } from './render/QuizmasterView';
 import { LcdBackground } from './render/LcdBackground';
 import { QuizPicker } from './productions/QuizPicker';
+import { forfeitsMissedBonus } from './productions/BonusForfeit';
 import { pickLine, quizmasterFor, type Quizmaster } from './data/quizmasters';
 import { VoiceEngine } from './audio/VoiceEngine';
 import { sampleBank } from './audio/SampleBank';
@@ -513,6 +514,8 @@ export async function bootstrap() {
   let currentShisaTier: ShisaTier | null = null;
   /** 示唆が「狙え！」へ発展済みか（1ゲーム1回だけ発展させる）。 */
   let shisaEscalated = false;
+  /** 示唆の吹き出しに並べた候補の数（1つなら狙う役が分かっている）。 */
+  let shisaCandidateCount = 0;
   /** 示唆が外れたことを既に伝えたか（1ゲーム1回だけ）。 */
   let shisaMissShown = false;
 
@@ -591,11 +594,6 @@ export async function bootstrap() {
    * 持ち越し中は普段は演出を出さない（none）が、チャンス目から進んだ時だけ出す。
    */
   let chanceFollow: 'aim' | 'quiz' | null = null;
-  /**
-   * ボーナスの無いチャンス目のあと、次ゲームで出す**外れの**狙え・クイズ（2026-10-13）。
-   * 内部役は普段どおり引き、狙え・クイズの対象だけを BIG にする。BIG のフラグは無いので揃わない。
-   */
-  let fakeFollow: 'aim' | 'quiz' | null = null;
   /** 持ち越しが始まってからのゲーム数。 */
   let heldBonusSpins = 0;
 
@@ -1319,12 +1317,14 @@ export async function bootstrap() {
     effectTargetYaku = effect === 'none' ? null : shown;
     const shisaTier =
       effect === 'shisa' && shown ? eligibility.pickTier(shown, Math.random) : null;
+    const shisaCandidates = shisaTier
+      ? eligibility.candidatesFor(shisaTier, activeInternalRoleState())
+      : undefined;
+    shisaCandidateCount = shisaCandidates?.length ?? 0;
     applyEffect(effect, {
       targetYaku: shown,
       shisaTier,
-      shisaCandidates: shisaTier
-        ? eligibility.candidatesFor(shisaTier, activeInternalRoleState())
-        : undefined,
+      shisaCandidates,
     });
   };
 
@@ -2293,9 +2293,6 @@ export async function bootstrap() {
     if (!stepContinuing) preRoll = null;
     /** 連続演出を続けたか。通常抽選のブランチ以外に入ったら、走りごと捨てる。 */
     let stepContinued = false;
-    // 外れの狙え・クイズは直後の1ゲームだけ（通常抽選のブランチで使う）。ここで取り出して消す
-    const fakeFollowNow = fakeFollow;
-    fakeFollow = null;
 
     if (forcedFreezeRole) {
       activateRound(forcedFreezeRole, 'none', 'freeze');
@@ -2421,13 +2418,10 @@ export async function bootstrap() {
         (forcedStep !== null ||
           (stepTrigger(role) && Math.random() < stepCfg.entryRate));
 
-      // チャンス目（ボーナスなし）のあとの外れの狙え・クイズ。対象は BIG に差し替える。
-      // 予告したゲーム（先読み）には重ねない——予告した中身を上書きしてしまう
-      const fake =
-        !doFreeze && !startStep && !bonusSession.spinActive && !pre ? fakeFollowNow : null;
-      const fakeTarget = fake ? (yakuList.premiumYaku[0] ?? null) : null;
-      const effect: EffectType = doFreeze || startStep ? 'none' : (fake ?? rolled.effect);
-      activateRound(role, effect, doFreeze ? 'freeze' : 'lottery', fakeTarget);
+      // 〔2026-11-10〕チャンス目（ボーナスなし）のあとの外れの狙え・クイズは廃止した。
+      // 演出が指したボーナスは、正しく押して揃わなければ必ずボーナスにつながる。
+      const effect: EffectType = doFreeze || startStep ? 'none' : rolled.effect;
+      activateRound(role, effect, doFreeze ? 'freeze' : 'lottery');
 
       if (startStep) {
         const color = forcedStep ?? pickStepColor(stepCfg, Math.random);
@@ -2975,23 +2969,40 @@ export async function bootstrap() {
           flagged &&
           (flagged.category === 'premium' || flagged.category === 'bonus')
         ) {
-          // 〔2026-09-09〕**演出の有無によらず持ち越す。** 実機のAタイプは
-          // ボーナスフラグが消えない——揃うまで持ち続ける。以前は演出の出ていた
-          // ゲームでこぼしたら権利ごと消していた（技術介入を出玉へ出すため）が、
-          // 機械の振る舞いとして無理があった。
-          heldBonusYaku = flagged;
-          // 〔2026-08-30〕**こぼした時点で確定ランプを点ける**（第3停止の少し後）。
-          // ボーナスフラグがあったのに揃わなかった＝取りこぼしたという事実は、
-          // その場で分かってよい。以前は無告知のまま持ち越し、リーチ目を読める人だけが
-          // 察知する形だったが、読めない人はフラグを抱えたまま延々と気づかなかった
-          // （初心者の持ち越しが1900ゲーム続いていた）。
-          //
-          // ただし**演出が出ていたゲームは抽選**（既定50%）。「何を狙えばいいか」は
-          // もう教えてあるので、そこへランプを重ねると告知が二重になる。
-          const announce =
-            currentEffect === 'none' ||
-            Math.random() < tuning.announceLamp.missAnnounceWithEffect;
-          if (announce) fireMissLamp(flagged.category === 'premium');
+          // 〔2026-11-10〕**狙う役を1つに絞って教えたのにこぼしたら、持ち越さない。**
+          // 狙え・クイズ、発展した示唆（候補1つの示唆も）で、その役が本当のフラグだった時。
+          // 持ち越すのは、無演出・候補が複数のまま発展しなかった示唆（BIG1・BIG2・REG の
+          // どれか分からない）・演出が別の役を指していた（矛盾）ゲームだけ。
+          // 判定は productions/BonusForfeit（シミュレーターと共通）。
+          // 〔2026-09-09〜11-10〕は演出の有無によらず持ち越していた。
+          // すでに持っているボーナス（取りこぼしの持ち越し・チャンス目）は消さない。
+          // チャンス目の次ゲームの狙え・クイズは、権利を持った後の案内なので外しても残る。
+          const alreadyHeld = currentRound?.source === 'held-bonus';
+          const forfeit = !alreadyHeld && forfeitsMissedBonus({
+            effect: currentEffect,
+            shownYakuId: effectTargetYaku?.id ?? null,
+            flaggedYakuId: flagged.id,
+            shisaEscalated,
+            shisaCandidateCount,
+          });
+          if (forfeit) {
+            heldBonusYaku = null;
+            heldBonusSpins = 0;
+          } else {
+            heldBonusYaku = flagged;
+            // 〔2026-08-30〕**こぼした時点で確定ランプを点ける**（第3停止の少し後）。
+            // ボーナスフラグがあったのに揃わなかった＝取りこぼしたという事実は、
+            // その場で分かってよい。以前は無告知のまま持ち越し、リーチ目を読める人だけが
+            // 察知する形だったが、読めない人はフラグを抱えたまま延々と気づかなかった
+            // （初心者の持ち越しが1900ゲーム続いていた）。
+            //
+            // ただし**演出が出ていたゲームは抽選**（既定50%）。候補や役名は出ているので、
+            // そこへランプを重ねると告知が二重になる。
+            const announce =
+              currentEffect === 'none' ||
+              Math.random() < tuning.announceLamp.missAnnounceWithEffect;
+            if (announce) fireMissLamp(flagged.category === 'premium');
+          }
         }
       }
       // 目印揃い（チャンス目・2026-10-12）。目印揃いの内部役でボーナスを
@@ -3039,19 +3050,6 @@ export async function bootstrap() {
         // 目印が揃った手触り。ボーナスの有無はここでは言わない
         for (const v of views) v.startTenpaiFlash(false);
         sfx.tenpaiPremium();
-      }
-      if (
-        outcome.chanceEye &&
-        !carryYaku &&
-        !announcedBonus &&
-        !heldBonusYaku &&
-        !bonusZone.isActive() &&
-        Math.random() < tuning.chanceEye.fakeFollowRate
-      ) {
-        // ボーナスの無いチャンス目でも、一部は次ゲームで狙え・クイズへ進んで外れる
-        const big = yakuList.premiumYaku[0];
-        const canQuiz = big ? eligibility.eligibleEffects(big).includes('quiz') : false;
-        fakeFollow = canQuiz && Math.random() < 0.5 ? 'quiz' : 'aim';
       }
       if (carryYaku && !announcedBonus && !bonusZone.isActive()) {
         heldBonusYaku = carryYaku;
