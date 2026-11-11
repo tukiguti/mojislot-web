@@ -52,7 +52,7 @@ export interface DebugActions {
    * チャンス役の 5.5% しかなく、しかも色は 緑80% / 赤18% / 金2% なので、
    * 金は待っていても出てこない。
    */
-  triggerNextStepUp(color: 'blue' | 'green' | 'red' | 'gold', chain?: 1 | 2 | 3): void;
+  triggerNextStepUp(color: 'blue' | 'green' | 'red' | 'gold'): void;
   /**
    * 次のレバーで予兆（無音・バックライト消灯）を出す。内部役は BIG に予約する——
    * 予兆はボーナスのフラグがある時にしか出ないので、その形のまま確かめる。
@@ -271,7 +271,6 @@ export class SettingsOverlay {
             <button data-debug="step-green" type="button">次レバー ステップアップ緑</button>
             <button data-debug="step-red" type="button">次レバー ステップアップ赤</button>
             <button data-debug="step-gold" type="button">次レバー ステップアップ金</button>
-            <button data-debug="step-chain-3" type="button">次レバー 連続演出3G（赤）</button>
             <button data-debug="omen-silence" type="button">次レバー 予兆 無音（BIG）</button>
             <button data-debug="omen-backlight" type="button">次レバー 予兆 消灯（BIG）</button>
             <button data-debug="cabinet-lamp" type="button">筐体ランプ</button>
@@ -446,9 +445,6 @@ export class SettingsOverlay {
             break;
           case 'step-gold':
             this.debugActions.triggerNextStepUp('gold');
-            break;
-          case 'step-chain-3':
-            this.debugActions.triggerNextStepUp('red', 3);
             break;
           case 'omen-silence':
             this.debugActions.triggerNextOmen('silence');

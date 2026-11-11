@@ -1,31 +1,20 @@
 import type { Tuning } from '../data/schemas';
 
 /**
- * ステップアップ（段階演出）と連続演出の手続き。画面には触らない。
+ * ステップアップ（段階演出）の手続き。画面には触らない。
  *
- * **このゲームのことは何も言わない。終了色が予告するのは次のゲーム。**
- * レバーで青く光り、停止ごとに段が上がり、第3停止で終了色が出る。
+ * 〔2026-11-10〕**当たったゲームの中で完結する**形に作り直した（ユーザー指示）。
+ * レバーで青く光り、第1・第2停止で緑まで上がり、第3停止で終了色が出る。
+ * 以前の「終了色が次のゲームを予告する」形と、複数ゲームに続く連続演出はやめた。
  *
- * **色を先に決めて、そこから予告するゲームを作る。** 逆（次ゲームを先読みして色を
- * 決める）だと「次がボーナスの狙えになる」確率が天井になり、赤が3000ゲームに
- * 1回しか出なかった。色から作れば、振り分けで頻度を決められる。
+ * **チェリーを狙う演出。**
+ * - チェリーのゲームで `cherryRate` の割合で出る。終了色は青か緑
+ * - 通常抽選で BIG / REG を引いたゲームで `bonusRate` の割合で出る。内部役をそのボーナスを
+ *   伴う目印揃い（チャンス目）に置き換え、終了色は赤か金。**赤以上ならボーナス確定**
  *
- * **ボーナスの総確率は動かさない。** BIG/REG は通常抽選から落としてあり、ここ経由で
- * しか出ない。1回のステップアップから出るボーナスは
- * .45×.12 + .35×.53 + .18×.70 + .02×1.0 = 0.3855。色の率はこの検算ごと動かすこと。
- *
- * ## 連続演出（2026-10-14）
- *
- * 終了色が決まったあと、一部はそのまま次のゲームへ続く（最大3ゲーム）。続いた
- * ゲームでも段は前のゲームの色から上がっていき、**最後のゲームの第3停止で終了色**、
- * 予告するのはその次のゲーム。
- *
- * **続く率は色ごとに違い、強い色ほど続きやすい**（tuning の `chain`）。だから
- * 「続いた」こと自体が本当に期待度を上げる——積み上がる期待感がそのまま
- * 当選と整合する。青は続かない（上がる先が無い）。
- *
- * 途中のゲームでの段の上限は 1ゲーム目＝緑、2ゲーム目＝赤（どちらも終了色まで）。
- * 途中で終了色を出し切らないので、続いたゲームの最後まで色が決まらない。
+ * ボーナスのゲームでチェリーを狙うと、左と中は目印に届く（配列で目印がチェリーの隣にある）。
+ * 右は目印に届けば目印が揃い、届かなければボーナスの図柄が止まる（停止制御）。
+ * BIG を狙えば、そのゲームで BIG を揃えて突入することもできる。
  */
 
 export type StepColor = 'blue' | 'green' | 'red' | 'gold';
@@ -45,75 +34,49 @@ export const STEP_LEVEL: Record<StepColor, number> = {
 
 export type StepTuning = Tuning['stepUp'];
 
-/**
- * ステップアップの契機になる内部役か。チェリーと、払い出しの大きい小役。
- * 実機の「チャンス役から前兆」と同じ形で、契機をすでにある役に乗せるのは
- * 出玉を動かさないため。
- */
-export function isStepTrigger(
-  kind: string,
-  payout: number,
-  cfg: Pick<StepTuning, 'triggerMinPayout'>,
-): boolean {
-  if (kind === 'cherry') return true;
-  if (kind !== 'core') return false;
-  return payout >= cfg.triggerMinPayout;
-}
-
-/** 終了色を振り分ける。 */
-export function pickStepColor(cfg: StepTuning, rng: () => number): StepColor {
-  let r = rng();
-  for (const color of STEP_COLORS) {
-    if ((r -= cfg.colors[color].rate) < 0) return color;
+/** 重みから色を1つ選ぶ。重みが空なら青。 */
+export function pickColor(
+  weights: Partial<Record<StepColor, number>>,
+  rng: () => number,
+): StepColor {
+  const entries = STEP_COLORS.filter((c) => (weights[c] ?? 0) > 0);
+  const total = entries.reduce((s, c) => s + (weights[c] ?? 0), 0);
+  if (total <= 0) return 'blue';
+  let r = rng() * total;
+  for (const c of entries) {
+    if ((r -= weights[c] ?? 0) < 0) return c;
   }
-  return 'green';
+  return entries[entries.length - 1];
 }
 
-/** 何ゲーム続くか（1〜3）。 */
-export function pickChainLength(
+/**
+ * このゲームでステップアップを出すか、出すなら何色で終わるか。
+ * `kind` はレバーONで引いた内部役の種別（フリーズ役やボーナス中は呼び出し側で除く）。
+ * ボーナスのゲームで色を返したら、呼び出し側が内部役を目印揃い（ボーナス付き）に置き換える。
+ */
+export function planStepUp(
   cfg: StepTuning,
-  color: StepColor,
+  kind: string,
   rng: () => number,
-): 1 | 2 | 3 {
-  const chain = cfg.colors[color].chain;
-  if (!(rng() < chain.second)) return 1;
-  return rng() < chain.third ? 3 : 2;
+): StepColor | null {
+  if (kind === 'cherry') {
+    return rng() < cfg.cherryRate ? pickColor(cfg.cherryColors, rng) : null;
+  }
+  if (kind === 'big' || kind === 'reg') {
+    if (!(rng() < cfg.bonusRate)) return null;
+    return pickColor(kind === 'big' ? cfg.bonusColors.big : cfg.bonusColors.reg, rng);
+  }
+  return null;
 }
 
 /**
- * 予告したゲームの中身。`null` はボーナスでない（＝必ず演出の出る小役のゲーム）。
- * `multiplier` は設定の倍率（`stepBonusMultiplier`）。演出の出方は変えず、
- * 繋がる率だけを動かす。
+ * 停止で段を進める。第1・第2停止は1段ずつ（緑まで）、第3停止で終了色へ飛ぶ。
+ * **第3停止まで赤と金を見せない**——最後のリールで揃うかどうか、の形にするため。
+ * 終了色が青なら3回とも青のまま。
  */
-export function pickStepBonus(
-  cfg: StepTuning,
-  color: StepColor,
-  multiplier: number,
-  rng: () => number,
-): 'big' | 'reg' | null {
-  const c = cfg.colors[color];
-  if (!(rng() < Math.min(1, c.bonusRate * multiplier))) return null;
-  return rng() < c.bigRate ? 'big' : 'reg';
-}
-
-/**
- * 連続演出の `game` ゲーム目（1始まり）で、段が上がってよい上限。
- * 最後のゲームは終了色、途中は 1ゲーム目＝緑・2ゲーム目＝赤（終了色を越えない）。
- */
-export function stepCapFor(game: number, length: number, color: StepColor): number {
-  const final = STEP_LEVEL[color];
-  if (game >= length) return final;
-  return Math.min(final, STEP_LEVEL.blue + game);
-}
-
-/**
- * 停止で段を進める。第1・第2停止は1段、第3停止はそのゲームの上限まで飛ぶ。
- *
- * **上限を追い越さない。** 終了色が青なら3回とも青のままで、段が上がらないこと
- * 自体が「弱い」という情報になる。クランプが無いと、青どまりのはずが第2停止で
- * 緑まで上がってから青へ戻る＝色が後退して見える。
- */
-export function stepLevelAfterStop(current: number, stopNo: number, cap: number): number {
+export function stepLevelAfterStop(current: number, stopNo: number, final: StepColor): number {
+  const cap =
+    stopNo >= 3 ? STEP_LEVEL[final] : Math.min(STEP_LEVEL[final], STEP_LEVEL.green);
   const next = stopNo >= 3 ? cap : Math.min(current + 1, cap);
   return Math.max(current, next);
 }
